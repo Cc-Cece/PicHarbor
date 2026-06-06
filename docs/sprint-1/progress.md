@@ -93,7 +93,29 @@ move is atomic (same volume). `*.partial` is git-ignored.
 
 **Verified locally:** build 0/0, 3 tests green, safety contract intact, format clean.
 
-## Phase 4 — CLI & Output (Tasks 11–13) ⬜
+## Phase 4 — CLI & Output (Tasks 11–13) ✅
+
+**Built:**
+- **`copy` subcommand (Task 11):** `System.CommandLine 2.0.8` wiring — `--dest`/`-d` (required) and
+  `--dry-run`. Orchestrates: pre-flight 27015 → connect read-only → enumerate `/DCIM/` →
+  (dry-run: plan + print, no AFC read streams, no writes) or (real: writable + free-space checks →
+  open journal → `EnsurePending` all → clean staging → per-file atomic copy). Ctrl+C is bridged to a
+  cancellation token in `Program.Main`, so an interrupted run unwinds and stays resumable.
+- **Per-file progress (Task 12, Kira):** exact plain-text line
+  `[done] 12,345/38,412  3.2 GB/397.2 GB  → 2024\2024-08\IMG_1234.HEIC`; `[skip]` for already-done,
+  `[fail]` (red) for failures.
+- **End-of-run summary + `summary.txt` (Task 13):** console summary (enumerated / copied / skipped /
+  failed / elapsed / avg MB/s + manifest & summary paths). `SummaryWriter` writes `<dest>/summary.txt`
+  in the Session-3 format (totals, per-type breakdown HEIC/JPG/MOV/screenshots/other, date range,
+  device line, last-run line). **Exit code is non-zero if any file failed.**
+- Minimal Spectre.Console use (rules + colored pass/fail/error via `MarkupLineInterpolated`, which
+  escapes dynamic content); per-file lines stay plain `Console.WriteLine` to avoid markup injection.
+
+**Verified locally:** build 0/0, 3 tests green, safety intact, format clean. `--help` and
+`copy --help` render correctly (root + `copy` with required `--dest`, `--dry-run`).
+
+**Notes:** `AssemblyName=get-and-see` → the produced exe and root command are both `get-and-see`.
+Live-Photo pair counts, `devices`/`runs` tables are Sprint 2 — `summary.txt` omits those lines for now.
 
 ## Phase 5 — Tests & Handoff (Tasks 14, 14b, 20) ⬜
 

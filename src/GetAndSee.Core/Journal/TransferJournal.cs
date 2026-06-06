@@ -265,6 +265,29 @@ public sealed class TransferJournal : IDisposable
         return new JournalCounts(pending, inProgress, done, failed);
     }
 
+    /// <summary>
+    /// Reads the user-facing rows of the <c>manifest</c> view (completed files only) for summary
+    /// generation.
+    /// </summary>
+    /// <returns>All completed file entries.</returns>
+    public IReadOnlyList<ManifestEntry> ReadManifest()
+    {
+        var rows = new List<ManifestEntry>();
+        using SqliteCommand command = CreateCommand(
+            "SELECT dest_path, size_bytes, exif_datetime_original, source_mtime FROM manifest;");
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            rows.Add(new ManifestEntry(
+                reader.IsDBNull(0) ? string.Empty : reader.GetString(0),
+                reader.GetInt64(1),
+                reader.IsDBNull(2) ? null : reader.GetString(2),
+                reader.IsDBNull(3) ? null : reader.GetString(3)));
+        }
+
+        return rows;
+    }
+
     private void Execute(string sql)
     {
         using SqliteCommand command = CreateCommand(sql);
@@ -303,3 +326,14 @@ public sealed class TransferJournal : IDisposable
 /// <param name="Done">Files completed and verified.</param>
 /// <param name="Failed">Files that failed and may be retried.</param>
 public sealed record JournalCounts(long Pending, long InProgress, long Done, long Failed);
+
+/// <summary>A single completed-file row from the <c>manifest</c> view.</summary>
+/// <param name="DestPath">Destination path relative to the root.</param>
+/// <param name="SizeBytes">File size in bytes.</param>
+/// <param name="ExifDateTimeOriginalIso">EXIF capture time (ISO 8601), or <see langword="null"/>.</param>
+/// <param name="SourceMtimeIso">Source modified time (ISO 8601 UTC), or <see langword="null"/>.</param>
+public sealed record ManifestEntry(
+    string DestPath,
+    long SizeBytes,
+    string? ExifDateTimeOriginalIso,
+    string? SourceMtimeIso);

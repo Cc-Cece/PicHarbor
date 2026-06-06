@@ -1,14 +1,26 @@
+using System.CommandLine;
+using GetAndSee.Cli.Commands;
+
 namespace GetAndSee.Cli;
 
 /// <summary>
-/// Entry point. The full <c>System.CommandLine</c> wiring (the <c>copy</c> verb) lands in Phase 4;
-/// this placeholder keeps the executable buildable while the core pipeline is assembled.
+/// Entry point: wires the <c>System.CommandLine</c> root and the <c>copy</c> subcommand, and bridges
+/// Ctrl+C to a cancellation token so an interrupted run leaves the journal resumable.
 /// </summary>
 internal static class Program
 {
-    private static int Main(string[] args)
+    private static async Task<int> Main(string[] args)
     {
-        Console.WriteLine("get-and-see — core pipeline under construction (Sprint 1).");
-        return 0;
+        using var cancellation = new CancellationTokenSource();
+        Console.CancelKeyPress += (_, eventArgs) =>
+        {
+            eventArgs.Cancel = true; // don't hard-kill; let the pipeline unwind and save the journal.
+            cancellation.Cancel();
+        };
+
+        var root = new RootCommand("get-and-see — read-only iPhone → PC media copier (USB / AFC).");
+        root.Add(CopyCommand.Build());
+
+        return await root.Parse(args).InvokeAsync(cancellationToken: cancellation.Token).ConfigureAwait(false);
     }
 }
