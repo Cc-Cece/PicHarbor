@@ -247,6 +247,13 @@ This section is treated as **architectural**, not just a checklist. Violations a
 3. No CLI flag exists that toggles into a write/delete/move mode. There is no `--delete-after-copy`, no `--move`, no `--cleanup`. Adding one is a design conversation, not a code change.
 4. README states this explicitly: "This tool never writes to or deletes from your iPhone."
 
+**Testing-safety rule (how the contract is verified — read this before writing any test):**
+The read-only contract is proven by **static analysis, never by attempting a write.** `ReadOnlyContractTests` inspects compiled assembly *metadata* (like a grep over symbols) — it does not connect to a device or issue any command. No test, anywhere, may call a write/delete/rename API:
+- **There is nothing to call.** The wrapper binds only the six read functions; no `DeleteAsync`/`WriteAsync` method exists in our code, so a write call cannot even compile.
+- **QA never "tests the block by trying to delete."** Verification is "prove the dangerous code is absent," not "call it and check the phone refused." The scenario *"the app let me delete something, test failed"* is structurally impossible because no write command is ever issued.
+- **Unit/integration tests run against a mocked `IPhoneClient`** (NSubstitute) returning canned listings/streams — not a real device.
+- **The only real-device interaction is a read-only acceptance copy.** The "read-only proof" is a passive before/after `/DCIM` listing diff (must be empty) — an observation, never a mutation.
+
 ### 9.2 Data integrity (in transit and on disk)
 
 | Risk | Mitigation |
