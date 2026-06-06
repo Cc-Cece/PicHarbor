@@ -46,12 +46,13 @@ What you get is **complete and faithful at the raw-file level**: every photo, vi
 
 All versions validated against current standards as of 2026-06-06. See `docs/brainstorm/session-2.md` correction note for the .NET 8 → .NET 10 bump (.NET 8 entered maintenance May 2026, EOL Nov 2026).
 
+> **⚠️ AFC library decision is OPEN as of 2026-06-06.** The pre-Phase-1 smoke test discovered that `NetiMobileDevice`, which was claimed in brainstorms 2 + 3 as the primary library, **does not exist on NuGet**. Investigation tracked in [`docs/sprint-1/library-investigation.md`](docs/sprint-1/library-investigation.md). Sage is verifying `imobiledevice-net` (the only candidate found so far, last released Feb 2021) and exploring alternatives. **Phase 1 is blocked until this resolves.** Tech stack rows for the AFC library are placeholders below.
+
 | Technology | Version | Purpose | Justification |
 |-----------|---------|---------|---------------|
 | **.NET 10 (LTS)** | 10.0.x | Runtime | Current LTS (Active support through Nov 2028). .NET 8 is in maintenance (EOL Nov 2026); starting on it would already be tech debt. |
 | **C# 14** | with .NET 10 | Language | Latest stable. Brings extension members, null-conditional assignment, `field` keyword, partial constructors. |
-| **NetiMobileDevice** | latest 2.x | iPhone AFC client | Pure C# port of pymobiledevice3. No native DLLs. Uses Apple's native AFC protocol — same family as Finder / iTunes / iMazing. Validated for production use. |
-| **imobiledevice-net** | latest | Fallback AFC client | C# bindings around `libimobiledevice` (C library). Battle-tested but ships native DLLs. Documented fallback path if NetiMobileDevice has gaps. |
+| **⚠️ AFC iPhone client** | TBD | Talk to iPhone over USB | Investigation open. Candidates: `imobiledevice-net` (stale Feb 2021 but available), P/Invoke `libimobiledevice` directly, or hybrid `pymobiledevice3`. See `docs/sprint-1/library-investigation.md`. |
 | **System.CommandLine** | 2.0.x | CLI parsing | Stable in .NET 10 ecosystem. Supports subcommands, async handlers, rich help generation. |
 | **Spectre.Console** | latest | Terminal UI | Live multi-region progress, tables, styled output — the C# equivalent of Python's `rich`. |
 | **Microsoft.Data.Sqlite** | 10.x | Transfer journal | Lightweight, single-file DB. Tracks each file's state (pending/in-progress/done/failed) across runs. |
@@ -68,6 +69,7 @@ All versions validated against current standards as of 2026-06-06. See `docs/bra
 - **iTunes COM API** — deprecated; iTunes for Windows is being phased out.
 - **FluentAssertions v8+** — relicensed to commercial-paid in Jan 2025. Use Shouldly instead.
 - **Python (Session 1 stack)** — superseded by C# per CEO requirement.
+- **`NetiMobileDevice`** — does not exist on NuGet (was fabricated in brainstorm Session 2; smoke-test caught it before Phase 1). Tracked in `docs/sprint-1/library-investigation.md`.
 
 ## 4. Architecture
 
@@ -215,14 +217,17 @@ Docs are split by audience and lifetime — no single person writes everything.
 - Labels defined in `.github/labels.yml`, ready to be applied via `docs/sprint-1/setup-labels.ps1`
 - Branch-protection doc ready for human to apply via GitHub UI
 
-**What's next:** Sprint 1 Phases 1–5 — dev team (Nova + Sage, with Kira on UX touches) stands up the .NET 10 solution in `e:\src\get-and-see-dev`, integrates NetiMobileDevice (or imobiledevice-net fallback), enumerates `/DCIM/` read-only, copies files atomically into date folders, ships the build-time read-only contract test, writes `get-and-see.db` + `summary.txt` to destination root.
+**What's next:** Sprint 1 Phase 1 is **blocked** pending AFC library investigation (`docs/sprint-1/library-investigation.md`). Sage runs the verification, reports back, producer pins the choice in this brief and in Sprint 1 plan Task 2. THEN dev team starts Phase 1.
 
-**Open human actions** (before or during Phase 1, no rush):
+**Open human actions** (before Phase 1 unblocks):
 1. Apply branch protection on `main` per `docs/sprint-1/branch-protection-setup.md` (required status check: `build + test (windows-latest, .NET 10)`)
 2. Run `pwsh ./docs/sprint-1/setup-labels.ps1` from any clone to seed the 20 repo labels
-3. (Optional) Sage runs the NetiMobileDevice smoke test in `e:\scratch\netimobile-smoke` to de-risk Task 2 before Phase 1 starts
+3. Sage executes the investigation in `docs/sprint-1/library-investigation.md` and reports back
 
-**Blockers:** None. **Prerequisites for the dev machine:**
+**Blockers:**
+- **AFC library decision** — `NetiMobileDevice` (claimed in brainstorm 2) does not exist on NuGet. Sage investigating actual options.
+
+**Prerequisites for the dev machine:**
 - .NET 10 SDK (10.0.x — current LTS)
 - Apple device USB drivers — installed by either iTunes for Windows OR the "Apple Devices" app from the Microsoft Store
 - iPhone unlocked and "Trust This Computer" tapped at least once
