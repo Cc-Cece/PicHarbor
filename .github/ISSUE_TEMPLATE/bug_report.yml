@@ -1,0 +1,102 @@
+name: Bug report
+description: Report a defect in get-and-see (CLI, copy pipeline, device handling, journal, docs, CI, etc.)
+title: "[bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Please fill the form below — it maps directly to the labels
+        we triage with (see `PROJECT_BRIEF.md` §13.1).
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which area of the codebase does this bug live in? Maps to the `area:*` label.
+      options:
+        - "area:device — AFC connection, NetiMobileDevice integration, iPhone enumeration"
+        - "area:copy — atomic copier, file streaming, .partial handling"
+        - "area:journal — SQLite journal, manifest view, resume logic"
+        - "area:cli — System.CommandLine, subcommands, flags, exit codes"
+        - "area:ux — progress output, dashboard, summary.txt, error message copy"
+        - "area:docs — README, troubleshooting, manifest schema, --help text"
+        - "area:ci — GitHub Actions workflows, branch protection, release pipeline"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: |
+        - **blocker** — data loss, device-write risk, build-failing, or QA cannot proceed
+        - **major** — feature is broken or unusable on a common path
+        - **minor** — cosmetic, edge case, or easy workaround exists
+      options:
+        - "severity:blocker"
+        - "severity:major"
+        - "severity:minor"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered list. Be specific about flags, paths, and starting state.
+      placeholder: |
+        1. Plug in iPhone, unlock, tap Trust.
+        2. Run: `dotnet run --project src/GetAndSee.Cli -- copy --dest D:\test`
+        3. After ~30s, unplug the cable.
+        4. Re-plug, re-run the same command.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: Tool resumes from the journal, skips files already marked `done`, retries the in-flight file.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the error message, exit code, and any relevant console output.
+      placeholder: |
+        Tool starts from the beginning, recopies files already in `done` state.
+        Exit code 0, but `summary.txt` shows wrong totals.
+    validations:
+      required: true
+
+  - type: input
+    id: dotnet-version
+    attributes:
+      label: .NET version
+      description: Output of `dotnet --version`.
+      placeholder: "10.0.x"
+    validations:
+      required: true
+
+  - type: input
+    id: ios-version
+    attributes:
+      label: iOS version
+      description: Settings → General → About → Software Version. Leave blank if not device-related.
+      placeholder: "iOS 18.5"
+
+  - type: input
+    id: device-model
+    attributes:
+      label: Device model
+      description: Settings → General → About → Model Name. Leave blank if not device-related.
+      placeholder: "iPhone 12 Pro"
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes
+      description: Logs, screenshots, journal state, anything else useful.
