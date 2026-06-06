@@ -70,7 +70,28 @@ only read APIs + SQLite + MetadataExtractor), `dotnet format` clean.
 
 **Notes:** `GeoLocation` is a nullable struct in MetadataExtractor — unwrapped via pattern match.
 
-## Phase 3 — Core Copy (Tasks 8–9) ⬜
+## Phase 3 — Core Copy (Tasks 8–9) ✅
+
+**Built:**
+- **`FileCopier` (Task 8, R1/R7/R10):** per-file atomic pipeline — skip if journal `done`; mark
+  `in_progress`; stream the AFC read into a staging `.partial` (1 MB buffered, byte-counted); fsync
+  (`FlushAsync` + `Flush(true)`); **verify byte count == AFC size** (mismatch ⇒ fail, never publish);
+  extract EXIF from the local copy; resolve collision; **atomic `File.Move`** into the date folder;
+  mark `done` with metadata. On failure the staging file is removed and the row marked `failed`;
+  on cancellation it stays `in_progress` (resumable) and rethrows.
+- **Collision handling (Task 9, R5):** `ResolveUniqueRelativePath` appends `_2`, `_3`, … until the
+  relative path is free vs. the journal's used paths (seeded once) + the filesystem + this run's
+  assignments. **Never overwrites.**
+- `CopyResult` / `CopyStatus` (Copied / Skipped / Failed) for honest per-file reporting.
+- `CleanStaging()` clears orphaned `.partial` files from a prior interrupted run.
+
+**Design refinement (noted):** the brief sketched streaming to `<final>.partial` then renaming, but
+the final folder depends on EXIF date, which needs the file's bytes. So bytes land in a staging
+`.partial` under `<dest>/.get-and-see-tmp/` and are moved into `YYYY\YYYY-MM\` only after they are
+complete + verified. Same safety invariant — **the final path never sees a partial file** — and the
+move is atomic (same volume). `*.partial` is git-ignored.
+
+**Verified locally:** build 0/0, 3 tests green, safety contract intact, format clean.
 
 ## Phase 4 — CLI & Output (Tasks 11–13) ⬜
 
