@@ -1,0 +1,53 @@
+name: Feature request
+description: Propose a new feature or enhancement for the current scope (v1).
+title: "[enhancement] "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for features you want **in the current scope (v1)**.
+        For longer-term or speculative ideas, add to `docs/ideas-backlog.md` first
+        (see `PROJECT_BRIEF.md` §13.5) — promote to an issue only when accepted into a sprint.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Brief problem statement
+      description: What problem does this solve? Who feels the pain, and when?
+      placeholder: |
+        When a transfer fails on a single file, the user has no way to see which files failed
+        without running `sqlite3` queries by hand. They need a `status --failures` view.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Concrete user-facing behavior. CLI flags, output shape, files written, etc.
+      placeholder: |
+        Extend the existing `status` subcommand with `--failures` flag:
+        prints a table of failed files with source path, error message, and timestamp.
+    validations:
+      required: true
+
+  - type: textarea
+    id: not-v2
+    attributes:
+      label: Why this is not v2 backlog
+      description: |
+        Why does this belong in current scope and not the long-term ideas list?
+        Examples: blocks an in-flight sprint goal; addresses a P1 risk in the risk register;
+        QA flagged it as a missing affordance during sprint testing.
+      placeholder: |
+        Without this, QA cannot triage failed transfers during Sprint 2 testing —
+        they need it to file actionable bugs.
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes
+      description: Mockups, prior art, links to related issues, edge cases.

@@ -1,0 +1,77 @@
+# Canonical label set for the get-and-see repo.
+# Source of truth per PROJECT_BRIEF.md §13.1.
+# Apply with: pwsh ./docs/sprint-1/setup-labels.ps1
+#
+# Format: a flat list of objects, each with `name`, `color` (6-char hex, no #),
+# and `description`. Keep entries grouped by category — the comments are also
+# documentation in the docs/sprint-1/done.md handoff.
+
+# ── Type ─────────────────────────────────────────────────────────────────────
+- name: bug
+  color: d73a4a
+  description: A defect — see PROJECT_BRIEF §13
+- name: enhancement
+  color: a2eeef
+  description: A feature or improvement accepted into a sprint
+- name: infra
+  color: 1d76db
+  description: Build, CI, release pipeline, repo configuration
+- name: docs
+  color: 0075ca
+  description: Documentation work — README, troubleshooting, manifest schema, --help copy
+- name: qa
+  color: 006b75
+  description: QA process, test plans, sign-offs
+
+# ── Severity (bugs only) ─────────────────────────────────────────────────────
+- name: severity:blocker
+  color: b60205
+  description: Data loss, device-write risk, build-failing, or QA cannot proceed
+- name: severity:major
+  color: d93f0b
+  description: Feature broken or unusable on a common path
+- name: severity:minor
+  color: fbca04
+  description: Cosmetic, edge case, or easy workaround exists
+
+# ── Area ─────────────────────────────────────────────────────────────────────
+- name: area:device
+  color: c5def5
+  description: AFC connection, NetiMobileDevice integration, iPhone enumeration
+- name: area:copy
+  color: bfdadc
+  description: Atomic copier, file streaming, .partial handling
+- name: area:journal
+  color: bfd4f2
+  description: SQLite journal, manifest view, resume logic
+- name: area:cli
+  color: d4c5f9
+  description: System.CommandLine, subcommands, flags, exit codes
+- name: area:ux
+  color: f9d0c4
+  description: Progress output, dashboard, summary.txt, error-message copy
+- name: area:docs
+  color: c2e0c6
+  description: README, troubleshooting, manifest schema, --help text
+- name: area:ci
+  color: e4e669
+  description: GitHub Actions workflows, branch protection, release pipeline
+
+# ── Status ───────────────────────────────────────────────────────────────────
+- name: triage
+  color: e99695
+  description: Needs a human to assess severity, area, or duplication
+- name: accepted
+  color: 0e8a16
+  description: Triaged and accepted into a sprint or hotfix
+- name: wontfix
+  color: cccccc
+  description: Closed without a fix — by design or out of scope
+- name: duplicate
+  color: cfd3d7
+  description: Already filed elsewhere — link the original in the close comment
+
+# ── Safety (rare, high-priority) ─────────────────────────────────────────────
+- name: safety:read-only-contract
+  color: 8b00ff
+  description: Anything that risks the device-write safety contract (PROJECT_BRIEF §9.1)

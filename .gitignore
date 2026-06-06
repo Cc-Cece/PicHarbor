@@ -11,3 +11,22 @@
 # In-progress file copies from the get-and-see tool itself, if anyone ever
 # runs the tool with the repo as destination by accident.
 *.partial
+
+# ─────────────────────────────────────────────────────────────────────────────
+# .NET-standard entries (appended in Sprint 1 Phase 0 by Dash).
+# Do not remove the seed rules above — they are intentional and project-specific.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Build output
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio working folder + per-user files
+.vs/
+*.user
+*.suo
+
+# Test runner output
+TestResults/
