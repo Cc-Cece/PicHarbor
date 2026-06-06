@@ -149,8 +149,7 @@ All versions validated against current standards as of 2026-06-06. See `docs/bra
 | Bug template | `.github/ISSUE_TEMPLATE/bug_report.yml` | Structured form for QA-filed bugs (component, repro steps, severity) |
 | Feature template | `.github/ISSUE_TEMPLATE/feature_request.yml` | Structured form for v2 ideas |
 | PR template | `.github/PULL_REQUEST_TEMPLATE.md` | Checklist: linked issues, tests added, brief updated if needed |
-| Repo root | `.gitignore` | Seeded in Sprint 0 with rules for local-only files (`.github/agents/*-local.agent.md`, `*.partial`). **Extended** in Sprint 1 Phase 0 by Dash with .NET-standard entries (`bin/`, `obj/`, `.vs/`, `*.user`, `TestResults/`). |
-| Local agents | `.github/agents/*-local.agent.md` | Per-developer AI agent customizations (Producer, Dev, QA). **Gitignored** — each developer has their own. Shared agent definitions (no `-local` suffix) may live alongside and ARE tracked. |
+| Repo root | `.gitignore` | `*.partial` (safety) + .NET-standard entries (`bin/`, `obj/`, `.vs/`, `*.user`, `TestResults/`). |
 | Repo root | `LICENSE` | MIT |
 | Repo root | `README.md` | User-facing docs (written in Sprint 3 by Quill) |
 | User docs | `docs/user/troubleshooting.md` | "iPhone not detected", "Trust dialog didn't appear", driver install, common errors. Sprint 3, Quill. |
