@@ -15,7 +15,7 @@ body:
       label: Component
       description: Which area of the codebase does this bug live in? Maps to the `area:*` label.
       options:
-        - "area:device — AFC connection, NetiMobileDevice integration, iPhone enumeration"
+        - "area:device — AFC connection, imobiledevice-net integration, iPhone enumeration"
         - "area:copy — atomic copier, file streaming, .partial handling"
         - "area:journal — SQLite journal, manifest view, resume logic"
         - "area:cli — System.CommandLine, subcommands, flags, exit codes"

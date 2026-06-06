@@ -37,7 +37,7 @@
 # ── Area ─────────────────────────────────────────────────────────────────────
 - name: area:device
   color: c5def5
-  description: AFC connection, NetiMobileDevice integration, iPhone enumeration
+  description: AFC connection, imobiledevice-net integration, iPhone enumeration
 - name: area:copy
   color: bfdadc
   description: Atomic copier, file streaming, .partial handling
