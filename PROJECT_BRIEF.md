@@ -16,7 +16,7 @@
 - **Third-party paid tools** (iMazing, etc.) solve it but are commercial and opaque.
 
 **The solution.** `get-and-see` is a focused, open, read-only CLI that:
-- Talks to the iPhone over **AFC** (Apple File Conduit) via the `NetiMobileDevice` library — the validated, battle-tested protocol family
+- Talks to the iPhone over **AFC** (Apple File Conduit) via the `imobiledevice-net` library (a C# binding over native `libimobiledevice`) — the validated, battle-tested protocol family
 - **Never** writes to or deletes from the iPhone (enforced by a build-time check, not just convention)
 - Streams files to PC, organized by date: `YYYY/YYYY-MM/filename.ext`
 - Uses **atomic writes** (`.partial` → rename) so a yanked cable can never produce a half-written destination file
@@ -46,13 +46,13 @@ What you get is **complete and faithful at the raw-file level**: every photo, vi
 
 All versions validated against current standards as of 2026-06-06. See `docs/brainstorm/session-2.md` correction note for the .NET 8 → .NET 10 bump (.NET 8 entered maintenance May 2026, EOL Nov 2026).
 
-> **⚠️ AFC library decision is OPEN as of 2026-06-06.** The pre-Phase-1 smoke test discovered that `NetiMobileDevice`, which was claimed in brainstorms 2 + 3 as the primary library, **does not exist on NuGet**. Investigation tracked in [`docs/sprint-1/library-investigation.md`](docs/sprint-1/library-investigation.md). Sage is verifying `imobiledevice-net` (the only candidate found so far, last released Feb 2021) and exploring alternatives. **Phase 1 is blocked until this resolves.** Tech stack rows for the AFC library are placeholders below.
+> **AFC library: DECIDED 2026-06-06.** `imobiledevice-net 1.3.17` — smoke-tested end-to-end against an iPhone 12 Pro on iOS 26.5 with .NET 10. The earlier `NetiMobileDevice` name (from brainstorms 2 + 3) was fabricated and does not exist on NuGet; the smoke test caught it before any code was written. Full decision + evidence + caveats in [`docs/sprint-1/afc-library-decision.md`](docs/sprint-1/afc-library-decision.md).
 
 | Technology | Version | Purpose | Justification |
 |-----------|---------|---------|---------------|
 | **.NET 10 (LTS)** | 10.0.x | Runtime | Current LTS (Active support through Nov 2028). .NET 8 is in maintenance (EOL Nov 2026); starting on it would already be tech debt. |
 | **C# 14** | with .NET 10 | Language | Latest stable. Brings extension members, null-conditional assignment, `field` keyword, partial constructors. |
-| **⚠️ AFC iPhone client** | TBD | Talk to iPhone over USB | Investigation open. Candidates: `imobiledevice-net` (stale Feb 2021 but available), P/Invoke `libimobiledevice` directly, or hybrid `pymobiledevice3`. See `docs/sprint-1/library-investigation.md`. |
+| **imobiledevice-net** | 1.3.17 | Talk to iPhone over USB (AFC) | Only validated C# AFC client; smoke-tested on .NET 10 + iOS 26.5 (`docs/sprint-1/afc-library-decision.md`). C# binding over native `libimobiledevice`. Stale (Feb 2021) but functional for our small read-only slice. **Requires `<RuntimeIdentifier>win-x64</RuntimeIdentifier>`** (native DLLs) + Apple driver service (iTunes or "Apple Devices" Store app). |
 | **System.CommandLine** | 2.0.x | CLI parsing | Stable in .NET 10 ecosystem. Supports subcommands, async handlers, rich help generation. |
 | **Spectre.Console** | latest | Terminal UI | Live multi-region progress, tables, styled output — the C# equivalent of Python's `rich`. |
 | **Microsoft.Data.Sqlite** | 10.x | Transfer journal | Lightweight, single-file DB. Tracks each file's state (pending/in-progress/done/failed) across runs. |
@@ -75,13 +75,14 @@ All versions validated against current standards as of 2026-06-06. See `docs/bra
 
 ```
 ┌────────────────┐    USB / lockdownd + AFC     ┌──────────────────────┐
-│   iPhone 12    │◄────────────────────────────►│  NetiMobileDevice    │
-│   Pro          │   (Apple's native protocol;  │  (pure C# AFC client)│
-│                │    NOT MTP, NOT WPD)         └──────────┬───────────┘
-│   /DCIM/       │                                         │
-│   ├─100APPLE/  │                                         │  READ-ONLY
-│   ├─101APPLE/  │                                         │  (no Write/Delete
-│   └─ ...       │                                         │   methods bound)
+│   iPhone 12    │◄────────────────────────────►│  imobiledevice-net   │
+│   Pro          │   (Apple's native protocol;  │  (C# binding over     │
+│                │    NOT MTP, NOT WPD)         │  native libimobile-   │
+│   /DCIM/       │                              │  device; win-x64 RID) │
+│   ├─100APPLE/  │                              └──────────┬───────────┘
+│   ├─101APPLE/  │                                         │  READ-ONLY
+│   └─ ...       │                                         │  (no Write/Delete
+│                │                                         │   methods bound)
 └────────────────┘                                         ▼
                                               ┌───────────────────────┐
                                               │  get-and-see (.NET 10)│
@@ -163,7 +164,7 @@ All versions validated against current standards as of 2026-06-06. See `docs/bra
 |-------|------|-------|
 | **Kira** | Product Designer | CLI UX, live dashboard, summary formatting, user-facing error messages, `--help` copy review |
 | **Nova** | App Developer | .NET solution structure, CLI wiring (System.CommandLine), Spectre.Console UI, packaging (single-file publish) |
-| **Sage** | Systems Engineer | AFC integration (NetiMobileDevice), journal (SQLite), atomic writes, pre-flight checks, reliability |
+| **Sage** | Systems Engineer | AFC integration (imobiledevice-net), journal (SQLite), atomic writes, pre-flight checks, reliability |
 | **Dash** | DevOps Engineer | GitHub Actions CI + release pipeline, branch protection, issue/PR templates, repo hygiene |
 | **Ivy** | QA Engineer | Risk register, edge-case testing, large-file scenarios, integrity verification, **read-only contract enforcement**, GitHub Issues triage |
 | **Quill** | Technical Writer | README, troubleshooting guide, manifest/schema reference, release notes. Reviews `--help` text and error-message copy. Active primarily in Sprint 3, on-call in Sprints 1–2 when something user-facing ships. |
@@ -214,17 +215,19 @@ Docs are split by audience and lifetime — no single person writes everything.
 - CI pipeline green on PRs (intentional no-op until `.sln` lands; then it runs restore + format + build + test)
 - Issue + PR templates render in GitHub UI
 - 25 repo labels seeded (16 custom from `.github/labels.yml` + 9 GitHub defaults)
+- **AFC library decided + smoke-tested:** `imobiledevice-net 1.3.17` reads `/DCIM/` cleanly on iPhone 12 Pro / iOS 26.5 / .NET 10 (`docs/sprint-1/afc-library-decision.md`)
 
-**What's next:** Sprint 1 Phase 1 is **blocked** pending AFC library investigation (`docs/sprint-1/library-investigation.md`). Sage runs the verification, reports back, producer pins the choice in this brief and in Sprint 1 plan Task 2. THEN dev team starts Phase 1.
+**What's next:** Sprint 1 **Phases 1–5 are UNBLOCKED.** Dev team (Nova + Sage, Kira on UX touches) stands up the .NET 10 solution in `e:\src\get-and-see-dev`, integrates `imobiledevice-net 1.3.17` (with `<RuntimeIdentifier>win-x64</RuntimeIdentifier>`), enumerates `/DCIM/` read-only, copies files atomically into date folders, ships the build-time read-only contract test (Ivy — symbol blocklist in the decision doc §5.5), writes `get-and-see.db` + `summary.txt` to destination root.
 
 **Open actions:**
-1. Sage executes the investigation in `docs/sprint-1/library-investigation.md` and reports back — this is the only thing blocking Phase 1.
+1. Dev team executes Sprint 1 Phases 1–5 (`docs/sprint-1/plan.md`). Start with `git pull origin main` in the dev clone.
 
-**Blockers:**
-- **AFC library decision** — `NetiMobileDevice` (claimed in brainstorm 2) does not exist on NuGet. Sage investigating actual options.
+**Blockers:** None.
 
 **Known gaps (accepted, not blockers):**
 - **Branch protection on `main` is NOT enforced.** The repo is private on free GitHub tier, which restricts both classic protection and rulesets to paid/public repos. Decision: stay private for now and enforce "no direct pushes to main" by discipline. Documented in `docs/sprint-1/branch-protection-setup.md`. Revisit if the repo goes public or upgrades.
+- **Aging native deps in `imobiledevice-net`** (OpenSSL 1.1 EOL, 2021 libusb). Local-USB-only, read-only, no network — minimal exposure. Tracked as R20 in the risk register.
+- **"Apple Devices" Store-app usbmuxd service is lazy** (port 27015 closed until the app is launched once). Pre-flight check must detect + give actionable error. Tracked as R21.
 
 **Prerequisites for the dev machine:**
 - .NET 10 SDK (10.0.x — current LTS)

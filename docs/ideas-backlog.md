@@ -16,7 +16,7 @@ Ideas deferred from brainstorm. Revisit after v1 ships.
 - [ ] Selective copy by date range (`--after 2024-01-01 --before 2025-01-01`)
 - [ ] `--verify-hash` reverify mode against existing destination (no re-copy, just hash check)
 - [ ] Export to external drive with double-write verification
-- [ ] macOS support (NetiMobileDevice is cross-platform — should "just work", needs testing)
+- [ ] macOS support (`imobiledevice-net` ships osx-x64 natives — should "just work", needs testing)
 - [ ] Video transcoding options (ProRes → H.265) — optional post-step
 - [ ] Copy from multiple devices in one session
 - [ ] Parallel file transfers — only after telemetry confirms it's safe at scale
