@@ -195,27 +195,37 @@ Docs are split by audience and lifetime — no single person writes everything.
 | Sprint | Name | Status | Scope |
 |--------|------|--------|-------|
 | 0 | Bootstrap | ✅ Done | Brainstorm S1, S2, S3, PROJECT_BRIEF (this doc), risk register, Sprint 1 plan |
-| 1 | Core Pipeline + Safety Contract + CI | ⬜ Planned | .NET 10 scaffolding, AFC connect, enumerate, journal-at-root (`get-and-see.db`), atomic copy, date-org, read-only test, `summary.txt` writer, `manifest` SQL view, **GitHub Actions CI (build + test on PR)**, issue/PR templates, branch protection on `main` |
+| 1 Phase 0 | Repo Bootstrap + CI | ✅ Done | `.gitignore` extended, MIT LICENSE, placeholder README, GitHub Actions CI (windows-latest, .NET 10), issue + PR templates, repo labels, branch-protection setup doc. PR #1 merged as `b46d931`. |
+| 1 Phases 1–5 | Core Pipeline + Safety Contract | ⬜ In progress (next) | .NET 10 scaffolding, AFC connect, enumerate, journal-at-root (`get-and-see.db`), atomic copy, date-org, read-only test, `summary.txt` writer, `manifest` SQL view |
 | 2 | UX, Resumability & Pre-flight | ⬜ Planned | Live dashboard, pre-flight checks, summary, Ctrl+C handling, `status` subcommand, **`devices` + `runs` tables**, **Live Photo pair detection** |
 | 3 | Hardening, Packaging & Release | ⬜ Planned | Long-path, large-file stress tests, `--verify-hash`, **release workflow (single-file EXE attached to GitHub Release on tag push)**, **full user docs (Quill): `README.md`, `docs/user/troubleshooting.md`, `docs/user/manifest-schema.md`, release-notes template**, LICENSE polish |
 
 ## 8. Current State
 
-**What exists:** Empty repo with three brainstorm docs (`session-1.md` historical Python direction, `session-2.md` C#/.NET 10/read-only/400GB pivot, `session-3.md` destination-organization UX), `docs/ideas-backlog.md`, `docs/risk-register.md`, `docs/sprint-1/plan.md`, and this PROJECT_BRIEF.
+**Repo:** https://github.com/denis-a-evdokimov/get-and-see (public, MIT). `main` at `b46d931` (Phase 0 merge).
 
-**What works:** Nothing — Sprint 0 (planning) just completed.
+**Clones in play:**
+- Producer: `e:\src\get-and-see` on `main` — coordination hub (this chat)
+- DevOps: `e:\src\get-and-see-devops` on `feature/sprint-1-devops` — Phase 0 done, branch retained for reference
+- Dev: `e:\src\get-and-see-dev` on `feature/sprint-1` — synced to `main`, ready for Phase 1
 
-**What's next:** Sprint 1 — stand up the .NET 10 solution, integrate NetiMobileDevice (or imobiledevice-net fallback), enumerate `/DCIM/` read-only, copy files atomically into date folders, ship the build-time read-only contract test, **and stand up GitHub Actions CI + issue/PR templates so QA can start filing bugs**.
+**What works:**
+- CI pipeline green on PRs (intentional no-op until `.sln` lands; then it runs restore + format + build + test)
+- Issue + PR templates render in GitHub UI
+- Labels defined in `.github/labels.yml`, ready to be applied via `docs/sprint-1/setup-labels.ps1`
+- Branch-protection doc ready for human to apply via GitHub UI
+
+**What's next:** Sprint 1 Phases 1–5 — dev team (Nova + Sage, with Kira on UX touches) stands up the .NET 10 solution in `e:\src\get-and-see-dev`, integrates NetiMobileDevice (or imobiledevice-net fallback), enumerates `/DCIM/` read-only, copies files atomically into date folders, ships the build-time read-only contract test, writes `get-and-see.db` + `summary.txt` to destination root.
+
+**Open human actions** (before or during Phase 1, no rush):
+1. Apply branch protection on `main` per `docs/sprint-1/branch-protection-setup.md` (required status check: `build + test (windows-latest, .NET 10)`)
+2. Run `pwsh ./docs/sprint-1/setup-labels.ps1` from any clone to seed the 20 repo labels
+3. (Optional) Sage runs the NetiMobileDevice smoke test in `e:\scratch\netimobile-smoke` to de-risk Task 2 before Phase 1 starts
 
 **Blockers:** None. **Prerequisites for the dev machine:**
 - .NET 10 SDK (10.0.x — current LTS)
 - Apple device USB drivers — installed by either iTunes for Windows OR the "Apple Devices" app from the Microsoft Store
 - iPhone unlocked and "Trust This Computer" tapped at least once
-
-**Prerequisites for the GitHub remote (one-time, CEO does this before Sprint 1):**
-- GitHub repo created (private or public, owner's choice)
-- Local clone has `origin` pointing to the GitHub repo
-- First push of `main` so branch protection can be configured against it
 
 ## 9. Security & Data Safety Rules
 
