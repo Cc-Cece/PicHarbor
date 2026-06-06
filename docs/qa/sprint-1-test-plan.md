@@ -11,6 +11,25 @@ This plan covers **what** to test, **how**, the **expected result**, and the **r
 
 ---
 
+## Testing-Safety — SAFETY RULE #0 (governs this entire plan)
+
+> **This rule overrides everything else in this document.** If any step below appears to conflict with it, this rule wins and that step is invalid. Locked in `PROJECT_BRIEF.md` §9.1.
+
+**We NEVER issue a write, delete, rename, or any mutation against the real iPhone — not as a positive test, not as a negative test, not ever.**
+
+The read-only contract is proven by **static analysis only**:
+
+- `ReadOnlyContractTests` reflects over **compiled assembly metadata** and **fails the build** if any AFC write symbol (Appendix 1) is referenced. It **never connects to a device or sends a command.**
+- There is **no write method in our code to call** — by design it would not compile. Verification is *"prove the dangerous code is absent,"* **never** *"call it and see if it failed."* We do **not** "test the block by trying to delete."
+- Everything device-related in unit tests uses a **mocked `IPhoneClient` (NSubstitute)** — no real device, no real device I/O.
+- The **only** real-device action anywhere in this plan is a **read-only `copy`** (AFC read → PC-side write). The runtime read-only proof (B-9) is a **passive** before/after `/DCIM/` diff, expected empty.
+
+**Negative / failure-path tests are induced by the *host or physical environment*, never by a mutating device command:** physically unplugging USB (B-1, B-2, AC-13), pressing Ctrl+C (B-3, AC-12), locking / un-trusting the device (AC-14), stopping the Apple Devices service (B-7), or pointing at a near-full / unwritable destination (B-4, AC-15). **None of these send a write/delete/rename to the iPhone.**
+
+Any path where the iPhone could be written, deleted, renamed, or otherwise mutated is an automatic **`severity:blocker` + `safety:read-only-contract`**, no matter how unlikely.
+
+---
+
 ## 0. Test Environment
 
 | Item | Value |
@@ -36,7 +55,7 @@ One row per Success Criterion in `docs/sprint-1/plan.md`. **AC-#** = acceptance 
 |----|-------------------|-------------|-----------------|-------|
 | AC-1 | `dotnet test` passes incl. `ReadOnlyContractTests` | `dotnet test -c Release` | All tests green; output lists `GetAndSee.SafetyTests` with `ReadOnlyContractTests` passing | R11 |
 | AC-2 | CI green on PR (build, format, tests) on `windows-latest` | Open/inspect the Sprint 1 PR; view the GitHub Actions `ci.yml` run | Restore + `dotnet format --verify-no-changes` + build + test all pass; `GetAndSee.SafetyTests` present in the test step | R11, CI |
-| AC-3 | Branch protection on `main` requires CI to pass | Attempt `git push origin main` from a throwaway commit | **KNOWN ACCEPTED GAP** — protection is *not* enforced (repo is private on free tier). Verify `docs/sprint-1/branch-protection-setup.md` exists, is accurate, and §8 of the brief documents the gap. **Do not file a bug.** | — |
+| AC-3 | Branch protection on `main` requires CI to pass | **Doc check only — do NOT actually push to `main`** (protection is unenforced, so a real push would succeed and break the no-direct-push rule). Confirm the setup doc + brief gap note instead. | **KNOWN ACCEPTED GAP** — protection is *not* enforced (repo is private on free tier). Verify `docs/sprint-1/branch-protection-setup.md` exists, is accurate, and §8 of the brief documents the gap. **Do not file a bug.** | — |
 | AC-4 | Issue + PR templates render in GitHub UI | Open "New issue" and "New pull request" in the GitHub UI | `bug_report.yml` shows component/severity/steps/expected-vs-actual/environment fields; PR template shows the linked-issues/tests/brief checklist | — |
 | AC-5 | Repo labels exist per §13.1 | `gh label list` (or repo → Labels) | All labels present: `bug`,`enhancement`,`infra`,`docs`,`qa`; `severity:blocker/major/minor`; `area:device/copy/journal/cli/ux/docs/ci`; `triage`,`accepted`,`wontfix`,`duplicate`; `safety:read-only-contract` | — |
 | AC-6 | `copy --dest D:\test --dry-run` enumerates `/DCIM/`, prints planned dest paths, **opens no AFC read streams, writes no files** | Run dry-run; watch console; `Get-ChildItem -Recurse D:\test` after | Prints planned `YYYY/YYYY-MM/<file>` paths for every source file; **destination is empty** (no folders, no `get-and-see.db`, no `summary.txt`, no `.partial`); read-only proof (B-9) shows device untouched | R11 |
@@ -61,6 +80,8 @@ One row per Success Criterion in `docs/sprint-1/plan.md`. **AC-#** = acceptance 
 
 Concrete attacks. Each lists the setup, the action, and the **pass bar**. Anything touching the device-write path is an automatic `severity:blocker` (§9.1).
 
+> **Bound by SAFETY RULE #0 (top of this doc).** Every "attack" below is induced by the *host or physical environment* (unplug, Ctrl+C, lock, stop service, fill/lock the destination) or is *passive observation* / *static code inspection*. **No test here sends a write, delete, or rename to the iPhone.** The only real-device action is the read-only `copy` itself.
+
 ### B-1. USB unplugged mid-copy (R1, R7, R10)
 - **Setup:** Start a full `copy` to a clean dest. Let several files complete.
 - **Action:** Physically yank the USB cable mid-file.
@@ -83,7 +104,7 @@ Concrete attacks. Each lists the setup, the action, and the **pass bar**. Anythi
 
 ### B-5. Filename collisions across DCIM buckets (R5, R17)
 - **Context:** `/DCIM/` has multiple `NNNAPPLE` buckets; counter rollover can yield the same `IMG_NNNN` basename in different buckets, which may map to the same `YYYY-MM/` folder.
-- **Action:** Full copy, then inspect (C-5). If the live device has no natural collision, document that and rely on the unit-test collision coverage (Task 14) + a forced synthetic case if available.
+- **Action:** Full copy, then inspect (C-5). If the live device has no natural collision, document that and rely on the unit-test collision coverage (Task 14) — a **mocked `IPhoneClient` (NSubstitute)** that yields two same-named source descriptors. **No synthetic files are ever written to the device**; collisions are constructed in mocks or on the PC side only.
 - **Pass bar:** Colliding files become `_2`, `_3`, …; **no `dest_path` duplicated** in the manifest; both distinct source files exist on disk (identity = source path + size, R17). **Never** an overwrite.
 
 ### B-6. Weird / missing / future EXIF dates (R16)
@@ -101,6 +122,7 @@ Concrete attacks. Each lists the setup, the action, and the **pass bar**. Anythi
 - **Pass bar:** Second run: **0 copied, total skipped, 0 failed**, no `.partial`, manifest count unchanged. Fast (no re-streaming).
 
 ### B-9. Read-only proof at RUNTIME (R11) — the sacred check
+- **Per SAFETY RULE #0 this is the ONLY real-device action in the whole plan, and it is a read-only `copy`.** The "proof" is entirely passive observation — we send no command intended to mutate anything; we only read and compare.
 - **Goal:** Prove the iPhone is byte-for-byte unchanged by a full run.
 - **Before:** Capture a full recursive `/DCIM/` listing — every file's **path, size (`st_size`), and mtime (`st_mtime`)** — via the tool's own `--dry-run` enumeration (read-only; opens no streams) into `dcim-before.txt` (sorted). Also record `N_total`, `Bytes_total`, and the top-level bucket mtimes.
 - **Action:** Run a **full** `copy --dest D:\test` to completion.
@@ -108,8 +130,10 @@ Concrete attacks. Each lists the setup, the action, and the **pass bar**. Anythi
 - **Pass bar:** `diff dcim-before.txt dcim-after.txt` is **empty (∅)**. No size changed, **no mtime changed** (a touch would prove a write), no file added/removed on the device. Device free space unchanged.
 - **Any** difference = **`severity:blocker` + `safety:read-only-contract`**, no matter how small.
 
-### B-10. Read-only proof at BUILD time (R11) — covered in Stage 2 task 4
-- Inspect `tests/GetAndSee.SafetyTests/ReadOnlyContractTests.cs` and confirm its blocklist covers the **entire** §5.5 set (see Appendix 1). If **any** write symbol from the canonical list is absent from the guard, that is a `severity:blocker` (`safety:read-only-contract`) — the guard has a hole even if no write is currently called.
+### B-10. §5.5 blocklist coverage — STATIC CODE-INSPECTION audit (R11, Stage 2 task 4)
+- **This is a code-inspection audit, NOT a runtime test.** It never connects to a device, never runs a write, never sends a command. It is pure static analysis: read the test source and the symbols it reflects over.
+- Inspect `tests/GetAndSee.SafetyTests/ReadOnlyContractTests.cs` and confirm its blocklist covers the **entire** §5.5 set (see Appendix 1). Diff the test's actual symbol list against Appendix 1 by eye / `grep`. If **any** write symbol from the canonical list is absent from the guard, that is a `severity:blocker` (`safety:read-only-contract`) — the guard has a hole even if no write is currently called.
+- Also confirm the guard works by **reflection over assembly metadata** (not by invoking device APIs), per Rule #0.
 
 ### B-11. `--dry-run` writes nothing, opens no streams (R11)
 - **Action:** `copy --dest D:\test --dry-run` against a **clean** dest.
@@ -254,7 +278,7 @@ These are unbuilt-by-plan. Filing bugs against them wastes triage. Source: `docs
 
 ## Appendix 1 — Read-Only Contract Blocklist (canonical, for B-10)
 
-`ReadOnlyContractTests` must fail the build if **any** of these symbols are referenced anywhere in `GetAndSee.Core` (or any shipping assembly). Source: `afc-library-decision.md` §5.5. In Stage 2, diff the test's actual blocklist against this list; **any missing entry = `severity:blocker` / `safety:read-only-contract`**.
+`ReadOnlyContractTests` must fail the build if **any** of these symbols are referenced anywhere in `GetAndSee.Core` (or any shipping assembly). Source: `afc-library-decision.md` §5.5. In Stage 2 this is verified by **static code inspection only** (read the test source + reflect over assembly metadata) — **never** by calling any of these symbols against a device. Diff the test's actual blocklist against this list; **any missing entry = `severity:blocker` / `safety:read-only-contract`**.
 
 **AFC write/mutate:**
 ```
@@ -305,7 +329,7 @@ afc_file_open (read-only: AfcFileMode.FopRdOnly) + afc_file_read   ← for OpenR
 | R8 Re-run skips done | ✅ | AC-11, B-2, B-8 |
 | R9 Antivirus quarantine | ❌ S2 | Section D |
 | R10 User pulls cable | ✅ | AC-7, B-1, B-3 |
-| **R11 Accidental device write** | ✅ | AC-1, AC-2, AC-6, **B-9 (runtime proof)**, **B-10 (build guard)**, B-11, Appendix 1 |
+| **R11 Accidental device write** | ✅ | AC-1, AC-2, AC-6, **B-9 (passive runtime proof)**, **B-10 (static blocklist audit)**, B-11, Appendix 1 |
 | R12 Bit corruption (`--verify-hash`) | ❌ S3 | Section D |
 | R13 PC sleeps | ❌ S2 | Section D |
 | R14 Battery dies | ❌ S2 | Section D |
