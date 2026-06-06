@@ -1,0 +1,13 @@
+# Seed .gitignore — keeps local-only files out before Phase 0 lands the full .NET ruleset.
+# Phase 0 of Sprint 1 (Dash) EXTENDS this file with the standard .NET entries
+# (bin/, obj/, .vs/, *.user, TestResults/, *.partial, etc.) — it does NOT replace it.
+
+# Local AI agent definitions (per-developer copies, never committed).
+# Files matching this pattern live in each developer's working tree but are
+# personal to that developer's setup. Shared/team agents (no -local suffix)
+# may live alongside and ARE tracked.
+.github/agents/*-local.agent.md
+
+# In-progress file copies from the get-and-see tool itself, if anyone ever
+# runs the tool with the repo as destination by accident.
+*.partial
