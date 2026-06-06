@@ -204,7 +204,7 @@ Docs are split by audience and lifetime — no single person writes everything.
 
 ## 8. Current State
 
-**Repo:** https://github.com/denis-a-evdokimov/get-and-see (public, MIT). `main` at `b46d931` (Phase 0 merge).
+**Repo:** https://github.com/denis-a-evdokimov/get-and-see (**private** on free tier, MIT). `main` at the latest merge.
 
 **Clones in play:**
 - Producer: `e:\src\get-and-see` on `main` — coordination hub (this chat)
@@ -214,18 +214,18 @@ Docs are split by audience and lifetime — no single person writes everything.
 **What works:**
 - CI pipeline green on PRs (intentional no-op until `.sln` lands; then it runs restore + format + build + test)
 - Issue + PR templates render in GitHub UI
-- Labels defined in `.github/labels.yml`, ready to be applied via `docs/sprint-1/setup-labels.ps1`
-- Branch-protection doc ready for human to apply via GitHub UI
+- 25 repo labels seeded (16 custom from `.github/labels.yml` + 9 GitHub defaults)
 
 **What's next:** Sprint 1 Phase 1 is **blocked** pending AFC library investigation (`docs/sprint-1/library-investigation.md`). Sage runs the verification, reports back, producer pins the choice in this brief and in Sprint 1 plan Task 2. THEN dev team starts Phase 1.
 
-**Open human actions** (before Phase 1 unblocks):
-1. Apply branch protection on `main` per `docs/sprint-1/branch-protection-setup.md` (required status check: `build + test (windows-latest, .NET 10)`)
-2. Run `pwsh ./docs/sprint-1/setup-labels.ps1` from any clone to seed the 20 repo labels
-3. Sage executes the investigation in `docs/sprint-1/library-investigation.md` and reports back
+**Open actions:**
+1. Sage executes the investigation in `docs/sprint-1/library-investigation.md` and reports back — this is the only thing blocking Phase 1.
 
 **Blockers:**
 - **AFC library decision** — `NetiMobileDevice` (claimed in brainstorm 2) does not exist on NuGet. Sage investigating actual options.
+
+**Known gaps (accepted, not blockers):**
+- **Branch protection on `main` is NOT enforced.** The repo is private on free GitHub tier, which restricts both classic protection and rulesets to paid/public repos. Decision: stay private for now and enforce "no direct pushes to main" by discipline. Documented in `docs/sprint-1/branch-protection-setup.md`. Revisit if the repo goes public or upgrades.
 
 **Prerequisites for the dev machine:**
 - .NET 10 SDK (10.0.x — current LTS)
@@ -414,7 +414,9 @@ dotnet restore
 dotnet build
 ```
 
-**Branch strategy:** Feature branches → PR → regular merge to `main`. Never push directly to `main`. Never squash. Never rebase feature branches (causes commit loss). PRs require CI to pass before merge (branch protection, see Section 11.2).
+**Branch strategy:** Feature branches → PR → regular merge to `main`. Never push directly to `main`. Never squash. Never rebase feature branches (causes commit loss). PRs require CI to pass before merge.
+
+> **Note (2026-06-06):** Branch protection is **not enforced** on the GitHub side because the repo is private on free tier (rulesets and classic protection both require Pro or public visibility). The "no direct pushes" and "PR-required" rules above are enforced **by discipline only**. Revisit if the repo goes public or upgrades to Pro. See `docs/sprint-1/branch-protection-setup.md`.
 
 **PR conventions:**
 - Title: imperative present (`add atomic copier`, not `added atomic copier`)
