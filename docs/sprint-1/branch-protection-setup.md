@@ -1,5 +1,21 @@
 # Branch protection setup for `main`
 
+> **Status as of 2026-06-06: DEFERRED, NOT APPLIED.**
+>
+> The repo is private on GitHub's free tier, which restricts both modern
+> rulesets and classic branch protection to **GitHub Pro** or **public**
+> repositories. Attempts return `403: Upgrade to GitHub Pro or make this
+> repository public to enable this feature`.
+>
+> **Decision (CEO + Producer):** stay private for now and enforce the "no
+> direct pushes to `main`" and "PR required" rules **by discipline only**.
+> Revisit if the repo goes public (matches PROJECT_BRIEF intent of MIT /
+> open-source) or upgrades to Pro.
+>
+> The procedure below is kept ready for when that happens — do not delete it.
+
+---
+
 > **Audience:** the repo owner (human). This cannot be done from a PR — it
 > requires the GitHub web UI on the live repo.
 >
