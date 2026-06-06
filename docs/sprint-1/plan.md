@@ -13,7 +13,7 @@
 | # | Task | Owner | Est | Description |
 |---|------|-------|-----|-------------|
 | 1 | .NET 10 solution scaffolding | Nova | S | `get-and-see.sln`, `GetAndSee.Cli` (`net10.0`), `GetAndSee.Core` lib, `GetAndSee.Tests`, `GetAndSee.SafetyTests`. `.editorconfig`, `Directory.Build.props` with `<LangVersion>14</LangVersion>`, `<Nullable>enable</Nullable>`, `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>`. Test projects on **xUnit v3** + **Shouldly** + **NSubstitute** (NOT FluentAssertions — went paid in v8). |
-| 2 | Choose + integrate AFC library | Sage | M | **OPEN INVESTIGATION** — see `docs/sprint-1/library-investigation.md`. Phase 1 blocked until resolved. The original plan said "try NetiMobileDevice first, fall back to imobiledevice-net" but smoke-test confirmed NetiMobileDevice does not exist on NuGet. Sage verifies `imobiledevice-net` (Feb 2021, stale) actually works on .NET 10 + current iOS, OR identifies a viable alternative, OR pivots to P/Invoke. Document the choice in `docs/sprint-1/afc-library-decision.md`. |
+| 2 | Integrate AFC library | Sage | M | **DECIDED — `imobiledevice-net 1.3.17`** (see `docs/sprint-1/afc-library-decision.md`, smoke-tested on .NET 10 + iOS 26.5). Add `<PackageReference Include="imobiledevice-net" Version="1.3.17" />` to `GetAndSee.Core.csproj`. **Must set `<RuntimeIdentifier>win-x64</RuntimeIdentifier>`** on the CLI project + publish profile so the native DLLs are copied (otherwise `DllNotFoundException`). Bind ONLY the six read calls (idevice enumerate, lockdownd handshake, start `com.apple.afc`, afc_client_new, afc_read_directory, afc_get_file_info). |
 | 3 | `IPhoneClient` wrapper (read-only surface) | Sage | M | Wrapper class exposing **only** `ConnectAsync`, `ListDirectoryAsync`, `GetFileInfoAsync`, `OpenReadAsync`. No write/delete methods exposed. XML doc comment on the class states the read-only contract. |
 | 4 | **Read-only contract test** (R11) | Ivy | M | `tests/GetAndSee.SafetyTests/ReadOnlyContractTests.cs` — uses reflection to scan `GetAndSee.Core` for any reference to known AFC write APIs. Fails the build if any are found. **This test must exist and pass before merge.** |
 | 5 | DCIM enumerator | Sage | S | Walk `/DCIM/` recursively via `IPhoneClient`. Yield `RemoteFile { Path, Size, ModifiedAt }`. |
@@ -108,8 +108,8 @@ before the application code starts landing:
 
   Track B (Nova + Sage, Dev): Phases 1-5.
     Build the core pipeline for get-and-see: a C# / .NET 10 (LTS) CLI that
-    connects to an iPhone via the AFC protocol (NetiMobileDevice preferred,
-    imobiledevice-net fallback), enumerates /DCIM/ READ-ONLY, and copies files
+    connects to an iPhone via the AFC protocol (imobiledevice-net 1.3.17,
+    RID win-x64), enumerates /DCIM/ READ-ONLY, and copies files
     atomically into a date-organized folder structure on the PC.
 
     Target framework: net10.0. Language: C# 14. Tests: xUnit v3 + Shouldly +

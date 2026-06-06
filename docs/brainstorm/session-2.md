@@ -7,6 +7,8 @@
 3. **~400 GB of data** to transfer — MTP/Windows Explorer is known unreliable. Must use validated, battle-tested protocols.
 
 > **Correction (2026-06-06, same day):** Initial draft of this brainstorm targeted .NET 8 + C# 12. Verified against Microsoft's official support policy (last updated 2026-05-14): **.NET 8 entered Maintenance support in May 2026 and reaches EOL on Nov 10, 2026** (~5 months out). .NET 9 (STS) is also in maintenance with the same EOL. The current LTS in Active support is **.NET 10 (released Nov 11, 2025, EOL Nov 14, 2028)** with **C# 14**. All sections below have been updated to .NET 10 + C# 14. Additional 2026 corrections: **xUnit v3** (GA 2025) replaces xUnit v2; **Shouldly** replaces FluentAssertions (which moved to a paid commercial license in v8, Jan 2025).
+>
+> **Correction 2 (2026-06-06):** This brainstorm names **`NetiMobileDevice`** as the primary AFC library. **That package does not exist on NuGet** — it was fabricated during ideation. The pre-Phase-1 smoke test caught it before any code was written. The actual library is **`imobiledevice-net 1.3.17`** (a C# binding over native `libimobiledevice`, requires RID `win-x64`), validated end-to-end on iPhone 12 Pro / iOS 26.5 / .NET 10. See [`docs/sprint-1/afc-library-decision.md`](../sprint-1/afc-library-decision.md). The text below is preserved as the historical record — mentally substitute `imobiledevice-net` wherever it says `NetiMobileDevice`.
 
 ---
 
