@@ -117,10 +117,31 @@ move is atomic (same volume). `*.partial` is git-ignored.
 **Notes:** `AssemblyName=get-and-see` → the produced exe and root command are both `get-and-see`.
 Live-Photo pair counts, `devices`/`runs` tables are Sprint 2 — `summary.txt` omits those lines for now.
 
-## Phase 5 — Tests & Handoff (Tasks 14, 14b, 20) ⬜
+## Phase 5 — Tests & Handoff (Tasks 14, 14b, 20) ✅
+
+**Built:**
+- **Unit tests (Task 14):** 34 tests in `GetAndSee.Tests` —
+  - `DateFolderOrganizerTests`: EXIF date, mtime fallback, unsorted, R16 future/prehistoric rejection, filename sanitize, name extraction.
+  - `TransferJournalTests`: pending→in_progress→done, R17 identity (path+size), idempotent EnsurePending, manifest = done-only, used-dest-paths, counts.
+  - `FileCopierTests` (mocked `IPhoneClient` + real journal/temp dest): copy into date folder, **size-mismatch fails & never publishes**, skip-done, **collision `_2` without overwrite**.
+  - `DcimEnumeratorTests` (mocked client): recursive walk yields files only.
+  - `PreflightChecksTests`: writable pass/fail, free-space pass/fail.
+  - `SummaryWriterTests`: Session-3 format, device-line omission.
+  - `ByteSizeTests`.
+- **XML doc comments (Task 14b):** every public type/method in `GetAndSee.Core` is documented
+  (`GenerateDocumentationFile=true` makes a missing one a build error). The read-only contract is
+  documented on `IPhoneClient`.
+- **Handoff (Task 20):** this file, `done.md`, and PROJECT_BRIEF §7/§8.
+
+**Verified locally:** build 0 errors / 0 warnings; **36 tests pass** (34 unit + 2 safety, incl.
+`ReadOnlyContractTests`); `dotnet format --verify-no-changes` clean.
+
+**Threaded `TestContext.Current.CancellationToken`** through async test calls (xUnit v3 analyzer
+xUnit1051 under warnings-as-errors).
 
 ---
 
 ## Bugs / Issues Found
 
-_None yet._
+_None._ No blockers surfaced during Phases 1–5. On-device end-to-end verification (real iPhone copy)
+is left for QA (Ivy) with hardware — all logic here is unit-tested against a mocked device.

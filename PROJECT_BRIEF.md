@@ -198,7 +198,7 @@ Docs are split by audience and lifetime — no single person writes everything.
 |--------|------|--------|-------|
 | 0 | Bootstrap | ✅ Done | Brainstorm S1, S2, S3, PROJECT_BRIEF (this doc), risk register, Sprint 1 plan |
 | 1 Phase 0 | Repo Bootstrap + CI | ✅ Done | `.gitignore` extended, MIT LICENSE, placeholder README, GitHub Actions CI (windows-latest, .NET 10), issue + PR templates, repo labels, branch-protection setup doc. PR #1 merged as `b46d931`. |
-| 1 Phases 1–5 | Core Pipeline + Safety Contract | ⬜ In progress (next) | .NET 10 scaffolding, AFC connect, enumerate, journal-at-root (`get-and-see.db`), atomic copy, date-org, read-only test, `summary.txt` writer, `manifest` SQL view |
+| 1 Phases 1–5 | Core Pipeline + Safety Contract | ✅ Done (PR open) | .NET 10 solution, read-only AFC client (`imobiledevice-net 1.3.17`), `/DCIM/` enumerate, EXIF date-org, journal-at-root (`get-and-see.db`) + `manifest` view, atomic copier + collision handling, pre-flight (27015/writable/space), `copy --dest/--dry-run`, per-file progress, `summary.txt`, **`ReadOnlyContractTests` (build-failing)**. 36 tests green locally. On branch `feature/sprint-1`. |
 | 2 | UX, Resumability & Pre-flight | ⬜ Planned | Live dashboard, pre-flight checks, summary, Ctrl+C handling, `status` subcommand, **`devices` + `runs` tables**, **Live Photo pair detection** |
 | 3 | Hardening, Packaging & Release | ⬜ Planned | Long-path, large-file stress tests, `--verify-hash`, **release workflow (single-file EXE attached to GitHub Release on tag push)**, **full user docs (Quill): `README.md`, `docs/user/troubleshooting.md`, `docs/user/manifest-schema.md`, release-notes template**, LICENSE polish |
 
@@ -209,18 +209,29 @@ Docs are split by audience and lifetime — no single person writes everything.
 **Clones in play:**
 - Producer: `e:\src\get-and-see` on `main` — coordination hub (this chat)
 - DevOps: `e:\src\get-and-see-devops` on `feature/sprint-1-devops` — Phase 0 done, branch retained for reference
-- Dev: `e:\src\get-and-see-dev` on `feature/sprint-1` — synced to `main`, ready for Phase 1
+- Dev: `e:\src\get-and-see-dev` on `feature/sprint-1` — **Phases 1–5 complete; PR open for producer review (do not self-merge)**
 
 **What works:**
-- CI pipeline green on PRs (intentional no-op until `.sln` lands; then it runs restore + format + build + test)
-- Issue + PR templates render in GitHub UI
-- 25 repo labels seeded (16 custom from `.github/labels.yml` + 9 GitHub defaults)
-- **AFC library decided + smoke-tested:** `imobiledevice-net 1.3.17` reads `/DCIM/` cleanly on iPhone 12 Pro / iOS 26.5 / .NET 10 (`docs/sprint-1/afc-library-decision.md`)
+- CI pipeline (now does real work once the `.sln` is present): restore + format + build + test on `windows-latest`
+- Issue + PR templates render; 25 repo labels seeded
+- **AFC library decided + smoke-tested:** `imobiledevice-net 1.3.17` reads `/DCIM/` on iPhone 12 Pro / iOS 26.5 / .NET 10
+- **Sprint 1 core pipeline (built, unit-tested, not yet device-verified):**
+  - Read-only `IPhoneClient` over AFC; `ReadOnlyContractTests` fails the build on any device-write symbol or write-mode `afc_file_open`
+  - `/DCIM/` enumeration → EXIF date organization (`YYYY/YYYY-MM`, `unsorted/` fallback)
+  - Atomic copier (stage → fsync → size-verify → move), filename collision `_2/_3`, journal-aware resume
+  - `get-and-see.db` (visible at root) + `manifest` view; `summary.txt` writer
+  - Pre-flight: 27015 driver probe (R21), writable dest (R15), free-space (R4)
+  - `copy --dest/-d --dry-run`, per-file progress, end-of-run summary, non-zero exit on failure, Ctrl+C → resumable
+  - **36 tests pass** locally (34 unit + 2 safety); build 0/0 warnings; `dotnet format` clean
 
-**What's next:** Sprint 1 **Phases 1–5 are UNBLOCKED.** Dev team (Nova + Sage, Kira on UX touches) stands up the .NET 10 solution in `e:\src\get-and-see-dev`, integrates `imobiledevice-net 1.3.17` (with `<RuntimeIdentifier>win-x64</RuntimeIdentifier>`), enumerates `/DCIM/` read-only, copies files atomically into date folders, ships the build-time read-only contract test (Ivy — symbol blocklist in the decision doc §5.5), writes `get-and-see.db` + `summary.txt` to destination root.
+**What's next:**
+1. **Producer (Remy):** review + merge the `feature/sprint-1` PR once CI is green.
+2. **QA (Ivy):** on-device end-to-end verification with a real iPhone (live `copy`, `manifest` count, resume, Ctrl+C) — the acceptance criteria that need hardware. File any bugs as GitHub Issues.
+3. **Sprint 2:** live dashboard, `status` subcommand, `devices`/`runs` tables, Live-Photo pair detection.
 
 **Open actions:**
-1. Dev team executes Sprint 1 Phases 1–5 (`docs/sprint-1/plan.md`). Start with `git pull origin main` in the dev clone.
+1. Merge `feature/sprint-1` (Remy).
+2. QA on-device pass (Ivy).
 
 **Blockers:** None.
 
