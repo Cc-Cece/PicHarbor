@@ -43,7 +43,32 @@ Update this file after every phase (PROJECT_BRIEF §12).
 - AFC `st_mtime` is nanoseconds since epoch (÷1e6 → ms), per decision doc §3.
 - Device name / product type read best-effort via `lockdownd_get_value` for the summary line; never fatal.
 
-## Phase 2 — Enumerate & Plan (Tasks 5–7, 10) ⬜
+## Phase 2 — Enumerate & Plan (Tasks 5–7, 10) ✅
+
+**Built:**
+- **`DcimEnumerator` (Task 5):** iterative (stack-based) recursive walk of `/DCIM/` over `IPhoneClient`,
+  yielding `RemoteFile { Path, Size, ModifiedAt }` for every regular file; descends into `NNNAPPLE`
+  buckets. Async stream with cancellation.
+- **EXIF + organizer (Task 6):** `IMediaMetadataExtractor` / `ExifMetadataExtractor` (MetadataExtractor)
+  reads `DateTimeOriginal`, GPS, and camera make/model — never throws (returns `MediaMetadata.Empty`
+  for screenshots / corrupt / unsupported). `DateFolderOrganizer` maps to `YYYY\YYYY-MM\<name>` with
+  fallback EXIF → mtime → `unsorted\`, date sanity bound `[1990, now+1day]` (R16, injectable
+  `TimeProvider`), and filename sanitization against `Path.GetInvalidFileNameChars()` (§9.3).
+- **Journal + manifest (Task 7):** `TransferJournal` at `<dest>/get-and-see.db` (visible at root, WAL).
+  `files` table per the plan schema; `UNIQUE(source_path, source_size)` identity (R17); `manifest`
+  view exposing user-facing columns of `state='done'` rows. State transitions: `EnsurePending`,
+  `MarkInProgress`, `MarkDone` (+metadata), `MarkFailed`; plus `GetUsedDestPaths` (collision support)
+  and `CountByState`. All SQL parameterized (no injection).
+- **Pre-flight (Task 10):** `PreflightChecks` — `EnsureDriverServiceReachableAsync` probes
+  `127.0.0.1:27015` and emits the exact R21 copy *"iPhone driver service not running — open the Apple
+  Devices app once, or install iTunes."*; `EnsureDestinationWritable` (probe file, R15);
+  `EnsureSufficientFreeSpace` (estimate × 1.05, R4). `ByteSize.Humanize` shared util.
+- Typed `PreflightException` (user-facing) alongside `DeviceException`.
+
+**Verified locally:** build 0/0, 3 tests still green, **safety contract intact** (new Core code uses
+only read APIs + SQLite + MetadataExtractor), `dotnet format` clean.
+
+**Notes:** `GeoLocation` is a nullable struct in MetadataExtractor — unwrapped via pattern match.
 
 ## Phase 3 — Core Copy (Tasks 8–9) ⬜
 
