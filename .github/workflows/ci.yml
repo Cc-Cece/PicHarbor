@@ -1,0 +1,75 @@
+name: CI
+
+# Triggers per PROJECT_BRIEF Section 11.2: every PR to main and every push to main.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel an in-progress run if a new commit is pushed to the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build + test (windows-latest, .NET 10)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # The .sln does not exist yet — Nova creates it in Phase 1.
+      # Every dotnet step is guarded so this workflow runs green on the Phase 0 PR
+      # and starts doing real work the moment the .sln lands.
+      - name: Restore
+        shell: pwsh
+        run: |
+          if (Test-Path *.sln) {
+            dotnet restore
+          } else {
+            Write-Host "No .sln found — skipping restore (Phase 0 bootstrap PR)."
+          }
+
+      - name: Format check
+        shell: pwsh
+        run: |
+          if (Test-Path *.sln) {
+            dotnet format --verify-no-changes
+          } else {
+            Write-Host "No .sln found — skipping format check."
+          }
+
+      - name: Build
+        shell: pwsh
+        run: |
+          if (Test-Path *.sln) {
+            dotnet build -c Release --no-restore
+          } else {
+            Write-Host "No .sln found — skipping build."
+          }
+
+      - name: Test
+        shell: pwsh
+        run: |
+          if (Test-Path *.sln) {
+            dotnet test -c Release --no-build --logger trx
+          } else {
+            Write-Host "No .sln found — skipping tests."
+          }
+
+      - name: Upload TRX results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-trx
+          path: '**/TestResults/*.trx'
+          if-no-files-found: ignore
+          retention-days: 14
