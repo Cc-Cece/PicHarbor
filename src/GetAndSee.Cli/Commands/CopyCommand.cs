@@ -108,7 +108,7 @@ internal static class CopyCommand
         var preflight = new PreflightChecks();
         await preflight.EnsureDriverServiceReachableAsync(cancellationToken).ConfigureAwait(false);
 
-        using var client = new AfcIPhoneClient();
+        using AfcIPhoneClient client = new(readTimeout);
         Console.WriteLine("Connecting to iPhone…");
         await client.ConnectAsync(cancellationToken).ConfigureAwait(false);
         DeviceInfo? device = client.Device;
@@ -203,10 +203,11 @@ internal static class CopyCommand
                 }
             }
         }
-        catch (DeviceStallException ex)
+        catch (Exception ex) when (ex is DeviceStallException or DeviceConnectionLostException)
         {
-            // Watchdog tripped (#11 / R2): stop the run cleanly. The in-flight file is left
-            // non-done (resumable); everything copied so far is already journaled.
+            // The device connection dropped mid-run (#11 / #25 / R2): a parked native call tripped the
+            // watchdog, or a native call returned a connection-fatal AFC error. Stop the run cleanly —
+            // the in-flight file is left non-done (resumable); everything copied so far is journaled.
             stallMessage = ex.Message;
         }
         finally

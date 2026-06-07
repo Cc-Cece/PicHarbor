@@ -9,6 +9,7 @@ using GetAndSee.Core.Util;
 using GetAndSee.Tests.TestSupport;
 using Microsoft.Data.Sqlite;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Shouldly;
 using Xunit;
 
@@ -149,6 +150,43 @@ public sealed class FileCopierTests : IDisposable
         journal.GetState(file.Path, file.Size).ShouldBe(FileState.InProgress);
         Directory.GetFiles(destination.Path, "*.partial", SearchOption.AllDirectories).ShouldBeEmpty();
         Directory.Exists(Path.Combine(destination.Path, "2024")).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Connection_lost_during_open_leaves_file_in_progress_and_stops_the_run()
+    {
+        // A connection-fatal AFC error (a yanked cable surfacing as MuxError/ServiceNotConnected) must
+        // stop the whole run resumably — exactly like a watchdog stall — rather than failing this one
+        // file and marching the next file into its own open-hang (#25 #3).
+        var file = new RemoteFile("/DCIM/100APPLE/IMG_LOST.MOV", 5_000_000, null);
+        client.OpenReadAsync(file.Path, Arg.Any<CancellationToken>())
+            .Throws(new DeviceConnectionLostException());
+        journal.EnsurePending(file);
+
+        await Should.ThrowAsync<DeviceConnectionLostException>(
+            async () => await CreateCopier().CopyAsync(file, Token));
+
+        // Resumable: the in-flight file is left non-done, and no partial leaks into the final tree.
+        journal.GetState(file.Path, file.Size).ShouldBe(FileState.InProgress);
+        Directory.GetFiles(destination.Path, "*.partial", SearchOption.AllDirectories).ShouldBeEmpty();
+        Directory.Exists(Path.Combine(destination.Path, "2024")).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task A_single_unreadable_file_is_marked_failed_and_does_not_stop_the_run()
+    {
+        // The conservative boundary for #3: a per-file device error (one corrupt/locked file) must
+        // still MarkFailed and let the run continue — only a connection-fatal error stops everything.
+        var file = new RemoteFile("/DCIM/100APPLE/IMG_BAD.HEIC", 1234, null);
+        client.OpenReadAsync(file.Path, Arg.Any<CancellationToken>())
+            .Throws(new DeviceException("Could not open \"/DCIM/100APPLE/IMG_BAD.HEIC\" for reading: ObjectNotFound."));
+        journal.EnsurePending(file);
+
+        CopyResult result = await CreateCopier().CopyAsync(file, Token);
+
+        result.Status.ShouldBe(CopyStatus.Failed);
+        journal.GetState(file.Path, file.Size).ShouldBe(FileState.Failed);
+        Directory.GetFiles(destination.Path, "*.partial", SearchOption.AllDirectories).ShouldBeEmpty();
     }
 
     [Fact]

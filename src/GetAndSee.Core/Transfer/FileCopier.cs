@@ -167,11 +167,12 @@ public sealed class FileCopier
             SafeDelete(stagingPath);
             throw;
         }
-        catch (DeviceStallException)
+        catch (Exception ex) when (ex is DeviceStallException or DeviceConnectionLostException)
         {
-            // The device stopped responding mid-file (#11 / R2). Leave the row in_progress
-            // (resumable) and propagate so the run stops cleanly rather than thrashing on every
-            // remaining file — each subsequent read would also stall.
+            // The device connection dropped mid-file (#11 / #25 / R2): the watchdog tripped on a parked
+            // native call, or a native read/open returned a connection-fatal AFC error. Leave the row
+            // in_progress (resumable) and propagate so the run stops cleanly rather than marching every
+            // remaining file into the same hang.
             SafeDelete(stagingPath);
             throw;
         }

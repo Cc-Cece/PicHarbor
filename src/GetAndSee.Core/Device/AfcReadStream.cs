@@ -57,10 +57,10 @@ internal sealed class AfcReadStream : Stream
         // non-zero offset, read into a scratch array and copy across.
         byte[] target = offset == 0 ? buffer : new byte[count];
         uint bytesRead = 0;
-        var error = afc.afc_file_read(client, handle, target, (uint)count, ref bytesRead);
+        AfcError error = afc.afc_file_read(client, handle, target, (uint)count, ref bytesRead);
         if (error != AfcError.Success)
         {
-            throw new DeviceException($"Error reading from \"{path}\" on the device: {error}.");
+            throw AfcErrors.ToException(error, $"Error reading from \"{path}\" on the device: {error}.");
         }
 
         if (bytesRead == 0)
