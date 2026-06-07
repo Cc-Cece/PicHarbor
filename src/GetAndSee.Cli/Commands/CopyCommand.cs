@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.Diagnostics;
 using System.Globalization;
+using GetAndSee.Cli.Ui;
 using GetAndSee.Core.Device;
 using GetAndSee.Core.Errors;
 using GetAndSee.Core.Journal;
@@ -43,6 +44,10 @@ internal static class CopyCommand
                 "stops cleanly (resumable). 0 disables the watchdog.",
             DefaultValueFactory = _ => DefaultReadTimeoutSeconds,
         };
+        var noDashboardOption = new Option<bool>("--no-dashboard")
+        {
+            Description = "Disable the live dashboard and use plain per-file text output instead.",
+        };
 
         var command = new Command(
             "copy",
@@ -50,11 +55,13 @@ internal static class CopyCommand
         command.Add(destinationOption);
         command.Add(dryRunOption);
         command.Add(readTimeoutOption);
+        command.Add(noDashboardOption);
         command.SetAction((parseResult, cancellationToken) =>
             RunAsync(
                 parseResult.GetValue(destinationOption)!,
                 parseResult.GetValue(dryRunOption),
                 ToTimeout(parseResult.GetValue(readTimeoutOption)),
+                parseResult.GetValue(noDashboardOption),
                 cancellationToken));
 
         return command;
@@ -63,11 +70,11 @@ internal static class CopyCommand
     private static TimeSpan ToTimeout(int seconds) =>
         seconds > 0 ? TimeSpan.FromSeconds(seconds) : TimeSpan.Zero;
 
-    private static async Task<int> RunAsync(string destination, bool dryRun, TimeSpan readTimeout, CancellationToken cancellationToken)
+    private static async Task<int> RunAsync(string destination, bool dryRun, TimeSpan readTimeout, bool noDashboard, CancellationToken cancellationToken)
     {
         try
         {
-            return await ExecuteAsync(destination, dryRun, readTimeout, cancellationToken).ConfigureAwait(false);
+            return await ExecuteAsync(destination, dryRun, readTimeout, noDashboard, cancellationToken).ConfigureAwait(false);
         }
         catch (PreflightException ex)
         {
@@ -86,7 +93,7 @@ internal static class CopyCommand
         }
     }
 
-    private static async Task<int> ExecuteAsync(string destination, bool dryRun, TimeSpan readTimeout, CancellationToken cancellationToken)
+    private static async Task<int> ExecuteAsync(string destination, bool dryRun, TimeSpan readTimeout, bool noDashboard, CancellationToken cancellationToken)
     {
         destination = Path.GetFullPath(destination);
 
@@ -127,7 +134,9 @@ internal static class CopyCommand
         }
 
         var progress = new TransferProgress(files.Count, totalBytes);
-        using IProgressReporter reporter = new TextProgressReporter();
+        IProgressReporter reporter = ProgressMode.ShouldUseDashboard(noDashboard, Console.IsOutputRedirected)
+            ? new LiveDashboard()
+            : new TextProgressReporter();
         reporter.Start(progress);
 
         var copier = new FileCopier(
@@ -137,7 +146,7 @@ internal static class CopyCommand
 
         int copied = 0, skipped = 0, failed = 0;
         long bytesCopied = 0;
-        bool stalled = false;
+        string? stallMessage = null;
         var stopwatch = Stopwatch.StartNew();
 
         try
@@ -176,12 +185,22 @@ internal static class CopyCommand
         {
             // Watchdog tripped (#11 / R2): stop the run cleanly. The in-flight file is left
             // non-done (resumable); everything copied so far is already journaled.
-            stalled = true;
-            WriteError(ex.Message);
+            stallMessage = ex.Message;
+        }
+        finally
+        {
+            // Tear down the live region before printing the summary below.
+            reporter.Dispose();
         }
 
         stopwatch.Stop();
 
+        if (stallMessage is not null)
+        {
+            WriteError(stallMessage);
+        }
+
+        bool stalled = stallMessage is not null;
         var runStats = new RunStats(files.Count, copied, skipped, failed, bytesCopied, stopwatch.Elapsed);
         new SummaryWriter().Write(destination, journal.ReadManifest(), device, runStats, DateTimeOffset.UtcNow);
         WriteRunSummary(destination, runStats, stalled);

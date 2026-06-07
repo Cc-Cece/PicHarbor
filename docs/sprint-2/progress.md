@@ -74,7 +74,27 @@ no slow-start spike, idle-gap decay, counts/processed-bytes. `TextProgressReport
 
 **Verified:** build 0/0; **57 tests** pass (55 unit + 2 safety); safety contract intact; format clean.
 
-## Phase 3 — Dashboard (Tasks 4, 6) ⬜
+## Phase 3 — Dashboard (Tasks 4, 6) ✅
+
+**Built:**
+- **`LiveDashboard : IProgressReporter`** (`GetAndSee.Cli/Ui`) — Spectre.Console live panel: overall
+  bar (% + bytes + file count), current file + its bar, **current MB/s + avg + ETA**, counts
+  (done/skipped/failed). Renders on a **background task at ~4 Hz** (250 ms) reading only
+  `TransferProgress.Snapshot()` — **no device I/O**, never blocks the copy. Device-supplied filenames
+  are `Markup.Escape`d so a hostile name can't break rendering. A render error can never crash the run
+  (caught); `Dispose` cancels the loop, draws a final frame, and tears down the live region.
+- **`--no-dashboard`** flag + **graceful fallback:** `CopyCommand` selects the reporter via
+  `ProgressMode.ShouldUseDashboard(noDashboard, Console.IsOutputRedirected)` — interactive TTY →
+  dashboard; piped/redirected/`--no-dashboard` → `TextProgressReporter`. The reporter is disposed
+  **before** the run summary so output is clean; the stall message prints after teardown.
+
+**Tests:** `LiveDashboardTests` (3, Spectre `TestConsole`) render `RenderSnapshot` deterministically —
+counts/speed/current file shown, **markup-hostile filename escaped without throwing**, failed count
+shown. (Live-loop timing + no-slowdown are QA hardware checks.) Added `Spectre.Console.Testing`;
+test project now references `GetAndSee.Cli` (`InternalsVisibleTo`).
+
+**Verified:** build 0/0; **60 tests** pass (58 unit + 2 safety); safety intact; format clean;
+`copy --help` shows `--read-timeout` and `--no-dashboard`.
 
 ## Phase 4 — Journal & status (Tasks 7, 8, 9) ⬜
 
