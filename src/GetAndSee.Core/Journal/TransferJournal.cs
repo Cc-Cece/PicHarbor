@@ -25,6 +25,9 @@ public sealed class TransferJournal : IDisposable
     /// <summary>The journal/manifest filename written at the destination root.</summary>
     public const string DatabaseFileName = "get-and-see.db";
 
+    /// <summary>Current journal schema version (bumped when tables are added; migrated in place).</summary>
+    public const long SchemaVersion = 2;
+
     private readonly SqliteConnection connection;
     private bool disposed;
 
@@ -52,6 +55,36 @@ public sealed class TransferJournal : IDisposable
         var journal = new TransferJournal(connection) { DatabasePath = databasePath };
         journal.InitializeSchema();
         return journal;
+    }
+
+    /// <summary>
+    /// Opens an existing journal at <c>&lt;destinationRoot&gt;/get-and-see.db</c> <b>read-only</b> for
+    /// inspection (e.g. the <c>status</c> verb). The database is never created, migrated, or written
+    /// to — the connection uses <see cref="SqliteOpenMode.ReadOnly"/>.
+    /// </summary>
+    /// <param name="destinationRoot">The destination root directory containing an existing database.</param>
+    /// <returns>An open read-only journal. The caller owns and disposes it.</returns>
+    /// <exception cref="FileNotFoundException">Thrown when no database exists at the destination.</exception>
+    public static TransferJournal OpenReadOnly(string destinationRoot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+
+        string databasePath = Path.Combine(destinationRoot, DatabaseFileName);
+        if (!File.Exists(databasePath))
+        {
+            throw new FileNotFoundException("No get-and-see database found.", databasePath);
+        }
+
+        var builder = new SqliteConnectionStringBuilder
+        {
+            DataSource = databasePath,
+            Mode = SqliteOpenMode.ReadOnly,
+        };
+        var connection = new SqliteConnection(builder.ConnectionString);
+        connection.Open();
+
+        // No InitializeSchema/Migrate: a read-only inspection must not create or alter anything.
+        return new TransferJournal(connection) { DatabasePath = databasePath };
     }
 
     private void InitializeSchema()
@@ -99,6 +132,52 @@ public sealed class TransferJournal : IDisposable
             FROM files
             WHERE state = 'done';
             """);
+
+        Migrate();
+    }
+
+    /// <summary>
+    /// Applies additive schema migrations in place using <c>PRAGMA user_version</c>. A Sprint 1
+    /// database (version 0/1) gains the <c>devices</c> and <c>runs</c> tables without touching existing
+    /// <c>files</c> data.
+    /// </summary>
+    private void Migrate()
+    {
+        long version = QueryUserVersion();
+        if (version < 2)
+        {
+            Execute(
+                """
+                CREATE TABLE IF NOT EXISTS devices (
+                    udid       TEXT PRIMARY KEY,
+                    name       TEXT,
+                    model      TEXT,
+                    first_seen TEXT,
+                    last_seen  TEXT
+                );
+                """);
+            Execute(
+                """
+                CREATE TABLE IF NOT EXISTS runs (
+                    id          INTEGER PRIMARY KEY,
+                    started_at  TEXT NOT NULL,
+                    finished_at TEXT,
+                    command     TEXT,
+                    copied      INTEGER NOT NULL DEFAULT 0,
+                    skipped     INTEGER NOT NULL DEFAULT 0,
+                    failed      INTEGER NOT NULL DEFAULT 0,
+                    exit_code   INTEGER,
+                    device_udid TEXT
+                );
+                """);
+            Execute($"PRAGMA user_version = {SchemaVersion};");
+        }
+    }
+
+    private long QueryUserVersion()
+    {
+        using SqliteCommand command = CreateCommand("PRAGMA user_version;");
+        return command.ExecuteScalar() is long value ? value : 0;
     }
 
     /// <summary>
@@ -288,6 +367,142 @@ public sealed class TransferJournal : IDisposable
         return rows;
     }
 
+    /// <summary>Inserts or updates the device's record, refreshing its last-seen time (R: multi-device story).</summary>
+    /// <param name="udid">Device UDID.</param>
+    /// <param name="name">Device name, if known.</param>
+    /// <param name="model">Device product type/model, if known.</param>
+    /// <param name="seenAt">UTC time the device was seen.</param>
+    public void UpsertDevice(string udid, string? name, string? model, DateTimeOffset seenAt)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(udid);
+        using SqliteCommand command = CreateCommand(
+            """
+            INSERT INTO devices (udid, name, model, first_seen, last_seen)
+            VALUES ($udid, $name, $model, $seen, $seen)
+            ON CONFLICT(udid) DO UPDATE SET
+                name = COALESCE(excluded.name, devices.name),
+                model = COALESCE(excluded.model, devices.model),
+                last_seen = excluded.last_seen;
+            """);
+        command.Parameters.AddWithValue("$udid", udid);
+        command.Parameters.AddWithValue("$name", (object?)name ?? DBNull.Value);
+        command.Parameters.AddWithValue("$model", (object?)model ?? DBNull.Value);
+        command.Parameters.AddWithValue("$seen", IsoUtc(seenAt)!);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Records a completed (or stopped) run for the archive's audit trail.</summary>
+    /// <param name="startedAt">UTC run start.</param>
+    /// <param name="finishedAt">UTC run end.</param>
+    /// <param name="command">The command line / verb that ran.</param>
+    /// <param name="copied">Files copied this run.</param>
+    /// <param name="skipped">Files skipped this run.</param>
+    /// <param name="failed">Files failed this run.</param>
+    /// <param name="exitCode">Process exit code.</param>
+    /// <param name="deviceUdid">UDID of the device used, if any.</param>
+    public void RecordRun(
+        DateTimeOffset startedAt,
+        DateTimeOffset finishedAt,
+        string command,
+        int copied,
+        int skipped,
+        int failed,
+        int exitCode,
+        string? deviceUdid)
+    {
+        using SqliteCommand cmd = CreateCommand(
+            """
+            INSERT INTO runs (started_at, finished_at, command, copied, skipped, failed, exit_code, device_udid)
+            VALUES ($started, $finished, $command, $copied, $skipped, $failed, $exit, $udid);
+            """);
+        cmd.Parameters.AddWithValue("$started", IsoUtc(startedAt)!);
+        cmd.Parameters.AddWithValue("$finished", IsoUtc(finishedAt)!);
+        cmd.Parameters.AddWithValue("$command", command);
+        cmd.Parameters.AddWithValue("$copied", copied);
+        cmd.Parameters.AddWithValue("$skipped", skipped);
+        cmd.Parameters.AddWithValue("$failed", failed);
+        cmd.Parameters.AddWithValue("$exit", exitCode);
+        cmd.Parameters.AddWithValue("$udid", (object?)deviceUdid ?? DBNull.Value);
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Reads all known devices, most-recently-seen first.</summary>
+    /// <returns>The device records.</returns>
+    public IReadOnlyList<DeviceRecord> ReadDevices()
+    {
+        var rows = new List<DeviceRecord>();
+        if (!TableExists("devices"))
+        {
+            // A pre-v2 database opened read-only has no devices table yet.
+            return rows;
+        }
+
+        using SqliteCommand command = CreateCommand(
+            "SELECT udid, name, model FROM devices ORDER BY last_seen DESC;");
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            rows.Add(new DeviceRecord(
+                reader.GetString(0),
+                reader.IsDBNull(1) ? null : reader.GetString(1),
+                reader.IsDBNull(2) ? null : reader.GetString(2)));
+        }
+
+        return rows;
+    }
+
+    /// <summary>Summarizes the run history (count, first/latest run, and the latest run's outcome).</summary>
+    /// <returns>A <see cref="RunsSummary"/>; <see cref="RunsSummary.TotalRuns"/> is 0 when none recorded.</returns>
+    public RunsSummary ReadRunsSummary()
+    {
+        if (!TableExists("runs"))
+        {
+            // A pre-v2 database opened read-only has no runs table yet.
+            return new RunsSummary(0, null, null, 0, 0, 0, TimeSpan.Zero);
+        }
+
+        int total = 0;
+        DateTimeOffset? first = null;
+        DateTimeOffset? latest = null;
+        using (SqliteCommand command = CreateCommand("SELECT COUNT(*), MIN(started_at), MAX(started_at) FROM runs;"))
+        using (SqliteDataReader reader = command.ExecuteReader())
+        {
+            if (reader.Read())
+            {
+                total = (int)reader.GetInt64(0);
+                first = reader.IsDBNull(1) ? null : ParseIso(reader.GetString(1));
+                latest = reader.IsDBNull(2) ? null : ParseIso(reader.GetString(2));
+            }
+        }
+
+        if (total == 0)
+        {
+            return new RunsSummary(0, null, null, 0, 0, 0, TimeSpan.Zero);
+        }
+
+        int copied = 0, skipped = 0, failed = 0;
+        TimeSpan elapsed = TimeSpan.Zero;
+        using (SqliteCommand command = CreateCommand(
+            "SELECT copied, skipped, failed, started_at, finished_at FROM runs ORDER BY id DESC LIMIT 1;"))
+        using (SqliteDataReader reader = command.ExecuteReader())
+        {
+            if (reader.Read())
+            {
+                copied = (int)reader.GetInt64(0);
+                skipped = (int)reader.GetInt64(1);
+                failed = (int)reader.GetInt64(2);
+                DateTimeOffset? started = reader.IsDBNull(3) ? null : ParseIso(reader.GetString(3));
+                DateTimeOffset? finished = reader.IsDBNull(4) ? null : ParseIso(reader.GetString(4));
+                if (started is not null && finished is not null)
+                {
+                    elapsed = finished.Value - started.Value;
+                }
+            }
+        }
+
+        return new RunsSummary(total, first, latest, copied, skipped, failed, elapsed);
+    }
+
     private void Execute(string sql)
     {
         using SqliteCommand command = CreateCommand(sql);
@@ -301,11 +516,28 @@ public sealed class TransferJournal : IDisposable
         return command;
     }
 
+    private bool TableExists(string name)
+    {
+        using SqliteCommand command = CreateCommand(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $name;");
+        command.Parameters.AddWithValue("$name", name);
+        return command.ExecuteScalar() is not null;
+    }
+
     private static string? IsoUtc(DateTimeOffset? value) =>
         value?.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
 
     private static string? IsoWall(DateTime? value) =>
         value?.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
+
+    private static DateTimeOffset? ParseIso(string value) =>
+        DateTimeOffset.TryParse(
+            value,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out DateTimeOffset parsed)
+            ? parsed
+            : null;
 
     /// <summary>Closes the underlying SQLite connection.</summary>
     public void Dispose()
@@ -337,3 +569,26 @@ public sealed record ManifestEntry(
     long SizeBytes,
     string? ExifDateTimeOriginalIso,
     string? SourceMtimeIso);
+
+/// <summary>A device recorded in the journal's <c>devices</c> table.</summary>
+/// <param name="Udid">Device UDID.</param>
+/// <param name="Name">Device name, if known.</param>
+/// <param name="Model">Device product type/model, if known.</param>
+public sealed record DeviceRecord(string Udid, string? Name, string? Model);
+
+/// <summary>Summary of the journal's run history, including the latest run's outcome.</summary>
+/// <param name="TotalRuns">Number of recorded runs.</param>
+/// <param name="FirstRunAt">Start time of the first run, or <see langword="null"/>.</param>
+/// <param name="LatestRunAt">Start time of the latest run, or <see langword="null"/>.</param>
+/// <param name="LastCopied">Files copied in the latest run.</param>
+/// <param name="LastSkipped">Files skipped in the latest run.</param>
+/// <param name="LastFailed">Files failed in the latest run.</param>
+/// <param name="LastElapsed">Wall-clock duration of the latest run.</param>
+public sealed record RunsSummary(
+    int TotalRuns,
+    DateTimeOffset? FirstRunAt,
+    DateTimeOffset? LatestRunAt,
+    int LastCopied,
+    int LastSkipped,
+    int LastFailed,
+    TimeSpan LastElapsed);

@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text;
-using GetAndSee.Core.Device;
 using GetAndSee.Core.Journal;
+using GetAndSee.Core.Organize;
 using GetAndSee.Core.Util;
 
 namespace GetAndSee.Core.Summary;
@@ -24,45 +24,48 @@ public sealed class SummaryWriter
     /// <summary>Writes <c>summary.txt</c> to the destination root.</summary>
     /// <param name="destinationRoot">Destination root directory.</param>
     /// <param name="manifest">Completed-file rows from the journal.</param>
-    /// <param name="device">The device seen this run, if known.</param>
-    /// <param name="run">This run's statistics.</param>
+    /// <param name="devices">Devices recorded in the journal.</param>
+    /// <param name="runs">Run-history summary from the journal.</param>
     /// <param name="generatedAt">UTC timestamp to stamp the file with.</param>
     public void Write(
         string destinationRoot,
         IReadOnlyList<ManifestEntry> manifest,
-        DeviceInfo? device,
-        RunStats run,
+        IReadOnlyList<DeviceRecord> devices,
+        RunsSummary runs,
         DateTimeOffset generatedAt)
     {
-        string content = Build(destinationRoot, manifest, device, run, generatedAt);
+        string content = Build(destinationRoot, manifest, devices, runs, generatedAt);
         File.WriteAllText(Path.Combine(destinationRoot, FileName), content);
     }
 
-    /// <summary>Builds the summary text without writing it (used by tests).</summary>
+    /// <summary>Builds the summary text without writing it (used by <c>status</c> and tests).</summary>
     /// <param name="destinationRoot">Destination root directory.</param>
     /// <param name="manifest">Completed-file rows from the journal.</param>
-    /// <param name="device">The device seen this run, if known.</param>
-    /// <param name="run">This run's statistics.</param>
+    /// <param name="devices">Devices recorded in the journal.</param>
+    /// <param name="runs">Run-history summary from the journal.</param>
     /// <param name="generatedAt">UTC timestamp to stamp the file with.</param>
     /// <returns>The full summary text.</returns>
     public string Build(
         string destinationRoot,
         IReadOnlyList<ManifestEntry> manifest,
-        DeviceInfo? device,
-        RunStats run,
+        IReadOnlyList<DeviceRecord> devices,
+        RunsSummary runs,
         DateTimeOffset generatedAt)
     {
         ArgumentNullException.ThrowIfNull(manifest);
-        ArgumentNullException.ThrowIfNull(run);
+        ArgumentNullException.ThrowIfNull(devices);
+        ArgumentNullException.ThrowIfNull(runs);
 
         long totalBytes = 0;
         int photos = 0, videos = 0, screenshots = 0, other = 0, heic = 0, jpg = 0, mov = 0;
         DateTime? minDate = null;
         DateTime? maxDate = null;
+        var destPaths = new List<string>(manifest.Count);
 
         foreach (ManifestEntry entry in manifest)
         {
             totalBytes += entry.SizeBytes;
+            destPaths.Add(entry.DestPath);
             string extension = Path.GetExtension(entry.DestPath);
             switch (CategoryOf(extension))
             {
@@ -122,6 +125,13 @@ public sealed class SummaryWriter
             builder.Append("  Videos:      ").Append(Num(videos)).AppendLine(mov > 0 ? $"  (MOV: {Num(mov)})" : string.Empty);
         }
 
+        int livePhotoPairs = LivePhotoDetector.FindPairs(destPaths).Count;
+        if (livePhotoPairs > 0)
+        {
+            string pairWord = livePhotoPairs == 1 ? " pair" : " pairs";
+            builder.Append("  Live Photos: ").Append(Num(livePhotoPairs)).AppendLine(pairWord);
+        }
+
         if (screenshots > 0)
         {
             builder.Append("  Screenshots: ").AppendLine(Num(screenshots));
@@ -141,18 +151,36 @@ public sealed class SummaryWriter
                 .AppendLine(maxDate.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
         }
 
-        string? deviceLine = DescribeDevice(device);
+        string? deviceLine = DescribeDevices(devices);
         if (deviceLine is not null)
         {
             builder.Append("Devices: ").AppendLine(deviceLine);
         }
 
-        builder.AppendLine();
-        builder.Append("Last run: ")
-            .Append(Num(run.Copied)).Append(" copied · ")
-            .Append(Num(run.Skipped)).Append(" skipped (already done) · ")
-            .Append(Num(run.Failed)).Append(" failed · ")
-            .AppendLine(FormatDuration(run.Elapsed));
+        if (runs.TotalRuns > 0)
+        {
+            builder.Append("Runs: ").Append(Num(runs.TotalRuns));
+            if (runs.FirstRunAt is not null && runs.LatestRunAt is not null)
+            {
+                builder.Append(" (first run ")
+                    .Append(runs.FirstRunAt.Value.UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))
+                    .Append(", latest ")
+                    .Append(runs.LatestRunAt.Value.UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))
+                    .Append(')');
+            }
+
+            builder.AppendLine();
+        }
+
+        if (runs.TotalRuns > 0)
+        {
+            builder.AppendLine();
+            builder.Append("Last run: ")
+                .Append(Num(runs.LastCopied)).Append(" copied · ")
+                .Append(Num(runs.LastSkipped)).Append(" skipped (already done) · ")
+                .Append(Num(runs.LastFailed)).Append(" failed · ")
+                .AppendLine(FormatDuration(runs.LastElapsed));
+        }
 
         return builder.ToString();
     }
@@ -172,19 +200,24 @@ public sealed class SummaryWriter
         return jpg > 0 ? $"  (JPG: {Num(jpg)})" : string.Empty;
     }
 
-    private static string? DescribeDevice(DeviceInfo? device)
+    private static string? DescribeDevices(IReadOnlyList<DeviceRecord> devices)
     {
-        if (device is null)
+        if (devices.Count == 0)
         {
             return null;
         }
 
-        if (!string.IsNullOrWhiteSpace(device.Name) && !string.IsNullOrWhiteSpace(device.ProductType))
+        return string.Join(", ", devices.Select(DescribeDevice));
+    }
+
+    private static string DescribeDevice(DeviceRecord device)
+    {
+        if (!string.IsNullOrWhiteSpace(device.Name) && !string.IsNullOrWhiteSpace(device.Model))
         {
-            return $"{device.Name} ({device.ProductType})";
+            return $"{device.Name} ({device.Model})";
         }
 
-        return device.Name ?? device.ProductType ?? device.Udid;
+        return device.Name ?? device.Model ?? device.Udid;
     }
 
     private static Category CategoryOf(string extension)

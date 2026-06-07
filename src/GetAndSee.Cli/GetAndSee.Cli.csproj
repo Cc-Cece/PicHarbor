@@ -25,4 +25,9 @@
     <PackageReference Include="System.CommandLine" Version="2.0.8" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The unit-test project exercises the live dashboard against a Spectre test console. -->
+    <InternalsVisibleTo Include="GetAndSee.Tests" />
+  </ItemGroup>
+
 </Project>

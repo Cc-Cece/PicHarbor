@@ -1,11 +1,13 @@
 using System.CommandLine;
 using System.Diagnostics;
 using System.Globalization;
+using GetAndSee.Cli.Ui;
 using GetAndSee.Core.Device;
 using GetAndSee.Core.Errors;
 using GetAndSee.Core.Journal;
 using GetAndSee.Core.Organize;
 using GetAndSee.Core.Preflight;
+using GetAndSee.Core.Progress;
 using GetAndSee.Core.Summary;
 using GetAndSee.Core.Transfer;
 using GetAndSee.Core.Util;
@@ -19,6 +21,9 @@ namespace GetAndSee.Cli.Commands;
 /// </summary>
 internal static class CopyCommand
 {
+    /// <summary>Default per-read inactivity timeout for the stall watchdog, in seconds (#11 / R2).</summary>
+    public const int DefaultReadTimeoutSeconds = 30;
+
     /// <summary>Builds the <c>copy</c> command and its options.</summary>
     /// <returns>The configured command.</returns>
     public static Command Build()
@@ -32,23 +37,44 @@ internal static class CopyCommand
         {
             Description = "Enumerate and plan only — opens no AFC read streams and writes no files.",
         };
+        var readTimeoutOption = new Option<int>("--read-timeout")
+        {
+            Description =
+                "Seconds with no bytes from the device before a read is treated as a stall and the run " +
+                "stops cleanly (resumable). 0 disables the watchdog.",
+            DefaultValueFactory = _ => DefaultReadTimeoutSeconds,
+        };
+        var noDashboardOption = new Option<bool>("--no-dashboard")
+        {
+            Description = "Disable the live dashboard and use plain per-file text output instead.",
+        };
 
         var command = new Command(
             "copy",
             "Copy all iPhone /DCIM/ media to the destination, organized into YYYY/YYYY-MM folders.");
         command.Add(destinationOption);
         command.Add(dryRunOption);
+        command.Add(readTimeoutOption);
+        command.Add(noDashboardOption);
         command.SetAction((parseResult, cancellationToken) =>
-            RunAsync(parseResult.GetValue(destinationOption)!, parseResult.GetValue(dryRunOption), cancellationToken));
+            RunAsync(
+                parseResult.GetValue(destinationOption)!,
+                parseResult.GetValue(dryRunOption),
+                ToTimeout(parseResult.GetValue(readTimeoutOption)),
+                parseResult.GetValue(noDashboardOption),
+                cancellationToken));
 
         return command;
     }
 
-    private static async Task<int> RunAsync(string destination, bool dryRun, CancellationToken cancellationToken)
+    private static TimeSpan ToTimeout(int seconds) =>
+        seconds > 0 ? TimeSpan.FromSeconds(seconds) : TimeSpan.Zero;
+
+    private static async Task<int> RunAsync(string destination, bool dryRun, TimeSpan readTimeout, bool noDashboard, CancellationToken cancellationToken)
     {
         try
         {
-            return await ExecuteAsync(destination, dryRun, cancellationToken).ConfigureAwait(false);
+            return await ExecuteAsync(destination, dryRun, readTimeout, noDashboard, cancellationToken).ConfigureAwait(false);
         }
         catch (PreflightException ex)
         {
@@ -67,7 +93,7 @@ internal static class CopyCommand
         }
     }
 
-    private static async Task<int> ExecuteAsync(string destination, bool dryRun, CancellationToken cancellationToken)
+    private static async Task<int> ExecuteAsync(string destination, bool dryRun, TimeSpan readTimeout, bool noDashboard, CancellationToken cancellationToken)
     {
         destination = Path.GetFullPath(destination);
 
@@ -102,52 +128,103 @@ internal static class CopyCommand
         preflight.EnsureSufficientFreeSpace(destination, totalBytes);
 
         using TransferJournal journal = TransferJournal.Open(destination);
+        DateTimeOffset runStartedAt = DateTimeOffset.UtcNow;
+        if (device is not null)
+        {
+            journal.UpsertDevice(device.Udid, device.Name, device.ProductType, runStartedAt);
+        }
+
         foreach (RemoteFile file in files)
         {
             journal.EnsurePending(file);
         }
 
-        var copier = new FileCopier(client, journal, organizer, new ExifMetadataExtractor(), destination);
+        // Pre-flight advisories for a long run: PC-sleep note (R13) and on-battery warning (R14).
+        AnsiConsole.MarkupLine("[dim]Tip: disable PC sleep so a long transfer isn't interrupted.[/]");
+        if (preflight.GetHostPowerStatus() == HostPowerStatus.Battery)
+        {
+            AnsiConsole.MarkupLine(
+                "[yellow]Warning:[/] running on battery — connect AC power before a large transfer.");
+        }
+
+        var progress = new TransferProgress(files.Count, totalBytes);
+        IProgressReporter reporter = ProgressMode.ShouldUseDashboard(noDashboard, Console.IsOutputRedirected)
+            ? new LiveDashboard()
+            : new TextProgressReporter();
+        reporter.Start(progress);
+
+        var copier = new FileCopier(
+            client, journal, organizer, new ExifMetadataExtractor(), destination,
+            readTimeout: readTimeout, onBytesStreamed: progress.RecordBytes);
         copier.CleanStaging();
 
-        int copied = 0, skipped = 0, failed = 0, processed = 0;
+        int copied = 0, skipped = 0, failed = 0;
         long bytesCopied = 0;
+        string? stallMessage = null;
         var stopwatch = Stopwatch.StartNew();
 
-        foreach (RemoteFile file in files)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            CopyResult result = await copier.CopyAsync(file, cancellationToken).ConfigureAwait(false);
-            processed++;
-
-            switch (result.Status)
+            foreach (RemoteFile file in files)
             {
-                case CopyStatus.Copied:
-                    copied++;
-                    bytesCopied += result.BytesCopied;
-                    Console.WriteLine(
-                        $"[done] {processed:N0}/{files.Count:N0}  " +
-                        $"{ByteSize.Humanize(bytesCopied)}/{ByteSize.Humanize(totalBytes)}  → {result.RelativeDestPath}");
-                    break;
-                case CopyStatus.Skipped:
-                    skipped++;
-                    Console.WriteLine(
-                        $"[skip] {processed:N0}/{files.Count:N0}  already copied  → {DateFolderOrganizer.ExtractFileName(file.Path)}");
-                    break;
-                case CopyStatus.Failed:
-                    failed++;
-                    WriteError($"[fail] {DateFolderOrganizer.ExtractFileName(file.Path)}: {result.Error}");
-                    break;
+                cancellationToken.ThrowIfCancellationRequested();
+                progress.StartFile(DateFolderOrganizer.ExtractFileName(file.Path), file.Size);
+
+                CopyResult result = await copier.CopyAsync(file, cancellationToken).ConfigureAwait(false);
+
+                if (result.Status == CopyStatus.Skipped)
+                {
+                    progress.RecordSkippedBytes(file.Size);
+                }
+
+                progress.CompleteFile(result.Status);
+                reporter.OnFileCompleted(result);
+
+                switch (result.Status)
+                {
+                    case CopyStatus.Copied:
+                        copied++;
+                        bytesCopied += result.BytesCopied;
+                        break;
+                    case CopyStatus.Skipped:
+                        skipped++;
+                        break;
+                    case CopyStatus.Failed:
+                        failed++;
+                        break;
+                }
             }
+        }
+        catch (DeviceStallException ex)
+        {
+            // Watchdog tripped (#11 / R2): stop the run cleanly. The in-flight file is left
+            // non-done (resumable); everything copied so far is already journaled.
+            stallMessage = ex.Message;
+        }
+        finally
+        {
+            // Tear down the live region before printing the summary below.
+            reporter.Dispose();
         }
 
         stopwatch.Stop();
 
-        var runStats = new RunStats(files.Count, copied, skipped, failed, bytesCopied, stopwatch.Elapsed);
-        new SummaryWriter().Write(destination, journal.ReadManifest(), device, runStats, DateTimeOffset.UtcNow);
-        WriteRunSummary(destination, runStats);
+        if (stallMessage is not null)
+        {
+            WriteError(stallMessage);
+        }
 
-        return failed > 0 ? 1 : 0;
+        bool stalled = stallMessage is not null;
+        int exitCode = stalled ? 3 : (failed > 0 ? 1 : 0);
+
+        journal.RecordRun(runStartedAt, DateTimeOffset.UtcNow, "copy", copied, skipped, failed, exitCode, device?.Udid);
+
+        var runStats = new RunStats(files.Count, copied, skipped, failed, bytesCopied, stopwatch.Elapsed);
+        new SummaryWriter().Write(
+            destination, journal.ReadManifest(), journal.ReadDevices(), journal.ReadRunsSummary(), DateTimeOffset.UtcNow);
+        WriteRunSummary(destination, runStats, stalled);
+
+        return exitCode;
     }
 
     private static int DryRun(string destination, List<RemoteFile> files, DateFolderOrganizer organizer, long totalBytes)
@@ -165,7 +242,7 @@ internal static class CopyCommand
         return 0;
     }
 
-    private static void WriteRunSummary(string destination, RunStats stats)
+    private static void WriteRunSummary(string destination, RunStats stats, bool stalled)
     {
         double megabytesPerSecond = stats.Elapsed.TotalSeconds > 0
             ? stats.BytesCopied / 1024d / 1024d / stats.Elapsed.TotalSeconds
@@ -182,7 +259,13 @@ internal static class CopyCommand
         Console.WriteLine($"Manifest:   {Path.Combine(destination, TransferJournal.DatabaseFileName)}");
         Console.WriteLine($"Summary:    {Path.Combine(destination, SummaryWriter.FileName)}");
 
-        if (stats.Failed > 0)
+        long remaining = stats.Enumerated - stats.Copied - stats.Skipped;
+        if (stalled)
+        {
+            AnsiConsole.MarkupLineInterpolated(
+                $"[yellow]Run stopped early[/] — {remaining:N0} file(s) not yet copied. Reconnect and run the same command to resume.");
+        }
+        else if (stats.Failed > 0)
         {
             AnsiConsole.MarkupLineInterpolated($"[red]{stats.Failed:N0} file(s) failed[/] — re-run the same command to retry.");
         }
