@@ -125,10 +125,45 @@ injected provider). `SummaryWriterTests` updated to the journal-sourced signatur
 
 **Notes:** `AllowUnsafeBlocks` enabled on Core (required by the `[LibraryImport]` source generator).
 
-## Phase 5 — Stretch + tests + handoff (Tasks 10, 11-rest, 12, 13, 14) ⬜
+## Phase 5 — Stretch + tests + handoff (Tasks 10, 11-rest, 12, 13, 14) ✅
+
+**Built:**
+- **Live-Photo pair detection (Task 10, the cuttable stretch — partially shipped):** `LivePhotoDetector`
+  pairs `IMG_NNNN.HEIC`/`.JPG` + `IMG_NNNN.MOV` by shared folder + basename (the organizer already
+  co-locates a Live Photo's halves via their shared EXIF date). `SummaryWriter` emits
+  `Live Photos: N pairs` (Session-3 format). **Deferred to Sprint 3:** the queryable
+  `live_photo_pair_id` DB column + manifest-view change — cut to avoid a riskier journal migration;
+  the user-facing detection + summary line ship now.
+- **Tests (Task 11):** see the per-phase tallies — watchdog, speed/ETA, dashboard render, journal
+  migration + runs/devices, status data path, battery, Live-Photo detector. **74 tests** total
+  (72 unit + 2 safety).
+- **XML docs (Task 12):** every new public type/method in `GetAndSee.Core` carries a `<summary>`
+  (`GenerateDocumentationFile` makes a missing one a build error).
+- **Stub docs (Task 13, Quill):** README "Commands" preview (verbs + `--no-dashboard`/`--read-timeout`,
+  dashboard default, resume); new error strings collected in `done.md` for the Sprint 3 troubleshooting
+  guide.
+- **Handoff (Task 14):** this file, `done.md`, PROJECT_BRIEF §7/§8.
+
+**Verified:** build 0/0; **74 tests** pass; `ReadOnlyContractTests` green; `dotnet format` clean.
 
 ---
 
 ## Bugs / Issues Found
 
-_None._
+_None._ Both carried-over issues resolved: **#11** (read-stall watchdog, Phase 1) and **#10**
+(live current speed, Phases 2–3). On-device acceptance (full 269 GB run, real unplug, dashboard
+no-slowdown) is QA's hardware pass (Ivy), unblocked by the watchdog.
+
+## Test tally by area
+
+| Area | Tests |
+|------|-------|
+| Watchdog (`WatchdogReadStreamTests`, copier stall) | 6 |
+| Speed/ETA (`TransferProgressTests`) | 7 |
+| Text reporter + mode selection | 8 |
+| Dashboard render (`LiveDashboardTests`) | 3 |
+| Journal v2 (devices/runs/migration/status path) | 5 |
+| Battery pre-flight | 3 |
+| Live-Photo detector + summary line | 6 |
+| Carried-over Sprint 1 suites | ~32 |
+| **Safety contract** | **2** |
