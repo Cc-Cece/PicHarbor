@@ -199,37 +199,38 @@ Docs are split by audience and lifetime — no single person writes everything.
 | 0 | Bootstrap | ✅ Done | Brainstorm S1, S2, S3, PROJECT_BRIEF (this doc), risk register, Sprint 1 plan |
 | 1 Phase 0 | Repo Bootstrap + CI | ✅ Done | `.gitignore` extended, MIT LICENSE, placeholder README, GitHub Actions CI (windows-latest, .NET 10), issue + PR templates, repo labels, branch-protection setup doc. PR #1 merged as `b46d931`. |
 | 1 Phases 1–5 | Core Pipeline + Safety Contract | ✅ Done | .NET 10 solution, read-only AFC client (`imobiledevice-net 1.3.17`), `/DCIM/` enumerate, EXIF date-org, journal-at-root (`get-and-see.db`) + `manifest` view, atomic copier + collision handling, pre-flight (27015/writable/space), `copy --dest/--dry-run`, per-file progress, `summary.txt`, **`ReadOnlyContractTests` (build-failing)**. **QA Stage 2 PASS** on real iPhone 12 Pro / iOS 26.5 / 27,478 files / 269 GB — read-only proof device-unchanged. Merged PR #9 (`8bc600f`); sign-off PR #13. One non-blocking major (#11) → Sprint 2. |
-| 2 | UX, Resumability & Pre-flight | ✅ Done (PR open) | **Pillars:** #11/R2 **read-stall watchdog** (per-read timeout → clean resumable stop, exit 3) and **live Spectre dashboard** + #10 current/avg speed + ETA (graceful text fallback, `--no-dashboard`). Plus `status` subcommand, additive `runs`/`devices` journal tables (`user_version` migration), on-battery pre-flight warning (R14), Live-Photo detection + `summary.txt` `Live Photos: N pairs`. **Closes #11 + #10.** 74 tests green. Branch `feature/sprint-2`. Cut: queryable `live_photo_pair_id` column → Sprint 3. |
-| 3 | Hardening, Packaging & Release | ⬜ Planned | Long-path, large-file stress tests, `--verify-hash`, **release workflow (single-file EXE attached to GitHub Release on tag push)**, **full user docs (Quill): `README.md`, `docs/user/troubleshooting.md`, `docs/user/manifest-schema.md`, release-notes template**, LICENSE polish |
+| 2 | UX, Resumability & Pre-flight | ✅ Done | **Pillars:** #11/R2 **read-stall watchdog** (per-read timeout → clean resumable stop, exit 3) and **live Spectre dashboard** + #10 current/avg speed + ETA (graceful text fallback, `--no-dashboard`). Plus `status` subcommand, additive `runs`/`devices` journal tables (`user_version` migration), on-battery pre-flight warning (R14), Live-Photo detection + `summary.txt` `Live Photos: N pairs`. **Closed #11 + #10.** Independent 4-lens code review PASS; merged PR #16. **QA Stage 2 hardware acceptance deferred → issue #21 (pre-release gate).** |
+| 3 | Hardening, Packaging & Release | ⬜ Planned — plan written | **Plan:** `docs/sprint-3/plan.md`; **consilium:** `docs/brainstorm/sprint-3-consilium.md`. 3 parallel tracks: **A engine** (long-path R6, `--verify-hash` R12, #17 polish), **B release** (`release.yml` single-file EXE on tag, EXE smoke test, gitleaks CI, LICENSE), **C docs** (README, troubleshooting, manifest-schema, release notes). **Release gate: #21 QA Stage 2 must PASS before the v1.0 tag.** |
 
 ## 8. Current State
 
-**Repo:** https://github.com/denis-a-evdokimov/get-and-see (**private** on free tier, MIT). `main` at `306e991` (Sprint 1); **Sprint 2 on `feature/sprint-2`, PR open for review.**
+**Repo:** https://github.com/denis-a-evdokimov/get-and-see (**private** on free tier, MIT). `main` at `4eafde7` — **Sprints 1 & 2 shipped.** (Git history was scrubbed 2026-06-07 to redact a real device UDID committed in a Sprint-1 smoke-test doc; all SHAs before that point changed. Backup mirror retained at `e:\scratch\gas-backup.git`.)
 
-**Clones in play:**
-- Producer: `e:\src\get-and-see` on `main` — coordination hub (this chat)
-- Dev: `e:\src\get-and-see-dev` on `feature/sprint-2` — **Sprint 2 complete; PR open (do not self-merge)**
-- QA: `e:\src\get-and-see-qa` — Stage 2 sign-off merged; next: Sprint 2 hardware acceptance
-- DevOps: `e:\src\get-and-see-devops` — idle
+**Clones in play (all on `main` @ `4eafde7`, clean):**
+- Producer: `e:\src\get-and-see` — coordination hub (this chat)
+- Dev: `e:\src\get-and-see-dev` — re-sync, then `feature/sprint-3`
+- QA: `e:\src\get-and-see-qa` — re-sync, then `feature/qa-2` (#21, parallel)
+- DevOps: `e:\src\get-and-see-devops` — used for Sprint 3 Track B (release)
 
-**What works (Sprint 1 shipped + QA-verified; Sprint 2 built + unit-tested):**
-- CI: restore + `dotnet format` + build + tests on `windows-latest` (now **74 tests**)
-- Read-only `IPhoneClient` over AFC; `ReadOnlyContractTests` still green — **no new device-write symbol in Sprint 2**
+**What works (Sprints 1 & 2 shipped):**
+- CI: restore + `dotnet format` + build + tests on `windows-latest`
+- Read-only `IPhoneClient` over AFC; `ReadOnlyContractTests` green — no device-write symbol anywhere in `GetAndSee.Core`
 - `/DCIM/` enumerate → EXIF date-org → atomic copy → `get-and-see.db` + `manifest` + `summary.txt`; journal-aware resume
-- **Sprint 2 — read-stall watchdog (#11):** per-read timeout (`--read-timeout`, default 30s) → abandon read → `DeviceStallException` → in-flight file left non-done (resumable) → run stops cleanly → exit 3. No native handle leak; unit-tested with a mocked stalling stream (no cable-yank).
-- **Sprint 2 — live dashboard (#10):** Spectre dashboard (overall + current-file bars, current/avg MB/s, ETA, counts) at ≤4 Hz, no device I/O; graceful fallback to text on piped/redirected/`--no-dashboard`.
-- **Sprint 2 — `status --dest`** (archive totals + last run, no device); **`runs`/`devices` tables** (additive migration) feeding `summary.txt` `Devices:`/`Runs:` lines; **on-battery warning** + sleep note; **Live-Photo detection** + `Live Photos: N pairs`.
+- **Watchdog (#11):** `--read-timeout` (default 30s) → abandon read → `DeviceStallException` → in-flight file non-done (resumable) → clean stop → exit 3. No native handle leak; unit-tested via mocked stalling stream.
+- **Live dashboard (#10):** Spectre, current/avg MB/s + ETA, ≤4 Hz, no device I/O, graceful text fallback / `--no-dashboard`.
+- **`status --dest`** (no device); **`runs`/`devices` tables** feeding `summary.txt`; **on-battery warning** (R14); **Live-Photo detection** + `Live Photos: N pairs`.
 
-**What's next:**
-1. **Producer (Remy):** review + merge the `feature/sprint-2` PR once CI is green.
-2. **QA (Ivy):** hardware acceptance — full uninterrupted 269 GB run (closes S1 AC-7/AC-17), real cable-unplug watchdog test, dashboard no-slowdown + fallback, re-affirm read-only contract.
-3. **Sprint 3:** auto-reconnect (true R2), queryable `live_photo_pair_id` column, keep-awake (R13), `--verify-hash`, long-path, release workflow, full user docs.
+**What's next — Sprint 3 (planned, parallel; the v1 ship):**
+1. **Track A engine:** long-path `\\?\` (R6), opt-in `--verify-hash` (R12), #17 polish (incl. EUII fixture rename), large-file check.
+2. **Track B release:** `release.yml` (single-file EXE on `v*` tag → GitHub Release), published-EXE smoke test, gitleaks in CI, LICENSE/metadata.
+3. **Track C docs (Quill):** README (+ "What this does NOT do"), troubleshooting, manifest-schema, release notes.
+4. **Release gate:** **#21 QA Stage 2 hardware acceptance runs in parallel and MUST PASS before the `v1.0` tag is cut.** Plan: `docs/sprint-3/plan.md`.
 
-**Open actions:** Merge `feature/sprint-2` (Remy); QA hardware pass (Ivy).
+**Open actions:** Execute Sprint 3 (dev on `feature/sprint-3`, QA #21 on `feature/qa-2`).
 
 **Blockers:** None.
 
-**Open issues:** #11 and #10 are **closed by this PR** on merge. No new issues filed.
+**Open issues:** #21 (QA Stage 2 hardware — release gate), #17 (Sprint 2 review polish — Track A).
 
 **Known gaps (accepted, not blockers):**
 - **Branch protection on `main` is NOT enforced.** The repo is private on free GitHub tier, which restricts both classic protection and rulesets to paid/public repos. Decision: stay private for now and enforce "no direct pushes to main" by discipline. Documented in `docs/sprint-1/branch-protection-setup.md`. Revisit if the repo goes public or upgrades.
