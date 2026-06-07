@@ -54,4 +54,21 @@ public sealed class SummaryWriterTests
         text.ShouldNotContain("Runs:");
         text.ShouldContain("Total: 0 files");
     }
+
+    [Fact]
+    public void Counts_live_photo_pairs()
+    {
+        var writer = new SummaryWriter();
+        var manifest = new List<ManifestEntry>
+        {
+            new(Path.Combine("2024", "2024-08", "IMG_1.HEIC"), 2_000_000, "2024-08-15T10:00:00", null),
+            new(Path.Combine("2024", "2024-08", "IMG_1.MOV"), 3_000_000, "2024-08-15T10:00:00", null),
+            new(Path.Combine("2024", "2024-08", "IMG_2.HEIC"), 2_000_000, "2024-08-15T11:00:00", null),
+        };
+        var runs = new RunsSummary(0, null, null, 0, 0, 0, TimeSpan.Zero);
+
+        string text = writer.Build(@"D:\Photos", manifest, [], runs, DateTimeOffset.UtcNow);
+
+        text.ShouldContain("Live Photos: 1 pairs");
+    }
 }

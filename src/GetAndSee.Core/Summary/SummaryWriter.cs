@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using GetAndSee.Core.Journal;
+using GetAndSee.Core.Organize;
 using GetAndSee.Core.Util;
 
 namespace GetAndSee.Core.Summary;
@@ -59,10 +60,12 @@ public sealed class SummaryWriter
         int photos = 0, videos = 0, screenshots = 0, other = 0, heic = 0, jpg = 0, mov = 0;
         DateTime? minDate = null;
         DateTime? maxDate = null;
+        var destPaths = new List<string>(manifest.Count);
 
         foreach (ManifestEntry entry in manifest)
         {
             totalBytes += entry.SizeBytes;
+            destPaths.Add(entry.DestPath);
             string extension = Path.GetExtension(entry.DestPath);
             switch (CategoryOf(extension))
             {
@@ -120,6 +123,12 @@ public sealed class SummaryWriter
         if (videos > 0)
         {
             builder.Append("  Videos:      ").Append(Num(videos)).AppendLine(mov > 0 ? $"  (MOV: {Num(mov)})" : string.Empty);
+        }
+
+        int livePhotoPairs = LivePhotoDetector.FindPairs(destPaths).Count;
+        if (livePhotoPairs > 0)
+        {
+            builder.Append("  Live Photos: ").Append(Num(livePhotoPairs)).AppendLine(" pairs");
         }
 
         if (screenshots > 0)
