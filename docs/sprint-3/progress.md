@@ -21,7 +21,7 @@
 | C docs | #11 manifest-schema | ✅ Done |
 | C docs | #12 release-notes template + v1.0 notes | ✅ Done |
 | build | #26 Restrict build to win-x64 (drop foreign native libs, silence Defender FP) | ✅ Done |
-| close | #15 progress/done/handoff + PR | ⬜ |
+| close | #15 progress/done/handoff + PR | ✅ Done |
 
 ## Phase log
 
@@ -153,6 +153,11 @@ build/packaging change only; no device symbol touched.
 - `dotnet test -c Release` ✅ — **88 tests** (86 unit + 2 safety; `ReadOnlyContractTests` green)
 - Single-file publish ✅ — `get-and-see.exe` (~84 MB), `--help` exit 0 (native unpack works)
 - gitleaks working-tree scan ✅ — no leaks found
+- **Post-#26 re-validation:** clean Release rebuild after the win-x64 trim → **0/0**, **88 tests green**, no
+  `osx-*`/`linux-*`/`maccatalyst-*` runtimes or `.dylib`/`.so` under any `bin/`, all 8 win-x64 AFC DLLs
+  present; single-file EXE `--help` exit 0; rebased on `origin/main` (conflict-free). PR opened:
+  **"sprint-3: hardening, packaging & release"** (Closes #17) — **STOP** for the producer review gate
+  (§13.6) + QA #21.
 - Long-path mechanism is the `\\?\` prefix in code (not `<LongPathsEnabled>` manifest) because the prefix
   works on any runner regardless of registry/OS config — deterministic for CI.
 - `--verify-hash` ships **during-copy** hashing only this sprint; **verify-only re-check** (compare an
