@@ -5,7 +5,7 @@
 > Edit by hand freely — the skill respects manual edits.
 >
 > Used as the merge-gate review profile: the Producer runs independent reviewers
-> (4 gate lenses + 1 advisory) calibrated against this file before QA + merge.
+> (5 gate lenses + 1 advisory) calibrated against this file before QA + merge.
 
 ## Project goal (1–2 sentences)
 
@@ -87,7 +87,20 @@ Things a fresh reviewer may wrongly flag without project history. Verified true 
 
 ## Lens weighting
 
-For this project: **Security/Safety and Correctness/Reliability dominate** (read-only contract + 400 GB of irreplaceable data). **Performance** matters specifically at the 400 GB / 38k-file scale and on the copy hot path. **Maintainability** is normal-weight. **Modernization** is advisory-only (and R20 is already the known item).
+For this project: **Security/Safety and Correctness/Reliability dominate** (read-only contract + 400 GB of irreplaceable data). **Performance** matters specifically at the 400 GB / 38k-file scale and on the copy hot path. **Simplicity/Design** is normal-weight but rising in importance as the engine accretes features (see the drift-watch below) — it **tracks** entropy, it does not force refactors into feature PRs. **Maintainability** is normal-weight. **Modernization** is advisory-only (and R20 is already the known item).
+
+## Architecture & drift watch (longitudinal — feeds the Simplicity/Design lens)
+
+> The memory that lets review see what one diff can't: entropy accumulating across changes.
+> Each review updates this. States: `watch` → `escalate` → `resolved`. **Bias: track, don't nag** —
+> a hotspot only becomes a merge concern (MAJOR) when a change **touches it again** or it **busts its
+> budget**. Numbers below are from `main` @ 2026-06-07 (pre-Sprint-3; PR #28 will grow the two engine items).
+
+- **`CopyCommand.ExecuteAsync` — growing-method — ~114 LOC (lines 96–210), orchestrates ~11 steps** (preflight → connect → enumerate → dry-run branch → journal open → device upsert → ensure-pending → power advisories → reporter/copier setup → copy loop → run-record + summary). Budget **~90 LOC**. **state: watch** — the single most likely god-method. **Escalate to MAJOR if Sprint 3 (`--verify-hash` wiring) grows it further without extracting** a unit (e.g. a `CopySession`/run-loop, or a setup helper). The copy `foreach` + stall `catch` + summary block is the natural seam to lift out first.
+- **`FileCopier` — feature-accreting safety-critical class — 255 LOC; `CopyAsync` ~62 LOC, currently well-decomposed** (delegates to `StreamToStagingAsync` / `CopyStreamAsync` / `ResolveUniqueRelativePath` / `SafeDelete`). **state: watch** — this is the read-only/atomic-write heart, so divergence is dangerous. Sprint 3 threads `--verify-hash` (`IncrementalHash`) and long-path through the stream helpers. **Keep `CopyAsync` orchestration-only and the hashing/long-path logic inside the existing helpers** (single level of abstraction); escalate if either inlines into `CopyAsync`/the `catch` ladder instead.
+- **`TransferJournal` — growing-file — 594 LOC, the largest file** (schema + `Migrate()` + per-state CRUD + manifest/devices/runs reads + `OpenReadOnly`). Cohesive today (all one concern), so **not** a finding — **state: watch**. Budget **~700 LOC / 2 schema concerns**: if it crosses that or a 3rd table-family lands, split **schema+migration** from **queries/reads** (e.g. `JournalSchema` + `JournalQueries`). Do **not** split pre-emptively (no present need — would be needless abstraction).
+- **`var` convention drift — abstraction/style debt — 144 usages on `main`** (Sprint 3 adds ~41 → ~185). Target is "explicit types — never `var`" (see Stack pins), **not yet enforced in CI**. **state: escalate — owned by #23** (dedicated "style: enforce explicit types" PR, must land as one commit with the `dotnet format` reformat or CI breaks). Until #23 merges, new `var` is a NIT noted-not-blocked; do not re-litigate per-PR.
+- **Single copy pipeline (no duplication cluster yet) — watch for a 2nd.** The `stage → fsync → size-verify → Move → MarkDone` sequence exists **once** (in `FileCopier`). The 4 `catch { SafeDelete(stagingPath); … }` arms in `CopyAsync` are **intentional, data-safe, incidental** duplication (each does a *different* journal action) — **do NOT extract** (Rule of Three not met; forcing a DRY here would obscure the per-failure handling). **state: watch** — if a 2nd copy path appears (e.g. a Sprint-4 verify-only re-check mode that re-walks files), re-evaluate extracting the pipeline so the atomic/read-only invariant has **one** tested implementation.
 
 ## Review history (newest first)
 
