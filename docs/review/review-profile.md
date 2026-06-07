@@ -27,6 +27,7 @@ Any change that violates one of these is an automatic **BLOCKER**, no matter how
 - **AFC library:** `imobiledevice-net 1.3.17` with `<RuntimeIdentifier>win-x64</RuntimeIdentifier>` (native DLLs). NOT "NetiMobileDevice" (that package does not exist).
 - **Tests:** xUnit v3 + **Shouldly** + NSubstitute. **NOT FluentAssertions** (paid-commercial since v8/Jan 2025) — flag any reintroduction.
 - **Build:** `<Nullable>enable</Nullable>`, `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>`, `<LangVersion>14</LangVersion>`.
+- **Explicit types — never `var`** (user preference). `.editorconfig` enforces `csharp_style_var_* = false:error` / `IDE0008.severity = error`. Flag any new `var` as a finding. (Lands as a dedicated "style: enforce explicit types" PR after Sprint 3 — until merged, this is the target convention, not yet enforced in CI.)
 - Every public `GetAndSee.Core` type gets a one-line XML `<summary>`.
 - Errors via typed `DeviceException` / `PreflightException` (and subclasses like `DeviceStallException`).
 
