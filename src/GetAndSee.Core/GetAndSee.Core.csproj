@@ -5,6 +5,8 @@
     <RootNamespace>GetAndSee.Core</RootNamespace>
     <!-- Task 14b: public API carries XML doc comments for future maintainers. -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Required by the [LibraryImport] source generator for the GetSystemPowerStatus P/Invoke (R14). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

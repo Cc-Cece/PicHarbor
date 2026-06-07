@@ -128,9 +128,23 @@ internal static class CopyCommand
         preflight.EnsureSufficientFreeSpace(destination, totalBytes);
 
         using TransferJournal journal = TransferJournal.Open(destination);
+        DateTimeOffset runStartedAt = DateTimeOffset.UtcNow;
+        if (device is not null)
+        {
+            journal.UpsertDevice(device.Udid, device.Name, device.ProductType, runStartedAt);
+        }
+
         foreach (RemoteFile file in files)
         {
             journal.EnsurePending(file);
+        }
+
+        // Pre-flight advisories for a long run: PC-sleep note (R13) and on-battery warning (R14).
+        AnsiConsole.MarkupLine("[dim]Tip: disable PC sleep so a long transfer isn't interrupted.[/]");
+        if (preflight.GetHostPowerStatus() == HostPowerStatus.Battery)
+        {
+            AnsiConsole.MarkupLine(
+                "[yellow]Warning:[/] running on battery — connect AC power before a large transfer.");
         }
 
         var progress = new TransferProgress(files.Count, totalBytes);
@@ -201,16 +215,16 @@ internal static class CopyCommand
         }
 
         bool stalled = stallMessage is not null;
+        int exitCode = stalled ? 3 : (failed > 0 ? 1 : 0);
+
+        journal.RecordRun(runStartedAt, DateTimeOffset.UtcNow, "copy", copied, skipped, failed, exitCode, device?.Udid);
+
         var runStats = new RunStats(files.Count, copied, skipped, failed, bytesCopied, stopwatch.Elapsed);
-        new SummaryWriter().Write(destination, journal.ReadManifest(), device, runStats, DateTimeOffset.UtcNow);
+        new SummaryWriter().Write(
+            destination, journal.ReadManifest(), journal.ReadDevices(), journal.ReadRunsSummary(), DateTimeOffset.UtcNow);
         WriteRunSummary(destination, runStats, stalled);
 
-        if (stalled)
-        {
-            return 3;
-        }
-
-        return failed > 0 ? 1 : 0;
+        return exitCode;
     }
 
     private static int DryRun(string destination, List<RemoteFile> files, DateFolderOrganizer organizer, long totalBytes)

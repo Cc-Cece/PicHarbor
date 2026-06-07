@@ -18,11 +18,20 @@ public sealed class PreflightChecks
         "iPhone driver service not running — open the Apple Devices app once, or install iTunes.";
 
     private readonly TimeSpan probeTimeout;
+    private readonly Func<HostPowerStatus> powerStatusProvider;
 
     /// <summary>Creates the pre-flight checks.</summary>
     /// <param name="probeTimeout">How long to wait for the usbmuxd probe; defaults to 2 seconds.</param>
-    public PreflightChecks(TimeSpan? probeTimeout = null) =>
+    /// <param name="powerStatusProvider">Host power-status source; defaults to the Windows API. Injectable for tests.</param>
+    public PreflightChecks(TimeSpan? probeTimeout = null, Func<HostPowerStatus>? powerStatusProvider = null)
+    {
         this.probeTimeout = probeTimeout ?? TimeSpan.FromSeconds(2);
+        this.powerStatusProvider = powerStatusProvider ?? HostPower.Get;
+    }
+
+    /// <summary>Returns the host's current power state (R14: warn before a long run on battery).</summary>
+    /// <returns>The host power status.</returns>
+    public HostPowerStatus GetHostPowerStatus() => powerStatusProvider();
 
     /// <summary>
     /// Probes <c>127.0.0.1:27015</c>. If it is unreachable the Apple driver service is not running,

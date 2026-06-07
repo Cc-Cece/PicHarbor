@@ -96,7 +96,34 @@ test project now references `GetAndSee.Cli` (`InternalsVisibleTo`).
 **Verified:** build 0/0; **60 tests** pass (58 unit + 2 safety); safety intact; format clean;
 `copy --help` shows `--read-timeout` and `--no-dashboard`.
 
-## Phase 4 — Journal & status (Tasks 7, 8, 9) ⬜
+## Phase 4 — Journal & status (Tasks 7, 8, 9) ✅
+
+**Built:**
+- **`runs` + `devices` tables (Task 8):** additive schema migration via `PRAGMA user_version`
+  (bumped to 2). Opening a Sprint 1 (v1) db creates the two new tables **in place** without touching
+  `files` data. `devices(udid, name, model, first_seen, last_seen)` with upsert (refreshes last_seen);
+  `runs(id, started_at, finished_at, command, copied, skipped, failed, exit_code, device_udid)`.
+  New journal methods: `UpsertDevice`, `RecordRun`, `ReadDevices`, `ReadRunsSummary`. `CopyCommand`
+  records the device at run start and the run at the end.
+- **`summary.txt` "Runs:"/"Devices:" lines (Session-3 gap closed):** `SummaryWriter` now renders from
+  the journal's `ReadDevices()` + `ReadRunsSummary()` (devices line lists all devices; `Runs: N (first
+  run …, latest …)`; `Last run:` from the latest run). Same renderer serves `copy` and `status`.
+- **`status` subcommand (Task 7):** `status --dest <path>` opens `get-and-see.db` and prints archive
+  totals + last-run summary **with no device attached**. Clear message + non-zero exit when no archive
+  exists. Registered in `Program`.
+- **Pre-flight battery warning (Task 9, R14) + sleep note (R13):** `HostPower` reads
+  `GetSystemPowerStatus` via `[LibraryImport]` (guarded by `OperatingSystem.IsWindows()`);
+  `PreflightChecks.GetHostPowerStatus()` with an **injectable** provider for tests. `copy` prints a
+  one-line "disable PC sleep" tip and, on battery, an AC-power warning before the run.
+
+**Tests:** `JournalSchemaV2Tests` (5) — devices upsert/read, runs history summary, empty history,
+status-style summary, **in-place v1→v2 migration preserving files**. `PreflightPowerTests` (3,
+injected provider). `SummaryWriterTests` updated to the journal-sourced signature.
+
+**Verified:** build 0/0; **68 tests** pass (66 unit + 2 safety); safety contract intact; format clean;
+`status` smoke-tested (friendly message + exit 2 when no archive).
+
+**Notes:** `AllowUnsafeBlocks` enabled on Core (required by the `[LibraryImport]` source generator).
 
 ## Phase 5 — Stretch + tests + handoff (Tasks 10, 11-rest, 12, 13, 14) ⬜
 
