@@ -240,7 +240,7 @@ Total: 38,412 files (397.2 GB)
   Screenshots:    1,722
 
 Date range: 2017-03-14 to 2026-06-05
-Devices: iPhone 12 Pro (Denis's iPhone)
+Devices: iPhone 12 Pro (<device name>)
 Runs: 4 (first run 2026-06-01, latest 2026-06-06)
 
 Last run: 8,221 files copied · 30,191 skipped (already done) · 0 failed · 4h 12m
