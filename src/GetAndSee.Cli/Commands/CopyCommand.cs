@@ -48,6 +48,12 @@ internal static class CopyCommand
         {
             Description = "Disable the live dashboard and use plain per-file text output instead.",
         };
+        var verifyHashOption = new Option<bool>("--verify-hash")
+        {
+            Description =
+                "Also compute each file's SHA-256 while it copies and record it in the manifest " +
+                "(slower; for the cautious). Read-only and off by default.",
+        };
 
         var command = new Command(
             "copy",
@@ -56,12 +62,14 @@ internal static class CopyCommand
         command.Add(dryRunOption);
         command.Add(readTimeoutOption);
         command.Add(noDashboardOption);
+        command.Add(verifyHashOption);
         command.SetAction((parseResult, cancellationToken) =>
             RunAsync(
                 parseResult.GetValue(destinationOption)!,
                 parseResult.GetValue(dryRunOption),
                 ToTimeout(parseResult.GetValue(readTimeoutOption)),
                 parseResult.GetValue(noDashboardOption),
+                parseResult.GetValue(verifyHashOption),
                 cancellationToken));
 
         return command;
@@ -70,11 +78,11 @@ internal static class CopyCommand
     private static TimeSpan ToTimeout(int seconds) =>
         seconds > 0 ? TimeSpan.FromSeconds(seconds) : TimeSpan.Zero;
 
-    private static async Task<int> RunAsync(string destination, bool dryRun, TimeSpan readTimeout, bool noDashboard, CancellationToken cancellationToken)
+    private static async Task<int> RunAsync(string destination, bool dryRun, TimeSpan readTimeout, bool noDashboard, bool verifyHash, CancellationToken cancellationToken)
     {
         try
         {
-            return await ExecuteAsync(destination, dryRun, readTimeout, noDashboard, cancellationToken).ConfigureAwait(false);
+            return await ExecuteAsync(destination, dryRun, readTimeout, noDashboard, verifyHash, cancellationToken).ConfigureAwait(false);
         }
         catch (PreflightException ex)
         {
@@ -93,7 +101,7 @@ internal static class CopyCommand
         }
     }
 
-    private static async Task<int> ExecuteAsync(string destination, bool dryRun, TimeSpan readTimeout, bool noDashboard, CancellationToken cancellationToken)
+    private static async Task<int> ExecuteAsync(string destination, bool dryRun, TimeSpan readTimeout, bool noDashboard, bool verifyHash, CancellationToken cancellationToken)
     {
         destination = Path.GetFullPath(destination);
 
@@ -155,7 +163,7 @@ internal static class CopyCommand
 
         var copier = new FileCopier(
             client, journal, organizer, new ExifMetadataExtractor(), destination,
-            readTimeout: readTimeout, onBytesStreamed: progress.RecordBytes);
+            readTimeout: readTimeout, onBytesStreamed: progress.RecordBytes, verifyHash: verifyHash);
         copier.CleanStaging();
 
         int copied = 0, skipped = 0, failed = 0;

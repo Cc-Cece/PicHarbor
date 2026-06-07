@@ -200,11 +200,11 @@ Docs are split by audience and lifetime — no single person writes everything.
 | 1 Phase 0 | Repo Bootstrap + CI | ✅ Done | `.gitignore` extended, MIT LICENSE, placeholder README, GitHub Actions CI (windows-latest, .NET 10), issue + PR templates, repo labels, branch-protection setup doc. PR #1 merged as `b46d931`. |
 | 1 Phases 1–5 | Core Pipeline + Safety Contract | ✅ Done | .NET 10 solution, read-only AFC client (`imobiledevice-net 1.3.17`), `/DCIM/` enumerate, EXIF date-org, journal-at-root (`get-and-see.db`) + `manifest` view, atomic copier + collision handling, pre-flight (27015/writable/space), `copy --dest/--dry-run`, per-file progress, `summary.txt`, **`ReadOnlyContractTests` (build-failing)**. **QA Stage 2 PASS** on real iPhone 12 Pro / iOS 26.5 / 27,478 files / 269 GB — read-only proof device-unchanged. Merged PR #9 (`8bc600f`); sign-off PR #13. One non-blocking major (#11) → Sprint 2. |
 | 2 | UX, Resumability & Pre-flight | ✅ Done | **Pillars:** #11/R2 **read-stall watchdog** (per-read timeout → clean resumable stop, exit 3) and **live Spectre dashboard** + #10 current/avg speed + ETA (graceful text fallback, `--no-dashboard`). Plus `status` subcommand, additive `runs`/`devices` journal tables (`user_version` migration), on-battery pre-flight warning (R14), Live-Photo detection + `summary.txt` `Live Photos: N pairs`. **Closed #11 + #10.** Independent 4-lens code review PASS; merged PR #16. **QA Stage 2 hardware acceptance deferred → issue #21 (pre-release gate).** |
-| 3 | Hardening, Packaging & Release | ⬜ Planned — plan written | **Plan:** `docs/sprint-3/plan.md`; **consilium:** `docs/brainstorm/sprint-3-consilium.md`. 3 parallel tracks: **A engine** (long-path R6, `--verify-hash` R12, #17 polish), **B release** (`release.yml` single-file EXE on tag, EXE smoke test, gitleaks CI, LICENSE), **C docs** (README, troubleshooting, manifest-schema, release notes). **Release gate: #21 QA Stage 2 must PASS before the v1.0 tag.** |
+| 3 | Hardening, Packaging & Release | 🔄 Dev done — PR open, gated | **Dev complete on `feature/sprint-3`** (one PR **"sprint-3: hardening, packaging & release"**, awaiting independent review §13.6 + QA #21). Delivered: **A engine** (long-path `\\?\` R6, opt-in `--verify-hash` R12, #17 polish incl. EUII rename, large-file), **B release** (`release.yml` single-file EXE on `v*` tag — **dormant**, EXE `--help` smoke + gitleaks in CI, LICENSE/metadata), **C docs** (README, troubleshooting, manifest-schema, release notes). **#26** folded in (win-x64 build trim — drops foreign native libs / silences Defender FP). 88 tests green; `ReadOnlyContractTests` intact. **Release gate: #21 QA Stage 2 must PASS before the v1.0 tag.** Handoff: `docs/sprint-3/done.md`. |
 
 ## 8. Current State
 
-**Repo:** https://github.com/denis-a-evdokimov/get-and-see (**private** on free tier, MIT). `main` at `4eafde7` — **Sprints 1 & 2 shipped.** (Git history was scrubbed 2026-06-07 to redact a real device UDID committed in a Sprint-1 smoke-test doc; all SHAs before that point changed. Backup mirror retained at `e:\scratch\gas-backup.git`.)
+**Repo:** https://github.com/denis-a-evdokimov/get-and-see (**private** on free tier, MIT). `main` at `69068ce` — **Sprints 1 & 2 shipped**; Sprint 3 dev is an **open PR** on `feature/sprint-3` (rebased on `main`). (Git history was scrubbed 2026-06-07 to redact a real device UDID committed in a Sprint-1 smoke-test doc; all SHAs before that point changed. Backup mirror retained at `e:\scratch\gas-backup.git`.)
 
 **Clones in play (all on `main` @ `4eafde7`, clean):**
 - Producer: `e:\src\get-and-see` — coordination hub (this chat)
@@ -220,21 +220,23 @@ Docs are split by audience and lifetime — no single person writes everything.
 - **Live dashboard (#10):** Spectre, current/avg MB/s + ETA, ≤4 Hz, no device I/O, graceful text fallback / `--no-dashboard`.
 - **`status --dest`** (no device); **`runs`/`devices` tables** feeding `summary.txt`; **on-battery warning** (R14); **Live-Photo detection** + `Live Photos: N pairs`.
 
-**What's next — Sprint 3 (planned, parallel; the v1 ship):**
-1. **Track A engine:** long-path `\\?\` (R6), opt-in `--verify-hash` (R12), #17 polish (incl. EUII fixture rename), large-file check.
-2. **Track B release:** `release.yml` (single-file EXE on `v*` tag → GitHub Release), published-EXE smoke test, gitleaks in CI, LICENSE/metadata.
-3. **Track C docs (Quill):** README (+ "What this does NOT do"), troubleshooting, manifest-schema, release notes.
-4. **Release gate:** **#21 QA Stage 2 hardware acceptance runs in parallel and MUST PASS before the `v1.0` tag is cut.** Plan: `docs/sprint-3/plan.md`.
+**Sprint 3 dev — COMPLETE (PR open, gated; the v1 ship):** all on `feature/sprint-3`, one PR
+**"sprint-3: hardening, packaging & release"** awaiting independent review (§13.6) + QA #21.
+1. **Track A engine:** long-path `\\?\` (R6); opt-in `--verify-hash` (R12) — SHA-256 in the same read pass → `sha256` manifest column, **read-only**, zero cost when absent; #17 polish (StatusCommandTests, scratch zero, sync `Read()` throws, EUII fixture rename); large-file multi-chunk test. **Closes #17.**
+2. **Track B release:** `release.yml` (single-file win-x64 EXE on `v*` tag → SHA-256 → GitHub Release) — **lands dormant**; published-EXE `--help` smoke + gitleaks secret-scan added to CI; LICENSE/metadata.
+3. **Track C docs (Quill):** README (+ "What this does NOT do", redacted dashboard), troubleshooting (exact strings), manifest-schema, release-notes template + v1.0 notes.
+4. **#26 win-x64 build trim** folded in: pins the build to win-x64 so the foreign (osx/linux/maccatalyst) `imobiledevice-net` native libs no longer land in `bin/` — silences the known Defender FP. No `.dylib`/`.so` under any `bin/`; win-x64 AFC natives intact.
+5. **Release gate:** **#21 QA Stage 2 hardware acceptance MUST PASS before the `v1.0` tag is cut.**
 
-**Open actions:** Execute Sprint 3 (dev on `feature/sprint-3`, QA #21 on `feature/qa-2`).
+**Open actions:** Independent code review of the Sprint 3 PR (§13.6) → merge → **after #21 PASS**, cut `v1.0.0` to arm `release.yml`. QA #21 continues on `feature/qa-2`. Local gates green: 88 tests, build 0/0, format clean, single-file EXE `--help` OK, gitleaks clean.
 
 **Blockers:** None.
 
-**Open issues:** #21 (QA Stage 2 hardware — release gate), #17 (Sprint 2 review polish — Track A).
+**Open issues:** #21 (QA Stage 2 hardware — release gate, open). #17 (Sprint 2 review polish) — **resolved in the Sprint 3 PR** (Closes #17 on merge).
 
 **Known gaps (accepted, not blockers):**
 - **Branch protection on `main` is NOT enforced.** The repo is private on free GitHub tier, which restricts both classic protection and rulesets to paid/public repos. Decision: stay private for now and enforce "no direct pushes to main" by discipline. Documented in `docs/sprint-1/branch-protection-setup.md`. Revisit if the repo goes public or upgrades.
-- **Aging native deps in `imobiledevice-net`** (OpenSSL 1.1 EOL, 2021 libusb). Local-USB-only, read-only, no network — minimal exposure. Tracked as R20 in the risk register.
+- **Aging native deps in `imobiledevice-net`** (OpenSSL 1.1 EOL, 2021 libusb). Local-USB-only, read-only, no network — minimal exposure. Tracked as R20 in the risk register. **Sprint 3 #26** pins the build to win-x64, so the package's unused osx/linux/maccatalyst native libs (which Windows Defender flags as a known false positive, `Exploit:MacOS/LimeRain.C!MTB`) no longer restore into `bin/`.
 - **"Apple Devices" Store-app usbmuxd service is lazy** (port 27015 closed until the app is launched once). Pre-flight check must detect + give actionable error. Tracked as R21.
 
 **Prerequisites for the dev machine:**

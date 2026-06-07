@@ -20,6 +20,6 @@ public sealed record RemoteFileInfo(long Size, DateTimeOffset? ModifiedAt, bool 
 /// Identity of the connected device, captured once at connect time for the run summary and manifest.
 /// </summary>
 /// <param name="Udid">Unique device identifier reported by usbmuxd.</param>
-/// <param name="Name">User-assigned device name (e.g. "Denis's iPhone"), or <see langword="null"/> if unavailable.</param>
+/// <param name="Name">User-assigned device name (e.g. "Sample iPhone"), or <see langword="null"/> if unavailable.</param>
 /// <param name="ProductType">Apple product type (e.g. "iPhone13,3"), or <see langword="null"/> if unavailable.</param>
 public sealed record DeviceInfo(string Udid, string? Name, string? ProductType);

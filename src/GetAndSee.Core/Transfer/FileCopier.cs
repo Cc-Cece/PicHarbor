@@ -1,8 +1,10 @@
 using System.Buffers;
+using System.Security.Cryptography;
 using GetAndSee.Core.Device;
 using GetAndSee.Core.Errors;
 using GetAndSee.Core.Journal;
 using GetAndSee.Core.Organize;
+using GetAndSee.Core.Util;
 
 namespace GetAndSee.Core.Transfer;
 
@@ -28,6 +30,12 @@ namespace GetAndSee.Core.Transfer;
 /// only ever moved (renamed) into place after they are complete and verified. On failure the staging
 /// file is removed and the journal records the error.
 /// </para>
+/// <para>
+/// Every destination path is normalized through <see cref="LongPath"/> so a deep destination plus a
+/// long original filename can exceed the legacy 260-character limit (R6). When <c>verifyHash</c> is
+/// set, each file's SHA-256 is computed in the same pass that streams it and recorded in the manifest
+/// (R12); the device read path is unchanged and remains read-only.
+/// </para>
 /// </remarks>
 public sealed class FileCopier
 {
@@ -41,6 +49,7 @@ public sealed class FileCopier
     private readonly TimeProvider clock;
     private readonly TimeSpan readTimeout;
     private readonly Action<long>? onBytesStreamed;
+    private readonly bool verifyHash;
     private readonly string destinationRoot;
     private readonly string stagingDirectory;
     private readonly HashSet<string> assignedDestPaths;
@@ -60,6 +69,12 @@ public sealed class FileCopier
     /// Optional cheap per-chunk callback invoked with the number of bytes just streamed, used to drive
     /// the live progress/speed readout. Must not block.
     /// </param>
+    /// <param name="verifyHash">
+    /// When <see langword="true"/>, compute each copied file's SHA-256 during the copy (single pass over
+    /// the stream buffer) and record it in the manifest's <c>sha256</c> column (R12 / <c>--verify-hash</c>).
+    /// Read-only and off by default; when <see langword="false"/> no hashing occurs and the copy is
+    /// byte-for-byte identical to the default path.
+    /// </param>
     public FileCopier(
         IPhoneClient client,
         TransferJournal journal,
@@ -68,17 +83,21 @@ public sealed class FileCopier
         string destinationRoot,
         TimeProvider? clock = null,
         TimeSpan? readTimeout = null,
-        Action<long>? onBytesStreamed = null)
+        Action<long>? onBytesStreamed = null,
+        bool verifyHash = false)
     {
         this.client = client;
         this.journal = journal;
         this.organizer = organizer;
         this.metadataExtractor = metadataExtractor;
-        this.destinationRoot = destinationRoot;
+        // Normalize to the extended-length form once so every derived destination path (staging, final,
+        // collision checks) can exceed MAX_PATH for free (R6).
+        this.destinationRoot = LongPath.ToExtended(destinationRoot);
         this.clock = clock ?? TimeProvider.System;
         this.readTimeout = readTimeout ?? TimeSpan.Zero;
         this.onBytesStreamed = onBytesStreamed;
-        stagingDirectory = Path.Combine(destinationRoot, StagingFolderName);
+        this.verifyHash = verifyHash;
+        stagingDirectory = Path.Combine(this.destinationRoot, StagingFolderName);
         assignedDestPaths = new HashSet<string>(journal.GetUsedDestPaths(), StringComparer.OrdinalIgnoreCase);
     }
 
@@ -122,7 +141,7 @@ public sealed class FileCopier
 
         try
         {
-            long written = await StreamToStagingAsync(file, stagingPath, cancellationToken).ConfigureAwait(false);
+            (long written, string? sha256) = await StreamToStagingAsync(file, stagingPath, cancellationToken).ConfigureAwait(false);
 
             if (written != file.Size)
             {
@@ -139,8 +158,8 @@ public sealed class FileCopier
             System.IO.Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
             File.Move(stagingPath, finalPath);
 
-            journal.MarkDone(file.Path, file.Size, relativeDest, metadata, clock.GetUtcNow());
-            return new CopyResult(CopyStatus.Copied, file, relativeDest, written, null);
+            journal.MarkDone(file.Path, file.Size, relativeDest, metadata, clock.GetUtcNow(), sha256);
+            return new CopyResult(CopyStatus.Copied, file, relativeDest, written, null, sha256);
         }
         catch (OperationCanceledException)
         {
@@ -164,7 +183,7 @@ public sealed class FileCopier
         }
     }
 
-    private async Task<long> StreamToStagingAsync(RemoteFile file, string stagingPath, CancellationToken cancellationToken)
+    private async Task<(long Bytes, string? Sha256)> StreamToStagingAsync(RemoteFile file, string stagingPath, CancellationToken cancellationToken)
     {
         Stream rawSource = await client.OpenReadAsync(file.Path, cancellationToken).ConfigureAwait(false);
 
@@ -182,14 +201,25 @@ public sealed class FileCopier
             BufferSize,
             FileOptions.Asynchronous);
 
-        long total = await CopyStreamAsync(source, partial, cancellationToken).ConfigureAwait(false);
+        // Opt-in SHA-256 (R12 / --verify-hash): hash the bytes as they already stream past — a single
+        // pass over the same buffer, with no extra device read or disk read, so it stays read-only.
+        // When the flag is off no hasher is created and the hot path is unchanged from Sprint 2.
+        using IncrementalHash? hasher = verifyHash
+            ? IncrementalHash.CreateHash(HashAlgorithmName.SHA256)
+            : null;
+
+        long total = await CopyStreamAsync(source, partial, hasher, cancellationToken).ConfigureAwait(false);
 
         await partial.FlushAsync(cancellationToken).ConfigureAwait(false);
         partial.Flush(flushToDisk: true); // fsync: bytes are durable before the rename (R1).
-        return total;
+
+        string? sha256 = hasher is not null
+            ? Convert.ToHexStringLower(hasher.GetHashAndReset())
+            : null;
+        return (total, sha256);
     }
 
-    private async Task<long> CopyStreamAsync(Stream source, Stream destination, CancellationToken cancellationToken)
+    private async Task<long> CopyStreamAsync(Stream source, Stream destination, IncrementalHash? hasher, CancellationToken cancellationToken)
     {
         byte[] buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
         long total = 0;
@@ -199,6 +229,7 @@ public sealed class FileCopier
             while ((read = await source.ReadAsync(buffer.AsMemory(0, BufferSize), cancellationToken).ConfigureAwait(false)) > 0)
             {
                 await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+                hasher?.AppendData(buffer.AsSpan(0, read));
                 total += read;
                 onBytesStreamed?.Invoke(read);
             }

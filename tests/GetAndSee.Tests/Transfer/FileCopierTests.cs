@@ -1,10 +1,13 @@
+using System.Security.Cryptography;
 using System.Text;
 using GetAndSee.Core.Device;
 using GetAndSee.Core.Errors;
 using GetAndSee.Core.Journal;
 using GetAndSee.Core.Organize;
 using GetAndSee.Core.Transfer;
+using GetAndSee.Core.Util;
 using GetAndSee.Tests.TestSupport;
+using Microsoft.Data.Sqlite;
 using NSubstitute;
 using Shouldly;
 using Xunit;
@@ -40,6 +43,21 @@ public sealed class FileCopierTests : IDisposable
 
     private FileCopier CreateCopier() =>
         new(client, journal, organizer, extractor, destination.Path);
+
+    private string? ReadManifestSha256(string relativeDest)
+    {
+        var builder = new SqliteConnectionStringBuilder
+        {
+            DataSource = Path.Combine(destination.Path, TransferJournal.DatabaseFileName),
+            Mode = SqliteOpenMode.ReadOnly,
+        };
+        using var connection = new SqliteConnection(builder.ConnectionString);
+        connection.Open();
+        using SqliteCommand command = connection.CreateCommand();
+        command.CommandText = "SELECT sha256 FROM manifest WHERE dest_path = $dest;";
+        command.Parameters.AddWithValue("$dest", relativeDest);
+        return command.ExecuteScalar() as string;
+    }
 
     [Fact]
     public async Task Copies_file_into_date_folder_and_marks_done()
@@ -131,5 +149,110 @@ public sealed class FileCopierTests : IDisposable
         journal.GetState(file.Path, file.Size).ShouldBe(FileState.InProgress);
         Directory.GetFiles(destination.Path, "*.partial", SearchOption.AllDirectories).ShouldBeEmpty();
         Directory.Exists(Path.Combine(destination.Path, "2024")).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Copies_into_a_destination_path_longer_than_260_chars()
+    {
+        // R6: a deep destination combined with a long original filename exceeds the legacy MAX_PATH
+        // (260). Without the \\?\ long-path prefix this throws PathTooLongException and the copy fails.
+        string longStem = new('L', 200);
+        byte[] content = Encoding.UTF8.GetBytes("long path media bytes");
+        var file = new RemoteFile($"/DCIM/100APPLE/{longStem}.HEIC", content.Length, null);
+        SetupRead(file.Path, content);
+        journal.EnsurePending(file);
+
+        string relative = Path.Combine("2024", "2024-08", $"{longStem}.HEIC");
+        string fullPath = Path.Combine(destination.Path, relative);
+        fullPath.Length.ShouldBeGreaterThan(260, "the test must exercise a path beyond MAX_PATH");
+
+        CopyResult result = await CreateCopier().CopyAsync(file, Token);
+
+        result.Status.ShouldBe(CopyStatus.Copied);
+        result.RelativeDestPath.ShouldBe(relative);
+        // Read back through the extended-length prefix — the only reliable way to touch a > 260 path.
+        string extended = LongPath.ToExtended(fullPath);
+        File.Exists(extended).ShouldBeTrue();
+        File.ReadAllBytes(extended).ShouldBe(content);
+
+        // Remove the > 260 file via the extended path so TempDirectory (non-extended) cleanup succeeds.
+        File.Delete(extended);
+    }
+
+    [Fact]
+    public async Task Verify_hash_records_the_sha256_into_the_manifest()
+    {
+        byte[] content = Encoding.UTF8.GetBytes("verify me byte for byte");
+        var file = new RemoteFile("/DCIM/100APPLE/IMG_HASH.HEIC", content.Length, null);
+        SetupRead(file.Path, content);
+        journal.EnsurePending(file);
+        string expectedSha = Convert.ToHexStringLower(SHA256.HashData(content));
+
+        var copier = new FileCopier(
+            client, journal, organizer, extractor, destination.Path, verifyHash: true);
+        CopyResult result = await copier.CopyAsync(file, Token);
+
+        result.Status.ShouldBe(CopyStatus.Copied);
+        result.Sha256.ShouldBe(expectedSha);
+        ReadManifestSha256(result.RelativeDestPath!).ShouldBe(expectedSha);
+    }
+
+    [Fact]
+    public async Task Verify_hash_reflects_a_single_changed_byte()
+    {
+        // During-copy hashing records the digest of the bytes actually received. A changed/corrupted
+        // byte yields a different digest from the known-good one — how a manifest SHA-256 surfaces it.
+        byte[] good = Encoding.UTF8.GetBytes("the original untampered content!");
+        byte[] tampered = (byte[])good.Clone();
+        tampered[5] ^= 0xFF;
+        string goodSha = Convert.ToHexStringLower(SHA256.HashData(good));
+        var file = new RemoteFile("/DCIM/100APPLE/IMG_TAMPER.HEIC", tampered.Length, null);
+        SetupRead(file.Path, tampered);
+        journal.EnsurePending(file);
+
+        var copier = new FileCopier(
+            client, journal, organizer, extractor, destination.Path, verifyHash: true);
+        CopyResult result = await copier.CopyAsync(file, Token);
+
+        result.Sha256.ShouldNotBe(goodSha);
+        result.Sha256.ShouldBe(Convert.ToHexStringLower(SHA256.HashData(tampered)));
+    }
+
+    [Fact]
+    public async Task Default_copy_records_no_hash()
+    {
+        // Zero cost when the flag is absent: no hash is computed or stored, matching Sprint 2 behavior.
+        byte[] content = Encoding.UTF8.GetBytes("no hash on the default path");
+        var file = new RemoteFile("/DCIM/100APPLE/IMG_NOHASH.HEIC", content.Length, null);
+        SetupRead(file.Path, content);
+        journal.EnsurePending(file);
+
+        CopyResult result = await CreateCopier().CopyAsync(file, Token);
+
+        result.Status.ShouldBe(CopyStatus.Copied);
+        result.Sha256.ShouldBeNull();
+        ReadManifestSha256(result.RelativeDestPath!).ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Copies_a_multi_chunk_file_verifying_size_and_hash()
+    {
+        // Larger than the 1 MiB copy buffer so the streaming loop runs many iterations — the same code
+        // path a multi-GB ProRes/4K file exercises (the full multi-GB run is QA #21 on hardware).
+        var content = new byte[(5 * 1024 * 1024) + 12_345];
+        new Random(1234).NextBytes(content);
+        var file = new RemoteFile("/DCIM/100APPLE/IMG_BIG.MOV", content.Length, null);
+        SetupRead(file.Path, content);
+        journal.EnsurePending(file);
+        string expectedSha = Convert.ToHexStringLower(SHA256.HashData(content));
+
+        var copier = new FileCopier(
+            client, journal, organizer, extractor, destination.Path, verifyHash: true);
+        CopyResult result = await copier.CopyAsync(file, Token);
+
+        result.Status.ShouldBe(CopyStatus.Copied);
+        result.BytesCopied.ShouldBe(content.Length);
+        result.Sha256.ShouldBe(expectedSha);
+        File.ReadAllBytes(Path.Combine(destination.Path, result.RelativeDestPath!)).ShouldBe(content);
     }
 }

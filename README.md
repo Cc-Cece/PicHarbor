@@ -1,12 +1,184 @@
 # get-and-see
 
-A single-file C# / .NET 10 CLI that copies the full media archive (photos, videos, Live Photos) from an iPhone to a Windows PC over USB. It uses Apple's native AFC protocol (the same protocol Finder, iTunes, and iMazing rely on) and is **read-only by architectural design** — no write or delete code paths against the device exist in the codebase.
+A single-file, read-only Windows CLI that copies your **entire iPhone camera roll** (photos, videos,
+Live Photos, screenshots, screen recordings) to a PC over USB — built for a worst-case ~400 GB library:
+resumable, atomic, verifiable, and organized by date.
 
-## Commands (preview — full README in Sprint 3)
+It talks to the iPhone with Apple's native **AFC** protocol (the same family Finder, iTunes, and iMazing
+use) — deliberately **not** Windows MTP / Explorer, which drops connections and silently produces 0-byte
+files at scale.
 
-- `get-and-see copy --dest <folder>` — copy all `/DCIM/` media into date-organized folders. A **live dashboard** (current/avg speed, ETA, counts) is shown by default; it falls back to plain per-file text when output is piped/redirected or when `--no-dashboard` is given. `--dry-run` plans without copying. `--read-timeout <seconds>` (default 30) stops a stalled run cleanly so it can be resumed.
-- `get-and-see status --dest <folder>` — print archive totals and the last-run summary from `get-and-see.db`, with **no device attached**.
+> ## 🔒 This tool never writes to or deletes from your iPhone.
+> The device is read-only **by architectural design** — there is no write, delete, rename, or move code
+> path against the iPhone anywhere in the codebase, and a build-time test ([`ReadOnlyContractTests`](tests/GetAndSee.SafetyTests/ReadOnlyContractTests.cs))
+> fails the build if anyone ever adds one. See [Safety](#safety).
 
-Re-running `copy` resumes: completed files are skipped, and an interrupted or stalled run continues from where it stopped.
+## What you get
 
-Documentation is in [`docs/`](docs/). Full README written in Sprint 3 by Quill.
+- **Every file** in `/DCIM/` — copied faithfully, with all original EXIF metadata preserved.
+- **Organized by date**: `YYYY/YYYY-MM/filename.ext` (e.g. `2024/2024-08/IMG_4821.HEIC`); files with no
+  trustworthy capture date go to `unsorted/`.
+- **A SQLite manifest** (`get-and-see.db`) at the destination root — a queryable index of everything
+  copied (date, GPS, camera, size, paths). See [manifest schema](docs/user/manifest-schema.md).
+- **A human-readable `summary.txt`** regenerated after every run.
+- **Resume**: re-run the same command and it skips what's done and continues where it stopped.
+
+## What this tool does **NOT** do
+
+`get-and-see` copies the iPhone's raw camera roll (the `/DCIM/` directory). It does **not** preserve
+information that lives inside the Apple Photos app:
+
+- Albums and Smart Albums
+- User-added keywords or descriptions
+- Favorites / hearts
+- People and Face tags
+- iCloud Shared Album membership
+- Memories and auto-curated collections
+
+That information lives in Apple's internal photo database, which is not accessible via the read-only
+file protocol this tool uses. To export those, a different tool that accesses the Photos library
+directly would be needed (different scope, different safety profile).
+
+What you get is **complete and faithful at the raw-file level**: every photo, video, Live Photo, screen
+recording, and screenshot in the camera roll, with original EXIF preserved, organized by date — plus the
+manifest and summary.
+
+## Prerequisites
+
+1. **Windows** (x64).
+2. **Apple device USB drivers** — installed by **either** iTunes for Windows **or** the **"Apple Devices"**
+   app from the Microsoft Store. One of these must be present (it provides the `usbmuxd` service).
+3. **iPhone connected via USB, unlocked**, with **"Trust This Computer"** tapped at least once.
+
+> If you use the Microsoft Store **"Apple Devices"** app, **open it once** after a reboot — its background
+> service is lazy and stays off until the app has been launched, which otherwise looks exactly like
+> "no iPhone found". See [troubleshooting](docs/user/troubleshooting.md).
+
+## Install
+
+**Option A — download the release (recommended).** Grab `get-and-see.exe` from the
+[Releases](../../releases) page. It is a single self-contained file (~84 MB) — no install, no admin
+rights, no .NET runtime needed. Verify the download against the published checksum:
+
+```pwsh
+(Get-FileHash .\get-and-see.exe -Algorithm SHA256).Hash
+# compare to get-and-see.exe.sha256 from the release
+```
+
+**Option B — build from source.** Requires the .NET 10 SDK:
+
+```pwsh
+git clone https://github.com/denis-a-evdokimov/get-and-see.git
+cd get-and-see
+dotnet publish src/GetAndSee.Cli -c Release -r win-x64 --self-contained true `
+    -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+# output: src/GetAndSee.Cli/bin/Release/net10.0/win-x64/publish/get-and-see.exe
+```
+
+## Usage
+
+```pwsh
+# Copy everything to D:\Photos (organized into YYYY/YYYY-MM folders)
+get-and-see copy --dest "D:\Photos"
+
+# Plan only — enumerate and show what WOULD be copied; opens no read streams, writes nothing
+get-and-see copy --dest "D:\Photos" --dry-run
+
+# Also record a SHA-256 of every file in the manifest (slower; for the cautious)
+get-and-see copy --dest "D:\Photos" --verify-hash
+
+# Show archive totals and the last-run summary — no iPhone needed
+get-and-see status --dest "D:\Photos"
+
+get-and-see --help
+```
+
+### `copy` options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--dest, -d` | *(required)* | Destination root folder for the date-organized archive. |
+| `--dry-run` | off | Enumerate and plan only — no read streams opened, nothing written. |
+| `--verify-hash` | off | Also compute each file's SHA-256 while it copies and record it in the manifest. Read-only; slower. |
+| `--read-timeout <seconds>` | `30` | Seconds with no bytes from the device before a read is treated as a stall and the run stops cleanly (resumable). `0` disables the watchdog. |
+| `--no-dashboard` | off | Disable the live dashboard; use plain per-file text output (also auto-used when output is redirected). |
+
+A multi-hour transfer shows a **live dashboard** (illustrative, redacted):
+
+```text
+╭───────────────────────── get-and-see — copying ─────────────────────────╮
+│ Overall  [######################------] 78.5%   210.4 GB / 269.0 GB   (21,402/27,478 files) │
+│ Current  [###############-------------] IMG_4821.HEIC                                       │
+│ Speed    28.9 MB/s (avg 30.1)   ETA 33m 12s                                                 │
+│ Files    21,380 done · 18 skipped · 0 failed                                                │
+╰────────────────────────────────────────────────────────────────────────╯
+```
+
+> Throughput is bounded by the iPhone's USB-2.0 Lightning link (~30 MB/s on an iPhone 12 Pro), not by
+> the tool. A full ~270 GB library takes a few hours; leave it running (and disable PC sleep).
+
+After every run, `summary.txt` at the destination looks like (illustrative, redacted):
+
+```text
+get-and-see archive at D:\Photos
+Last updated: 2026-06-07 14:32:11 UTC
+
+Total: 27,478 files (269.0 GB)
+  Photos:      19,233  (HEIC: 18,400 · JPG: 833)
+  Videos:      6,210  (MOV: 6,210)
+  Live Photos: 1,204 pairs
+  Screenshots: 1,800
+  Other:       35
+
+Date range: 2014-08-03 to 2026-06-05
+Devices: Sample iPhone (iPhone13,3)
+Runs: 3 (first run 2026-06-01, latest 2026-06-07)
+
+Last run: 21,402 copied · 6,072 skipped (already done) · 0 failed · 2h 41m
+```
+
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success — all files copied (and verified) or already done. |
+| `1` | Completed, but some files failed — re-run to retry. |
+| `2` | Pre-flight/device error (no device, not trusted, driver service off, disk full). |
+| `3` | Device stalled (asleep/disconnected) — progress saved; reconnect and re-run to resume. |
+| `130` | Interrupted (Ctrl+C) — progress saved; re-run to resume. |
+
+## How it works (integrity)
+
+Each file is streamed to a staging `.partial`, flushed to disk (`fsync`), **size-verified against the
+AFC-reported size**, and only then **atomically renamed** into place — so a yanked cable can never leave
+a half-written final file. Every file's state is tracked in the SQLite journal, making the whole transfer
+resumable. Filename collisions across DCIM subfolders are disambiguated (`_2`, `_3`, …) — never
+overwritten. With `--verify-hash`, a SHA-256 is computed in the same streaming pass and stored in the
+manifest. Long destination paths (beyond the legacy 260-character limit) are handled transparently.
+
+## Safety
+
+- The iPhone is **read-only by design** — the AFC client binds only read operations (`ListDirectory`,
+  `GetFileInfo`, `OpenRead`); no write/delete/rename/mkdir symbol exists in the code.
+- A build-failing test ([`ReadOnlyContractTests`](tests/GetAndSee.SafetyTests/ReadOnlyContractTests.cs))
+  scans the compiled assembly and fails the build if any device-mutating symbol is ever referenced.
+- There is **no** `--delete-after-copy`, `--move`, or `--cleanup`. Adding one is a design conversation,
+  not a code change.
+- **No network, no telemetry, no cloud.** Local USB only.
+- Your photos and the manifest are written **only** to the destination folder you choose.
+
+## Troubleshooting
+
+See **[docs/user/troubleshooting.md](docs/user/troubleshooting.md)** for the common failure modes
+("no iPhone detected", "Trust This Computer", the Apple Devices service, disk-full, stalls, long paths)
+with the exact messages the tool prints and how to fix each.
+
+## Documentation
+
+- [Troubleshooting](docs/user/troubleshooting.md)
+- [Manifest / database schema](docs/user/manifest-schema.md) — query your archive with any `sqlite3` tool.
+- [Release notes](docs/release-notes/) · [release-notes template](docs/release-notes-template.md)
+
+## License
+
+[MIT](LICENSE).

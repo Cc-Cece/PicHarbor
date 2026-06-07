@@ -5,6 +5,14 @@
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!--
+      Windows-only test host: pin to win-x64 so this RUNNABLE project copies only the win-x64 native
+      assets to bin/ (no osx/linux/maccatalyst dylibs → no Defender FP, issue #26). The plural pin in
+      Directory.Build.props constrains restore; the singular RID here prunes the runnable output, the
+      same way GetAndSee.Cli does. ReadOnlyContractTests finds Core.dll via Assembly.Location (its own
+      output dir), so the win-x64 path change is harmless. CI runs tests on windows-latest, so safe.
+    -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
   </PropertyGroup>
 
   <ItemGroup>
