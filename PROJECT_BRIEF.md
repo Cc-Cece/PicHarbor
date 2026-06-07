@@ -198,42 +198,38 @@ Docs are split by audience and lifetime — no single person writes everything.
 |--------|------|--------|-------|
 | 0 | Bootstrap | ✅ Done | Brainstorm S1, S2, S3, PROJECT_BRIEF (this doc), risk register, Sprint 1 plan |
 | 1 Phase 0 | Repo Bootstrap + CI | ✅ Done | `.gitignore` extended, MIT LICENSE, placeholder README, GitHub Actions CI (windows-latest, .NET 10), issue + PR templates, repo labels, branch-protection setup doc. PR #1 merged as `b46d931`. |
-| 1 Phases 1–5 | Core Pipeline + Safety Contract | ✅ Done (PR open) | .NET 10 solution, read-only AFC client (`imobiledevice-net 1.3.17`), `/DCIM/` enumerate, EXIF date-org, journal-at-root (`get-and-see.db`) + `manifest` view, atomic copier + collision handling, pre-flight (27015/writable/space), `copy --dest/--dry-run`, per-file progress, `summary.txt`, **`ReadOnlyContractTests` (build-failing)**. 36 tests green locally. On branch `feature/sprint-1`. |
-| 2 | UX, Resumability & Pre-flight | ⬜ Planned | Live dashboard, pre-flight checks, summary, Ctrl+C handling, `status` subcommand, **`devices` + `runs` tables**, **Live Photo pair detection** |
+| 1 Phases 1–5 | Core Pipeline + Safety Contract | ✅ Done | .NET 10 solution, read-only AFC client (`imobiledevice-net 1.3.17`), `/DCIM/` enumerate, EXIF date-org, journal-at-root (`get-and-see.db`) + `manifest` view, atomic copier + collision handling, pre-flight (27015/writable/space), `copy --dest/--dry-run`, per-file progress, `summary.txt`, **`ReadOnlyContractTests` (build-failing)**. **QA Stage 2 PASS** on real iPhone 12 Pro / iOS 26.5 / 27,478 files / 269 GB — read-only proof device-unchanged. Merged PR #9 (`8bc600f`); sign-off PR #13. One non-blocking major (#11) → Sprint 2. |
+| 2 | UX, Resumability & Pre-flight | ⬜ Planned (next) | **#11 USB-unplug read timeout/watchdog (Task 1)**, live dashboard (+ #10 live current-speed), pre-flight polish, `status` subcommand, **`devices` + `runs` tables**, **Live Photo pair detection**, R2 stall-detect/reconnect |
 | 3 | Hardening, Packaging & Release | ⬜ Planned | Long-path, large-file stress tests, `--verify-hash`, **release workflow (single-file EXE attached to GitHub Release on tag push)**, **full user docs (Quill): `README.md`, `docs/user/troubleshooting.md`, `docs/user/manifest-schema.md`, release-notes template**, LICENSE polish |
 
 ## 8. Current State
 
-**Repo:** https://github.com/denis-a-evdokimov/get-and-see (**private** on free tier, MIT). `main` at the latest merge.
+**Repo:** https://github.com/denis-a-evdokimov/get-and-see (**private** on free tier, MIT). `main` at `306e991` — **Sprint 1 shipped**.
 
 **Clones in play:**
 - Producer: `e:\src\get-and-see` on `main` — coordination hub (this chat)
-- DevOps: `e:\src\get-and-see-devops` on `feature/sprint-1-devops` — Phase 0 done, branch retained for reference
-- Dev: `e:\src\get-and-see-dev` on `feature/sprint-1` — **Phases 1–5 complete; PR open for producer review (do not self-merge)**
+- Dev: `e:\src\get-and-see-dev` — Sprint 1 merged; re-sync to `main` before Sprint 2
+- QA: `e:\src\get-and-see-qa` — Stage 2 sign-off merged
+- DevOps: `e:\src\get-and-see-devops` — idle (used for Phase 0)
 
-**What works:**
-- CI pipeline (now does real work once the `.sln` is present): restore + format + build + test on `windows-latest`
-- Issue + PR templates render; 25 repo labels seeded
-- **AFC library decided + smoke-tested:** `imobiledevice-net 1.3.17` reads `/DCIM/` on iPhone 12 Pro / iOS 26.5 / .NET 10
-- **Sprint 1 core pipeline (built, unit-tested, not yet device-verified):**
-  - Read-only `IPhoneClient` over AFC; `ReadOnlyContractTests` fails the build on any device-write symbol or write-mode `afc_file_open`
-  - `/DCIM/` enumeration → EXIF date organization (`YYYY/YYYY-MM`, `unsorted/` fallback)
-  - Atomic copier (stage → fsync → size-verify → move), filename collision `_2/_3`, journal-aware resume
-  - `get-and-see.db` (visible at root) + `manifest` view; `summary.txt` writer
-  - Pre-flight: 27015 driver probe (R21), writable dest (R15), free-space (R4)
-  - `copy --dest/-d --dry-run`, per-file progress, end-of-run summary, non-zero exit on failure, Ctrl+C → resumable
-  - **36 tests pass** locally (34 unit + 2 safety); build 0/0 warnings; `dotnet format` clean
+**What works (Sprint 1 shipped + QA-verified on real hardware):**
+- CI does real work: restore + `dotnet format` + build + 36 tests on `windows-latest`
+- Read-only `IPhoneClient` over AFC; `ReadOnlyContractTests` (Mono.Cecil IL scan) fails the build on any device-write symbol or write-mode `afc_file_open`. **Verified device-unchanged on a real 269 GB run (QA B-9).**
+- `/DCIM/` enumeration → EXIF date organization (`YYYY/YYYY-MM`, `unsorted/` fallback)
+- Atomic copier (stage → fsync → size-verify → move), collision `_2/_3`, journal-aware resume (QA-verified across unplug + Ctrl+C)
+- `get-and-see.db` (visible at root) + `manifest` view; `summary.txt` writer
+- Pre-flight: 27015 driver probe (R21), writable dest (R15), free-space (R4) — all QA-verified
+- `copy --dest/-d --dry-run`, per-file progress, end-of-run summary, non-zero exit on failure, Ctrl+C → resumable
 
-**What's next:**
-1. **Producer (Remy):** review + merge the `feature/sprint-1` PR once CI is green.
-2. **QA (Ivy):** on-device end-to-end verification with a real iPhone (live `copy`, `manifest` count, resume, Ctrl+C) — the acceptance criteria that need hardware. File any bugs as GitHub Issues.
-3. **Sprint 2:** live dashboard, `status` subcommand, `devices`/`runs` tables, Live-Photo pair detection.
+**What's next — Sprint 2 (Remy to plan):**
+1. **#11 (Task 1):** USB-unplug read timeout/watchdog — the one non-blocking major from Sprint 1 QA. Overlaps R2 stall-detect.
+2. Live dashboard (Spectre.Console) incl. **#10 live current-speed**; `status` subcommand; `devices`/`runs` tables; Live-Photo pair detection.
 
-**Open actions:**
-1. Merge `feature/sprint-1` (Remy).
-2. QA on-device pass (Ivy).
+**Open actions:** Plan Sprint 2 (`docs/sprint-2/plan.md`).
 
 **Blockers:** None.
+
+**Open issues:** #10 (live speed, enhancement), #11 (USB-unplug hang, major — Sprint 2 Task 1).
 
 **Known gaps (accepted, not blockers):**
 - **Branch protection on `main` is NOT enforced.** The repo is private on free GitHub tier, which restricts both classic protection and rulesets to paid/public repos. Decision: stay private for now and enforce "no direct pushes to main" by discipline. Documented in `docs/sprint-1/branch-protection-setup.md`. Revisit if the repo goes public or upgrades.
