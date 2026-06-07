@@ -12,10 +12,10 @@
 | A engine | #3 #17 polish (StatusCommandTests, scratch zero, sync `Read()`, EUII rename) | ✅ Done |
 | A engine | #4 Large-file correctness (multi-chunk unit; full GB on #21) | ✅ Done (unit) |
 | A engine | #14 XML doc comments on new public API | ✅ Done |
-| B release | #5 `release.yml` (tag `v*` → single-file EXE → Release) | ⬜ |
-| B release | #6 Published-EXE `--help` smoke in CI | ⬜ |
-| B release | #7 gitleaks secret-scan in CI | ⬜ |
-| B release | #8 LICENSE polish + public-repo metadata | ⬜ |
+| B release | #5 `release.yml` (tag `v*` → single-file EXE → Release) | ✅ Done (dormant) |
+| B release | #6 Published-EXE `--help` smoke in CI | ✅ Done |
+| B release | #7 gitleaks secret-scan in CI | ✅ Done |
+| B release | #8 LICENSE polish + public-repo metadata | ✅ Done |
 | C docs | #9 README (+ "What this does NOT do", redacted screenshot) | ⬜ |
 | C docs | #10 troubleshooting (real error strings) | ⬜ |
 | C docs | #11 manifest-schema | ⬜ |
@@ -59,7 +59,33 @@ device-write symbol. `dotnet format --verify-no-changes` ✅.
 ## Bugs / Issues Found
 - None so far.
 
+### Phase 2 — Track B release & CI (Dash + Nova) ✅
+Commit: `sprint-3: release pipeline, EXE smoke + gitleaks CI gates, metadata`
+
+- **#5 `release.yml`:** triggers on `v*` tag → `dotnet publish` single-file self-contained **win-x64**
+  with `PublishSingleFile=true` + `IncludeNativeLibrariesForSelfExtract=true` (stamps `Version` from the
+  tag) → `--help` smoke on the published EXE → SHA-256 (sha256sum-compatible) → `gh release create`
+  attaching `get-and-see.exe` + `.sha256`. `permissions: contents: write`, `GITHUB_TOKEN` only. **Lands
+  dormant** — no tag is cut here; the tag waits on QA #21 PASS.
+- **#6 Published-EXE smoke (`ci.yml` `publish-smoke` job):** every PR builds the same single-file EXE and
+  runs `--help` on a clean `windows-latest` runner — proves the native AFC DLLs unpack and the EXE runs
+  before any release is trusted. Guarded by `Test-Path *.sln`.
+- **#7 gitleaks (`ci.yml` `secret-scan` job, ubuntu-latest):** pinned official gitleaks **8.18.4** binary
+  (no third-party action / telemetry / license logic), `detect --source . --no-git --redact --exit-code 1`.
+  Pre-validated locally → **no leaks found**.
+- **#8 LICENSE + metadata:** LICENSE confirmed MIT © 2026 owner (kept). Added public-repo EXE file
+  metadata to `Directory.Build.props` (Product/Company/Description/Copyright/License/RepositoryUrl/Version).
+
+**Validated locally:** single-file publish → 84 MB EXE, `--help` exit 0 (native unpack works). Both
+workflow YAMLs structurally checked; release-notes PowerShell dry-run OK. Build green; 88 tests green.
+
 ## Decisions / Notes
+- gitleaks runs as a **pinned binary** (not the `gitleaks/gitleaks-action`) to avoid the action's
+  org-license/telemetry behavior and keep the supply chain pinned + under our control. Scans the working
+  tree (`--no-git`) for determinism (history was already scrubbed in a separate, audited procedure).
+- The `imobiledevice-net` package bundles **unused osx-x64** native restore tools (`idevicerestore`,
+  `libirecovery`) that some Windows AV flags as PUA. They live only in `bin/` (gitignored, never
+  committed) and are **not** in the win-x64 single-file EXE we ship — observation only, R20-adjacent.
 - Long-path mechanism is the `\\?\` prefix in code (not `<LongPathsEnabled>` manifest) because the prefix
   works on any runner regardless of registry/OS config — deterministic for CI.
 - `--verify-hash` ships **during-copy** hashing only this sprint; **verify-only re-check** (compare an

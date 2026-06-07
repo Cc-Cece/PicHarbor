@@ -19,4 +19,20 @@
     <NoWarn>$(NoWarn);NETSDK1206</NoWarn>
   </PropertyGroup>
 
+  <!--
+    Public-repo / v1 EXE file metadata (Sprint 3 Task 8). Stamped into the published binary's file
+    properties. The canonical copyright holder is in LICENSE (MIT); the shipped binary carries a
+    neutral product attribution. Release builds override Version from the git tag (release.yml).
+  -->
+  <PropertyGroup>
+    <Product>get-and-see</Product>
+    <Company>get-and-see</Company>
+    <Authors>get-and-see contributors</Authors>
+    <Copyright>Copyright (c) 2026 get-and-see contributors</Copyright>
+    <Description>Read-only iPhone → PC media copier over USB (Apple File Conduit / AFC).</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/denis-a-evdokimov/get-and-see</RepositoryUrl>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+
 </Project>

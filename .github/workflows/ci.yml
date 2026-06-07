@@ -73,3 +73,55 @@ jobs:
           path: '**/TestResults/*.trx'
           if-no-files-found: ignore
           retention-days: 14
+
+  publish-smoke:
+    name: published EXE smoke (--help, windows-latest)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # Build the SAME single-file artifact the release pipeline ships and prove it runs before any
+      # release is trusted: the native AFC DLLs must self-extract (IncludeNativeLibrariesForSelfExtract)
+      # and `--help` must exit 0 on a clean runner. Guarded so the Phase 0 bootstrap PR stays green.
+      - name: Publish single-file and run --help
+        shell: pwsh
+        run: |
+          if (Test-Path *.sln) {
+            dotnet publish src/GetAndSee.Cli -c Release -r win-x64 --self-contained true `
+              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+            $exe = "src/GetAndSee.Cli/bin/Release/net10.0/win-x64/publish/get-and-see.exe"
+            if (-not (Test-Path $exe)) { throw "published EXE not found at $exe" }
+            & $exe --help
+            if ($LASTEXITCODE -ne 0) { throw "published EXE --help failed with exit $LASTEXITCODE" }
+            Write-Host "Published single-file EXE ran --help successfully."
+          } else {
+            Write-Host "No .sln found - skipping publish smoke (Phase 0 bootstrap PR)."
+          }
+
+  secret-scan:
+    name: gitleaks secret scan (pre-public gate)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Pre-public security gate: fail the build on any committed secret (keys, tokens, .pem/.pfx,
+      # connection strings). Complements the code-review skill's secrets lens (PROJECT_BRIEF §13.6).
+      # We download a pinned official gitleaks binary (no third-party action, no telemetry/license
+      # logic) and scan the working tree; --redact ensures a finding is never printed in the log.
+      - name: Run gitleaks
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=8.18.4
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks detect --source . --no-git --redact --verbose --exit-code 1

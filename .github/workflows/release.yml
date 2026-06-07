@@ -1,0 +1,88 @@
+name: Release
+
+# Build the single-file EXE and publish a GitHub Release when a version tag is pushed.
+#
+# DORMANT until the first `v*` tag is cut. Per docs/sprint-3/plan.md the tag is the deliberate
+# LAST step and is NOT cut until QA Stage 2 (#21) signs off PASS — no release on an unverified engine.
+#
+# GITHUB_TOKEN (github.token) is the only secret required (PROJECT_BRIEF §11.4).
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write # required to create the GitHub Release and upload assets
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: build single-file EXE + publish release (win-x64)
+    runs-on: windows-latest
+
+    env:
+      PUBLISH_EXE: src/GetAndSee.Cli/bin/Release/net10.0/win-x64/publish/get-and-see.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish single-file self-contained win-x64
+        shell: pwsh
+        run: |
+          # Strip the leading "v" so the EXE's file version reflects the tag (v1.0.0 -> 1.0.0).
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          dotnet publish src/GetAndSee.Cli -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:Version=$version
+          if (-not (Test-Path $env:PUBLISH_EXE)) { throw "published EXE not found at $env:PUBLISH_EXE" }
+
+      - name: Smoke test the published EXE (--help must run)
+        shell: pwsh
+        run: |
+          # Proves the native AFC DLLs self-extract and the single file actually runs before we
+          # trust it in a release (the RID/native-unpack lesson from Sprint 1).
+          & $env:PUBLISH_EXE --help
+          if ($LASTEXITCODE -ne 0) { throw "published EXE --help failed with exit $LASTEXITCODE" }
+
+      - name: Compute SHA-256
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash $env:PUBLISH_EXE -Algorithm SHA256).Hash.ToLower()
+          # sha256sum-compatible line: "<hash>  get-and-see.exe".
+          "$hash  get-and-see.exe" | Out-File -FilePath "$env:PUBLISH_EXE.sha256" -Encoding ascii
+          "SHA256=$hash" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "SHA-256: $hash"
+
+      - name: Create GitHub Release and attach assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          # Build the notes as a string array (one line per element) to avoid PowerShell here-string
+          # / backtick fragility inside a YAML block. Plain markdown, no code-span backticks.
+          $lines = @(
+            "Single-file, self-contained Windows (win-x64) build of get-and-see $tag.",
+            "",
+            "**Read-only by design** — this tool never writes to or deletes from your iPhone.",
+            "",
+            "SHA-256 (get-and-see.exe): $env:SHA256",
+            "",
+            "Verify your download (PowerShell): (Get-FileHash .\get-and-see.exe -Algorithm SHA256).Hash",
+            "",
+            "See docs/release-notes/ for the full changelog and known limitations."
+          )
+          Set-Content -Path notes.md -Value $lines -Encoding utf8
+
+          gh release create "$tag" `
+            "$env:PUBLISH_EXE" "$env:PUBLISH_EXE.sha256" `
+            --title "$tag" --notes-file notes.md --verify-tag
