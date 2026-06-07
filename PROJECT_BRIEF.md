@@ -412,6 +412,10 @@ Label infra issues `infra`. CI workflow failures that block merging are `severit
 
 Add to `docs/ideas-backlog.md` first (cheap, no triage cost). Promote to a GitHub Issue (`enhancement` label) only when it's accepted into a sprint plan.
 
+### 13.6 Code Review Gate
+
+Every PR that touches application source passes an **independent code-review gate** (the `code-review` skill) before QA and before merge. The Producer runs it with reviewers independent of the authors, across 4 gate lenses (Security, Correctness, Performance, Maintainability) + 1 advisory lens (Modernization → ideas-backlog). The per-project profile lives at `docs/review/review-profile.md` and is updated after each review so accepted trade-offs aren't re-flagged. Code review (structural) does not replace QA (behavioral) — engine/safety sprints get both. Reports land in `docs/review/<change-id>-review.md`.
+
 ## 14. Multi-Repo Setup
 
 Code is hosted on **GitHub**. Each team works in their own separate clone of the repo. No worktrees. Everyone works on their own branch, pushes to origin, opens PRs.
