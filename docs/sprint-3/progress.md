@@ -16,10 +16,10 @@
 | B release | #6 Published-EXE `--help` smoke in CI | ✅ Done |
 | B release | #7 gitleaks secret-scan in CI | ✅ Done |
 | B release | #8 LICENSE polish + public-repo metadata | ✅ Done |
-| C docs | #9 README (+ "What this does NOT do", redacted screenshot) | ⬜ |
-| C docs | #10 troubleshooting (real error strings) | ⬜ |
-| C docs | #11 manifest-schema | ⬜ |
-| C docs | #12 release-notes template + v1.0 notes | ⬜ |
+| C docs | #9 README (+ "What this does NOT do", redacted screenshot) | ✅ Done |
+| C docs | #10 troubleshooting (real error strings) | ✅ Done |
+| C docs | #11 manifest-schema | ✅ Done |
+| C docs | #12 release-notes template + v1.0 notes | ✅ Done |
 | close | #15 progress/done/handoff + PR | ⬜ |
 
 ## Phase log
@@ -45,9 +45,9 @@ Commit: `sprint-3: engine hardening — long-path, --verify-hash, #17 polish`
   - `WatchdogReadStream` scratch buffer zeroed after each read (`CryptographicOperations.ZeroMemory`) so
     no device bytes linger in the long-lived buffer; sync `Read()` now **throws** `NotSupportedException`
     (it bypassed the watchdog timeout) instead of silently falling through. Tests for both.
-  - **EUII:** real first name `"Denis's iPhone"` → synthetic `"Sample iPhone"` in `RemoteModels.cs`
-    (XML doc), `SummaryWriterTests.cs`, and `JournalSchemaV2Tests.cs` (the plan named two files; the
-    third had the same fixture name — all three renamed).
+  - **EUII:** the real personal device-name fixture (`<name>'s iPhone`) → synthetic `"Sample iPhone"` in
+    `RemoteModels.cs` (XML doc), `SummaryWriterTests.cs`, and `JournalSchemaV2Tests.cs` (the plan named two
+    files; the third had the same fixture name — all three renamed).
 - **#4 Large-file:** multi-chunk (5 MiB + change) copy test exercises the same streaming loop a multi-GB
   file uses, verifying size + SHA-256. True multi-GB ProRes is QA #21 on hardware.
 - **#14 XML docs:** `LongPath` documented; new `verifyHash` param, `CopyResult.Sha256`, and
@@ -79,7 +79,31 @@ Commit: `sprint-3: release pipeline, EXE smoke + gitleaks CI gates, metadata`
 **Validated locally:** single-file publish → 84 MB EXE, `--help` exit 0 (native unpack works). Both
 workflow YAMLs structurally checked; release-notes PowerShell dry-run OK. Build green; 88 tests green.
 
+### Phase 3 — Track C docs (Quill + Kira) ✅
+Commit: `sprint-3: user docs — README, troubleshooting, manifest-schema, release notes`
+
+Finalized after the engine flags froze (Phase 1), so docs match shipped behavior and exact strings.
+
+- **#9 `README.md`:** full rewrite — overview, prominent **read-only promise**, the **"What this tool does
+  NOT do"** section (R19, wording from brief §2), prerequisites (incl. the lazy Apple Devices service),
+  install (download + verify checksum, or build from source), full `copy`/`status` usage incl.
+  `--verify-hash`, an **exit-code table**, a **redacted text dashboard rendering** + redacted `summary.txt`
+  (synthetic `D:\Photos` / `Sample iPhone`), and a Safety section.
+- **#10 `docs/user/troubleshooting.md`:** every failure mode with the **exact emitted string** pulled from
+  the code — no device (AC-13), driver service / R21 (the #1 ticket), Trust/AC-14, disk-full/AC-15,
+  not-writable/R15, watchdog stall/#11 (exit 3), failed files, long paths, Ctrl+C, and `--verify-hash`.
+- **#11 `docs/user/manifest-schema.md`:** the `manifest` view + `files`/`devices`/`runs` tables (full
+  columns, identity rule, `user_version`), example SQL (counts, by-month, largest, GPS, integrity, run
+  history), read-only-open tip, and a privacy note.
+- **#12 release notes:** `docs/release-notes-template.md` + `docs/release-notes/v1.0.0.md` (Sprints 1–3
+  summary, read-only guarantee, known limitations; dated "pending QA #21 sign-off" since the tag waits).
+- **EUII sweep:** repo-wide grep for real names / UDIDs / `C:\Users\` / GPS — clean. All doc examples use
+  synthetic/redacted values; redacted the old fixture name in this progress file's own change note too.
+
 ## Decisions / Notes
+- README's dashboard "screenshot" is a **redacted text rendering** (synthetic `D:\Photos`, `Sample
+  iPhone`, no real UDID/GPS/user path), not a binary PNG — honest, and avoids committing an image that
+  could carry hidden EUII. A real captured screenshot needs hardware (QA), out of scope for dev.
 - gitleaks runs as a **pinned binary** (not the `gitleaks/gitleaks-action`) to avoid the action's
   org-license/telemetry behavior and keep the supply chain pinned + under our control. Scans the working
   tree (`--no-git`) for determinism (history was already scrubbed in a separate, audited procedure).
