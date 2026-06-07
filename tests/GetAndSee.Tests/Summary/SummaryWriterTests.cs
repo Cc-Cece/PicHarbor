@@ -17,7 +17,7 @@ public sealed class SummaryWriterTests
             new(Path.Combine("2024", "2024-08", "IMG_1.MOV"), 5_000_000, "2024-08-15T10:00:00", null),
             new(Path.Combine("unsorted", "Screenshot.PNG"), 500_000, null, "2023-01-01T00:00:00Z"),
         };
-        var devices = new List<DeviceRecord> { new("00008101-ABCDEF", "Denis's iPhone", "iPhone13,3") };
+        var devices = new List<DeviceRecord> { new("00008101-ABCDEF", "Sample iPhone", "iPhone13,3") };
         var runs = new RunsSummary(
             TotalRuns: 4,
             FirstRunAt: DateTimeOffset.Parse("2026-06-01T00:00:00Z"),
@@ -35,7 +35,7 @@ public sealed class SummaryWriterTests
         text.ShouldContain("Photos:");
         text.ShouldContain("Videos:");
         text.ShouldContain("Screenshots:");
-        text.ShouldContain("Denis's iPhone (iPhone13,3)");
+        text.ShouldContain("Sample iPhone (iPhone13,3)");
         text.ShouldContain("Date range: 2023-01-01 to 2024-08-15");
         text.ShouldContain("Runs: 4");
         text.ShouldContain("first run 2026-06-01");

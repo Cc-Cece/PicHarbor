@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using GetAndSee.Core.Errors;
 
 namespace GetAndSee.Core.Device;
@@ -110,13 +111,26 @@ internal sealed class WatchdogReadStream : Stream
         if (bytesRead > 0)
         {
             new ReadOnlySpan<byte>(target, 0, bytesRead).CopyTo(buffer.Span);
+
+            // Don't let device bytes linger in the long-lived scratch buffer between reads. Zeroing the
+            // region we just used keeps the reusable buffer clean at rest (defense in depth) so a later
+            // read can never surface stale bytes from a previous file.
+            CryptographicOperations.ZeroMemory(target.AsSpan(0, bytesRead));
         }
 
         return bytesRead;
     }
 
     /// <inheritdoc />
-    public override int Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
+    /// <remarks>
+    /// Not supported: the watchdog only guards the asynchronous read path. A synchronous read would
+    /// bypass the inactivity timeout entirely (the very hang #11 exists to prevent), so it is disabled
+    /// rather than silently falling through to the unguarded inner read. The copy pipeline uses
+    /// <see cref="ReadAsync(Memory{byte}, CancellationToken)"/> exclusively.
+    /// </remarks>
+    public override int Read(byte[] buffer, int offset, int count) =>
+        throw new NotSupportedException(
+            "WatchdogReadStream is async-only; use ReadAsync so the stall watchdog applies.");
 
     /// <inheritdoc />
     public override void Flush()

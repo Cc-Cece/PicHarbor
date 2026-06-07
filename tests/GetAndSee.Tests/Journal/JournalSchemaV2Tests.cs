@@ -20,12 +20,12 @@ public sealed class JournalSchemaV2Tests : IDisposable
     {
         using TransferJournal journal = TransferJournal.Open(dir.Path);
 
-        journal.UpsertDevice("udid-1", "Denis's iPhone", "iPhone13,3", DateTimeOffset.UtcNow);
-        journal.UpsertDevice("udid-1", "Denis's iPhone", "iPhone13,3", DateTimeOffset.UtcNow.AddMinutes(1));
+        journal.UpsertDevice("udid-1", "Sample iPhone", "iPhone13,3", DateTimeOffset.UtcNow);
+        journal.UpsertDevice("udid-1", "Sample iPhone", "iPhone13,3", DateTimeOffset.UtcNow.AddMinutes(1));
 
         IReadOnlyList<DeviceRecord> devices = journal.ReadDevices();
         devices.Count.ShouldBe(1);
-        devices[0].Name.ShouldBe("Denis's iPhone");
+        devices[0].Name.ShouldBe("Sample iPhone");
         devices[0].Model.ShouldBe("iPhone13,3");
     }
 

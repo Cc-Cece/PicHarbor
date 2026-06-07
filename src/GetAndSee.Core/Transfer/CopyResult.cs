@@ -21,9 +21,14 @@ public enum CopyStatus
 /// <param name="RelativeDestPath">The destination path relative to the root, when copied; otherwise <see langword="null"/>.</param>
 /// <param name="BytesCopied">Bytes written this run (0 for skipped/failed).</param>
 /// <param name="Error">Failure message when <see cref="Status"/> is <see cref="CopyStatus.Failed"/>.</param>
+/// <param name="Sha256">
+/// Lowercase hex SHA-256 of the copied bytes when <c>--verify-hash</c> was enabled and the file was
+/// copied this run; otherwise <see langword="null"/> (R12).
+/// </param>
 public sealed record CopyResult(
     CopyStatus Status,
     RemoteFile File,
     string? RelativeDestPath,
     long BytesCopied,
-    string? Error);
+    string? Error,
+    string? Sha256 = null);

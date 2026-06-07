@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using GetAndSee.Core.Device;
 using GetAndSee.Core.Errors;
 using GetAndSee.Tests.TestSupport;
@@ -86,6 +87,36 @@ public sealed class WatchdogReadStreamTests
         inner.IsDisposed.ShouldBeTrue("the orphaned read completing must close the native handle (no leak)");
     }
 
+    [Fact]
+    public async Task Scratch_buffer_is_zeroed_after_a_read_so_no_device_bytes_linger()
+    {
+        var inner = new ControlledReadStream();
+        await using var watchdog = new WatchdogReadStream(inner, TimeSpan.FromSeconds(5));
+        var buffer = new byte[16];
+
+        ValueTask<int> read = watchdog.ReadAsync(buffer, TestContext.Current.CancellationToken);
+        inner.Release(8);
+        int bytes = await read;
+
+        bytes.ShouldBe(8);
+        buffer[..8].ShouldAllBe(b => b == 1); // the caller received its bytes
+
+        // The private reusable scratch buffer must retain no device bytes at rest (defense in depth).
+        byte[]? scratch = GetScratch(watchdog);
+        scratch.ShouldNotBeNull();
+        scratch.ShouldAllBe(b => b == 0);
+    }
+
+    [Fact]
+    public void Synchronous_Read_is_unsupported_so_it_cannot_bypass_the_watchdog()
+    {
+        var inner = new ControlledReadStream();
+        using var watchdog = new WatchdogReadStream(inner, ShortTimeout);
+
+        // A sync read would skip the inactivity timeout entirely; it must be refused, not fall through.
+        Should.Throw<NotSupportedException>(() => watchdog.Read(new byte[8], 0, 8));
+    }
+
     private static async Task WaitForAsync(Func<bool> condition, TimeSpan timeout)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -93,5 +124,12 @@ public sealed class WatchdogReadStreamTests
         {
             await Task.Delay(10);
         }
+    }
+
+    private static byte[]? GetScratch(WatchdogReadStream watchdog)
+    {
+        FieldInfo field = typeof(WatchdogReadStream)
+            .GetField("scratch", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        return (byte[]?)field.GetValue(watchdog);
     }
 }

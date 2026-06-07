@@ -30,7 +30,14 @@ internal static class StatusCommand
         return command;
     }
 
-    private static int Run(string destination)
+    /// <summary>
+    /// Opens the archive at <paramref name="destination"/> read-only and prints its summary. Returns
+    /// the process exit code: <c>0</c> on success, <c>2</c> when no archive exists at the destination.
+    /// Exposed internally so it can be exercised without a device.
+    /// </summary>
+    /// <param name="destination">Destination root folder of an existing archive.</param>
+    /// <returns>The process exit code.</returns>
+    internal static int Run(string destination)
     {
         destination = Path.GetFullPath(destination);
         string databasePath = Path.Combine(destination, TransferJournal.DatabaseFileName);
