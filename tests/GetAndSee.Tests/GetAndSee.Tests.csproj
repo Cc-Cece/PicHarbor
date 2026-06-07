@@ -5,6 +5,14 @@
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!--
+      Windows-only test host: pin to win-x64 so this RUNNABLE project copies only the win-x64 native
+      assets to bin/. The plural <RuntimeIdentifiers> in Directory.Build.props pins the restore graph
+      but a portable (RID-agnostic) runnable build still copies the FULL imobiledevice-net native graph
+      (osx/linux/maccatalyst dylibs) into runtimes/ — exactly what Defender flags (issue #26). A singular
+      RID prunes that, the same way GetAndSee.Cli already does. CI runs tests on windows-latest, so safe.
+    -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <!-- Tests deliberately use start-then-release-then-await read patterns and controlled streams. -->
     <NoWarn>$(NoWarn);CA2022</NoWarn>
   </PropertyGroup>

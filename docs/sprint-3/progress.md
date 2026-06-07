@@ -20,6 +20,7 @@
 | C docs | #10 troubleshooting (real error strings) | ✅ Done |
 | C docs | #11 manifest-schema | ✅ Done |
 | C docs | #12 release-notes template + v1.0 notes | ✅ Done |
+| build | #26 Restrict build to win-x64 (drop foreign native libs, silence Defender FP) | ✅ Done |
 | close | #15 progress/done/handoff + PR | ⬜ |
 
 ## Phase log
@@ -100,6 +101,37 @@ Finalized after the engine flags froze (Phase 1), so docs match shipped behavior
 - **EUII sweep:** repo-wide grep for real names / UDIDs / `C:\Users\` / GPS — clean. All doc examples use
   synthetic/redacted values; redacted the old fixture name in this progress file's own change note too.
 
+### Phase 4 — #26 win-x64 build trim (folded in early, producer request) ✅
+Commit: `fix: #26 restrict build to win-x64 (drop foreign native libs, silences Defender FP)`
+
+Folded in before final close at the producer's request (rebased onto `origin/main` first to pick up the
+review-profile #26 note). **Root cause** (per `docs/review/review-profile.md`): `GetAndSee.Core` and the
+test projects set no RID, so the **portable** build copied the all-platform `imobiledevice-net` native
+graph (osx-x64/arm64, maccatalyst, linux-*) into `bin/.../runtimes/`, where Windows Defender heuristically
+flags `libirecovery*.dylib` as `Exploit:MacOS/LimeRain.C!MTB` — a **known false positive** (inert macOS
+libs, never committed, not in the shipped EXE).
+
+- **`Directory.Build.props`:** added restore-time pin `<RuntimeIdentifiers>win-x64</RuntimeIdentifiers>`
+  (plural) — shared, so Core + all test projects inherit it; pins the **restore graph** to win-x64.
+- **Test projects (`GetAndSee.Tests`, `GetAndSee.SafetyTests`):** added singular
+  `<RuntimeIdentifier>win-x64</RuntimeIdentifier>`. **Why both were needed:** plural `<RuntimeIdentifiers>`
+  constrains *restore*, but a **runnable** (`OutputType=Exe`) project built RID-agnostic still copies the
+  *full* native graph into its output. Pruning a runnable project's `runtimes/` requires a *singular* RID —
+  which is exactly why `GetAndSee.Cli` (already singular win-x64) was clean while the two test hosts were
+  not. The test hosts are runnable, so they get the same singular pin. Safe: CI runs tests on
+  `windows-latest`, the tool is Windows-only, and `ReadOnlyContractTests` locates `Core.dll` via
+  `Assembly.Location` (its own output dir), unaffected by the RID subfolder.
+- **`GetAndSee.Cli` unchanged** — keeps its singular `<RuntimeIdentifier>win-x64</>` for the single-file
+  release publish.
+
+**Verified (clean rebuild):** `dotnet restore` + `dotnet build -c Release` → **0 warn / 0 err**;
+`dotnet test -c Release` → **88 tests green** (86 + 2 safety; `ReadOnlyContractTests` intact);
+**no `osx-*` / `linux-*` / `maccatalyst-*` runtimes and no `.dylib`/`.so` under any `bin/`** (RID-specific
+builds flatten the win-x64 natives to the output root); all 8 win-x64 AFC DLLs present (functionality
+intact); `dotnet format --verify-no-changes` ✅. Did **not** need `dotnet nuget locals --clear` — with the
+pin the build no longer references the quarantined osx dylib. **Read-only contract unaffected** — a
+build/packaging change only; no device symbol touched.
+
 ## Decisions / Notes
 - README's dashboard "screenshot" is a **redacted text rendering** (synthetic `D:\Photos`, `Sample
   iPhone`, no real UDID/GPS/user path), not a binary PNG — honest, and avoids committing an image that
@@ -107,9 +139,20 @@ Finalized after the engine flags froze (Phase 1), so docs match shipped behavior
 - gitleaks runs as a **pinned binary** (not the `gitleaks/gitleaks-action`) to avoid the action's
   org-license/telemetry behavior and keep the supply chain pinned + under our control. Scans the working
   tree (`--no-git`) for determinism (history was already scrubbed in a separate, audited procedure).
-- The `imobiledevice-net` package bundles **unused osx-x64** native restore tools (`idevicerestore`,
-  `libirecovery`) that some Windows AV flags as PUA. They live only in `bin/` (gitignored, never
-  committed) and are **not** in the win-x64 single-file EXE we ship — observation only, R20-adjacent.
+- **Defender FP on foreign native libs — RESOLVED by #26 (Phase 4).** `imobiledevice-net` bundles
+  all-platform native restore tools (`libirecovery*.dylib`, `idevicerestore`); the portable build used to
+  copy the osx/linux/maccatalyst ones into `bin/.../runtimes/`, where Defender heuristically flagged them
+  (`Exploit:MacOS/LimeRain.C!MTB`) — a known false positive (never committed; not in the shipped win-x64
+  EXE). The win-x64 RID trim (Phase 4) stops those from ever landing in `bin/`, so the per-build popup and
+  the earlier `MSB4018 GenerateDepsFile … FileNotFoundException` (seen when Defender quarantined a cached
+  dylib) no longer reproduce. CI was always unaffected (windows-latest).
+
+## Final validation (Phase 5, close)
+- `dotnet format --verify-no-changes` ✅
+- `dotnet build -c Release` ✅ (0 warnings, 0 errors)
+- `dotnet test -c Release` ✅ — **88 tests** (86 unit + 2 safety; `ReadOnlyContractTests` green)
+- Single-file publish ✅ — `get-and-see.exe` (~84 MB), `--help` exit 0 (native unpack works)
+- gitleaks working-tree scan ✅ — no leaks found
 - Long-path mechanism is the `\\?\` prefix in code (not `<LongPathsEnabled>` manifest) because the prefix
   works on any runner regardless of registry/OS config — deterministic for CI.
 - `--verify-hash` ships **during-copy** hashing only this sprint; **verify-only re-check** (compare an
