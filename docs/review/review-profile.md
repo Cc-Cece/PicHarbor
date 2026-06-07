@@ -48,6 +48,10 @@ This tool is EUII-dense — it copies a person's entire photo library. Reviewers
 - **Review-artifact discipline:** review reports, PR comments, and issues must redact/synthesize any real EUII seen as evidence. Assume they could become public (esp. since this repo is intended to go open-source / MIT).
 - **Note:** `ProductType` (e.g. iPhone13,3) and iOS version are device *class*, not personal — not EUII.
 
+## Secrets surface (low, but the rule still applies)
+
+get-and-see has **no network, no API keys, no auth** — secrets surface is near zero by design. Still, the Security lens checks every PR for accidentally committed credentials (keys, tokens, passwords, `*.pem/*.pfx`, connection strings, `.env`). Any **live secret committed anywhere = BLOCKER**, must be rotated/revoked (scrubbing history does not un-leak it). If a network feature is ever added, secrets must come from env/secret store, never source. Recommended (not yet present): a secret-scanner (gitleaks/trufflehog) in CI before going public.
+
 ## Accepted trade-offs — DO NOT re-flag
 
 - **R20 — aging native deps in `imobiledevice-net 1.3.17`** (OpenSSL 1.1 EOL, 2021 libusb). Local-USB-only, read-only, no network → minimal exposure. **Accepted for v1.** Don't re-report unless a maintained fork appears (that's a Modernization note, not a finding).
