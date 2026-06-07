@@ -414,7 +414,7 @@ Add to `docs/ideas-backlog.md` first (cheap, no triage cost). Promote to a GitHu
 
 ### 13.6 Code Review Gate
 
-Every PR that touches application source passes an **independent code-review gate** (the `code-review` skill) before QA and before merge. The Producer runs it with reviewers independent of the authors, across 4 gate lenses (Security, Correctness, Performance, Maintainability) + 1 advisory lens (Modernization → ideas-backlog). The per-project profile lives at `docs/review/review-profile.md` and is updated after each review so accepted trade-offs aren't re-flagged. Code review (structural) does not replace QA (behavioral) — engine/safety sprints get both. Reports land in `docs/review/<change-id>-review.md`.
+Every PR that touches application source passes an **independent code-review gate** (the `code-review` skill) before QA and before merge. The Producer runs it with reviewers independent of the authors, across 5 gate lenses (Security, Correctness, Performance, **Simplicity/Design/Architecture**, Maintainability) + 1 advisory lens (Modernization → ideas-backlog). The per-project profile lives at `docs/review/review-profile.md` and is updated after each review so accepted trade-offs aren't re-flagged. The profile also carries an **Architecture & drift-watch** — a longitudinal list of hotspots (growing files/methods, duplication clusters, abstraction debt) that lets the gate catch the codebase sliding toward a big-ball-of-mud across many small changes; a watched hotspot escalates to a blocking finding only when a change touches it again or busts its budget. Code review (structural) does not replace QA (behavioral) — engine/safety sprints get both. Reports land in `docs/review/<change-id>-review.md`.
 
 ## 14. Multi-Repo Setup
 
