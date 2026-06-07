@@ -199,7 +199,7 @@ Docs are split by audience and lifetime — no single person writes everything.
 | 0 | Bootstrap | ✅ Done | Brainstorm S1, S2, S3, PROJECT_BRIEF (this doc), risk register, Sprint 1 plan |
 | 1 Phase 0 | Repo Bootstrap + CI | ✅ Done | `.gitignore` extended, MIT LICENSE, placeholder README, GitHub Actions CI (windows-latest, .NET 10), issue + PR templates, repo labels, branch-protection setup doc. PR #1 merged as `b46d931`. |
 | 1 Phases 1–5 | Core Pipeline + Safety Contract | ✅ Done | .NET 10 solution, read-only AFC client (`imobiledevice-net 1.3.17`), `/DCIM/` enumerate, EXIF date-org, journal-at-root (`get-and-see.db`) + `manifest` view, atomic copier + collision handling, pre-flight (27015/writable/space), `copy --dest/--dry-run`, per-file progress, `summary.txt`, **`ReadOnlyContractTests` (build-failing)**. **QA Stage 2 PASS** on real iPhone 12 Pro / iOS 26.5 / 27,478 files / 269 GB — read-only proof device-unchanged. Merged PR #9 (`8bc600f`); sign-off PR #13. One non-blocking major (#11) → Sprint 2. |
-| 2 | UX, Resumability & Pre-flight | ⬜ Planned (next) | **#11 USB-unplug read timeout/watchdog (Task 1)**, live dashboard (+ #10 live current-speed), pre-flight polish, `status` subcommand, **`devices` + `runs` tables**, **Live Photo pair detection**, R2 stall-detect/reconnect |
+| 2 | UX, Resumability & Pre-flight | ⬜ Planned — plan written | **Plan:** `docs/sprint-2/plan.md`; **consilium:** `docs/brainstorm/sprint-2-consilium.md`. Two pillars: **#11/R2 read-stall watchdog** (Task 1) and **live Spectre dashboard + #10 current-speed**. Plus `status` subcommand, `runs`/`devices` tables, on-battery pre-flight warning. Live-Photo pairing = cuttable stretch. |
 | 3 | Hardening, Packaging & Release | ⬜ Planned | Long-path, large-file stress tests, `--verify-hash`, **release workflow (single-file EXE attached to GitHub Release on tag push)**, **full user docs (Quill): `README.md`, `docs/user/troubleshooting.md`, `docs/user/manifest-schema.md`, release-notes template**, LICENSE polish |
 
 ## 8. Current State
@@ -221,11 +221,12 @@ Docs are split by audience and lifetime — no single person writes everything.
 - Pre-flight: 27015 driver probe (R21), writable dest (R15), free-space (R4) — all QA-verified
 - `copy --dest/-d --dry-run`, per-file progress, end-of-run summary, non-zero exit on failure, Ctrl+C → resumable
 
-**What's next — Sprint 2 (Remy to plan):**
-1. **#11 (Task 1):** USB-unplug read timeout/watchdog — the one non-blocking major from Sprint 1 QA. Overlaps R2 stall-detect.
-2. Live dashboard (Spectre.Console) incl. **#10 live current-speed**; `status` subcommand; `devices`/`runs` tables; Live-Photo pair detection.
+**What's next — Sprint 2 (planned, ready to execute):**
+1. **Pillar 1 — #11/R2 read-stall watchdog (Task 1):** turn the USB-unplug/sleep hang into a clean, resumable stop. The one non-blocking major from Sprint 1 QA.
+2. **Pillar 2 — live Spectre dashboard + #10 current-speed.** Plus `status` subcommand, `runs`/`devices` tables, on-battery warning. Live-Photo pairing is the cuttable stretch.
+Full scope + cut line in `docs/sprint-2/plan.md`; rationale in `docs/brainstorm/sprint-2-consilium.md`.
 
-**Open actions:** Plan Sprint 2 (`docs/sprint-2/plan.md`).
+**Open actions:** Execute Sprint 2 (`feature/sprint-2`) — dev-team prompt is in the plan. QA re-runs the full 269 GB acceptance once the watchdog lands (closes S1 AC-7/AC-17 deferrals).
 
 **Blockers:** None.
 
