@@ -1,5 +1,6 @@
 using System.Buffers;
 using GetAndSee.Core.Device;
+using GetAndSee.Core.Errors;
 using GetAndSee.Core.Journal;
 using GetAndSee.Core.Organize;
 
@@ -38,6 +39,7 @@ public sealed class FileCopier
     private readonly DateFolderOrganizer organizer;
     private readonly IMediaMetadataExtractor metadataExtractor;
     private readonly TimeProvider clock;
+    private readonly TimeSpan readTimeout;
     private readonly string destinationRoot;
     private readonly string stagingDirectory;
     private readonly HashSet<string> assignedDestPaths;
@@ -48,14 +50,19 @@ public sealed class FileCopier
     /// <param name="organizer">Date-folder organizer.</param>
     /// <param name="metadataExtractor">EXIF/metadata extractor used on the local copy.</param>
     /// <param name="destinationRoot">Destination root directory.</param>
-    /// <param name="clock">Time source; defaults to the system clock.</param>
+    /// <param name="clock">Time source; defaults to the system clock. Also drives the read-stall watchdog.</param>
+    /// <param name="readTimeout">
+    /// Per-read inactivity timeout for the stall watchdog (#11 / R2). <see langword="null"/> or
+    /// non-positive disables the watchdog (the read can block indefinitely, as in Sprint 1).
+    /// </param>
     public FileCopier(
         IPhoneClient client,
         TransferJournal journal,
         DateFolderOrganizer organizer,
         IMediaMetadataExtractor metadataExtractor,
         string destinationRoot,
-        TimeProvider? clock = null)
+        TimeProvider? clock = null,
+        TimeSpan? readTimeout = null)
     {
         this.client = client;
         this.journal = journal;
@@ -63,6 +70,7 @@ public sealed class FileCopier
         this.metadataExtractor = metadataExtractor;
         this.destinationRoot = destinationRoot;
         this.clock = clock ?? TimeProvider.System;
+        this.readTimeout = readTimeout ?? TimeSpan.Zero;
         stagingDirectory = Path.Combine(destinationRoot, StagingFolderName);
         assignedDestPaths = new HashSet<string>(journal.GetUsedDestPaths(), StringComparer.OrdinalIgnoreCase);
     }
@@ -133,6 +141,14 @@ public sealed class FileCopier
             SafeDelete(stagingPath);
             throw;
         }
+        catch (DeviceStallException)
+        {
+            // The device stopped responding mid-file (#11 / R2). Leave the row in_progress
+            // (resumable) and propagate so the run stops cleanly rather than thrashing on every
+            // remaining file — each subsequent read would also stall.
+            SafeDelete(stagingPath);
+            throw;
+        }
         catch (Exception ex)
         {
             SafeDelete(stagingPath);
@@ -143,7 +159,14 @@ public sealed class FileCopier
 
     private async Task<long> StreamToStagingAsync(RemoteFile file, string stagingPath, CancellationToken cancellationToken)
     {
-        await using Stream source = await client.OpenReadAsync(file.Path, cancellationToken).ConfigureAwait(false);
+        Stream rawSource = await client.OpenReadAsync(file.Path, cancellationToken).ConfigureAwait(false);
+
+        // Wrap the device read in the stall watchdog (#11 / R2) when a timeout is configured. The
+        // watchdog owns and disposes the raw stream.
+        await using Stream source = readTimeout > TimeSpan.Zero
+            ? new WatchdogReadStream(rawSource, readTimeout, clock)
+            : rawSource;
+
         await using var partial = new FileStream(
             stagingPath,
             FileMode.Create,

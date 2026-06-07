@@ -1,5 +1,6 @@
 using System.Text;
 using GetAndSee.Core.Device;
+using GetAndSee.Core.Errors;
 using GetAndSee.Core.Journal;
 using GetAndSee.Core.Organize;
 using GetAndSee.Core.Transfer;
@@ -107,5 +108,28 @@ public sealed class FileCopierTests : IDisposable
         resultB.RelativeDestPath.ShouldBe(Path.Combine("2024", "2024-08", "IMG_9_2.HEIC"));
         File.ReadAllBytes(Path.Combine(destination.Path, resultA.RelativeDestPath!)).ShouldBe(a);
         File.ReadAllBytes(Path.Combine(destination.Path, resultB.RelativeDestPath!)).ShouldBe(b);
+    }
+
+    [Fact]
+    public async Task Read_stall_leaves_file_in_progress_and_propagates_so_the_run_stops()
+    {
+        // A device that stops sending bytes mid-file (#11 / R2).
+        var stallingStream = new ControlledReadStream();
+        var file = new RemoteFile("/DCIM/100APPLE/IMG_STALL.MOV", 10_000_000, null);
+        client.OpenReadAsync(file.Path, Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<Stream>(stallingStream));
+        journal.EnsurePending(file);
+
+        var copier = new FileCopier(
+            client, journal, organizer, extractor, destination.Path,
+            readTimeout: TimeSpan.FromMilliseconds(200));
+
+        // The watchdog turns the indefinite hang into a clean, propagating stall.
+        await Should.ThrowAsync<DeviceStallException>(async () => await copier.CopyAsync(file, Token));
+
+        // Resumable: the in-flight file is left non-done, and no partial leaks into the final tree.
+        journal.GetState(file.Path, file.Size).ShouldBe(FileState.InProgress);
+        Directory.GetFiles(destination.Path, "*.partial", SearchOption.AllDirectories).ShouldBeEmpty();
+        Directory.Exists(Path.Combine(destination.Path, "2024")).ShouldBeFalse();
     }
 }

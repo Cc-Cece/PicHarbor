@@ -19,6 +19,9 @@ namespace GetAndSee.Cli.Commands;
 /// </summary>
 internal static class CopyCommand
 {
+    /// <summary>Default per-read inactivity timeout for the stall watchdog, in seconds (#11 / R2).</summary>
+    public const int DefaultReadTimeoutSeconds = 30;
+
     /// <summary>Builds the <c>copy</c> command and its options.</summary>
     /// <returns>The configured command.</returns>
     public static Command Build()
@@ -32,23 +35,38 @@ internal static class CopyCommand
         {
             Description = "Enumerate and plan only — opens no AFC read streams and writes no files.",
         };
+        var readTimeoutOption = new Option<int>("--read-timeout")
+        {
+            Description =
+                "Seconds with no bytes from the device before a read is treated as a stall and the run " +
+                "stops cleanly (resumable). 0 disables the watchdog.",
+            DefaultValueFactory = _ => DefaultReadTimeoutSeconds,
+        };
 
         var command = new Command(
             "copy",
             "Copy all iPhone /DCIM/ media to the destination, organized into YYYY/YYYY-MM folders.");
         command.Add(destinationOption);
         command.Add(dryRunOption);
+        command.Add(readTimeoutOption);
         command.SetAction((parseResult, cancellationToken) =>
-            RunAsync(parseResult.GetValue(destinationOption)!, parseResult.GetValue(dryRunOption), cancellationToken));
+            RunAsync(
+                parseResult.GetValue(destinationOption)!,
+                parseResult.GetValue(dryRunOption),
+                ToTimeout(parseResult.GetValue(readTimeoutOption)),
+                cancellationToken));
 
         return command;
     }
 
-    private static async Task<int> RunAsync(string destination, bool dryRun, CancellationToken cancellationToken)
+    private static TimeSpan ToTimeout(int seconds) =>
+        seconds > 0 ? TimeSpan.FromSeconds(seconds) : TimeSpan.Zero;
+
+    private static async Task<int> RunAsync(string destination, bool dryRun, TimeSpan readTimeout, CancellationToken cancellationToken)
     {
         try
         {
-            return await ExecuteAsync(destination, dryRun, cancellationToken).ConfigureAwait(false);
+            return await ExecuteAsync(destination, dryRun, readTimeout, cancellationToken).ConfigureAwait(false);
         }
         catch (PreflightException ex)
         {
@@ -67,7 +85,7 @@ internal static class CopyCommand
         }
     }
 
-    private static async Task<int> ExecuteAsync(string destination, bool dryRun, CancellationToken cancellationToken)
+    private static async Task<int> ExecuteAsync(string destination, bool dryRun, TimeSpan readTimeout, CancellationToken cancellationToken)
     {
         destination = Path.GetFullPath(destination);
 
@@ -107,45 +125,61 @@ internal static class CopyCommand
             journal.EnsurePending(file);
         }
 
-        var copier = new FileCopier(client, journal, organizer, new ExifMetadataExtractor(), destination);
+        var copier = new FileCopier(client, journal, organizer, new ExifMetadataExtractor(), destination, readTimeout: readTimeout);
         copier.CleanStaging();
 
         int copied = 0, skipped = 0, failed = 0, processed = 0;
         long bytesCopied = 0;
+        bool stalled = false;
         var stopwatch = Stopwatch.StartNew();
 
-        foreach (RemoteFile file in files)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            CopyResult result = await copier.CopyAsync(file, cancellationToken).ConfigureAwait(false);
-            processed++;
-
-            switch (result.Status)
+            foreach (RemoteFile file in files)
             {
-                case CopyStatus.Copied:
-                    copied++;
-                    bytesCopied += result.BytesCopied;
-                    Console.WriteLine(
-                        $"[done] {processed:N0}/{files.Count:N0}  " +
-                        $"{ByteSize.Humanize(bytesCopied)}/{ByteSize.Humanize(totalBytes)}  → {result.RelativeDestPath}");
-                    break;
-                case CopyStatus.Skipped:
-                    skipped++;
-                    Console.WriteLine(
-                        $"[skip] {processed:N0}/{files.Count:N0}  already copied  → {DateFolderOrganizer.ExtractFileName(file.Path)}");
-                    break;
-                case CopyStatus.Failed:
-                    failed++;
-                    WriteError($"[fail] {DateFolderOrganizer.ExtractFileName(file.Path)}: {result.Error}");
-                    break;
+                cancellationToken.ThrowIfCancellationRequested();
+                CopyResult result = await copier.CopyAsync(file, cancellationToken).ConfigureAwait(false);
+                processed++;
+
+                switch (result.Status)
+                {
+                    case CopyStatus.Copied:
+                        copied++;
+                        bytesCopied += result.BytesCopied;
+                        Console.WriteLine(
+                            $"[done] {processed:N0}/{files.Count:N0}  " +
+                            $"{ByteSize.Humanize(bytesCopied)}/{ByteSize.Humanize(totalBytes)}  → {result.RelativeDestPath}");
+                        break;
+                    case CopyStatus.Skipped:
+                        skipped++;
+                        Console.WriteLine(
+                            $"[skip] {processed:N0}/{files.Count:N0}  already copied  → {DateFolderOrganizer.ExtractFileName(file.Path)}");
+                        break;
+                    case CopyStatus.Failed:
+                        failed++;
+                        WriteError($"[fail] {DateFolderOrganizer.ExtractFileName(file.Path)}: {result.Error}");
+                        break;
+                }
             }
+        }
+        catch (DeviceStallException ex)
+        {
+            // Watchdog tripped (#11 / R2): stop the run cleanly. The in-flight file is left
+            // non-done (resumable); everything copied so far is already journaled.
+            stalled = true;
+            WriteError(ex.Message);
         }
 
         stopwatch.Stop();
 
         var runStats = new RunStats(files.Count, copied, skipped, failed, bytesCopied, stopwatch.Elapsed);
         new SummaryWriter().Write(destination, journal.ReadManifest(), device, runStats, DateTimeOffset.UtcNow);
-        WriteRunSummary(destination, runStats);
+        WriteRunSummary(destination, runStats, stalled);
+
+        if (stalled)
+        {
+            return 3;
+        }
 
         return failed > 0 ? 1 : 0;
     }
@@ -165,7 +199,7 @@ internal static class CopyCommand
         return 0;
     }
 
-    private static void WriteRunSummary(string destination, RunStats stats)
+    private static void WriteRunSummary(string destination, RunStats stats, bool stalled)
     {
         double megabytesPerSecond = stats.Elapsed.TotalSeconds > 0
             ? stats.BytesCopied / 1024d / 1024d / stats.Elapsed.TotalSeconds
@@ -182,7 +216,13 @@ internal static class CopyCommand
         Console.WriteLine($"Manifest:   {Path.Combine(destination, TransferJournal.DatabaseFileName)}");
         Console.WriteLine($"Summary:    {Path.Combine(destination, SummaryWriter.FileName)}");
 
-        if (stats.Failed > 0)
+        long remaining = stats.Enumerated - stats.Copied - stats.Skipped;
+        if (stalled)
+        {
+            AnsiConsole.MarkupLineInterpolated(
+                $"[yellow]Run stopped early[/] — {remaining:N0} file(s) not yet copied. Reconnect and run the same command to resume.");
+        }
+        else if (stats.Failed > 0)
         {
             AnsiConsole.MarkupLineInterpolated($"[red]{stats.Failed:N0} file(s) failed[/] — re-run the same command to retry.");
         }
