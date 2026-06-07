@@ -37,6 +37,17 @@ Any change that violates one of these is an automatic **BLOCKER**, no matter how
 - The per-chunk copy loop and per-file journal ops are the hot paths. Anything added there must be O(1)/lock-free; nothing that grows with N may be rendered/scanned per item.
 - A live dashboard must add **no measurable slowdown** (separate thread, ≤4 Hz, in-memory only).
 
+## Privacy / EUII surface (what end-user data this project touches)
+
+This tool is EUII-dense — it copies a person's entire photo library. Reviewers check both that the **code** handles this data safely and that **review artifacts** never reproduce it.
+
+- **EUII handled:** GPS lat/long from EXIF (precise personal location — high sensitivity), device **UDID** (EUPI), device **name** ("<name>'s iPhone"), per-file **source paths** on the device, and destination **paths that embed the Windows username** (`C:\Users\<name>\...`). Photo/video content itself is the user's most private data.
+- **Allowed:** EUII may live in the destination `get-and-see.db` (journal + `manifest`: GPS, paths, device rows) and `summary.txt` at the **user's chosen destination** — that's the product. Nowhere else.
+- **NOT allowed (findings):** EUII in info/verbose **logs**, in **exception messages** that surface to the console or a report, **transmitted** over any network (the tool is no-network — any outbound send of EUII is a **BLOCKER**), or written to a temp/world-readable location.
+- **NOT allowed in the repo:** real EUII committed as fixtures, sample output, or doc "evidence" — a **real UDID, a real person's name, real GPS, a real `C:\Users\<name>` path**. Use synthetic/redacted values (`00008101-…`, `<user>`, `(<lat>,<lng>)`, `D:\Photos\…`).
+- **Review-artifact discipline:** review reports, PR comments, and issues must redact/synthesize any real EUII seen as evidence. Assume they could become public (esp. since this repo is intended to go open-source / MIT).
+- **Note:** `ProductType` (e.g. iPhone13,3) and iOS version are device *class*, not personal — not EUII.
+
 ## Accepted trade-offs — DO NOT re-flag
 
 - **R20 — aging native deps in `imobiledevice-net 1.3.17`** (OpenSSL 1.1 EOL, 2021 libusb). Local-USB-only, read-only, no network → minimal exposure. **Accepted for v1.** Don't re-report unless a maintained fork appears (that's a Modernization note, not a finding).
@@ -51,6 +62,7 @@ Any change that violates one of these is an automatic **BLOCKER**, no matter how
 - **Pluralization / user-facing copy.** "Live Photos: 1 pairs" slipped through (should be "1 pair"). Re-read any new `summary.txt` / console strings for grammar and for the N=0/N=1/N≥2 cases; expect explicit tests.
 - **Untested sync paths on async-first types.** `WatchdogReadStream.Read()` (sync) was untested while only `ReadAsync` is used — a latent hole if a caller ever switches. Flag sync overrides that bypass the safety/timeout path.
 - **CI no-op traps.** Anything that could make the CI guard silently skip build/test (e.g. solution-format drift) is high-severity even though "tests pass."
+- **EUII leaks.** This tool handles GPS, UDID, device name, and user paths (see Privacy / EUII surface). Check every new log line, exception message, and committed fixture/sample for real end-user data. GPS and precise location rank highest. Already-caught example: a real device UDID was committed in `docs/sprint-1/afc-library-decision.md` smoke-test output (since redacted) — watch for the same in any pasted device output.
 
 ## Severity calibration notes
 

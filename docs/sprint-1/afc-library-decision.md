@@ -58,7 +58,7 @@ SDK: `dotnet --version` → **10.0.204**. Build: **0 warnings, 0 errors**.
 ```
 [init] native libimobiledevice located: True
 [1] idevice_get_device_list -> Success, count=1
-    udid[0] = 00008101-XXXXXXXXXXXXXXXX
+    udid[0] = 00008101-XXXXXXXXXXXXXXXX   (redacted — real device UDID is EUII)
 [ok] idevice_new -> Success
 [ok] lockdownd handshake -> Success
 [ok] start com.apple.afc -> Success
