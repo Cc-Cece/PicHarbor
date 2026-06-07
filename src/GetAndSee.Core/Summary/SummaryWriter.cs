@@ -128,7 +128,8 @@ public sealed class SummaryWriter
         int livePhotoPairs = LivePhotoDetector.FindPairs(destPaths).Count;
         if (livePhotoPairs > 0)
         {
-            builder.Append("  Live Photos: ").Append(Num(livePhotoPairs)).AppendLine(" pairs");
+            string pairWord = livePhotoPairs == 1 ? " pair" : " pairs";
+            builder.Append("  Live Photos: ").Append(Num(livePhotoPairs)).AppendLine(pairWord);
         }
 
         if (screenshots > 0)

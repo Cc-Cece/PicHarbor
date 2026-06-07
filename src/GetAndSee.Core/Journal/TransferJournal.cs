@@ -57,6 +57,36 @@ public sealed class TransferJournal : IDisposable
         return journal;
     }
 
+    /// <summary>
+    /// Opens an existing journal at <c>&lt;destinationRoot&gt;/get-and-see.db</c> <b>read-only</b> for
+    /// inspection (e.g. the <c>status</c> verb). The database is never created, migrated, or written
+    /// to — the connection uses <see cref="SqliteOpenMode.ReadOnly"/>.
+    /// </summary>
+    /// <param name="destinationRoot">The destination root directory containing an existing database.</param>
+    /// <returns>An open read-only journal. The caller owns and disposes it.</returns>
+    /// <exception cref="FileNotFoundException">Thrown when no database exists at the destination.</exception>
+    public static TransferJournal OpenReadOnly(string destinationRoot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+
+        string databasePath = Path.Combine(destinationRoot, DatabaseFileName);
+        if (!File.Exists(databasePath))
+        {
+            throw new FileNotFoundException("No get-and-see database found.", databasePath);
+        }
+
+        var builder = new SqliteConnectionStringBuilder
+        {
+            DataSource = databasePath,
+            Mode = SqliteOpenMode.ReadOnly,
+        };
+        var connection = new SqliteConnection(builder.ConnectionString);
+        connection.Open();
+
+        // No InitializeSchema/Migrate: a read-only inspection must not create or alter anything.
+        return new TransferJournal(connection) { DatabasePath = databasePath };
+    }
+
     private void InitializeSchema()
     {
         Execute("PRAGMA journal_mode=WAL;");
@@ -401,6 +431,12 @@ public sealed class TransferJournal : IDisposable
     public IReadOnlyList<DeviceRecord> ReadDevices()
     {
         var rows = new List<DeviceRecord>();
+        if (!TableExists("devices"))
+        {
+            // A pre-v2 database opened read-only has no devices table yet.
+            return rows;
+        }
+
         using SqliteCommand command = CreateCommand(
             "SELECT udid, name, model FROM devices ORDER BY last_seen DESC;");
         using SqliteDataReader reader = command.ExecuteReader();
@@ -419,6 +455,12 @@ public sealed class TransferJournal : IDisposable
     /// <returns>A <see cref="RunsSummary"/>; <see cref="RunsSummary.TotalRuns"/> is 0 when none recorded.</returns>
     public RunsSummary ReadRunsSummary()
     {
+        if (!TableExists("runs"))
+        {
+            // A pre-v2 database opened read-only has no runs table yet.
+            return new RunsSummary(0, null, null, 0, 0, 0, TimeSpan.Zero);
+        }
+
         int total = 0;
         DateTimeOffset? first = null;
         DateTimeOffset? latest = null;
@@ -472,6 +514,14 @@ public sealed class TransferJournal : IDisposable
         SqliteCommand command = connection.CreateCommand();
         command.CommandText = sql;
         return command;
+    }
+
+    private bool TableExists(string name)
+    {
+        using SqliteCommand command = CreateCommand(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $name;");
+        command.Parameters.AddWithValue("$name", name);
+        return command.ExecuteScalar() is not null;
     }
 
     private static string? IsoUtc(DateTimeOffset? value) =>

@@ -43,7 +43,7 @@ internal static class StatusCommand
             return 2;
         }
 
-        using TransferJournal journal = TransferJournal.Open(destination);
+        using TransferJournal journal = TransferJournal.OpenReadOnly(destination);
         string summary = new SummaryWriter().Build(
             destination,
             journal.ReadManifest(),

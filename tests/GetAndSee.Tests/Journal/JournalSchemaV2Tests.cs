@@ -107,6 +107,69 @@ public sealed class JournalSchemaV2Tests : IDisposable
         }
     }
 
+    [Fact]
+    public void OpenReadOnly_reads_existing_archive()
+    {
+        var file = new RemoteFile("/DCIM/IMG_1.HEIC", 100, null);
+        using (TransferJournal journal = TransferJournal.Open(dir.Path))
+        {
+            journal.UpsertDevice("udid-1", "iPhone", "iPhone13,3", DateTimeOffset.UtcNow);
+            journal.EnsurePending(file);
+            journal.MarkDone(
+                file.Path, file.Size, Path.Combine("2024", "2024-08", "IMG_1.HEIC"),
+                MediaMetadata.Empty, DateTimeOffset.UtcNow);
+            journal.RecordRun(DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, "copy", 1, 0, 0, 0, "udid-1");
+        }
+
+        // status opens read-only (WAL database, cleanly closed) and reads without writing.
+        using TransferJournal readOnly = TransferJournal.OpenReadOnly(dir.Path);
+        readOnly.ReadManifest().Count.ShouldBe(1);
+        readOnly.ReadDevices().Count.ShouldBe(1);
+        readOnly.ReadRunsSummary().TotalRuns.ShouldBe(1);
+    }
+
+    [Fact]
+    public void OpenReadOnly_tolerates_pre_v2_database_without_creating_tables()
+    {
+        using (TransferJournal journal = TransferJournal.Open(dir.Path))
+        {
+            journal.EnsurePending(new RemoteFile("/DCIM/IMG_1.HEIC", 100, null));
+        }
+
+        // Simulate a Sprint 1 (pre-v2) database: drop the v2 tables.
+        string dbPath = Path.Combine(dir.Path, TransferJournal.DatabaseFileName);
+        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = dbPath }.ConnectionString))
+        {
+            connection.Open();
+            Execute(connection, "DROP TABLE devices;");
+            Execute(connection, "DROP TABLE runs;");
+            Execute(connection, "PRAGMA user_version = 0;");
+        }
+
+        // Read-only open must not migrate; the readers degrade gracefully to empty/zero.
+        using (TransferJournal readOnly = TransferJournal.OpenReadOnly(dir.Path))
+        {
+            readOnly.ReadDevices().ShouldBeEmpty();
+            readOnly.ReadRunsSummary().TotalRuns.ShouldBe(0);
+        }
+
+        // Confirm the read-only open created no tables (still pre-v2 on disk).
+        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = dbPath }.ConnectionString))
+        {
+            connection.Open();
+            using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('devices', 'runs');";
+            ((long)command.ExecuteScalar()!).ShouldBe(0);
+        }
+    }
+
+    [Fact]
+    public void OpenReadOnly_throws_when_no_database_exists()
+    {
+        using var empty = new TempDirectory();
+        Should.Throw<FileNotFoundException>(() => TransferJournal.OpenReadOnly(empty.Path));
+    }
+
     private static void Execute(SqliteConnection connection, string sql)
     {
         using SqliteCommand command = connection.CreateCommand();

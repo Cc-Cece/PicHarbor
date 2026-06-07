@@ -56,7 +56,40 @@ public sealed class SummaryWriterTests
     }
 
     [Fact]
-    public void Counts_live_photo_pairs()
+    public void Live_photo_line_is_omitted_when_no_pairs()
+    {
+        var writer = new SummaryWriter();
+        var manifest = new List<ManifestEntry>
+        {
+            new(Path.Combine("2024", "2024-08", "IMG_1.HEIC"), 2_000_000, "2024-08-15T10:00:00", null),
+            new(Path.Combine("2024", "2024-08", "IMG_2.MOV"), 3_000_000, "2024-08-15T11:00:00", null),
+        };
+        var runs = new RunsSummary(0, null, null, 0, 0, 0, TimeSpan.Zero);
+
+        string text = writer.Build(@"D:\Photos", manifest, [], runs, DateTimeOffset.UtcNow);
+
+        text.ShouldNotContain("Live Photos:");
+    }
+
+    [Fact]
+    public void Single_live_photo_uses_singular_pair()
+    {
+        var writer = new SummaryWriter();
+        var manifest = new List<ManifestEntry>
+        {
+            new(Path.Combine("2024", "2024-08", "IMG_1.HEIC"), 2_000_000, "2024-08-15T10:00:00", null),
+            new(Path.Combine("2024", "2024-08", "IMG_1.MOV"), 3_000_000, "2024-08-15T10:00:00", null),
+        };
+        var runs = new RunsSummary(0, null, null, 0, 0, 0, TimeSpan.Zero);
+
+        string text = writer.Build(@"D:\Photos", manifest, [], runs, DateTimeOffset.UtcNow);
+
+        text.ShouldContain("Live Photos: 1 pair");
+        text.ShouldNotContain("Live Photos: 1 pairs");
+    }
+
+    [Fact]
+    public void Multiple_live_photos_use_plural_pairs()
     {
         var writer = new SummaryWriter();
         var manifest = new List<ManifestEntry>
@@ -64,11 +97,12 @@ public sealed class SummaryWriterTests
             new(Path.Combine("2024", "2024-08", "IMG_1.HEIC"), 2_000_000, "2024-08-15T10:00:00", null),
             new(Path.Combine("2024", "2024-08", "IMG_1.MOV"), 3_000_000, "2024-08-15T10:00:00", null),
             new(Path.Combine("2024", "2024-08", "IMG_2.HEIC"), 2_000_000, "2024-08-15T11:00:00", null),
+            new(Path.Combine("2024", "2024-08", "IMG_2.MOV"), 3_000_000, "2024-08-15T11:00:00", null),
         };
         var runs = new RunsSummary(0, null, null, 0, 0, 0, TimeSpan.Zero);
 
         string text = writer.Build(@"D:\Photos", manifest, [], runs, DateTimeOffset.UtcNow);
 
-        text.ShouldContain("Live Photos: 1 pairs");
+        text.ShouldContain("Live Photos: 2 pairs");
     }
 }
