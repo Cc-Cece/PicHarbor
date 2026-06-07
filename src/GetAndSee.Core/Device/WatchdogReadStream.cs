@@ -87,27 +87,32 @@ internal sealed class WatchdogReadStream : Stream
         // read can never corrupt a buffer that has been handed back to an ArrayPool. The scratch is
         // reused across reads so the hot path allocates nothing.
         byte[] target = RentScratch(buffer.Length);
-        Task<int> readTask = inner.ReadAsync(target, 0, buffer.Length, cancellationToken);
+        int length = buffer.Length;
 
-        if (!readTask.IsCompleted)
+        int bytesRead;
+        try
         {
-            using var delayCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            Task delayTask = Task.Delay(timeout, timeProvider, delayCts.Token);
-
-            Task finished = await Task.WhenAny(readTask, delayTask).ConfigureAwait(false);
-            if (finished != readTask)
-            {
-                // The watchdog timer (or caller cancellation) won. Abandon the read and drop our
-                // reference to the scratch buffer so it is never reused while the orphaned read may
-                // still be writing into it.
-                AbandonRead(readTask);
-                scratch = null;
-                cancellationToken.ThrowIfCancellationRequested();
-                throw new DeviceStallException();
-            }
+            // The read-stall watchdog is the same shared timeout race the blocking native open/stat/list
+            // calls use. On a stall it throws DeviceStallException and, via the abandon hook, closes the
+            // inner native handle once the orphaned read finally returns (no leak).
+            bytesRead = await DeviceWatchdog.RaceAgainstTimeoutAsync(
+                inner.ReadAsync(target, 0, length, cancellationToken),
+                timeout,
+                timeProvider,
+                cancellationToken,
+                onAbandoned: _ => DisposeInner()).ConfigureAwait(false);
+        }
+        catch (DeviceStallException)
+        {
+            // The orphaned read may still be writing into the reusable scratch buffer; drop our
+            // reference so it is never reused while in flight, and mark the stream abandoned so Dispose
+            // leaves the inner handle to the watchdog's abandon hook (which closes it when that read
+            // finally returns).
+            abandoned = true;
+            scratch = null;
+            throw;
         }
 
-        int bytesRead = await readTask.ConfigureAwait(false);
         if (bytesRead > 0)
         {
             new ReadOnlySpan<byte>(target, 0, bytesRead).CopyTo(buffer.Span);
@@ -149,23 +154,6 @@ internal sealed class WatchdogReadStream : Stream
     /// <inheritdoc />
     public override void Write(byte[] buffer, int offset, int count) =>
         throw new NotSupportedException("Watchdog read streams are read-only.");
-
-    private void AbandonRead(Task<int> readTask)
-    {
-        abandoned = true;
-
-        // When the orphaned read finally returns or faults, close the native handle so it is not
-        // leaked. This never blocks the current operation.
-        _ = readTask.ContinueWith(
-            completed =>
-            {
-                _ = completed.Exception; // observe to avoid unobserved-exception escalation
-                DisposeInner();
-            },
-            CancellationToken.None,
-            TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
-    }
 
     private byte[] RentScratch(int length)
     {
