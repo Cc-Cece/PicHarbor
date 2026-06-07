@@ -6,6 +6,7 @@ using GetAndSee.Core.Errors;
 using GetAndSee.Core.Journal;
 using GetAndSee.Core.Organize;
 using GetAndSee.Core.Preflight;
+using GetAndSee.Core.Progress;
 using GetAndSee.Core.Summary;
 using GetAndSee.Core.Transfer;
 using GetAndSee.Core.Util;
@@ -125,10 +126,16 @@ internal static class CopyCommand
             journal.EnsurePending(file);
         }
 
-        var copier = new FileCopier(client, journal, organizer, new ExifMetadataExtractor(), destination, readTimeout: readTimeout);
+        var progress = new TransferProgress(files.Count, totalBytes);
+        using IProgressReporter reporter = new TextProgressReporter();
+        reporter.Start(progress);
+
+        var copier = new FileCopier(
+            client, journal, organizer, new ExifMetadataExtractor(), destination,
+            readTimeout: readTimeout, onBytesStreamed: progress.RecordBytes);
         copier.CleanStaging();
 
-        int copied = 0, skipped = 0, failed = 0, processed = 0;
+        int copied = 0, skipped = 0, failed = 0;
         long bytesCopied = 0;
         bool stalled = false;
         var stopwatch = Stopwatch.StartNew();
@@ -138,26 +145,29 @@ internal static class CopyCommand
             foreach (RemoteFile file in files)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                progress.StartFile(DateFolderOrganizer.ExtractFileName(file.Path), file.Size);
+
                 CopyResult result = await copier.CopyAsync(file, cancellationToken).ConfigureAwait(false);
-                processed++;
+
+                if (result.Status == CopyStatus.Skipped)
+                {
+                    progress.RecordSkippedBytes(file.Size);
+                }
+
+                progress.CompleteFile(result.Status);
+                reporter.OnFileCompleted(result);
 
                 switch (result.Status)
                 {
                     case CopyStatus.Copied:
                         copied++;
                         bytesCopied += result.BytesCopied;
-                        Console.WriteLine(
-                            $"[done] {processed:N0}/{files.Count:N0}  " +
-                            $"{ByteSize.Humanize(bytesCopied)}/{ByteSize.Humanize(totalBytes)}  → {result.RelativeDestPath}");
                         break;
                     case CopyStatus.Skipped:
                         skipped++;
-                        Console.WriteLine(
-                            $"[skip] {processed:N0}/{files.Count:N0}  already copied  → {DateFolderOrganizer.ExtractFileName(file.Path)}");
                         break;
                     case CopyStatus.Failed:
                         failed++;
-                        WriteError($"[fail] {DateFolderOrganizer.ExtractFileName(file.Path)}: {result.Error}");
                         break;
                 }
             }

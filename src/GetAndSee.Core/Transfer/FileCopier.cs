@@ -40,6 +40,7 @@ public sealed class FileCopier
     private readonly IMediaMetadataExtractor metadataExtractor;
     private readonly TimeProvider clock;
     private readonly TimeSpan readTimeout;
+    private readonly Action<long>? onBytesStreamed;
     private readonly string destinationRoot;
     private readonly string stagingDirectory;
     private readonly HashSet<string> assignedDestPaths;
@@ -55,6 +56,10 @@ public sealed class FileCopier
     /// Per-read inactivity timeout for the stall watchdog (#11 / R2). <see langword="null"/> or
     /// non-positive disables the watchdog (the read can block indefinitely, as in Sprint 1).
     /// </param>
+    /// <param name="onBytesStreamed">
+    /// Optional cheap per-chunk callback invoked with the number of bytes just streamed, used to drive
+    /// the live progress/speed readout. Must not block.
+    /// </param>
     public FileCopier(
         IPhoneClient client,
         TransferJournal journal,
@@ -62,7 +67,8 @@ public sealed class FileCopier
         IMediaMetadataExtractor metadataExtractor,
         string destinationRoot,
         TimeProvider? clock = null,
-        TimeSpan? readTimeout = null)
+        TimeSpan? readTimeout = null,
+        Action<long>? onBytesStreamed = null)
     {
         this.client = client;
         this.journal = journal;
@@ -71,6 +77,7 @@ public sealed class FileCopier
         this.destinationRoot = destinationRoot;
         this.clock = clock ?? TimeProvider.System;
         this.readTimeout = readTimeout ?? TimeSpan.Zero;
+        this.onBytesStreamed = onBytesStreamed;
         stagingDirectory = Path.Combine(destinationRoot, StagingFolderName);
         assignedDestPaths = new HashSet<string>(journal.GetUsedDestPaths(), StringComparer.OrdinalIgnoreCase);
     }
@@ -182,7 +189,7 @@ public sealed class FileCopier
         return total;
     }
 
-    private static async Task<long> CopyStreamAsync(Stream source, Stream destination, CancellationToken cancellationToken)
+    private async Task<long> CopyStreamAsync(Stream source, Stream destination, CancellationToken cancellationToken)
     {
         byte[] buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
         long total = 0;
@@ -193,6 +200,7 @@ public sealed class FileCopier
             {
                 await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
                 total += read;
+                onBytesStreamed?.Invoke(read);
             }
         }
         finally

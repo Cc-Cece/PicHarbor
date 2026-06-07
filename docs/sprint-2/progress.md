@@ -46,7 +46,33 @@ no `.partial` leak, no date folder, propagates. New `ControlledReadStream` test 
 **Notes:** `InternalsVisibleTo(GetAndSee.Tests)` added so the internal watchdog is unit-testable;
 CA2022 suppressed in the test project (controlled start-then-release-then-await read patterns).
 
-## Phase 2 — Progress core (Tasks 3, 5) ⬜
+## Phase 2 — Progress core (Tasks 3, 5) ✅
+
+**UI-agnostic progress model + speed/ETA math** (engine-side), with the Sprint 1 text output now the
+fallback reporter. The live dashboard (Phase 3) plugs into the same seam.
+
+**Built (all in `GetAndSee.Core/Progress`):**
+- **`TransferProgress`** — thread-safe live model. Hot path `RecordBytes(delta)` is a single
+  `Interlocked.Add` (no locks, no allocation, no device I/O) so the readout cannot slow the copy.
+  Current speed is a **rolling ~3s window** sampled when `Snapshot()` is called (dashboard does this at
+  ≤4 Hz); avg = streamed/elapsed; ETA = remaining/rate. Injectable `TimeProvider` → deterministic
+  tests. Handles slow-start (falls back to avg below a 0.5s window span — no spike) and idle gaps
+  (current decays to 0, never negative). Closes **#10** (current speed).
+- **`ProgressSnapshot`** — immutable view (counts, bytes, current/avg B/s, ETA, current file).
+- **`IProgressReporter`** — `Start(TransferProgress)` + `OnFileCompleted(CopyResult)` + `Dispose`.
+  Keeps the copy loop UI-agnostic.
+- **`TextProgressReporter`** — the Sprint 1 per-file lines (`[done]`/`[skip]`/`[fail]`), now plain-text
+  (ANSI-free, correct for piped/CI output). Writes to an injectable `TextWriter` for testability.
+- **`ProgressMode.ShouldUseDashboard(disabled, redirected)`** — the fallback decision (used in Phase 3).
+- **`FileCopier`** — new injectable `onBytesStreamed` per-chunk callback feeding `RecordBytes`.
+- **`CopyCommand`** — copy loop now drives `TransferProgress` and routes per-file output through the
+  reporter (text for now; dashboard selection lands in Phase 3).
+
+**Tests:** `TransferProgressTests` (7, `FakeTimeProvider`) — avg, rolling current, ETA, ETA-null,
+no slow-start spike, idle-gap decay, counts/processed-bytes. `TextProgressReporterTests` (4).
+`ProgressModeTests` (4). Added `Microsoft.Extensions.TimeProvider.Testing`.
+
+**Verified:** build 0/0; **57 tests** pass (55 unit + 2 safety); safety contract intact; format clean.
 
 ## Phase 3 — Dashboard (Tasks 4, 6) ⬜
 
