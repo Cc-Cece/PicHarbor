@@ -36,11 +36,25 @@ namespace GetAndSee.Core.Transfer;
 /// set, each file's SHA-256 is computed in the same pass that streams it and recorded in the manifest
 /// (R12); the device read path is unchanged and remains read-only.
 /// </para>
+/// <para>
+/// Across a run the copier tracks forward progress with a <see cref="ForwardProgressMonitor"/>: if the
+/// device fast-fails files in a consecutive burst — a cable-yank that returns immediately instead of
+/// parking, which the inactivity watchdog already catches — the run stops cleanly and resumably with a
+/// <see cref="DeviceConnectionLostException"/> rather than spinning through every remaining file (#38).
+/// </para>
 /// </remarks>
 public sealed class FileCopier
 {
     private const int BufferSize = 1024 * 1024;
     private const string StagingFolderName = ".get-and-see-tmp";
+
+    /// <summary>
+    /// Default number of consecutive per-file failures the forward-progress breaker treats as a lost
+    /// device connection (#38). Ten failures in a row with no successful copy between them is an
+    /// unambiguous "device gone" signal — a real disconnect fast-fails every file — while staying well
+    /// clear of the isolated bad or changed files a healthy multi-thousand-file run may legitimately hit.
+    /// </summary>
+    private const int DefaultConsecutiveFailureLimit = 10;
 
     private readonly IPhoneClient client;
     private readonly TransferJournal journal;
@@ -53,6 +67,7 @@ public sealed class FileCopier
     private readonly string destinationRoot;
     private readonly string stagingDirectory;
     private readonly HashSet<string> assignedDestPaths;
+    private readonly ForwardProgressMonitor progressMonitor;
 
     /// <summary>Creates a copier targeting <paramref name="destinationRoot"/>.</summary>
     /// <param name="client">Connected read-only device client.</param>
@@ -75,6 +90,11 @@ public sealed class FileCopier
     /// Read-only and off by default; when <see langword="false"/> no hashing occurs and the copy is
     /// byte-for-byte identical to the default path.
     /// </param>
+    /// <param name="consecutiveFailureLimit">
+    /// Number of consecutive per-file failures (with no intervening success) after which the run is
+    /// stopped as a lost device connection (#38). Guards against a cable-yank that fast-fails every file
+    /// instead of parking. Defaults to <see cref="DefaultConsecutiveFailureLimit"/>.
+    /// </param>
     public FileCopier(
         IPhoneClient client,
         TransferJournal journal,
@@ -84,7 +104,8 @@ public sealed class FileCopier
         TimeProvider? clock = null,
         TimeSpan? readTimeout = null,
         Action<long>? onBytesStreamed = null,
-        bool verifyHash = false)
+        bool verifyHash = false,
+        int consecutiveFailureLimit = DefaultConsecutiveFailureLimit)
     {
         this.client = client;
         this.journal = journal;
@@ -99,6 +120,7 @@ public sealed class FileCopier
         this.verifyHash = verifyHash;
         stagingDirectory = Path.Combine(this.destinationRoot, StagingFolderName);
         assignedDestPaths = new HashSet<string>(journal.GetUsedDestPaths(), StringComparer.OrdinalIgnoreCase);
+        progressMonitor = new ForwardProgressMonitor(consecutiveFailureLimit);
     }
 
     /// <summary>
@@ -130,8 +152,15 @@ public sealed class FileCopier
     {
         ArgumentNullException.ThrowIfNull(file);
 
+        // Forward-progress / connection-health gate (#38): if the device has been fast-failing files in a
+        // consecutive burst, stop the run cleanly here — before touching this file — rather than marching
+        // it into the same failure and spinning. A cable-yank that returns fast-and-wrong (instead of
+        // parking, which the inactivity watchdog already catches) shows up only as this run-level pattern.
+        progressMonitor.ThrowIfConnectionLost();
+
         if (journal.GetState(file.Path, file.Size) == FileState.Done)
         {
+            progressMonitor.RecordSuccess();
             return new CopyResult(CopyStatus.Skipped, file, null, 0, null);
         }
 
@@ -148,6 +177,7 @@ public sealed class FileCopier
                 SafeDelete(stagingPath);
                 string error = $"size mismatch — expected {file.Size} bytes, received {written}.";
                 journal.MarkFailed(file.Path, file.Size, error, clock.GetUtcNow());
+                progressMonitor.RecordFailure();
                 return new CopyResult(CopyStatus.Failed, file, null, 0, error);
             }
 
@@ -159,6 +189,7 @@ public sealed class FileCopier
             File.Move(stagingPath, finalPath);
 
             journal.MarkDone(file.Path, file.Size, relativeDest, metadata, clock.GetUtcNow(), sha256);
+            progressMonitor.RecordSuccess();
             return new CopyResult(CopyStatus.Copied, file, relativeDest, written, null, sha256);
         }
         catch (OperationCanceledException)
@@ -180,6 +211,7 @@ public sealed class FileCopier
         {
             SafeDelete(stagingPath);
             journal.MarkFailed(file.Path, file.Size, ex.Message, clock.GetUtcNow());
+            progressMonitor.RecordFailure();
             return new CopyResult(CopyStatus.Failed, file, null, 0, ex.Message);
         }
     }

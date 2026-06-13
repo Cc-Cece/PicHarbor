@@ -293,4 +293,138 @@ public sealed class FileCopierTests : IDisposable
         result.Sha256.ShouldBe(expectedSha);
         File.ReadAllBytes(Path.Combine(destination.Path, result.RelativeDestPath!)).ShouldBe(content);
     }
+
+    [Fact]
+    public async Task A_device_that_fast_returns_zero_bytes_for_every_file_stops_the_run_instead_of_spinning()
+    {
+        // #38 (the busy-spin): on a real cable-yank the native read returns FAST and WRONG — afc_file_read
+        // reports success with 0 bytes — instead of parking, so the per-call inactivity watchdog never
+        // trips. Each file fails its size check fast and the copy loop spins to the next at 100% CPU. This
+        // reproduces that SPIN (a 0-byte stream returned for EVERY file in a tight loop, NOT a stall) and
+        // asserts the forward-progress breaker turns it into a clean, resumable stop.
+        const int limit = 3;
+        List<RemoteFile> files = ManyFiles(50);
+        client.OpenReadAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<Stream>(new MemoryStream(Array.Empty<byte>(), writable: false)));
+        foreach (RemoteFile file in files)
+        {
+            journal.EnsurePending(file);
+        }
+
+        FileCopier copier = new(
+            client, journal, organizer, extractor, destination.Path, consecutiveFailureLimit: limit);
+
+        int processed = await CountProcessedUntilStopAsync(copier, files);
+
+        // The run STOPPED after `limit` consecutive fast failures rather than churning all 50 files —
+        // proof there is no spin. Nothing was published and no partial leaked (resumable).
+        processed.ShouldBe(limit);
+        Directory.GetFiles(destination.Path, "*.partial", SearchOption.AllDirectories).ShouldBeEmpty();
+        Directory.Exists(Path.Combine(destination.Path, "2024")).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task A_device_that_fast_throws_a_per_file_error_for_every_file_stops_the_run_instead_of_spinning()
+    {
+        // The other #38 manifestation: the yanked transport returns a non-connection-fatal AfcError fast
+        // (one not in AfcErrors.IsConnectionFatal's allow-list), so every file throws a per-file
+        // DeviceException and the loop spins. The breaker still sees the no-forward-progress burst and
+        // stops the run — proving the fix is manifestation-agnostic, not tied to a specific error code.
+        const int limit = 4;
+        List<RemoteFile> files = ManyFiles(50);
+        client.OpenReadAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Throws(new DeviceException("Error reading from the device: a non-fatal AFC error."));
+        foreach (RemoteFile file in files)
+        {
+            journal.EnsurePending(file);
+        }
+
+        FileCopier copier = new(
+            client, journal, organizer, extractor, destination.Path, consecutiveFailureLimit: limit);
+
+        int processed = await CountProcessedUntilStopAsync(copier, files);
+
+        processed.ShouldBe(limit);
+        Directory.GetFiles(destination.Path, "*.partial", SearchOption.AllDirectories).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Isolated_failures_between_successes_never_trip_the_breaker()
+    {
+        // A genuinely bad or changed file amid a healthy run must NOT stop the run: a success resets the
+        // streak, so only a CONSECUTIVE burst (a disconnect) trips the breaker. Here failures alternate
+        // with successes — more than `limit` failures in total, but never two in a row — and the whole
+        // run completes without a DeviceConnectionLostException.
+        const int limit = 3;
+        byte[] good = Encoding.UTF8.GetBytes("a healthy readable file");
+        List<RemoteFile> files = new();
+        for (int i = 0; i < 8; i++)
+        {
+            RemoteFile file = new($"/DCIM/100APPLE/IMG_{i}.HEIC", good.Length, null);
+            if (i % 2 == 0)
+            {
+                SetupRead(file.Path, good);
+            }
+            else
+            {
+                client.OpenReadAsync(file.Path, Arg.Any<CancellationToken>())
+                    .Throws(new DeviceException("one isolated bad file"));
+            }
+
+            journal.EnsurePending(file);
+            files.Add(file);
+        }
+
+        FileCopier copier = new(
+            client, journal, organizer, extractor, destination.Path, consecutiveFailureLimit: limit);
+
+        int copied = 0, failed = 0;
+        foreach (RemoteFile file in files)
+        {
+            // Reaching the end of this loop without an exception is itself the assertion that the breaker
+            // never tripped despite four total failures.
+            CopyResult result = await copier.CopyAsync(file, Token);
+            if (result.Status == CopyStatus.Copied)
+            {
+                copied++;
+            }
+            else if (result.Status == CopyStatus.Failed)
+            {
+                failed++;
+            }
+        }
+
+        copied.ShouldBe(4);
+        failed.ShouldBe(4);
+    }
+
+    private static List<RemoteFile> ManyFiles(int count)
+    {
+        List<RemoteFile> files = new(count);
+        for (int i = 0; i < count; i++)
+        {
+            files.Add(new RemoteFile($"/DCIM/100APPLE/IMG_{i}.HEIC", 1000, null));
+        }
+
+        return files;
+    }
+
+    private static async Task<int> CountProcessedUntilStopAsync(FileCopier copier, IReadOnlyList<RemoteFile> files)
+    {
+        // Drive the copy loop exactly as CopyCommand does — one CopyAsync per file — until the breaker
+        // throws DeviceConnectionLostException (the clean stop), returning how many files were processed
+        // first. Without the breaker this would walk the entire list: the 100% CPU spin the test exists
+        // to prevent.
+        int processed = 0;
+        await Should.ThrowAsync<DeviceConnectionLostException>(async () =>
+        {
+            foreach (RemoteFile file in files)
+            {
+                await copier.CopyAsync(file, Token);
+                processed++;
+            }
+        });
+
+        return processed;
+    }
 }

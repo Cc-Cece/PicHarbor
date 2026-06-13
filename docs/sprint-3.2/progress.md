@@ -42,8 +42,71 @@ extended-length `DataSource` works for both short and long paths (no healthy-pat
 
 ---
 
+## #38 — USB-unplug busy-spin (the step-back one) ✅
+
+**Root cause (confirmed in source + issue evidence):** the shared `DeviceWatchdog` (#25) only trips on a
+native call that **parks** — an *inactivity* timer. A real cable-yank instead makes the native call
+**return fast and wrong**: `afc_file_read` reports `Success` + `0` bytes (a premature EOF that fails the
+size check), or an `AfcError` that is **not** in `AfcErrors.IsConnectionFatal`'s 3-code allow-list (so it
+maps to a per-file `DeviceException`). Either way the call returns instantly, sails **past** the
+inactivity timer, the file fails, and the **outer copy loop spins to the next file** — 100% CPU, no
+stall message, no `summary.txt`, no exit 3 (the #11 stall → #25 park → #38 spin progression). A per-call
+timer **structurally cannot** see this: no single call is slow.
+
+**Design chosen — a forward-progress / connection-health circuit breaker (candidate (b)), and why:**
+
+The spin is a **run-level** pattern, not a single-call problem, so the fix lives at the run level. New
+`ForwardProgressMonitor` (`src/GetAndSee.Core/Transfer/ForwardProgressMonitor.cs`) counts **consecutive
+per-file failures**; a copied/skipped file is forward progress and **resets** the streak; once the streak
+reaches a limit (default **10**) the device is presumed gone and it throws `DeviceConnectionLostException`
+→ the existing `CopyCommand` catch → clean **exit 3** + `summary.txt`, in-flight file non-`done`
+(resumable). `FileCopier` owns one instance and calls `ThrowIfConnectionLost()` before each file and
+`RecordSuccess()`/`RecordFailure()` at each outcome. **`CopyCommand` is unchanged** (no added drift to the
+already-escalated `ExecuteAsync`).
+
+Why this over the other candidates:
+- **Manifestation-agnostic.** It detects the *pattern* (a no-progress burst), so it catches **both** the
+  0-byte-EOF and the non-allow-listed-`AfcError` manifestations — and any future one — without having to
+  enumerate native error codes (which is exactly the brittle gap that let #38 ship).
+- **(a) truncation→connection-lost *immediately* — rejected.** Treating the first short read as a
+  whole-run disconnect would false-positive on a legitimately changed/shrunk file (size known at
+  enumerate > bytes readable at copy, connection fine) and soft-wedge the run on re-run. Requiring *N
+  consecutive* failures is the robust signal; the existing size-mismatch path already fails the short
+  file and feeds the breaker, so no separate immediate-abort is needed.
+- **(c) device-enumerable health probe — rejected.** A probe is itself a native AFC round-trip that can
+  *park* (needing yet another watchdog) and adds latency to every failure; the breaker infers
+  "device gone" from the failure pattern with no device round-trip.
+
+**Not just another timer:** the breaker is a cross-file progress monitor, the structural complement the
+inactivity watchdog (per-call) cannot provide. The watchdog still handles the **park** manifestation
+(unchanged); the breaker handles the **fast-fail / spin** manifestation.
+
+**Tests — reproduce the SPIN, not a stall:** `FileCopierTests`
+- `A_device_that_fast_returns_zero_bytes_for_every_file_stops_the_run_instead_of_spinning` — a fake whose
+  every `OpenReadAsync` yields a **0-byte stream** (the `afc_file_read` Success+0 signature), driven in a
+  tight loop; asserts the run **stops after `limit` files** (no spin), nothing published, no `.partial`.
+- `A_device_that_fast_throws_a_per_file_error_for_every_file_stops_the_run_instead_of_spinning` — every
+  file throws a fast **non-fatal `DeviceException`** in a tight loop; same clean stop (the
+  manifestation-agnostic proof).
+- `Isolated_failures_between_successes_never_trip_the_breaker` — alternating fail/success (more than
+  `limit` total failures, never consecutive) completes the whole run with no false trip.
+- `ForwardProgressMonitorTests` — unit-level trip-after-N, reset-on-success, reject-non-positive-limit.
+
+These reproduce a **fast/0-byte/fast-error tight loop**, not a parked/stall mock — the gap the issue
+named. The existing parked-open/idle-stall tests (`Read_stall_…`, `Connection_lost_during_open_…`,
+`DeviceWatchdogTests`) stay **green** (untouched watchdog path), so #25 is not regressed.
+
+**Verified:** full suite green in Release — `GetAndSee.Tests` 110/110, `ReadOnlyContractTests` 2/2 (no new
+device-write symbol; the fix is read-path only), `dotnet format` clean, EXE `--help`/`status` smoke OK.
+
+---
+
 ## Bugs / Issues Found
 
 - (#39) Pre-existing latent gap beyond the DataSource: `OpenReadOnly`/`StatusCommand` `File.Exists`
   probes also fail past MAX_PATH (silent `false`). Fixed alongside so `status` works at depth, not just
   `copy`.
+- (#38) The connection-fatal allow-list (`AfcErrors.IsConnectionFatal`, 3 codes) is necessarily
+  incomplete for every real disconnect manifestation. Rather than chase codes, the breaker makes the fix
+  independent of which `AfcError` a yank produces. Left the allow-list as-is (still the right fast-path
+  classifier for the *parked*/known cases).
