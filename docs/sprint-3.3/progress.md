@@ -131,11 +131,58 @@ returning.
 
 ## Phase 2 — tests that reproduce EACH manifestation
 
-(pending)
+Deterministic, fake-clock-where-time-matters, each verified to **fail before / pass after**. Anti-false-
+green: every test models the real failure mode (a read that returns fast-and-wrong, or one that pins a
+core and never returns), not a convenient stand-in, and a test that only models a *park* does not count.
+
+**`ForwardProgressWatchdogTests`** (the unified model, direct):
+- trips when no progress for the timeout; does **not** trip before; trips after the N-failure burst; a
+  recorded byte resets the inactivity clock; progress resets the failure streak; **a slow-but-alive device
+  (a byte every `timeout − 1s`) never trips**; dispose stops the timer; ctor rejects non-positive
+  timeout/limit.
+
+**`FileCopierTests`** (end-to-end through the real copy pipeline):
+- **intra-file freeze after bytes flowed (#42)** — `ChunkThenStallReadStream` delivers chunks then the
+  read stops and ignores cancellation (the native-read shape); the watchdog resets on the bytes that
+  flowed, then trips a full timeout after they stop ⇒ `DeviceConnectionLostException` (exit 3), file
+  resumable, no `.partial` published, loop terminated (no spin). **This is the intra-file manifestation,
+  not a park.**
+- **read stall mid-file (#11)** — bytes never flow ⇒ trip ⇒ same clean stop.
+- **between-file fast-fail burst (#38)** — fast `Success`+0 for every file, and fast per-file errors for
+  every file, each stop after `N` files instead of churning all 50 (no spin).
+- **native open-park (#25)** — `DeviceWatchdogTests` (a real blocking call parked on a worker).
+- **premature-EOF guard** — `Sprint33DiagnosisTests`: a single premature `Success`+0 is a per-file failure
+  (resumable), never a run stop (can't be told from a shrunk file); only a sustained burst trips the run.
+
+**False-positive guards (must NOT trip):** slow-but-alive device (watchdog unit test); a 0-byte file
+copies cleanly; isolated failures between successes never trip the breaker (`FileCopierTests`).
+
+**Fail-before evidence (recorded):** the headline intra-file test was run against the pre-fix code in a
+throwaway worktree at the Phase-0 commit. It failed:
+
+```
+Shouldly.ShouldAssertException : … should throw
+GetAndSee.Core.Errors.DeviceConnectionLostException
+    but threw
+GetAndSee.Core.Errors.DeviceStallException
+```
+
+i.e. the old per-read watchdog produced `DeviceStallException` (and, with a virtual clock, the per-read
+timer is armed *during* the read, racing the disconnect — it could also hang), never the unified
+`DeviceConnectionLostException`. Only the run-level watchdog produces the clean, deterministic stop.
+
+**Healthy hot path:** the watchdog adds one `Interlocked.Exchange` + a `GetUtcNow` per 1 MB chunk
+(~30 calls/s at the USB-2 ceiling) and no allocation; the timer ticks on its own thread. No measurable
+cost at 400 GB / 38k files; the dashboard already paid the per-chunk callback.
+
+**Counts:** 119 `GetAndSee.Tests` + 2 `GetAndSee.SafetyTests` green (Release); `dotnet format` clean;
+build 0/0. `ReadOnlyContractTests` green — no device-write symbol added (the only device-side change is
+the read instrumentation, which observes values only).
 
 ## Bugs / Issues Found
 
-- (none yet beyond the #42 diagnosis above)
+- (none beyond the #42 diagnosis — the fix is additive/behavioral; data-safety + read-only invariants held
+  throughout and are covered by unchanged tests.)
 
 ## Decisions / notes
 

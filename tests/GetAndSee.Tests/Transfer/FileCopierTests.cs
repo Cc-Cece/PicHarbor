@@ -159,6 +159,59 @@ public sealed class FileCopierTests : IDisposable
     }
 
     [Fact]
+    public async Task Intra_file_freeze_after_bytes_flowed_stops_the_run_resumably_without_spinning()
+    {
+        // #42 (the intra-file spin): a cable yank mid-stream of a large file. Bytes flow (the .partial
+        // grows), then forward progress freezes — the native read pins a core and never returns. This is
+        // NOT a park from the first byte: the watchdog must reset on the bytes that DID flow and then trip
+        // a full timeout after they stop, turning the intra-file spin into a clean, resumable exit-3 stop.
+        FakeTimeProvider clock = new();
+        var stream = new ChunkThenStallReadStream(chunksBeforeStall: 3, chunkSize: 1024 * 1024);
+        var file = new RemoteFile("/DCIM/126APPLE/IMG_6834.MOV", 392_323_980L, null);
+        client.OpenReadAsync(file.Path, Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<Stream>(stream));
+        journal.EnsurePending(file);
+
+        using FileCopier copier = new(
+            client, journal, organizer, extractor, destination.Path,
+            clock: clock, readTimeout: TimeSpan.FromSeconds(15));
+
+        Task<CopyResult> copy = copier.CopyAsync(file, Token);
+        await stream.StalledReadStarted;          // 3 MB streamed, then forward progress froze
+        clock.Advance(TimeSpan.FromSeconds(15));   // a full timeout AFTER the freeze → the watchdog trips
+
+        await Should.ThrowAsync<DeviceConnectionLostException>(async () => await copy);
+
+        // Resumable, nothing published, and the loop actually terminated (no spin).
+        journal.GetState(file.Path, file.Size).ShouldBe(FileState.InProgress);
+        Directory.GetFiles(destination.Path, "*.MOV", SearchOption.AllDirectories).ShouldBeEmpty();
+        Directory.GetFiles(destination.Path, "*.partial", SearchOption.AllDirectories).ShouldBeEmpty();
+
+        stream.ReleaseStall(); // let the orphaned read unwind during teardown
+    }
+
+    [Fact]
+    public async Task A_zero_byte_file_copies_cleanly_and_never_trips_the_watchdog()
+    {
+        // False-positive guard: a legitimately empty file produces no bytes but completes instantly. It
+        // must copy as normal, not be mistaken for a stalled device.
+        FakeTimeProvider clock = new();
+        var file = new RemoteFile("/DCIM/100APPLE/EMPTY.DAT", 0, null);
+        client.OpenReadAsync(file.Path, Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<Stream>(new MemoryStream(Array.Empty<byte>(), writable: false)));
+        journal.EnsurePending(file);
+
+        using FileCopier copier = new(
+            client, journal, organizer, extractor, destination.Path,
+            clock: clock, readTimeout: TimeSpan.FromSeconds(15));
+
+        CopyResult result = await copier.CopyAsync(file, Token);
+
+        result.Status.ShouldBe(CopyStatus.Copied);
+        journal.GetState(file.Path, file.Size).ShouldBe(FileState.Done);
+    }
+
+    [Fact]
     public async Task Connection_lost_during_open_leaves_file_in_progress_and_stops_the_run()
     {
         // A connection-fatal AFC error (a yanked cable surfacing as MuxError/ServiceNotConnected) must

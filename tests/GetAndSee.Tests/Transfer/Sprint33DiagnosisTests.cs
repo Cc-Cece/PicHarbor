@@ -11,13 +11,13 @@ using Xunit;
 namespace GetAndSee.Tests.Transfer;
 
 /// <summary>
-/// Phase 0 diagnosis of the #42 intra-file unplug spin. These tests characterize the <i>gap</i> in the
-/// pre-3.3 code so the mechanism is on the record (see <c>docs/sprint-3.3/progress.md</c>): a device read
-/// that returns <b>fast</b> (a premature <c>Success</c>+0) makes no forward progress yet bypasses the
-/// per-read inactivity watchdog, and the run is not stopped at the run level — it is only ever handled as
-/// a per-file failure. Sprint 3.3 adds a run-level forward-progress watchdog that closes this gap; the
-/// manifestation tests that assert the fixed behavior live in <c>ForwardProgressWatchdogTests</c>
-/// and the 3.3 additions to <c>FileCopierTests</c>.
+/// Guards around the premature end-of-file signal that drove the #42 diagnosis (see
+/// <c>docs/sprint-3.3/progress.md</c>). A device read that returns a fast <c>Success</c>+0 before the
+/// expected size cannot be distinguished from a legitimately shrunk file by the read pattern alone, so a
+/// <b>single</b> one is treated as a per-file failure (the file is left resumable, the run continues) —
+/// never as a run-level stop. A <i>sustained</i> burst of them is what the run-level
+/// <c>ForwardProgressWatchdog</c> turns into a clean exit-3 stop (covered in
+/// <c>ForwardProgressWatchdogTests</c> and the 3.3 additions to <c>FileCopierTests</c>).
 /// </summary>
 public sealed class Sprint33DiagnosisTests : IDisposable
 {
@@ -66,12 +66,12 @@ public sealed class Sprint33DiagnosisTests : IDisposable
     }
 
     [Fact]
-    public async Task Fast_zero_byte_read_bypasses_the_per_read_watchdog_timer()
+    public async Task A_single_premature_zero_byte_read_is_a_per_file_failure_not_a_run_stop()
     {
-        // The per-read watchdog only arms when a read does not complete promptly; a fast Success+0 sails
-        // straight through. With a 10-MINUTE read timeout, a fast zero-byte read must still return at once
-        // (the timer never materializes) rather than blocking — proving the per-read timer cannot see a
-        // fast no-progress read. This is the structural escape hatch behind #42.
+        // A premature Success+0 cannot be told apart from a legitimately shrunk file by the read pattern,
+        // so a single one fails just this file (resumable) rather than stopping the whole run. Only a
+        // SUSTAINED burst (a real disconnect) trips the run-level watchdog. With a 10-minute timeout the
+        // single fast zero-byte read returns at once and is recorded as a size mismatch.
         FastZeroByteStream stream = new();
         client.OpenReadAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult<Stream>(stream));
