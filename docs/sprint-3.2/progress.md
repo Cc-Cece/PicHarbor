@@ -110,3 +110,51 @@ device-write symbol; the fix is read-path only), `dotnet format` clean, EXE `--h
   incomplete for every real disconnect manifestation. Rather than chase codes, the breaker makes the fix
   independent of which `AfcError` a yank produces. Left the allow-list as-is (still the right fast-path
   classifier for the *parked*/known cases).
+
+---
+
+## Review-gate delta (producer PR #41 review = PASS-WITH-NITS) ✅
+
+**Finding (verified in code):** #39's long-path fix was **asymmetric**. The SQLite `DataSource` was
+prefixed, but the managed-filesystem touches that run *before* the journal were still unprefixed, so a
+deep destination failed at **pre-flight** on a **stock** Windows machine (`LongPathsEnabled=0`) with a
+misleading *"Destination is not writable"* (exit 2) — **before** the fixed journal was ever reached. Our
+dev/QA box hides this because it has the long-paths registry key **on**; SQLite's native VFS ignores that
+key, which is why only the `DataSource` crashed in QA. R6 must work on a stock machine.
+
+**Fix (same branch, updates PR #41) — prefix the two remaining destination-root touches:**
+- `PreflightChecks.EnsureDestinationWritable` — route **both** `Directory.CreateDirectory(destinationRoot)`
+  and the write-probe path (`Path.Combine(destinationRoot, ".get-and-see-write-probe-….tmp")`) through
+  `LongPath.ToExtended` (compute one `extendedRoot`, use it for the dir-create and the probe). The
+  PreflightException message still shows the clean `destinationRoot`. **This is the earliest/worst
+  offender:** the ~61-char probe filename crosses MAX_PATH at a *shallower* root than the 14-char
+  `get-and-see.db`.
+- `TransferJournal.Open` — wrap the `Directory.CreateDirectory(destinationRoot)` above the (already-fixed)
+  `DataSource` line in `LongPath.ToExtended` too.
+- **Scan result:** swept every managed FS touch in `src/` (`Directory.*`, `File.*`, `FileStream`). All
+  `FileCopier` touches already derive from its constructor's `LongPath.ToExtended(destinationRoot)`
+  (staging dir, final path, collision `File.Exists`, `SafeDelete`) — already prefixed. `SummaryWriter`,
+  `OpenReadOnly`, `StatusCommand` were prefixed in the first #39 commit. `EnsureSufficientFreeSpace` uses
+  the **drive root** (`DriveInfo`), not a deep path — no exposure. So preflight + journal-`Open` were the
+  only two left. `ToExtended` is idempotent (no-op on short/already-prefixed paths), so shallow
+  destinations are unaffected (confirmed: all existing short-path tests green).
+
+**Tests (`PreflightChecksTests`, +2):**
+- `Writable_check_passes_when_the_write_probe_path_exceeds_260_chars` — builds a root **< 260** (so the
+  root dir is creatable even unprefixed, isolating the **probe** as the first offender) whose probe path
+  is **> 260**; asserts `EnsureDestinationWritable` does not throw and the dir is created. On a **stock**
+  box (e.g. the GitHub `windows-latest` CI runner, `LongPathsEnabled=0`) this **fails before the fix**
+  (unprefixed probe write throws) and **passes after**; green on a long-paths box either way. Never relies
+  on the registry key to *pass*.
+- `Writable_check_routes_the_directory_create_through_the_long_path_prefix` — **machine-independent**
+  wiring guard: passes a destination segment ending in `.` (a trailing dot). Windows normalization strips
+  a trailing dot from an **unprefixed** create but the verbatim `\\?\` form **preserves** it (verified
+  empirically; registry-**independent**), so the dot survives **iff** the method prefixes the path. Remove
+  the `ToExtended` wiring and this goes **red on any machine** (including the long-paths dev/QA box).
+
+**Verified:** `dotnet format` clean · Release build 0/0 · `GetAndSee.Tests` **112/112** ·
+`GetAndSee.SafetyTests` **2/2** (`ReadOnlyContractTests` intact — no device-write symbol; FS-path change
+only). Dev box confirmed `LongPathsEnabled=1` (matches the producer's note).
+
+**Out of scope (not done, per the review):** `--max-consecutive-failures` flag (post-v1); the in-file
+infinite-trickle shape. `CopyCommand` and the breaker logic untouched (reviewed clean).

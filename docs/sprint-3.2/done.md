@@ -51,6 +51,12 @@ failure at outcomes). **`CopyCommand` unchanged** — no new drift on the alread
 This is **not another timer** — it is the cross-file complement the per-call watchdog cannot provide. The
 watchdog still owns the **park** manifestation (untouched); the breaker owns the **fast-fail/spin** one.
 
+**Known limit (by design; documented per producer review):** the breaker trips on **N consecutive**
+failures (default 10), so ≥10 genuinely-corrupt-in-a-row files on a *healthy* device will stop the run as
+if disconnected. This is pathological (real libraries don't have 10 unreadable files back-to-back), it is
+**resumable** (re-run continues past them once they're journaled `failed`/skipped), and it is data-safe.
+Making the threshold user-tunable (`--max-consecutive-failures`) is deferred post-v1.
+
 ---
 
 ## Tests — reproduce the SPIN, not a stall (the named blind spot)
@@ -78,7 +84,7 @@ issue called out. The parked-open/idle-stall suite (`Read_stall_…`, `Connectio
 |------|--------|
 | `dotnet format --verify-no-changes` (solution) | ✅ exit 0 |
 | `dotnet build -c Release` (warnings-as-errors) | ✅ 0 warnings / 0 errors |
-| `dotnet test -c Release` — `GetAndSee.Tests` | ✅ **110 / 110** |
+| `dotnet test -c Release` — `GetAndSee.Tests` | ✅ **112 / 112** |
 | `dotnet test -c Release` — `GetAndSee.SafetyTests` (`ReadOnlyContractTests`) | ✅ **2 / 2** — read-only contract intact, no new device-write symbol |
 | EXE smoke (`--help` exit 0; `status` friendly exit 2) | ✅ |
 
@@ -95,17 +101,19 @@ issue called out. The parked-open/idle-stall suite (`Read_stall_…`, `Connectio
 
 | # | File | Change |
 |---|------|--------|
-| 39 | `src/GetAndSee.Core/Journal/TransferJournal.cs` | `LongPath.ToExtended` on `DataSource` (Open + OpenReadOnly) + read-only existence probe |
+| 39 | `src/GetAndSee.Core/Journal/TransferJournal.cs` | `LongPath.ToExtended` on `DataSource` (Open + OpenReadOnly) + read-only existence probe; **and** the `Open` `Directory.CreateDirectory` (review delta) |
+| 39 | `src/GetAndSee.Core/Preflight/PreflightChecks.cs` | **review delta** — prefix `EnsureDestinationWritable`'s dir-create + write-probe (the earliest MAX_PATH offender) |
 | 39 | `src/GetAndSee.Core/Summary/SummaryWriter.cs` | prefix the `summary.txt` write path |
 | 39 | `src/GetAndSee.Cli/Commands/StatusCommand.cs` | prefix the `File.Exists` probe |
 | 39 | `tests/GetAndSee.Tests/Journal/JournalLongPathTests.cs` | **new** — long-path open/round-trip/read-only/summary |
+| 39 | `tests/GetAndSee.Tests/Preflight/PreflightChecksTests.cs` | **review delta, +2** — long-path probe (stock-CI regression) + machine-independent trailing-dot wiring guard |
 | 38 | `src/GetAndSee.Core/Transfer/ForwardProgressMonitor.cs` | **new** — consecutive-failure circuit breaker |
 | 38 | `src/GetAndSee.Core/Transfer/FileCopier.cs` | own + drive the breaker (limit param, pre-file check, record outcomes) |
 | 38 | `tests/GetAndSee.Tests/Transfer/FileCopierTests.cs` | **+3** spin/no-spin tests |
 | 38 | `tests/GetAndSee.Tests/Transfer/ForwardProgressMonitorTests.cs` | **new** — breaker unit tests |
 | — | `docs/sprint-3.2/progress.md`, `docs/sprint-3.2/done.md` | sprint docs |
 
-Commits: `Closes #39` (`fa8255e`) · `Closes #38` (`0419012`).
+Commits: `Closes #39` (`fa8255e`) · `Closes #38` (`0419012`) · review delta (long-path preflight symmetry).
 
 ---
 

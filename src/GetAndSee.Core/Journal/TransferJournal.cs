@@ -46,7 +46,9 @@ public sealed class TransferJournal : IDisposable
     public static TransferJournal Open(string destinationRoot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
-        System.IO.Directory.CreateDirectory(destinationRoot);
+        // Create the destination root through the \\?\ long-path form so a deep root is created on a
+        // stock Windows machine (LongPathsEnabled=0); the DataSource below is already prefixed (R6 / #39).
+        System.IO.Directory.CreateDirectory(LongPath.ToExtended(destinationRoot));
 
         string databasePath = Path.Combine(destinationRoot, DatabaseFileName);
         // Route the SQLite DataSource through the \\?\ long-path prefix so a deep destination root —

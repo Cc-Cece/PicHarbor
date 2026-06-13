@@ -67,10 +67,17 @@ public sealed class PreflightChecks
     /// <exception cref="PreflightException">Thrown when the destination cannot be written.</exception>
     public void EnsureDestinationWritable(string destinationRoot)
     {
+        // Route the directory-create and the write-probe through the \\?\ long-path form so a deep
+        // destination passes pre-flight on a stock Windows machine (LongPathsEnabled=0), instead of
+        // throwing a misleading "not writable" here — before the long-path-safe journal is ever opened
+        // (R6 / #39). The probe filename (~61 chars) crosses MAX_PATH at a shallower root than the 14-char
+        // journal DB, so this is the earliest place a deep destination is touched. ToExtended is a no-op
+        // on short or already-prefixed paths, so shallow destinations are unaffected.
+        string extendedRoot = LongPath.ToExtended(destinationRoot);
         try
         {
-            System.IO.Directory.CreateDirectory(destinationRoot);
-            string probe = Path.Combine(destinationRoot, $".get-and-see-write-probe-{Guid.NewGuid():N}.tmp");
+            System.IO.Directory.CreateDirectory(extendedRoot);
+            string probe = Path.Combine(extendedRoot, $".get-and-see-write-probe-{Guid.NewGuid():N}.tmp");
             File.WriteAllText(probe, "ok");
             File.Delete(probe);
         }
