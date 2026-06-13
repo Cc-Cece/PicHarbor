@@ -112,6 +112,35 @@ public sealed class ForwardProgressWatchdogTests
     }
 
     [Fact]
+    public void Disposing_at_the_trip_threshold_does_not_throw()
+    {
+        // A Check() fires (and trips) as the fake clock crosses the timeout; disposing right then must be
+        // clean — no exception escapes from tearing the watchdog down at the moment it would trip.
+        FakeTimeProvider clock = new();
+        ForwardProgressWatchdog watchdog = new(Timeout, clock);
+
+        clock.Advance(Timeout);
+
+        Should.NotThrow(() => watchdog.Dispose());
+    }
+
+    [Fact]
+    public void A_late_trip_after_dispose_is_a_safe_no_op_not_a_crash()
+    {
+        // Shutdown race: the timer's synchronous Dispose() does not wait for an in-flight Check(), so a
+        // stray Check() -> Trip() could otherwise call cts.Cancel() AFTER cts.Dispose() — an
+        // ObjectDisposedException on the timer thread that crashes the process (reachable when post-loop
+        // work outlasts the read timeout since the last byte). Drive the same Trip() path after Dispose
+        // (RecordFailure at the limit) and assert it is a no-op, not a throw.
+        FakeTimeProvider clock = new();
+        ForwardProgressWatchdog watchdog = new(Timeout, clock, consecutiveFailureLimit: 1);
+
+        watchdog.Dispose();
+
+        Should.NotThrow(() => watchdog.RecordFailure());
+    }
+
+    [Fact]
     public void Constructor_rejects_a_non_positive_timeout_or_failure_limit()
     {
         FakeTimeProvider clock = new();

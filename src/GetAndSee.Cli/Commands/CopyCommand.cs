@@ -21,7 +21,7 @@ namespace GetAndSee.Cli.Commands;
 /// </summary>
 internal static class CopyCommand
 {
-    /// <summary>Default per-read inactivity timeout for the stall watchdog, in seconds (#11 / R2).</summary>
+    /// <summary>Default run-level forward-progress timeout for the liveness watchdog, in seconds (#11 / #42 / R2).</summary>
     public const int DefaultReadTimeoutSeconds = 30;
 
     /// <summary>Builds the <c>copy</c> command and its options.</summary>

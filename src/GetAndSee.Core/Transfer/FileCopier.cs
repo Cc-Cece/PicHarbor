@@ -243,7 +243,11 @@ public sealed class FileCopier : IDisposable
 
     private async Task<(long Bytes, string? Sha256)> StreamToStagingAsync(RemoteFile file, string stagingPath, CancellationToken cancellationToken)
     {
-        ReadDiagnostics.Log($"begin file path={file.Path} expectedSize={file.Size}");
+        if (ReadDiagnostics.Enabled)
+        {
+            ReadDiagnostics.Log($"begin file path={file.Path} expectedSize={file.Size}");
+        }
+
         Stream rawSource = await client.OpenReadAsync(file.Path, cancellationToken).ConfigureAwait(false);
 
         // Shield the device read so the run-level forward-progress watchdog can abandon it on a stall or

@@ -40,10 +40,12 @@ internal sealed class ForwardProgressWatchdog : IDisposable
     private readonly int consecutiveFailureLimit;
     private readonly CancellationTokenSource cts = new();
     private readonly ITimer timer;
+    private readonly object gate = new();
 
     private long lastProgressTicks;
     private int consecutiveFailures;
     private int tripped;
+    private bool disposed;
 
     /// <summary>Creates and arms a forward-progress watchdog.</summary>
     /// <param name="timeout">
@@ -117,15 +119,45 @@ internal sealed class ForwardProgressWatchdog : IDisposable
 
     private void Trip()
     {
-        if (Interlocked.Exchange(ref tripped, 1) == 0)
+        // Serialize with Dispose so a stray timer Check() that fires during shutdown can never call
+        // cts.Cancel() after cts.Dispose() (which would throw ObjectDisposedException on the timer thread
+        // and crash the process). Once disposed, a late trip is a no-op.
+        lock (gate)
         {
-            cts.Cancel();
+            if (disposed)
+            {
+                return;
+            }
+
+            if (Interlocked.Exchange(ref tripped, 1) == 0)
+            {
+                cts.Cancel();
+            }
         }
     }
 
-    /// <summary>Stops the timer and releases the cancellation source.</summary>
+    /// <summary>
+    /// Stops the timer and releases the cancellation source. Safe against the timer's in-flight
+    /// <see cref="Check"/> callback: once disposed, a late <see cref="Trip"/> is a no-op, so no
+    /// <see cref="ObjectDisposedException"/> can escape on the timer thread during shutdown (reachable when
+    /// post-loop work outlasts the timeout since the last byte).
+    /// </summary>
     public void Dispose()
     {
+        lock (gate)
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            disposed = true;
+        }
+
+        // Dispose the timer OUTSIDE the lock: the synchronous ITimer.Dispose does not wait for an in-flight
+        // callback, and that callback (Trip) takes the same lock, so disposing under the lock risks a
+        // deadlock. Any in-flight Trip has already observed disposed=true and skipped the cancel, so the
+        // cts can now be disposed safely.
         timer.Dispose();
         cts.Dispose();
     }
