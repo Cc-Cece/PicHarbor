@@ -27,18 +27,37 @@ public sealed class SummaryWriter
     /// <param name="devices">Devices recorded in the journal.</param>
     /// <param name="runs">Run-history summary from the journal.</param>
     /// <param name="generatedAt">UTC timestamp to stamp the file with.</param>
+    /// <param name="flushToDisk">
+    /// When <see langword="true"/>, fsync the file before returning. Used by the disconnect escape-hatch
+    /// (#45), which hard-terminates the process immediately after, so the bytes must be on disk rather than
+    /// only in the OS write cache. The normal end-of-run write leaves this <see langword="false"/> and is
+    /// unchanged.
+    /// </param>
     public void Write(
         string destinationRoot,
         IReadOnlyList<ManifestEntry> manifest,
         IReadOnlyList<DeviceRecord> devices,
         RunsSummary runs,
-        DateTimeOffset generatedAt)
+        DateTimeOffset generatedAt,
+        bool flushToDisk = false)
     {
         string content = Build(destinationRoot, manifest, devices, runs, generatedAt);
         // Prefix the write path with \\?\ so summary.txt is written even when the destination root is
         // deep enough that <dest>/summary.txt exceeds MAX_PATH (R6 / #39). The destination shown inside
         // the text (set in Build) stays the clean, user-facing form.
-        File.WriteAllText(LongPath.ToExtended(Path.Combine(destinationRoot, FileName)), content);
+        string path = LongPath.ToExtended(Path.Combine(destinationRoot, FileName));
+        if (!flushToDisk)
+        {
+            File.WriteAllText(path, content);
+            return;
+        }
+
+        // Durable write for the escape-hatch's imminent hard terminate: UTF-8 without a BOM (matching
+        // File.WriteAllText), then fsync so summary.txt survives the abrupt process kill.
+        byte[] bytes = Encoding.UTF8.GetBytes(content);
+        using FileStream stream = new(path, FileMode.Create, FileAccess.Write, FileShare.None);
+        stream.Write(bytes, 0, bytes.Length);
+        stream.Flush(flushToDisk: true);
     }
 
     /// <summary>Builds the summary text without writing it (used by <c>status</c> and tests).</summary>

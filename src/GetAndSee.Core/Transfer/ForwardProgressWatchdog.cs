@@ -38,6 +38,7 @@ internal sealed class ForwardProgressWatchdog : IDisposable
     private readonly TimeSpan timeout;
     private readonly TimeProvider clock;
     private readonly int consecutiveFailureLimit;
+    private readonly Action? onTrip;
     private readonly CancellationTokenSource cts = new();
     private readonly ITimer timer;
     private readonly object gate = new();
@@ -57,7 +58,17 @@ internal sealed class ForwardProgressWatchdog : IDisposable
     /// Number of consecutive per-file failures (with no intervening progress) that trips the watchdog
     /// immediately — the fast path for a cable-yank that fast-fails every file (#38). Must be positive.
     /// </param>
-    public ForwardProgressWatchdog(TimeSpan timeout, TimeProvider? clock = null, int consecutiveFailureLimit = 10)
+    /// <param name="onTrip">
+    /// The disconnect escape-hatch, run once on the watchdog's independent timer thread the first time it
+    /// trips (#45). The main copy thread may be wedged in a synchronous native call that cancellation
+    /// cannot interrupt, so this action writes the summary and hard-terminates the process rather than
+    /// relying on a clean unwind. <see langword="null"/> keeps the Sprint 3.3 behaviour (cancel only).
+    /// </param>
+    public ForwardProgressWatchdog(
+        TimeSpan timeout,
+        TimeProvider? clock = null,
+        int consecutiveFailureLimit = 10,
+        Action? onTrip = null)
     {
         if (timeout <= TimeSpan.Zero)
         {
@@ -69,6 +80,7 @@ internal sealed class ForwardProgressWatchdog : IDisposable
         this.timeout = timeout;
         this.clock = clock ?? TimeProvider.System;
         this.consecutiveFailureLimit = consecutiveFailureLimit;
+        this.onTrip = onTrip;
         lastProgressTicks = this.clock.GetUtcNow().UtcTicks;
 
         // Check several times per timeout window so detection lands close to `timeout` rather than up to
@@ -122,6 +134,7 @@ internal sealed class ForwardProgressWatchdog : IDisposable
         // Serialize with Dispose so a stray timer Check() that fires during shutdown can never call
         // cts.Cancel() after cts.Dispose() (which would throw ObjectDisposedException on the timer thread
         // and crash the process). Once disposed, a late trip is a no-op.
+        bool firstTrip;
         lock (gate)
         {
             if (disposed)
@@ -129,10 +142,20 @@ internal sealed class ForwardProgressWatchdog : IDisposable
                 return;
             }
 
-            if (Interlocked.Exchange(ref tripped, 1) == 0)
+            firstTrip = Interlocked.Exchange(ref tripped, 1) == 0;
+            if (firstTrip)
             {
                 cts.Cancel();
             }
+        }
+
+        if (firstTrip)
+        {
+            // Run the disconnect escape-hatch OUTSIDE the gate (it writes summary.txt and may terminate the
+            // process; holding the lock would block Dispose and is needless once we have decided to stop).
+            // This runs on the independent timer thread, which the wedged main copy thread cannot block, so
+            // a synchronous native call busy-spinning on a dead transport (#45) cannot prevent the exit.
+            onTrip?.Invoke();
         }
     }
 

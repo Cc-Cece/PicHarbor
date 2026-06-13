@@ -100,6 +100,14 @@ public sealed class FileCopier : IDisposable
     /// stopped as a lost device connection (#38) — the fast path for a cable-yank that fast-fails every
     /// file instead of parking. Defaults to <see cref="DefaultConsecutiveFailureLimit"/>.
     /// </param>
+    /// <param name="onDisconnect">
+    /// The Sprint 3.4 disconnect escape-hatch (#45), run on the forward-progress watchdog's independent
+    /// timer thread the first time it trips. When the byte heartbeat is dead the device is provably gone
+    /// and the main copy thread may be wedged in a synchronous native call (<c>afc_file_close</c> spinning
+    /// on the dead transport) that cancellation cannot interrupt, so this action writes the summary and
+    /// hard-terminates the process rather than relying on a clean unwind. <see langword="null"/> keeps the
+    /// Sprint 3.3 cancel-and-unwind behaviour.
+    /// </param>
     public FileCopier(
         IPhoneClient client,
         TransferJournal journal,
@@ -110,7 +118,8 @@ public sealed class FileCopier : IDisposable
         TimeSpan? readTimeout = null,
         Action<long>? onBytesStreamed = null,
         bool verifyHash = false,
-        int consecutiveFailureLimit = DefaultConsecutiveFailureLimit)
+        int consecutiveFailureLimit = DefaultConsecutiveFailureLimit,
+        Action? onDisconnect = null)
     {
         this.client = client;
         this.journal = journal;

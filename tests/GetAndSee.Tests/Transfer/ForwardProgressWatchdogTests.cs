@@ -148,4 +148,55 @@ public sealed class ForwardProgressWatchdogTests
         Should.Throw<ArgumentOutOfRangeException>(() => new ForwardProgressWatchdog(TimeSpan.Zero, clock));
         Should.Throw<ArgumentOutOfRangeException>(() => new ForwardProgressWatchdog(Timeout, clock, consecutiveFailureLimit: 0));
     }
+
+    [Fact]
+    public void An_inactivity_trip_runs_the_escape_hatch_once()
+    {
+        // 3.4: on trip the watchdog runs the disconnect escape-hatch (write summary + hard-terminate) on its
+        // independent timer thread, not just a token cancel — because the main thread may be wedged in a
+        // synchronous native spin (#45) that cancellation cannot interrupt.
+        FakeTimeProvider clock = new();
+        int calls = 0;
+        using ForwardProgressWatchdog watchdog = new(Timeout, clock, onTrip: () => Interlocked.Increment(ref calls));
+
+        clock.Advance(Timeout);
+
+        watchdog.Tripped.ShouldBeTrue();
+        watchdog.Token.IsCancellationRequested.ShouldBeTrue();
+        calls.ShouldBe(1);
+    }
+
+    [Fact]
+    public void A_failure_burst_trip_runs_the_escape_hatch_once()
+    {
+        FakeTimeProvider clock = new();
+        int calls = 0;
+        using ForwardProgressWatchdog watchdog = new(
+            Timeout, clock, consecutiveFailureLimit: 2, onTrip: () => Interlocked.Increment(ref calls));
+
+        watchdog.RecordFailure();
+        watchdog.RecordFailure();
+
+        watchdog.Tripped.ShouldBeTrue();
+        calls.ShouldBe(1);
+    }
+
+    [Fact]
+    public void The_escape_hatch_never_runs_while_the_device_stays_alive()
+    {
+        // False-positive guard: a slow-but-alive device resets the clock on every chunk, so the escape-hatch
+        // (a process terminate in production) must never fire.
+        FakeTimeProvider clock = new();
+        int calls = 0;
+        using ForwardProgressWatchdog watchdog = new(Timeout, clock, onTrip: () => Interlocked.Increment(ref calls));
+
+        for (int i = 0; i < 5; i++)
+        {
+            clock.Advance(Timeout - TimeSpan.FromSeconds(1));
+            watchdog.RecordProgress();
+        }
+
+        calls.ShouldBe(0);
+        watchdog.Tripped.ShouldBeFalse();
+    }
 }
