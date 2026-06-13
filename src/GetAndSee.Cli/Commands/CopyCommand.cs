@@ -161,9 +161,14 @@ internal static class CopyCommand
             : new TextProgressReporter();
         reporter.Start(progress);
 
+        // The disconnect escape-hatch (#45): if the forward-progress watchdog proves the device is gone, it
+        // writes summary.txt and hard-terminates with exit 3 from its independent timer thread rather than
+        // unwinding through native code that may busy-spin (afc_file_close on a dead transport).
+        DisconnectEscapeHatch escapeHatch = new(destination, new TerminateProcessTerminator());
         using FileCopier copier = new(
             client, journal, organizer, new ExifMetadataExtractor(), destination,
-            readTimeout: readTimeout, onBytesStreamed: progress.RecordBytes, verifyHash: verifyHash);
+            readTimeout: readTimeout, onBytesStreamed: progress.RecordBytes, verifyHash: verifyHash,
+            onDisconnect: escapeHatch.Activate);
         copier.CleanStaging();
 
         int copied = 0, skipped = 0, failed = 0;

@@ -1,4 +1,6 @@
+using System.Text;
 using GetAndSee.Core.Device;
+using GetAndSee.Core.Errors;
 using GetAndSee.Core.Journal;
 using GetAndSee.Core.Organize;
 using GetAndSee.Core.Summary;
@@ -86,5 +88,63 @@ public sealed class Sprint34EscapeHatchTests : IDisposable
             spinning.ReleaseSpin();
             await copy;
         }
+    }
+
+    [Fact]
+    public async Task A_parked_read_with_the_escape_hatch_wired_terminates_with_exit_3()
+    {
+        // A prior manifestation (#11 / #42): the read parks mid-file (ignores cancellation, never returns).
+        // With the escape-hatch wired, the watchdog reaches the same single outcome as the spinning close —
+        // terminate with exit 3 on its independent timer thread.
+        FakeTimeProvider clock = new();
+        RecordingProcessTerminator terminator = new();
+        DisconnectEscapeHatch escapeHatch = new(destination.Path, terminator, TextWriter.Null);
+        ChunkThenStallReadStream stream = new(chunksBeforeStall: 3, chunkSize: 1024 * 1024);
+
+        RemoteFile file = new("/DCIM/126APPLE/IMG_PARK.MOV", 392_323_980L, null);
+        client.OpenReadAsync(file.Path, Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<Stream>(stream));
+        journal.EnsurePending(file);
+
+        using FileCopier copier = new(
+            client, journal, organizer, extractor, destination.Path,
+            clock: clock, readTimeout: TimeSpan.FromSeconds(15), onDisconnect: escapeHatch.Activate);
+
+        Task<CopyResult> copy = copier.CopyAsync(file, Token);
+        await stream.StalledReadStarted;            // 3 MB streamed, then the read parks
+        clock.Advance(TimeSpan.FromSeconds(15));     // a full timeout after the freeze → the watchdog trips
+
+        terminator.WasInvoked.ShouldBeTrue("a parked read past the timeout must terminate (exit 3)");
+        terminator.ExitCode.ShouldBe(DisconnectEscapeHatch.DisconnectExitCode);
+
+        stream.ReleaseStall(); // let the abandoned read unwind; the token-cancel path stays resumable
+        await Should.ThrowAsync<DeviceConnectionLostException>(async () => await copy);
+        journal.GetState(file.Path, file.Size).ShouldBe(FileState.InProgress);
+        Directory.GetFiles(destination.Path, "*.partial", SearchOption.AllDirectories).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_healthy_run_with_the_escape_hatch_wired_never_terminates()
+    {
+        // False-positive guard: a normal file copies and completes; the escape-hatch (a process terminate in
+        // production) must never fire on a healthy run.
+        FakeTimeProvider clock = new();
+        RecordingProcessTerminator terminator = new();
+        DisconnectEscapeHatch escapeHatch = new(destination.Path, terminator, TextWriter.Null);
+        byte[] content = Encoding.UTF8.GetBytes("healthy media bytes — copied cleanly");
+        RemoteFile file = new("/DCIM/100APPLE/IMG_OK.HEIC", content.Length, null);
+        client.OpenReadAsync(file.Path, Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<Stream>(new MemoryStream(content, writable: false)));
+        journal.EnsurePending(file);
+
+        using FileCopier copier = new(
+            client, journal, organizer, extractor, destination.Path,
+            clock: clock, readTimeout: TimeSpan.FromSeconds(15), onDisconnect: escapeHatch.Activate);
+
+        CopyResult result = await copier.CopyAsync(file, Token);
+
+        result.Status.ShouldBe(CopyStatus.Copied);
+        journal.GetState(file.Path, file.Size).ShouldBe(FileState.Done);
+        terminator.WasInvoked.ShouldBeFalse("a healthy run must never trip the escape-hatch");
     }
 }

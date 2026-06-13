@@ -135,7 +135,7 @@ public sealed class FileCopier : IDisposable
         stagingDirectory = Path.Combine(this.destinationRoot, StagingFolderName);
         assignedDestPaths = new HashSet<string>(journal.GetUsedDestPaths(), StringComparer.OrdinalIgnoreCase);
         progressWatchdog = this.readTimeout > TimeSpan.Zero
-            ? new ForwardProgressWatchdog(this.readTimeout, this.clock, consecutiveFailureLimit)
+            ? new ForwardProgressWatchdog(this.readTimeout, this.clock, consecutiveFailureLimit, onTrip: onDisconnect)
             : null;
     }
 
