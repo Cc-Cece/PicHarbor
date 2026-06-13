@@ -35,7 +35,10 @@ public sealed class SummaryWriter
         DateTimeOffset generatedAt)
     {
         string content = Build(destinationRoot, manifest, devices, runs, generatedAt);
-        File.WriteAllText(Path.Combine(destinationRoot, FileName), content);
+        // Prefix the write path with \\?\ so summary.txt is written even when the destination root is
+        // deep enough that <dest>/summary.txt exceeds MAX_PATH (R6 / #39). The destination shown inside
+        // the text (set in Build) stays the clean, user-facing form.
+        File.WriteAllText(LongPath.ToExtended(Path.Combine(destinationRoot, FileName)), content);
     }
 
     /// <summary>Builds the summary text without writing it (used by <c>status</c> and tests).</summary>
