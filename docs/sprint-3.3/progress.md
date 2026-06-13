@@ -91,7 +91,43 @@ the native return values at the instruction level.
 
 ## Phase 1 — the universal forward-progress watchdog
 
-(pending — see Phase 1 section below once implemented)
+Implemented the confirmed fix: one run-level liveness model on the byte heartbeat, on an independent
+timer, replacing both the per-read inactivity timer and the standalone between-file failure breaker.
+
+- **`ForwardProgressWatchdog`** (`src/GetAndSee.Core/Transfer/ForwardProgressWatchdog.cs`, new) — the
+  single liveness guard. It is fed by the existing per-chunk heartbeat and trips a `CancellationToken` on
+  either of two conditions, both "forward progress stopped":
+  1. **No progress for `timeout`** (an independent `TimeProvider.CreateTimer`, checked four times per
+     window so detection lands near `timeout`). This catches a parked read, a native spin that never
+     returns (#42), and any other no-byte stall — because the timer ticks regardless of whether any read
+     returns.
+  2. **`N` consecutive per-file failures with no intervening progress** (the folded-in #38 fast path),
+     so a cable-yank that fast-fails every file stops in ~`N` files instead of churning the journal for a
+     whole timeout window.
+  Any streamed byte or any completed/skipped file resets both, so an isolated bad/changed file never
+  trips it. The trip cancels one CTS; `RecordProgress` is lock-free and hot-path safe.
+- **`AbandonableReadStream`** (renamed from `WatchdogReadStream`) — keeps the safety-critical parts of the
+  old decorator (the private reusable **scratch buffer** so an orphaned read can never corrupt the
+  caller's pooled buffer, and the abandon-the-orphan-on-stall behavior) but **drops its own per-read
+  timer**. It now races each read against the watchdog's cancellation token only, so there is exactly
+  **one** byte-liveness timer (the run-level watchdog). When the watchdog trips, the in-flight read is
+  abandoned (left to die when the process exits, right after exit 3, so the pinned core drops to idle) and
+  the await unblocks.
+- **`FileCopier`** owns the watchdog (created only when `readTimeout > 0`; `--read-timeout 0` disables all
+  forward-progress detection, preserving the Sprint-1 unguarded behavior) and is now `IDisposable` so the
+  timer is released. `CopyAsync` feeds the heartbeat (`RecordProgress` on each chunk and on every
+  copied/skipped file; `RecordFailure` on a per-file failure), gates each file on `Tripped` (a between-file
+  trip → `DeviceConnectionLostException`), and converts a watchdog-trip cancellation of an in-flight read
+  into a `DeviceConnectionLostException` (resumable, in-progress) — distinguished from a user Ctrl+C, which
+  still propagates as cancellation (exit 130).
+- **`DeviceWatchdog`** is unchanged and still guards the blocking native **open/stat/list** calls (#25) —
+  a separate, non-overlapping concern (no byte heartbeat exists during those calls).
+- **`ForwardProgressMonitor` (#38) deleted** — folded into the watchdog's failure counter.
+
+Why this is universal: every manifestation (#11 park, #25 open-park, #38 between-file spin, #42 intra-file
+spin/native-spin, plus a fast premature-EOF burst) reduces to "the byte heartbeat stopped," and the
+watchdog watches exactly that on an independent clock — not a code location, and not coupled to any read
+returning.
 
 ## Phase 2 — tests that reproduce EACH manifestation
 

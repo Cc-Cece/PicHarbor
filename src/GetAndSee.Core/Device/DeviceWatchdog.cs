@@ -18,9 +18,10 @@ namespace GetAndSee.Core.Device;
 /// <see cref="DeviceStallException"/> instead of blocking forever.
 /// </para>
 /// <para>
-/// This is the single implementation of the abandon-on-timeout logic. Both the four blocking native
-/// calls and <see cref="WatchdogReadStream"/> (the per-read inactivity guard) route through
-/// <see cref="RaceAgainstTimeoutAsync{T}"/>, so the behavior is defined and tested in exactly one place.
+/// This is the single implementation of the abandon-on-timeout/abandon-on-cancellation logic. The four
+/// blocking native calls (open/stat/list) guard against a parked call with a timeout here, and
+/// <see cref="AbandonableReadStream"/> reuses the same race to abandon a stuck read when the run-level
+/// forward-progress watchdog cancels it — so the behavior is defined and tested in exactly one place.
 /// </para>
 /// </remarks>
 internal static class DeviceWatchdog

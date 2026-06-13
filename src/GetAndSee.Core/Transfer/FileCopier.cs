@@ -37,22 +37,25 @@ namespace GetAndSee.Core.Transfer;
 /// (R12); the device read path is unchanged and remains read-only.
 /// </para>
 /// <para>
-/// Across a run the copier tracks forward progress with a <see cref="ForwardProgressMonitor"/>: if the
-/// device fast-fails files in a consecutive burst — a cable-yank that returns immediately instead of
-/// parking, which the inactivity watchdog already catches — the run stops cleanly and resumably with a
-/// <see cref="DeviceConnectionLostException"/> rather than spinning through every remaining file (#38).
+/// Across a run the copier guards liveness with a single run-level <see cref="ForwardProgressWatchdog"/>
+/// fed by the byte heartbeat: if the device stops delivering bytes (a parked read, a between-file
+/// fast-fail burst, or an intra-file native spin — all "forward byte progress stopped") for the
+/// configured timeout, the run stops cleanly and resumably with a
+/// <see cref="DeviceConnectionLostException"/> (exit 3) rather than hanging or spinning through every
+/// remaining file (#11 / #25 / #38 / #42). The copier is <see cref="IDisposable"/> so that watchdog's
+/// timer is released at the end of the run.
 /// </para>
 /// </remarks>
-public sealed class FileCopier
+public sealed class FileCopier : IDisposable
 {
     private const int BufferSize = 1024 * 1024;
     private const string StagingFolderName = ".get-and-see-tmp";
 
     /// <summary>
-    /// Default number of consecutive per-file failures the forward-progress breaker treats as a lost
-    /// device connection (#38). Ten failures in a row with no successful copy between them is an
-    /// unambiguous "device gone" signal — a real disconnect fast-fails every file — while staying well
-    /// clear of the isolated bad or changed files a healthy multi-thousand-file run may legitimately hit.
+    /// Default number of consecutive per-file failures the forward-progress watchdog treats as a lost
+    /// device connection (#38). Ten failures in a row with no progress between them is an unambiguous
+    /// "device gone" signal — a real disconnect fast-fails every file — while staying well clear of the
+    /// isolated bad or changed files a healthy multi-thousand-file run may legitimately hit.
     /// </summary>
     private const int DefaultConsecutiveFailureLimit = 10;
 
@@ -67,7 +70,7 @@ public sealed class FileCopier
     private readonly string destinationRoot;
     private readonly string stagingDirectory;
     private readonly HashSet<string> assignedDestPaths;
-    private readonly ForwardProgressMonitor progressMonitor;
+    private readonly ForwardProgressWatchdog? progressWatchdog;
 
     /// <summary>Creates a copier targeting <paramref name="destinationRoot"/>.</summary>
     /// <param name="client">Connected read-only device client.</param>
@@ -75,10 +78,12 @@ public sealed class FileCopier
     /// <param name="organizer">Date-folder organizer.</param>
     /// <param name="metadataExtractor">EXIF/metadata extractor used on the local copy.</param>
     /// <param name="destinationRoot">Destination root directory.</param>
-    /// <param name="clock">Time source; defaults to the system clock. Also drives the read-stall watchdog.</param>
+    /// <param name="clock">Time source; defaults to the system clock. Also drives the forward-progress watchdog.</param>
     /// <param name="readTimeout">
-    /// Per-read inactivity timeout for the stall watchdog (#11 / R2). <see langword="null"/> or
-    /// non-positive disables the watchdog (the read can block indefinitely, as in Sprint 1).
+    /// Forward-progress timeout for the run-level liveness watchdog (#11 / #25 / #38 / #42 / R2): if the
+    /// device delivers no bytes (and completes no file) for this long while a copy is in flight, the run
+    /// stops cleanly and resumably. <see langword="null"/> or non-positive disables the watchdog (reads
+    /// can block indefinitely, as in Sprint 1).
     /// </param>
     /// <param name="onBytesStreamed">
     /// Optional cheap per-chunk callback invoked with the number of bytes just streamed, used to drive
@@ -91,9 +96,9 @@ public sealed class FileCopier
     /// byte-for-byte identical to the default path.
     /// </param>
     /// <param name="consecutiveFailureLimit">
-    /// Number of consecutive per-file failures (with no intervening success) after which the run is
-    /// stopped as a lost device connection (#38). Guards against a cable-yank that fast-fails every file
-    /// instead of parking. Defaults to <see cref="DefaultConsecutiveFailureLimit"/>.
+    /// Number of consecutive per-file failures (with no intervening progress) after which the run is
+    /// stopped as a lost device connection (#38) — the fast path for a cable-yank that fast-fails every
+    /// file instead of parking. Defaults to <see cref="DefaultConsecutiveFailureLimit"/>.
     /// </param>
     public FileCopier(
         IPhoneClient client,
@@ -120,7 +125,9 @@ public sealed class FileCopier
         this.verifyHash = verifyHash;
         stagingDirectory = Path.Combine(this.destinationRoot, StagingFolderName);
         assignedDestPaths = new HashSet<string>(journal.GetUsedDestPaths(), StringComparer.OrdinalIgnoreCase);
-        progressMonitor = new ForwardProgressMonitor(consecutiveFailureLimit);
+        progressWatchdog = this.readTimeout > TimeSpan.Zero
+            ? new ForwardProgressWatchdog(this.readTimeout, this.clock, consecutiveFailureLimit)
+            : null;
     }
 
     /// <summary>
@@ -152,15 +159,17 @@ public sealed class FileCopier
     {
         ArgumentNullException.ThrowIfNull(file);
 
-        // Forward-progress / connection-health gate (#38): if the device has been fast-failing files in a
-        // consecutive burst, stop the run cleanly here — before touching this file — rather than marching
-        // it into the same failure and spinning. A cable-yank that returns fast-and-wrong (instead of
-        // parking, which the inactivity watchdog already catches) shows up only as this run-level pattern.
-        progressMonitor.ThrowIfConnectionLost();
+        // Forward-progress / connection-health gate: if the run-level watchdog has already tripped (a burst
+        // of consecutive fast-failures, or no bytes for the timeout while a prior file was in flight), stop
+        // the run cleanly here — before touching this file — rather than marching it into the same failure.
+        if (progressWatchdog?.Tripped == true)
+        {
+            throw new DeviceConnectionLostException();
+        }
 
         if (journal.GetState(file.Path, file.Size) == FileState.Done)
         {
-            progressMonitor.RecordSuccess();
+            progressWatchdog?.RecordProgress();
             return new CopyResult(CopyStatus.Skipped, file, null, 0, null);
         }
 
@@ -168,16 +177,23 @@ public sealed class FileCopier
         System.IO.Directory.CreateDirectory(stagingDirectory);
         string stagingPath = Path.Combine(stagingDirectory, Guid.NewGuid().ToString("N") + ".partial");
 
+        // While streaming, observe both the caller's token and the watchdog's: a watchdog trip cancels the
+        // in-flight read so the stuck read is abandoned instead of blocking forever.
+        using CancellationTokenSource? linkedCts = progressWatchdog is null
+            ? null
+            : CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, progressWatchdog.Token);
+        CancellationToken streamToken = linkedCts?.Token ?? cancellationToken;
+
         try
         {
-            (long written, string? sha256) = await StreamToStagingAsync(file, stagingPath, cancellationToken).ConfigureAwait(false);
+            (long written, string? sha256) = await StreamToStagingAsync(file, stagingPath, streamToken).ConfigureAwait(false);
 
             if (written != file.Size)
             {
                 SafeDelete(stagingPath);
                 string error = $"size mismatch — expected {file.Size} bytes, received {written}.";
                 journal.MarkFailed(file.Path, file.Size, error, clock.GetUtcNow());
-                progressMonitor.RecordFailure();
+                progressWatchdog?.RecordFailure();
                 return new CopyResult(CopyStatus.Failed, file, null, 0, error);
             }
 
@@ -189,21 +205,30 @@ public sealed class FileCopier
             File.Move(stagingPath, finalPath);
 
             journal.MarkDone(file.Path, file.Size, relativeDest, metadata, clock.GetUtcNow(), sha256);
-            progressMonitor.RecordSuccess();
+            progressWatchdog?.RecordProgress();
             return new CopyResult(CopyStatus.Copied, file, relativeDest, written, null, sha256);
+        }
+        catch (OperationCanceledException) when (progressWatchdog?.Tripped == true && !cancellationToken.IsCancellationRequested)
+        {
+            // The forward-progress watchdog tripped: the device stopped delivering bytes (a park, a
+            // between-file fast-fail burst, or an intra-file native spin — all "bytes stopped flowing").
+            // The in-flight read was abandoned by the cancellation; leave the row in_progress (resumable)
+            // and surface a connection loss so the run stops cleanly (exit 3) rather than spinning.
+            SafeDelete(stagingPath);
+            throw new DeviceConnectionLostException();
         }
         catch (OperationCanceledException)
         {
-            // Resumable: leave the journal row in_progress so a re-run retries this file.
+            // Caller cancellation (Ctrl+C): resumable, leave the row in_progress so a re-run retries it.
             SafeDelete(stagingPath);
             throw;
         }
         catch (Exception ex) when (ex is DeviceStallException or DeviceConnectionLostException)
         {
-            // The device connection dropped mid-file (#11 / #25 / R2): the watchdog tripped on a parked
-            // native call, or a native read/open returned a connection-fatal AFC error. Leave the row
-            // in_progress (resumable) and propagate so the run stops cleanly rather than marching every
-            // remaining file into the same hang.
+            // The device connection dropped mid-file (#11 / #25 / R2): a blocking native open/stat/list
+            // call parked and the DeviceWatchdog abandoned it, or a native read/open returned a
+            // connection-fatal AFC error. Leave the row in_progress (resumable) and propagate so the run
+            // stops cleanly rather than marching every remaining file into the same hang.
             SafeDelete(stagingPath);
             throw;
         }
@@ -211,7 +236,7 @@ public sealed class FileCopier
         {
             SafeDelete(stagingPath);
             journal.MarkFailed(file.Path, file.Size, ex.Message, clock.GetUtcNow());
-            progressMonitor.RecordFailure();
+            progressWatchdog?.RecordFailure();
             return new CopyResult(CopyStatus.Failed, file, null, 0, ex.Message);
         }
     }
@@ -221,10 +246,11 @@ public sealed class FileCopier
         ReadDiagnostics.Log($"begin file path={file.Path} expectedSize={file.Size}");
         Stream rawSource = await client.OpenReadAsync(file.Path, cancellationToken).ConfigureAwait(false);
 
-        // Wrap the device read in the stall watchdog (#11 / R2) when a timeout is configured. The
-        // watchdog owns and disposes the raw stream.
-        await using Stream source = readTimeout > TimeSpan.Zero
-            ? new WatchdogReadStream(rawSource, readTimeout, clock)
+        // Shield the device read so the run-level forward-progress watchdog can abandon it on a stall or
+        // native spin (#11 / #25 / #42). The shield owns and disposes the raw stream. With no watchdog
+        // (readTimeout <= 0) the raw stream is used directly, preserving the Sprint-1 unguarded behavior.
+        await using Stream source = progressWatchdog is not null
+            ? new AbandonableReadStream(rawSource, clock)
             : rawSource;
 
         await using var partial = new FileStream(
@@ -266,6 +292,7 @@ public sealed class FileCopier
                 hasher?.AppendData(buffer.AsSpan(0, read));
                 total += read;
                 onBytesStreamed?.Invoke(read);
+                progressWatchdog?.RecordProgress();
             }
         }
         finally
@@ -317,4 +344,7 @@ public sealed class FileCopier
             // Leaving a staging .partial behind is safe; it is never published and is cleaned next run.
         }
     }
+
+    /// <summary>Stops the forward-progress watchdog timer and releases its resources.</summary>
+    public void Dispose() => progressWatchdog?.Dispose();
 }

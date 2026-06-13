@@ -8,6 +8,7 @@ using GetAndSee.Core.Transfer;
 using GetAndSee.Core.Util;
 using GetAndSee.Tests.TestSupport;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Shouldly;
@@ -130,21 +131,26 @@ public sealed class FileCopierTests : IDisposable
     }
 
     [Fact]
-    public async Task Read_stall_leaves_file_in_progress_and_propagates_so_the_run_stops()
+    public async Task Read_stall_mid_file_stops_the_run_resumably_via_the_forward_progress_watchdog()
     {
-        // A device that stops sending bytes mid-file (#11 / R2).
+        // A device that stops sending bytes mid-file (#11 / #42): the run-level forward-progress watchdog
+        // trips after the timeout and surfaces a clean, resumable connection loss instead of hanging.
+        FakeTimeProvider clock = new();
         var stallingStream = new ControlledReadStream();
         var file = new RemoteFile("/DCIM/100APPLE/IMG_STALL.MOV", 10_000_000, null);
         client.OpenReadAsync(file.Path, Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult<Stream>(stallingStream));
         journal.EnsurePending(file);
 
-        var copier = new FileCopier(
+        using FileCopier copier = new(
             client, journal, organizer, extractor, destination.Path,
-            readTimeout: TimeSpan.FromMilliseconds(200));
+            clock: clock, readTimeout: TimeSpan.FromSeconds(30));
 
-        // The watchdog turns the indefinite hang into a clean, propagating stall.
-        await Should.ThrowAsync<DeviceStallException>(async () => await copier.CopyAsync(file, Token));
+        Task<CopyResult> copy = copier.CopyAsync(file, Token);
+        await stallingStream.Started;            // the read is in flight
+        clock.Advance(TimeSpan.FromSeconds(30)); // no bytes for the timeout → the watchdog trips
+
+        await Should.ThrowAsync<DeviceConnectionLostException>(async () => await copy);
 
         // Resumable: the in-flight file is left non-done, and no partial leaks into the final tree.
         journal.GetState(file.Path, file.Size).ShouldBe(FileState.InProgress);
@@ -311,8 +317,9 @@ public sealed class FileCopierTests : IDisposable
             journal.EnsurePending(file);
         }
 
-        FileCopier copier = new(
-            client, journal, organizer, extractor, destination.Path, consecutiveFailureLimit: limit);
+        using FileCopier copier = new(
+            client, journal, organizer, extractor, destination.Path,
+            readTimeout: TimeSpan.FromSeconds(30), consecutiveFailureLimit: limit);
 
         int processed = await CountProcessedUntilStopAsync(copier, files);
 
@@ -339,8 +346,9 @@ public sealed class FileCopierTests : IDisposable
             journal.EnsurePending(file);
         }
 
-        FileCopier copier = new(
-            client, journal, organizer, extractor, destination.Path, consecutiveFailureLimit: limit);
+        using FileCopier copier = new(
+            client, journal, organizer, extractor, destination.Path,
+            readTimeout: TimeSpan.FromSeconds(30), consecutiveFailureLimit: limit);
 
         int processed = await CountProcessedUntilStopAsync(copier, files);
 
@@ -375,8 +383,9 @@ public sealed class FileCopierTests : IDisposable
             files.Add(file);
         }
 
-        FileCopier copier = new(
-            client, journal, organizer, extractor, destination.Path, consecutiveFailureLimit: limit);
+        using FileCopier copier = new(
+            client, journal, organizer, extractor, destination.Path,
+            readTimeout: TimeSpan.FromSeconds(30), consecutiveFailureLimit: limit);
 
         int copied = 0, failed = 0;
         foreach (RemoteFile file in files)

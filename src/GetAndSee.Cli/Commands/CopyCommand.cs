@@ -161,7 +161,7 @@ internal static class CopyCommand
             : new TextProgressReporter();
         reporter.Start(progress);
 
-        var copier = new FileCopier(
+        using FileCopier copier = new(
             client, journal, organizer, new ExifMetadataExtractor(), destination,
             readTimeout: readTimeout, onBytesStreamed: progress.RecordBytes, verifyHash: verifyHash);
         copier.CleanStaging();

@@ -8,9 +8,21 @@ namespace GetAndSee.Tests.TestSupport;
 internal sealed class ControlledReadStream : Stream
 {
     private readonly TaskCompletionSource<int> gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly bool observeCancellation;
+
+    /// <param name="observeCancellation">
+    /// When <see langword="false"/>, the read ignores its cancellation token — modeling the real native
+    /// <c>afc_file_read</c>, which keeps running after the copy loop abandons it. Defaults to
+    /// <see langword="true"/>.
+    /// </param>
+    public ControlledReadStream(bool observeCancellation = true) => this.observeCancellation = observeCancellation;
 
     /// <summary>True once the stream has been disposed (used to assert the native handle is closed).</summary>
     public bool IsDisposed { get; private set; }
+
+    /// <summary>Completes once a read has actually begun, so a test can deterministically act mid-read.</summary>
+    public Task Started => started.Task;
 
     /// <summary>Completes the read with <paramref name="bytes"/> bytes.</summary>
     public void Release(int bytes) => gate.TrySetResult(bytes);
@@ -52,8 +64,10 @@ internal sealed class ControlledReadStream : Stream
 
     private async Task<int> AwaitGateAsync(Memory<byte> buffer, CancellationToken cancellationToken)
     {
-        await using CancellationTokenRegistration registration =
-            cancellationToken.Register(() => gate.TrySetCanceled(cancellationToken));
+        started.TrySetResult();
+        await using CancellationTokenRegistration registration = observeCancellation
+            ? cancellationToken.Register(() => gate.TrySetCanceled(cancellationToken))
+            : default;
 
         int bytes = await gate.Task.ConfigureAwait(false);
         buffer.Span[..bytes].Fill(1);
