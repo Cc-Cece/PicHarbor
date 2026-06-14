@@ -1,6 +1,7 @@
 using System.Globalization;
 using GetAndSee.Core.Device;
 using GetAndSee.Core.Organize;
+using GetAndSee.Core.Util;
 using Microsoft.Data.Sqlite;
 
 namespace GetAndSee.Core.Journal;
@@ -45,10 +46,16 @@ public sealed class TransferJournal : IDisposable
     public static TransferJournal Open(string destinationRoot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
-        System.IO.Directory.CreateDirectory(destinationRoot);
+        // Create the destination root through the \\?\ long-path form so a deep root is created on a
+        // stock Windows machine (LongPathsEnabled=0); the DataSource below is already prefixed (R6 / #39).
+        System.IO.Directory.CreateDirectory(LongPath.ToExtended(destinationRoot));
 
         string databasePath = Path.Combine(destinationRoot, DatabaseFileName);
-        var builder = new SqliteConnectionStringBuilder { DataSource = databasePath };
+        // Route the SQLite DataSource through the \\?\ long-path prefix so a deep destination root —
+        // and the -wal/-shm sidecars SQLite derives from it — can exceed the legacy MAX_PATH limit,
+        // exactly as the media copy path already does (R6 / #39). DatabasePath keeps the clean,
+        // user-facing form for display and diagnostics.
+        var builder = new SqliteConnectionStringBuilder { DataSource = LongPath.ToExtended(databasePath) };
         var connection = new SqliteConnection(builder.ConnectionString);
         connection.Open();
 
@@ -70,14 +77,18 @@ public sealed class TransferJournal : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
 
         string databasePath = Path.Combine(destinationRoot, DatabaseFileName);
-        if (!File.Exists(databasePath))
+        // Probe and open through the \\?\ long-path prefix: a non-prefixed File.Exists on a > 260-char
+        // path silently returns false (so status would wrongly report "no archive"), and the SQLite open
+        // would otherwise crash on a deep destination (R6 / #39).
+        string extendedDatabasePath = LongPath.ToExtended(databasePath);
+        if (!File.Exists(extendedDatabasePath))
         {
             throw new FileNotFoundException("No get-and-see database found.", databasePath);
         }
 
         var builder = new SqliteConnectionStringBuilder
         {
-            DataSource = databasePath,
+            DataSource = extendedDatabasePath,
             Mode = SqliteOpenMode.ReadOnly,
         };
         var connection = new SqliteConnection(builder.ConnectionString);

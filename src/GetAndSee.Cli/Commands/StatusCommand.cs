@@ -1,6 +1,7 @@
 using System.CommandLine;
 using GetAndSee.Core.Journal;
 using GetAndSee.Core.Summary;
+using GetAndSee.Core.Util;
 using Spectre.Console;
 
 namespace GetAndSee.Cli.Commands;
@@ -41,7 +42,9 @@ internal static class StatusCommand
     {
         destination = Path.GetFullPath(destination);
         string databasePath = Path.Combine(destination, TransferJournal.DatabaseFileName);
-        if (!File.Exists(databasePath))
+        // Probe via the \\?\ long-path prefix so a deep archive root is detected (a non-prefixed
+        // File.Exists silently fails past MAX_PATH) and we fall through to the read-only open (#39).
+        if (!File.Exists(LongPath.ToExtended(databasePath)))
         {
             AnsiConsole.MarkupLineInterpolated(
                 $"[yellow]No get-and-see archive found at[/] {destination}.");

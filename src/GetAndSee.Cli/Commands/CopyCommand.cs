@@ -21,7 +21,7 @@ namespace GetAndSee.Cli.Commands;
 /// </summary>
 internal static class CopyCommand
 {
-    /// <summary>Default per-read inactivity timeout for the stall watchdog, in seconds (#11 / R2).</summary>
+    /// <summary>Default run-level forward-progress timeout for the liveness watchdog, in seconds (#11 / #42 / R2).</summary>
     public const int DefaultReadTimeoutSeconds = 30;
 
     /// <summary>Builds the <c>copy</c> command and its options.</summary>
@@ -161,9 +161,14 @@ internal static class CopyCommand
             : new TextProgressReporter();
         reporter.Start(progress);
 
-        var copier = new FileCopier(
+        // The disconnect escape-hatch (#45): if the forward-progress watchdog proves the device is gone, it
+        // writes summary.txt and hard-terminates with exit 3 from its independent timer thread rather than
+        // unwinding through native code that may busy-spin (afc_file_close on a dead transport).
+        DisconnectEscapeHatch escapeHatch = new(destination, new TerminateProcessTerminator());
+        using FileCopier copier = new(
             client, journal, organizer, new ExifMetadataExtractor(), destination,
-            readTimeout: readTimeout, onBytesStreamed: progress.RecordBytes, verifyHash: verifyHash);
+            readTimeout: readTimeout, onBytesStreamed: progress.RecordBytes, verifyHash: verifyHash,
+            onDisconnect: escapeHatch.Activate);
         copier.CleanStaging();
 
         int copied = 0, skipped = 0, failed = 0;

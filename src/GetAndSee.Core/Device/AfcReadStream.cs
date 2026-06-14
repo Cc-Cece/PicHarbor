@@ -1,4 +1,5 @@
 using GetAndSee.Core.Errors;
+using GetAndSee.Core.Util;
 using iMobileDevice.Afc;
 
 namespace GetAndSee.Core.Device;
@@ -57,7 +58,15 @@ internal sealed class AfcReadStream : Stream
         // non-zero offset, read into a scratch array and copy across.
         byte[] target = offset == 0 ? buffer : new byte[count];
         uint bytesRead = 0;
+        long startTimestamp = ReadDiagnostics.Enabled ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
         AfcError error = afc.afc_file_read(client, handle, target, (uint)count, ref bytesRead);
+        if (ReadDiagnostics.Enabled)
+        {
+            ReadDiagnostics.LogRead(
+                path, error, count, bytesRead,
+                System.Diagnostics.Stopwatch.GetElapsedTime(startTimestamp), position + bytesRead);
+        }
+
         if (error != AfcError.Success)
         {
             throw AfcErrors.ToException(error, $"Error reading from \"{path}\" on the device: {error}.");
