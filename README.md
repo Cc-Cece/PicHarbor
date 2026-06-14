@@ -13,6 +13,22 @@ files at scale.
 > path against the iPhone anywhere in the codebase, and a build-time test ([`ReadOnlyContractTests`](tests/GetAndSee.SafetyTests/ReadOnlyContractTests.cs))
 > fails the build if anyone ever adds one. See [Safety](#safety).
 
+## Quick start
+
+```pwsh
+# 1. Plug in the iPhone, unlock it, tap "Trust This Computer".
+# 2. If you use the Microsoft Store "Apple Devices" app, open it once first.
+# 3. Copy the whole camera roll to D:\Photos:
+get-and-see copy --dest "D:\Photos"
+```
+
+That's it. Leave it running — it shows live progress, you can stop or unplug at any time, and re-running
+the same command resumes exactly where it left off. Nothing is ever written to or deleted from the iPhone.
+
+> **Using iCloud Photos with "Optimize iPhone Storage"?** Read
+> [iCloud and Optimize iPhone Storage](#icloud-and-optimize-iphone-storage) first — some full-resolution
+> originals may live in iCloud rather than on the device.
+
 ## What you get
 
 - **Every file** in `/DCIM/` — copied faithfully, with all original EXIF metadata preserved.
@@ -53,6 +69,21 @@ manifest and summary.
 > If you use the Microsoft Store **"Apple Devices"** app, **open it once** after a reboot — its background
 > service is lazy and stays off until the app has been launched, which otherwise looks exactly like
 > "no iPhone found". See [troubleshooting](docs/user/troubleshooting.md).
+
+## iCloud and Optimize iPhone Storage
+
+`get-and-see` copies the files **physically present on the iPhone**. If you use **iCloud Photos** with
+**Settings → Photos → Optimize iPhone Storage** turned on, the device may keep only smaller, space-saving
+versions of some photos and videos — the full-resolution originals live in iCloud, not on the phone — and
+those originals are **not reachable** over the read-only USB file protocol this tool uses.
+
+**To copy true originals:** on the iPhone, choose **Settings → Photos → Download and Keep Originals**, then
+wait (on Wi-Fi, plugged in) until everything has finished downloading to the device. Only then is the
+camera roll complete on-device for `get-and-see` to copy.
+
+This is an Apple storage setting, not something the tool can work around — the originals simply aren't on
+the device until you download them. If you keep **Download and Keep Originals** on, everything is always
+local and this never applies.
 
 ## Install
 
@@ -147,6 +178,18 @@ Last run: 21,402 copied · 6,072 skipped (already done) · 0 failed · 2h 41m
 | `3` | Device stalled (asleep/disconnected) — progress saved; reconnect and re-run to resume. |
 | `130` | Interrupted (Ctrl+C) — progress saved; re-run to resume. |
 
+## Stopping, unplugging and resuming
+
+You can stop a run at any time — press **Ctrl+C**, unplug the cable, or let the iPhone sleep. Because every
+file is journaled and only published after it is fully written and size-checked, an interrupted run **never
+loses or corrupts data**: re-run the **same `copy` command** and it skips everything already done and
+continues from the exact file it stopped on.
+
+If the cable is pulled mid-copy, the tool notices the device is gone (within `--read-timeout`, default
+30s), prints `Device disconnected. Progress saved — reconnect and re-run to resume.`, and exits cleanly
+with code **3**. Your data on the PC is always safe and your iPhone is never touched, so it is perfectly
+fine to just pull the cable when you need to.
+
 ## How it works (integrity)
 
 Each file is streamed to a staging `.partial`, flushed to disk (`fsync`), **size-verified against the
@@ -166,6 +209,39 @@ manifest. Long destination paths (beyond the legacy 260-character limit) are han
   not a code change.
 - **No network, no telemetry, no cloud.** Local USB only.
 - Your photos and the manifest are written **only** to the destination folder you choose.
+
+## FAQ
+
+**Does this modify or delete anything on my iPhone?**
+No — never. The iPhone is read-only by design, and a build-time test fails the build if any write/delete
+code is ever added. It only reads `/DCIM/` and writes to the destination folder on your PC. See [Safety](#safety).
+
+**Can I unplug the cable or stop mid-copy?**
+Yes. Stop with Ctrl+C or just unplug — nothing is lost or corrupted, and re-running the same command resumes
+exactly where it left off. See [Stopping, unplugging and resuming](#stopping-unplugging-and-resuming).
+
+**Some originals are missing or look low-resolution.**
+You most likely have iCloud **Optimize iPhone Storage** on, so the originals are in iCloud, not on the
+device. See [iCloud and Optimize iPhone Storage](#icloud-and-optimize-iphone-storage).
+
+**Where are my albums, favorites, and face tags?**
+Those live in the Apple Photos database, not in the camera-roll files, so they aren't copied. See
+[What this tool does **NOT** do](#what-this-tool-does-not-do).
+
+**Will it copy the same photo twice if I run it again?**
+No. The journal at the destination tracks every copied file, so re-runs skip what's already done. Re-run as
+often as you like to pick up newly taken photos.
+
+**How long does it take?**
+Throughput is limited by the iPhone's USB link (~30 MB/s on an iPhone 12 Pro), not the tool — a full
+~270 GB library takes a few hours. Disable PC sleep and leave it running; you can resume if interrupted.
+
+**Can I copy to an external or network drive?**
+Yes, but prefer a local disk for a large run. Each destination keeps its own journal and resumes
+independently, so you can even split a library across several drives.
+
+**Is there any network access or telemetry?**
+None. It is local USB only — no cloud, no analytics.
 
 ## Troubleshooting
 
