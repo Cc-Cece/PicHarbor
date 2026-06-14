@@ -68,7 +68,19 @@ public sealed class DisconnectEscapeHatch
             return; // A single trip fires the escape-hatch once; ignore any subsequent calls.
         }
 
-        output.WriteLine(DisconnectMessage);
+        // Everything before the terminate is best-effort so the terminate is UNCONDITIONAL: it is the
+        // load-bearing exit-3 guarantee and must run even if printing the line throws (e.g. a broken pipe
+        // on a redirected stdout racing the yank). A swallowed print never costs us the clean, resumable
+        // exit 3; this runs on the watchdog's timer thread, where an escaped exception would also skip it.
+        try
+        {
+            output.WriteLine(DisconnectMessage);
+        }
+        catch (Exception)
+        {
+            // Swallow: a failed console write must never skip the terminate below.
+        }
+
         TryWriteSummary();
         terminator.Terminate(DisconnectExitCode);
     }

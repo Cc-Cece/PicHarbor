@@ -1,3 +1,4 @@
+using System.Text;
 using GetAndSee.Core.Device;
 using GetAndSee.Core.Journal;
 using GetAndSee.Core.Organize;
@@ -71,5 +72,37 @@ public sealed class DisconnectEscapeHatchTests : IDisposable
 
         terminator.Invocations.ShouldBe(1);
         terminator.ExitCode.ShouldBe(DisconnectEscapeHatch.DisconnectExitCode);
+    }
+
+    [Fact]
+    public void Activate_still_terminates_when_printing_the_disconnect_line_throws()
+    {
+        // The terminate is the load-bearing exit-3 guarantee: a broken pipe on a redirected stdout (racing
+        // the yank) must NOT skip it. A throwing output writer is swallowed, the terminator is still invoked
+        // with 3, and Activate must not rethrow onto the watchdog's timer thread.
+        using TransferJournal journal = TransferJournal.Open(destination.Path);
+        RecordingProcessTerminator terminator = new();
+        DisconnectEscapeHatch escapeHatch = new(destination.Path, terminator, new ThrowingTextWriter());
+
+        Should.NotThrow(() => escapeHatch.Activate());
+
+        terminator.Invocations.ShouldBe(1);
+        terminator.ExitCode.ShouldBe(DisconnectEscapeHatch.DisconnectExitCode);
+        File.Exists(Path.Combine(destination.Path, SummaryWriter.FileName))
+            .ShouldBeTrue("a swallowed print must not cascade into skipping the summary write");
+    }
+
+    /// <summary>A <see cref="TextWriter"/> whose writes always throw, modeling a broken stdout pipe.</summary>
+    private sealed class ThrowingTextWriter : TextWriter
+    {
+        public override Encoding Encoding => Encoding.UTF8;
+
+        // Throw from the char funnel AND the string overload, so the guard is exercised whichever write API
+        // the escape-hatch uses now or later — the test must never go silently green if the print changes.
+        public override void Write(char value) =>
+            throw new IOException("simulated broken pipe on stdout");
+
+        public override void WriteLine(string? value) =>
+            throw new IOException("simulated broken pipe on stdout");
     }
 }

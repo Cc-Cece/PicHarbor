@@ -80,6 +80,11 @@ public sealed class Sprint34EscapeHatchTests : IDisposable
             terminator.ExitCode.ShouldBe(DisconnectEscapeHatch.DisconnectExitCode);
             File.Exists(Path.Combine(destination.Path, SummaryWriter.FileName))
                 .ShouldBeTrue("summary.txt must be written before the terminate");
+
+            // The close is STILL wedged: the escape-hatch fired while the synchronous spin was active (the
+            // #45 shape), not after it somehow unwound. (Asserted in the try so the finally below always
+            // releases the spin — keeping it before ReleaseSpin must never skip that cleanup.)
+            copy.IsCompleted.ShouldBeFalse("the spinning close must still be wedged when the terminate fires");
         }
         finally
         {
