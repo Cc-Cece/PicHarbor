@@ -90,7 +90,7 @@ drift-watch hotspot in `done.md` to resolve when the `CopySession` extraction la
 
 ## Gates (local, mirrors CI)
 - `dotnet build -c Release` — 0 warnings / 0 errors.
-- `dotnet test -c Release` (whole solution) — **162 passed** (160 `GetAndSee.Tests` + 2
+- `dotnet test -c Release` (whole solution) — **163 passed** (161 `GetAndSee.Tests` + 2
   `GetAndSee.SafetyTests`), 0 failed. **`ReadOnlyContractTests` green.**
 - `dotnet format --verify-no-changes` — clean (exit 0).
 - No `.cs` added or changed under `src/` — shipped binary unaffected.
