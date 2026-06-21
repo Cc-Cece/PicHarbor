@@ -261,16 +261,24 @@ public sealed class CopyPipelineHarnessTests
         CopyPipelineHarness harness = new(dest.Path, device, clock: clock, readTimeout: Timeout, terminator: terminator);
 
         Task<HarnessResult> run = Task.Run(() => harness.RunAsync(Token));
-        await device.DisposeSpinStarted;    // IMG_SPIN's close is now busy-spinning (the #45 hang)
-        clock.Advance(Timeout);             // heartbeat dead → watchdog trips on its independent timer thread
+        try
+        {
+            await device.DisposeSpinStarted;    // IMG_SPIN's close is now busy-spinning (the #45 hang)
+            clock.Advance(Timeout);             // heartbeat dead → watchdog trips on its independent timer thread
 
-        // The escape-hatch fired on the timer thread while the synchronous close is still wedged.
-        terminator.WasInvoked.ShouldBeTrue("the watchdog must terminate when the close spins (#45)");
-        terminator.ExitCode.ShouldBe(3);
-        run.IsCompleted.ShouldBeFalse("the spinning close must still be wedged when the terminate fires");
+            // The escape-hatch fired on the timer thread while the synchronous close is still wedged.
+            terminator.WasInvoked.ShouldBeTrue("the watchdog must terminate when the close spins (#45)");
+            terminator.ExitCode.ShouldBe(3);
+            run.IsCompleted.ShouldBeFalse("the spinning close must still be wedged when the terminate fires");
+        }
+        finally
+        {
+            // Reap the pinned core as the OS would on a real terminate — even if an assertion above threw —
+            // so the SpinWait busy-loop never keeps a CPU pinned for the rest of the test run.
+            device.ReleaseDisposeSpins();
+            await run;
+        }
 
-        device.ReleaseDisposeSpins();       // reap the pinned thread as the OS would on a real terminate
-        await run;
         File.Exists(Path.Combine(dest.Path, SummaryWriter.FileName)).ShouldBeTrue();
 
         FakeAfcDevice healed = spec.Healed().Build();

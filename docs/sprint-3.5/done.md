@@ -137,7 +137,7 @@ the harness at the extracted session so it drives the *shipped* loop instead of 
 change to the real loop must be mirrored here by hand.
 
 ## Gates (local, mirrors CI)
-- `dotnet build -c Release` → 0/0. `dotnet test -c Release` → **162 passed** (160 + 2 safety), 0 failed,
+- `dotnet build -c Release` → 0/0. `dotnet test -c Release` → **163 passed** (161 + 2 safety), 0 failed,
   `ReadOnlyContractTests` green. `dotnet format --verify-no-changes` → clean.
 
 ## For the next sprint (Sprint 4 — organize & find)
