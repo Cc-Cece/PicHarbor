@@ -1,4 +1,4 @@
-namespace GetAndSee.Tests.TestSupport;
+namespace GetAndSee.FakeDevice;
 
 /// <summary>
 /// One file in a <see cref="FakeDeviceSpec"/>'s virtual <c>/DCIM</c> tree: an absolute device path, the

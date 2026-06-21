@@ -6,6 +6,7 @@ using GetAndSee.Core.Journal;
 using GetAndSee.Core.Organize;
 using GetAndSee.Core.Transfer;
 using GetAndSee.Core.Util;
+using GetAndSee.FakeDevice;
 using GetAndSee.Tests.TestSupport;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Time.Testing;

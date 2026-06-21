@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using GetAndSee.Core.Device;
+using GetAndSee.FakeDevice;
 using GetAndSee.Tests.TestSupport;
 using Shouldly;
 using Xunit;

@@ -1,7 +1,7 @@
 using GetAndSee.Core.Device;
 using GetAndSee.Core.Errors;
 
-namespace GetAndSee.Tests.TestSupport;
+namespace GetAndSee.FakeDevice;
 
 /// <summary>
 /// A full fake implementation of the read-only <see cref="IPhoneClient"/> contract, backed by a

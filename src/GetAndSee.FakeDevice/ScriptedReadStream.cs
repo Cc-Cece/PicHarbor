@@ -1,6 +1,6 @@
 using GetAndSee.Core.Errors;
 
-namespace GetAndSee.Tests.TestSupport;
+namespace GetAndSee.FakeDevice;
 
 /// <summary>
 /// The one fault-scriptable, read-only device stream the fake device hands back from
