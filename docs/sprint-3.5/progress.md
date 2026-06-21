@@ -81,6 +81,13 @@ clean and cheap.
 - **xUnit1051** flagged `Task.Run(stream.Dispose)` (method group, missing `CancellationToken`) — switched to
   a lambda with the test token.
 
+## Self-review (§13.6) — PASS-WITH-NITS (0 blockers, 0 majors)
+Ran the `code-review` skill (default subagent, find-problems). Fixed: dead `clock` field on the fake (MINOR);
+unused `FirstReadStarted` (NIT); two migrated `var` lines → explicit types (NIT); added a `ReadFault.Slow`
+E2E test (NIT, the watchdog-negative case). Accepted by design: the harness loop mirrors
+`CopyCommand.ExecuteAsync` (the byte-identical hard rule forbids refactoring `CopyCommand`) — recorded as a
+drift-watch hotspot in `done.md` to resolve when the `CopySession` extraction lands. Full summary in `done.md`.
+
 ## Gates (local, mirrors CI)
 - `dotnet build -c Release` — 0 warnings / 0 errors.
 - `dotnet test -c Release` (whole solution) — **162 passed** (160 `GetAndSee.Tests` + 2

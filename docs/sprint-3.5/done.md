@@ -109,7 +109,32 @@ cross-process resume) is **deferred**, per the brief's "defer if it can't be cle
 ## Self-review (§13.6)
 Ran the `code-review` skill (default subagent, find-problems framing) on the diff, with extra attention on:
 read-only contract intact, shipped binary unaffected, the deferred env-var seam, and the fault model being
-deterministic (no flaky timing). Findings + dispositions are summarized in the PR description.
+deterministic (no flaky timing). **Verdict: PASS-WITH-NITS — 0 blockers, 0 majors.** All six focus risks
+confirmed clean: read-only contract intact; `git diff main...HEAD -- src/` = 0 files (shipped binary
+byte-identical); no env-var seam in shipped code; no flaky-timing window (trips are driven by
+`FakeTimeProvider` synchronously on the test thread, or by a thrown exception / failure count — never
+wall-clock elapsed); fold-in faithful (the exact #42 park and #45 spin repros preserved); EUII clean
+(synthetic identifiers only).
+
+Findings + dispositions:
+- **MINOR — dead `clock` field on `FakeAfcDevice`/`Build`** (never read; `ScriptedReadStream` has no real
+  delays). **Fixed** — removed the field, ctor param, and `Build(clock)` overload.
+- **MINOR — the harness copy-loop mirrors `CopyCommand.ExecuteAsync`** (drift risk: a future change to the
+  real loop / exit-code mapping isn't caught by a green harness). **Accepted by design** (the byte-identical
+  hard rule forbids refactoring `CopyCommand`; the env-var EXE seam is deferred). The atomic-write sequence
+  is **not** duplicated (still single in `FileCopier`), so this is a maintainability, not a safety, risk.
+  See the drift-watch note below.
+- **NIT — unused `FirstReadStarted` on `ScriptedReadStream`** (awaited nowhere). **Fixed** — removed.
+- **NIT — two retained `var` on migrated `FileCopierTests` lines.** **Fixed** — explicit types.
+- **NIT — `ReadFault.Slow` not exercised end-to-end.** **Fixed** — added a harness test asserting a
+  slow-but-progressing read completes (exit 0, byte-identical) and never trips the watchdog (the negative case).
+
+### Drift-watch (for the producer gate / next review)
+**`CopyPipelineHarness.RunAsync` mirrors `CopyCommand.ExecuteAsync`'s loop + exit-code mapping** — a second,
+hand-maintained copy of the orchestration. **state: watch.** Resolve when the deferred
+`CopyCommand.ExecuteAsync` → `CopySession` extraction (already tracked in `review-profile.md`) lands: point
+the harness at the extracted session so it drives the *shipped* loop instead of a mirror. Until then, a
+change to the real loop must be mirrored here by hand.
 
 ## Gates (local, mirrors CI)
 - `dotnet build -c Release` → 0/0. `dotnet test -c Release` → **162 passed** (160 + 2 safety), 0 failed,

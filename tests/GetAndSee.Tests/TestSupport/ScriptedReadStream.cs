@@ -32,7 +32,6 @@ public sealed class ScriptedReadStream : Stream
     private readonly string sourcePath;
 
     private readonly TaskCompletionSource<int> parkGate = new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private readonly TaskCompletionSource firstReadStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource parkedReadStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource disposeSpinStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -52,9 +51,6 @@ public sealed class ScriptedReadStream : Stream
         this.fault = fault;
         this.sourcePath = sourcePath;
     }
-
-    /// <summary>Completes once the first read has begun.</summary>
-    public Task FirstReadStarted => firstReadStarted.Task;
 
     /// <summary>Completes once a <see cref="ReadFaultKind.Park"/> read has begun blocking.</summary>
     public Task ParkedReadStarted => parkedReadStarted.Task;
@@ -124,7 +120,6 @@ public sealed class ScriptedReadStream : Stream
 
     private async ValueTask<int> ReadCoreAsync(Memory<byte> buffer, CancellationToken cancellationToken)
     {
-        firstReadStarted.TrySetResult();
         cancellationToken.ThrowIfCancellationRequested();
         if (buffer.Length == 0)
         {

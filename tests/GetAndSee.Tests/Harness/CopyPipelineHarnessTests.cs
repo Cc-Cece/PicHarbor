@@ -110,6 +110,24 @@ public sealed class CopyPipelineHarnessTests
     }
 
     [Fact]
+    public async Task A_slow_but_progressing_read_completes_and_never_trips_the_watchdog()
+    {
+        using TempDirectory dest = new();
+        // The negative case for the inactivity watchdog: a slow read delivers content in many small chunks.
+        // With the watchdog armed it must still complete — every chunk resets the forward-progress clock — so
+        // a slow device is never mistaken for a stalled one.
+        FakeDeviceSpec spec = FakeDeviceSpec.Create()
+            .AddLargeVideo("/DCIM/100APPLE/IMG_SLOW.MOV", Aug2024, fault: ReadFault.Slow);
+        FakeAfcDevice device = spec.Build();
+
+        HarnessResult result = await new CopyPipelineHarness(dest.Path, device, readTimeout: Timeout).RunAsync(Token);
+
+        result.ExitCode.ShouldBe(0);
+        result.Copied.ShouldBe(1);
+        AssertArchiveByteIdentical(dest.Path, spec);
+    }
+
+    [Fact]
     public async Task Connection_loss_mid_copy_stops_at_exit_3_then_resumes_byte_identical()
     {
         using TempDirectory dest = new();
@@ -147,7 +165,7 @@ public sealed class CopyPipelineHarnessTests
             .AddSmallPhoto("/DCIM/100APPLE/IMG_A.HEIC", Aug2024)
             .AddLargeVideo("/DCIM/100APPLE/IMG_B.MOV", Aug2024, fault: ReadFault.ParkAfter(1 * Mib))
             .AddSmallPhoto("/DCIM/100APPLE/IMG_C.HEIC", Aug2024);
-        FakeAfcDevice device = spec.Build(clock);
+        FakeAfcDevice device = spec.Build();
         CopyPipelineHarness harness = new(dest.Path, device, clock: clock, readTimeout: Timeout, terminator: terminator);
 
         Task<HarnessResult> run = Task.Run(() => harness.RunAsync(Token));
@@ -239,7 +257,7 @@ public sealed class CopyPipelineHarnessTests
         FakeDeviceSpec spec = FakeDeviceSpec.Create()
             .AddSmallPhoto("/DCIM/100APPLE/IMG_A.HEIC", Aug2024)
             .AddLargeVideo("/DCIM/126APPLE/IMG_SPIN.MOV", Aug2024, fault: ReadFault.SpinOnDisposeAfter(1 * Mib));
-        FakeAfcDevice device = spec.Build(clock);
+        FakeAfcDevice device = spec.Build();
         CopyPipelineHarness harness = new(dest.Path, device, clock: clock, readTimeout: Timeout, terminator: terminator);
 
         Task<HarnessResult> run = Task.Run(() => harness.RunAsync(Token));

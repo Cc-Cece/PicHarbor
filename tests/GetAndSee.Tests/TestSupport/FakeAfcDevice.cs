@@ -25,7 +25,6 @@ namespace GetAndSee.Tests.TestSupport;
 public sealed class FakeAfcDevice : IPhoneClient
 {
     private readonly FakeDeviceSpec spec;
-    private readonly TimeProvider clock;
     private readonly Dictionary<string, FakeDeviceFile> filesByPath;
     private readonly Dictionary<string, SortedSet<string>> childrenByDirectory;
     private readonly List<ScriptedReadStream> createdStreams = [];
@@ -39,12 +38,10 @@ public sealed class FakeAfcDevice : IPhoneClient
 
     /// <summary>Creates a fake device over <paramref name="spec"/>.</summary>
     /// <param name="spec">The virtual-tree and fault description.</param>
-    /// <param name="clock">Time source shared with the watchdog; defaults to <see cref="TimeProvider.System"/>.</param>
-    public FakeAfcDevice(FakeDeviceSpec spec, TimeProvider? clock = null)
+    public FakeAfcDevice(FakeDeviceSpec spec)
     {
         ArgumentNullException.ThrowIfNull(spec);
         this.spec = spec;
-        this.clock = clock ?? TimeProvider.System;
         (filesByPath, childrenByDirectory) = BuildTree(spec.Files);
     }
 

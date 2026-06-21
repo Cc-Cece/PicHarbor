@@ -136,7 +136,7 @@ public sealed class FileCopierTests : IDisposable
         // A device that stops sending bytes mid-file (#11 / #42): the run-level forward-progress watchdog
         // trips after the timeout and surfaces a clean, resumable connection loss instead of hanging.
         FakeTimeProvider clock = new();
-        var stallingStream = new ScriptedReadStream(1, 10_000_000, ReadFault.ParkAfter(0, observeCancellation: true));
+        ScriptedReadStream stallingStream = new(1, 10_000_000, ReadFault.ParkAfter(0, observeCancellation: true));
         var file = new RemoteFile("/DCIM/100APPLE/IMG_STALL.MOV", 10_000_000, null);
         client.OpenReadAsync(file.Path, Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult<Stream>(stallingStream));
@@ -166,7 +166,7 @@ public sealed class FileCopierTests : IDisposable
         // NOT a park from the first byte: the watchdog must reset on the bytes that DID flow and then trip
         // a full timeout after they stop, turning the intra-file spin into a clean, resumable exit-3 stop.
         FakeTimeProvider clock = new();
-        var stream = new ScriptedReadStream(1, 392_323_980L, ReadFault.ParkAfter(3 * 1024 * 1024, observeCancellation: false));
+        ScriptedReadStream stream = new(1, 392_323_980L, ReadFault.ParkAfter(3 * 1024 * 1024, observeCancellation: false));
         var file = new RemoteFile("/DCIM/126APPLE/IMG_6834.MOV", 392_323_980L, null);
         client.OpenReadAsync(file.Path, Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult<Stream>(stream));

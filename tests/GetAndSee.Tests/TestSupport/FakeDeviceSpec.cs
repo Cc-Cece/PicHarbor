@@ -159,7 +159,6 @@ public sealed class FakeDeviceSpec
     }
 
     /// <summary>Builds a connected-capable fake device from this spec.</summary>
-    /// <param name="clock">Time source threaded into the scripted streams (and shared with the watchdog).</param>
     /// <returns>A new <see cref="FakeAfcDevice"/>.</returns>
-    public FakeAfcDevice Build(TimeProvider? clock = null) => new(this, clock);
+    public FakeAfcDevice Build() => new(this);
 }
