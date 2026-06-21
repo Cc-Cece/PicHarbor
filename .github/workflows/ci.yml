@@ -1,15 +1,24 @@
 name: CI
 
-# Triggers per PROJECT_BRIEF Section 11.2: every PR to main and every push to main.
+# Triggers:
+#   pull_request      — run on EVERY pull request, regardless of its base branch. The previous
+#                       `branches: [main]` filter silently skipped CI for STACKED PRs (a PR whose base is
+#                       a feature branch rather than main, e.g. a spike based on feature/sprint-3.5).
+#                       Dropping the base filter closes that gap so every PR is validated.
+#   push: [main]      — validate main after every merge.
+#   workflow_dispatch — allow a manual re-run from the Actions tab. If a `synchronize` event is ever
+#                       missed (a push to an open PR that does not kick off a run), the run can be
+#                       re-triggered manually instead of closing and reopening the PR.
 on:
   pull_request:
-    branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
-# Cancel an in-progress run if a new commit is pushed to the same ref.
+# Cancel an in-progress run when a new commit lands on the SAME workflow + ref. Scoping the group to the
+# workflow name as well as the ref keeps unrelated workflows from cancelling each other.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -27,6 +36,10 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+          cache: true # restore the NuGet global-packages cache, keyed on the project/props files below
+          cache-dependency-path: |
+            **/*.csproj
+            Directory.Build.props
 
       # The .sln does not exist yet — Nova creates it in Phase 1.
       # Every dotnet step is guarded so this workflow runs green on the Phase 0 PR
@@ -62,17 +75,33 @@ jobs:
         shell: pwsh
         run: |
           if (Test-Path *.sln) {
-            dotnet test -c Release --no-build --logger trx
+            # --blame-hang-* / --blame-crash: the fake-device harness injects REAL parked-read and
+            # spinning-close faults, so a regressed test could otherwise hang the runner until the
+            # 6-hour job timeout. Abort with a full process dump after 5 minutes of no test progress,
+            # and dump on an unexpected test-host crash, so a hang/crash fails fast with an artifact to
+            # diagnose from. The GitHubActions logger annotates failing tests inline on the PR and puts
+            # pass/fail counts in the job summary (no more log-diving across 163+ tests).
+            dotnet test -c Release --no-build `
+              --results-directory TestResults `
+              --logger "GitHubActions" `
+              --logger "trx" `
+              --blame-hang-timeout 5m `
+              --blame-hang-dump-type full `
+              --blame-crash
           } else {
             Write-Host "No .sln found — skipping tests."
           }
 
-      - name: Upload TRX results on failure
+      - name: Upload test diagnostics on failure
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: test-results-trx
-          path: '**/TestResults/*.trx'
+          name: test-diagnostics
+          # TRX results plus any blame hang/crash dump (.dmp) and the blame sequence file.
+          path: |
+            **/TestResults/**/*.trx
+            **/TestResults/**/*.dmp
+            **/TestResults/**/Sequence_*.xml
           if-no-files-found: ignore
           retention-days: 14
 
@@ -90,6 +119,10 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+          cache: true # restore the NuGet global-packages cache, keyed on the project/props files below
+          cache-dependency-path: |
+            **/*.csproj
+            Directory.Build.props
 
       # Build the SAME single-file artifact the release pipeline ships and prove it runs before any
       # release is trusted: the native AFC DLLs must self-extract (IncludeNativeLibrariesForSelfExtract)
@@ -129,3 +162,70 @@ jobs:
           curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
           tar -xzf gitleaks.tar.gz gitleaks
           ./gitleaks detect --source . --no-git --redact --verbose --exit-code 1
+
+  coverage:
+    name: coverage (advisory, non-gating)
+    runs-on: windows-latest
+
+    # Coverage runs in its OWN job so the gating "build + test" job stays at baseline speed (coverlet
+    # instrumentation roughly doubles test time). This job is ADVISORY only: the test step is
+    # continue-on-error and nothing here gates a merge — it just surfaces line/branch numbers in the job
+    # summary now that the fake-device harness exercises the copy pipeline end-to-end.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full history + tags so MinVer can derive the version (keeps the build warning-clean)
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            Directory.Build.props
+
+      - name: Test with coverage
+        continue-on-error: true # advisory only — pass/fail is owned by the gating "build + test" job
+        shell: pwsh
+        run: |
+          if (Test-Path *.sln) {
+            dotnet test -c Release `
+              --results-directory TestResults `
+              --collect "XPlat Code Coverage"
+          } else {
+            Write-Host "No .sln found — skipping coverage."
+          }
+
+      - name: Coverage summary
+        if: always()
+        shell: pwsh
+        run: |
+          # coverlet emits one Cobertura report per test project; the two OVERLAP on GetAndSee.Core, so a
+          # naive sum would double-count it. ReportGenerator merges + de-duplicates them into one summary,
+          # and its GitHub-flavored markdown is appended to the job summary. Advisory only — never gates a
+          # merge. Pinned version, installed into a tool-path under RUNNER_TEMP (no workspace pollution).
+          $reports = Get-ChildItem -Path TestResults -Recurse -Filter coverage.cobertura.xml -ErrorAction SilentlyContinue
+          if (-not $reports) {
+            "No coverage report found (tests may have failed in this advisory job)." |
+              Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            exit 0
+          }
+          $tool = Join-Path $env:RUNNER_TEMP 'rgtool'
+          dotnet tool install dotnet-reportgenerator-globaltool --version 5.5.10 --tool-path $tool
+          & (Join-Path $tool 'reportgenerator.exe') `
+            "-reports:**/TestResults/**/coverage.cobertura.xml" `
+            "-targetdir:$env:RUNNER_TEMP/CoverageReport" `
+            "-reporttypes:MarkdownSummaryGithub"
+          Get-Content "$env:RUNNER_TEMP/CoverageReport/SummaryGithub.md" |
+            Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-cobertura
+          path: '**/TestResults/**/coverage.cobertura.xml'
+          if-no-files-found: ignore
+          retention-days: 14
