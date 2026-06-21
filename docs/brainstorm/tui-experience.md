@@ -137,6 +137,12 @@ QA-signed) is untouched; everything degrades to plain text off-TTY.
 - Which **nice-to-haves** matter to you (sparkline? recent-files log? completion sound? themes?)?
 - Is an interactive **`status`/archive browser** interesting, or focus the TUI purely on the copy run?
 
+### CEO decisions (locked 2026-06-21) — for Sprint 5
+- **Launch the wizard by default** (bare `get-and-see`). Keep direct `copy --dest …` working and show it as a **tip**; when the wizard finishes, **print the exact `copy` command** equivalent to the chosen selections (so users learn the flags for next time / scripting).
+- **Sparkline: yes.** Recent-files log, completion sound, themes: **no** (cut for now).
+- **Interactive `status` browser: yes, keep it.**
+- Sequenced **after** Sprint 4 (folder organization) and Sprint 4.1 (`reorganize`).
+
 ### Proposed sprint (if greenlit)
 **Sprint 5 — "TUI":** the interactive wizard (TTY-gated) + enriched dashboard (rolling-window speed/ETA,
 metrics/counts/errors panels, header) + end-of-run summary + the degradation matrix, with snapshot tests of

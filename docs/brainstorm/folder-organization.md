@@ -142,6 +142,12 @@ existing archive.
   folder shape)?
 - Appetite for **`reorganize`** (migrate an existing archive), or presets-for-new-archives only for now?
 
+### CEO decisions (locked 2026-06-21)
+- **Default → flip to flat `YYYY-MM`** (nested `YYYY/YYYY-MM` stays available as `--organize-by year-month`).
+- **`search` → in scope.**
+- **`reorganize` → yes**, but sequenced as **Sprint 4.1** (it moves files on the PC — deserves its own atomic/resumable design + QA).
+- Build order: **folder organization first, then the wizard.** Actionable plan: `docs/sprint-4/plan.md`.
+
 ### Proposed sprint (if greenlit)
 **Sprint 4 — "Organize & find":** `--organize-by` presets (default decision per CEO) + journal-recorded
 scheme + no-silent-reshuffle guard + per-scheme path/long-path/Live-Photo tests; **`search` command** over
