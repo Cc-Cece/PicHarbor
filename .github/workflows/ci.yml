@@ -81,8 +81,13 @@ jobs:
             # and dump on an unexpected test-host crash, so a hang/crash fails fast with an artifact to
             # diagnose from. The GitHubActions logger annotates failing tests inline on the PR and puts
             # pass/fail counts in the job summary (no more log-diving across 163+ tests).
+            #
+            # --filter "Category!=E2E": this gating job runs the FAST unit + in-process-harness lane only.
+            # The real-.exe E2E (which builds the FakeDevice EXE and spawns it as a subprocess) is slow, so
+            # it runs in its own `exe-e2e` job below. `!=` still includes every untagged unit test.
             dotnet test -c Release --no-build `
               --results-directory TestResults `
+              --filter "Category!=E2E" `
               --logger "GitHubActions" `
               --logger "trx" `
               --blame-hang-timeout 5m `
@@ -141,6 +146,91 @@ jobs:
           } else {
             Write-Host "No .sln found - skipping publish smoke (Phase 0 bootstrap PR)."
           }
+
+      # The byte-identical-release GUARD (Sprint 3.6). The opt-in GAS_FAKE_DEVICE seam is gated behind the
+      # FAKE_DEVICE compile constant + a `-p:FakeDevice=true`-only project reference, so a NORMAL release
+      # build must carry no trace of the fake. This step PROVES it on the exact single-file artifact
+      # release.yml ships (published just above): it asserts the EXE carries neither the fake assembly nor
+      # the seam type. Without it, "byte-identical default" is only an unverified comment in the csproj.
+      - name: Release guard — shipped EXE is fake-free
+        shell: pwsh
+        run: |
+          if (-not (Test-Path *.sln)) {
+            Write-Host "No .sln found — skipping release guard (Phase 0 bootstrap PR)."
+            return
+          }
+          $publishDir = "src/GetAndSee.Cli/bin/Release/net10.0/win-x64/publish"
+          $exe = Join-Path $publishDir "get-and-see.exe"
+          if (-not (Test-Path $exe)) { throw "release guard: published EXE not found at $exe" }
+
+          # (1) No fake-device file may sit in the publish output (defends a non-single-file layout).
+          $leaked = @(Get-ChildItem -Path $publishDir -Recurse -Filter 'GetAndSee.FakeDevice*' -ErrorAction SilentlyContinue)
+          if ($leaked.Count -gt 0) {
+            throw "release guard FAILED: fake-device file(s) in publish output: $($leaked.Name -join ', ')"
+          }
+
+          # (2) The shipped single-file EXE must not CONTAIN the fake. Built with -p:FakeDevice=true the
+          #     GetAndSee.FakeDevice assembly is bundled in and get-and-see.dll gains an assembly reference
+          #     to it; both surface the UTF-8 metadata names below. A normal (release) build references
+          #     nothing, so these strings are absent. release.yml does not enable single-file compression,
+          #     so the bundled assemblies are stored verbatim and a byte scan is reliable.
+          $bytes = [System.IO.File]::ReadAllBytes($exe)
+          $haystack = [System.Text.Encoding]::ASCII.GetString($bytes)
+          foreach ($needle in @('GetAndSee.FakeDevice', 'FakeDeviceGate')) {
+            if ($haystack.Contains($needle)) {
+              throw "release guard FAILED: shipped EXE contains '$needle' — the FAKE_DEVICE seam leaked into a release build."
+            }
+          }
+          Write-Host "Release guard PASSED: shipped EXE carries no GetAndSee.FakeDevice assembly and FAKE_DEVICE was not defined."
+
+  exe-e2e:
+    name: real-.exe E2E (FakeDevice seam, windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 20 # the fixture builds the FakeDevice EXE then spawns it; per-test subprocess timeouts guard hangs
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full history + tags so MinVer can derive the version
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+          cache: true # restore the NuGet global-packages cache, keyed on the project/props files below
+          cache-dependency-path: |
+            **/*.csproj
+            Directory.Build.props
+
+      # The real-process E2E lane (Sprint 3.6). These tests BUILD the opt-in `-p:FakeDevice=true` EXE and
+      # run it as a SUBPROCESS (GAS_FAKE_DEVICE=<spec>) to assert the real get-and-see.exe's exit codes and
+      # cross-process resume — the one thing the in-process harness cannot do (it can't restart a process).
+      # Kept in its own job (filter Category=E2E) so the gating unit suite stays fast. The fixture builds the
+      # FakeDevice EXE to a temp dir; nothing it produces is shipped.
+      - name: Run real-.exe E2E
+        shell: pwsh
+        run: |
+          if (Test-Path *.sln) {
+            dotnet test tests/GetAndSee.Tests/GetAndSee.Tests.csproj -c Release `
+              --results-directory TestResults `
+              --filter "Category=E2E" `
+              --logger "GitHubActions" `
+              --logger "trx"
+          } else {
+            Write-Host "No .sln found — skipping real-.exe E2E (Phase 0 bootstrap PR)."
+          }
+
+      - name: Upload E2E diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-diagnostics
+          path: |
+            **/TestResults/**/*.trx
+            **/TestResults/**/*.dmp
+          if-no-files-found: ignore
+          retention-days: 14
 
   secret-scan:
     name: gitleaks secret scan (pre-public gate)
