@@ -176,6 +176,15 @@ jobs:
           #     so the bundled assemblies are stored verbatim and a byte scan is reliable.
           $bytes = [System.IO.File]::ReadAllBytes($exe)
           $haystack = [System.Text.Encoding]::ASCII.GetString($bytes)
+
+          # Positive control (so this absence-only guard can never rot into a vacuous green): the scan must be
+          # able to SEE assembly-name metadata at all. If a known-always-present name is missing, the publish
+          # layout changed (single-file compression/trimming/format) and the marker scan has gone BLIND — fail
+          # loudly rather than "pass" by finding nothing. Pairs with the negative checks below.
+          if (-not $haystack.Contains('GetAndSee.Core')) {
+            throw "release guard FAILED (blind): the byte scan cannot find even 'GetAndSee.Core' in the EXE — the publish layout changed, so the fake-free check is no longer trustworthy. Re-validate the marker scan before shipping."
+          }
+
           foreach ($needle in @('GetAndSee.FakeDevice', 'FakeDeviceGate')) {
             if ($haystack.Contains($needle)) {
               throw "release guard FAILED: shipped EXE contains '$needle' — the FAKE_DEVICE seam leaked into a release build."
@@ -281,8 +290,11 @@ jobs:
         shell: pwsh
         run: |
           if (Test-Path *.sln) {
+            # Exclude the slow real-.exe E2E lane here too — coverage is advisory and the E2E build+spawn
+            # would otherwise run a second time in this job for no coverage benefit (it owns no unique src lines).
             dotnet test -c Release `
               --results-directory TestResults `
+              --filter "Category!=E2E" `
               --collect "XPlat Code Coverage"
           } else {
             Write-Host "No .sln found — skipping coverage."

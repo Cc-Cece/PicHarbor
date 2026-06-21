@@ -78,8 +78,14 @@ internal static class ProcessRunner
         catch (OperationCanceledException) when (timeoutSource.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
             TryKillTree(process);
+
+            // Killing the tree closes the child's pipes, so the drain tasks complete; capture whatever was
+            // emitted before the timeout so a hang is diagnosable instead of an opaque "did not exit".
+            string partialOutput = await DrainSafelyAsync(readStandardOutput).ConfigureAwait(false);
+            string partialError = await DrainSafelyAsync(readStandardError).ConfigureAwait(false);
             throw new TimeoutException(
-                $"Process '{fileName}' did not exit within {timeout.TotalSeconds:N0}s and was killed.");
+                $"Process '{fileName}' did not exit within {timeout.TotalSeconds:N0}s and was killed.\n" +
+                $"partial stdout:\n{partialOutput}\npartial stderr:\n{partialError}");
         }
 
         string standardOutput = await readStandardOutput.ConfigureAwait(false);
@@ -99,6 +105,18 @@ internal static class ProcessRunner
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
             // The process already exited between the check and the kill — nothing to reap.
+        }
+    }
+
+    private static async Task<string> DrainSafelyAsync(Task<string> readTask)
+    {
+        try
+        {
+            return await readTask.ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or OperationCanceledException)
+        {
+            return "(unavailable)";
         }
     }
 }

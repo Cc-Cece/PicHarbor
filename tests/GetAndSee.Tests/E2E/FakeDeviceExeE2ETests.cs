@@ -195,6 +195,10 @@ public sealed class FakeDeviceExeE2ETests : IClassFixture<FakeDeviceExeFixture>
 
     private static void AssertArchiveByteIdentical(string destinationRoot, FakeDeviceSpec spec)
     {
+        // Expected layout mirrors the in-process harness: the real EXE runs ExifMetadataExtractor over the
+        // synthetic FakeContent bytes, which are not valid EXIF, so it returns MediaMetadata.Empty and the
+        // organizer falls back to each file's capture-date (mtime) — exactly what passing MediaMetadata.Empty
+        // here reproduces. So the expected relative paths match what the shipped organize path produces.
         DateFolderOrganizer organizer = new();
         foreach (FakeDeviceFile file in spec.Files)
         {

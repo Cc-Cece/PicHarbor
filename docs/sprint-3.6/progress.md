@@ -86,5 +86,24 @@ New `tests/GetAndSee.Tests/E2E/`:
 
 ## Self-review (§13.6)
 
-- Ran the `code-review` skill (default subagent, independent) on the diff — see `docs/review/sprint-3.6-review.md`.
-- Summary + fixes: _recorded below after the review._
+Ran the `code-review` skill (independent default subagent, not Explore) on the diff →
+**PASS-WITH-NITS** (0 BLOCKER · 0 MAJOR · 2 MINOR · 6 NIT). Full report: `docs/review/sprint-3.6-review.md`.
+All three extra-attention items confirmed: the guard is **real** (publishes the genuine artifact + greps,
+empirically flips both ways), the E2E **spawns the real `.exe`** (separate OS process, not `dotnet run`/in-process),
+and the seam is **off-by-default + un-abusable** (double-gated; spec parsed defensively, presets only).
+
+**Folded in pre-push:**
+- **MINOR-1 (guard self-blindness):** added a **positive control** to the Release guard — it now also asserts
+  the EXE bytes *do* contain `GetAndSee.Core`; if even that is missing the publish layout changed and the
+  absence-only scan has gone blind, so the job fails loudly instead of passing vacuously. Re-verified: normal
+  publish → positive-control `True`, both fake markers `False`, `leaked: 0` (PASS).
+- **NIT (diagnosability):** `ProcessRunner` now captures partial stdout/stderr on the timeout-kill path and
+  includes it in the `TimeoutException`.
+- **NIT (advisory coverage):** the `coverage` job also gets `--filter "Category!=E2E"` so the E2E build+spawn
+  doesn't run a second time for no coverage gain.
+- **NIT (clarity):** documented in `AssertArchiveByteIdentical` why the expected layout is mtime-driven
+  (ExifMetadataExtractor returns `MediaMetadata.Empty` on synthetic bytes).
+
+**Tracked, deliberately NOT done (would violate the byte-identical rule / anti-pattern to refactor shipped
+code in a test-infra PR):** MINOR-2 — `CopyCommand.ExecuteAsync` extraction stays a drift-watch follow-up
+(the shipped `#else` body is unchanged). Recorded in `docs/review/review-profile.md`.
