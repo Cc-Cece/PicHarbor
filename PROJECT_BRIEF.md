@@ -202,7 +202,7 @@ Docs are split by audience and lifetime — no single person writes everything.
 | 2 | UX, Resumability & Pre-flight | ✅ Done | **Pillars:** #11/R2 **read-stall watchdog** (per-read timeout → clean resumable stop, exit 3) and **live Spectre dashboard** + #10 current/avg speed + ETA (graceful text fallback, `--no-dashboard`). Plus `status` subcommand, additive `runs`/`devices` journal tables (`user_version` migration), on-battery pre-flight warning (R14), Live-Photo detection + `summary.txt` `Live Photos: N pairs`. **Closed #11 + #10.** Independent 4-lens code review PASS; merged PR #16. **QA Stage 2 hardware acceptance deferred → issue #21 (pre-release gate).** |
 | 3 | Hardening, Packaging & Release | ✅ Done | **A engine** (long-path `\\?\` R6, opt-in `--verify-hash` R12, #17 polish, large-file), **B release** (`release.yml` single-file EXE on `v*` tag, EXE `--help` smoke + gitleaks in CI, LICENSE/metadata), **C docs** (README, troubleshooting, manifest-schema, release notes). **#26** win-x64 build trim. `ReadOnlyContractTests` intact. Shipped in the combined v1.0 line (PR #47). |
 | 3.1–3.4 | Unplug hotfixes — bug beaten as a **class** (#25 → #38 → #42 → #45) | ✅ Done | The mid-copy USB-disconnect bug, fixed across five hardware rounds. 3.1 (#25) watchdog over native open/stat/list; 3.2 (#38 + #39 long-path journal) between-file breaker; 3.3 (#42) the universal run-level **forward-progress watchdog** on the byte heartbeat; **3.4 (#45) the disconnect escape-hatch** — on a dead device the watchdog's independent timer thread writes `summary.txt` and **hard-terminates with a finalizer-skipping `TerminateProcess(3)`** so nothing re-enters the spinning native layer. **QA #21 Phase B PASS on hardware** (5 cable-yanks → exit 3 every time, CPU to idle, byte-exact resume, read-only intact). Merged in PR #47 (closed #45/#42/#38/#39). New **three-layer review** (§13.6) debuted here. Handoff: `docs/sprint-3.4/done.md`. |
-| 3.5 | Test harness: fake device & fault injection | 🔄 Dev done — PR open, gated | **Inner-loop net for the feature batch.** `FakeAfcDevice : IPhoneClient` over a fluent virtual `/DCIM` spec + one `ScriptedReadStream` fault model (folds in the 3 ad-hoc fakes) + an in-process `CopyPipelineHarness` driving the REAL pipeline (enumerate → journal → organizer → copier → watchdog → escape-hatch → summary). 30 new tests: full-copy **byte-identical**, **resume byte-identical** after every managed disconnect shape (park / between-file / premature-EOF / spin / connection-fatal / disconnect-at-N) → exit-3, plus organize / collisions / `unsorted` / `--verify-hash`. **All test-only — `src/` untouched, `get-and-see.exe` byte-identical, `ReadOnlyContractTests` green.** Env-var EXE seam **deferred** (rationale in `done.md`); native-disconnect hardware-smoke boundary stated. Dev self-review PASS-WITH-NITS. **PR #56 open at the producer review gate.** Handoff: `docs/sprint-3.5/done.md`. |
+| 3.5 | Test harness: fake device & fault injection | ✅ Done | **Inner-loop net for the feature batch.** `FakeAfcDevice : IPhoneClient` over a fluent virtual `/DCIM` spec + one `ScriptedReadStream` fault model (folds in the 3 ad-hoc fakes) + an in-process `CopyPipelineHarness` driving the REAL pipeline (enumerate → journal → organizer → copier → watchdog → escape-hatch → summary). 30 new tests: full-copy **byte-identical**, **resume byte-identical** after every managed disconnect shape (park / between-file / premature-EOF / spin / connection-fatal / disconnect-at-N) → exit-3, plus organize / collisions / `unsorted` / `--verify-hash`. **All test-only — `src/` untouched, `get-and-see.exe` byte-identical, `ReadOnlyContractTests` green.** Env-var EXE seam **deferred** (rationale in `done.md`); native-disconnect hardware-smoke boundary stated. Dev self-review PASS-WITH-NITS; producer gate PASS; **merged in PR #56** (CI hardened alongside in PR #59). Handoff: `docs/sprint-3.5/done.md`. |
 
 ## 8. Current State
 
@@ -210,7 +210,7 @@ Docs are split by audience and lifetime — no single person writes everything.
 
 **Clones in play (re-sync to `main` after the v1.0.0 merge):**
 - Producer: `e:\src\get-and-see` — coordination hub (this chat)
-- Dev: `e:\src\get-and-see-dev` — on `feature/sprint-3.5` (Sprint 3.5 fake-device harness, **PR #56 open/gated**)
+- Dev: `e:\src\get-and-see-dev` — re-sync to `main` (Sprint 3.5 harness **merged**, PR #56); next: `feature/sprint-4`
 - QA: `e:\src\get-and-see-qa` — re-sync, then `feature/qa-2` (#21, parallel)
 - DevOps: `e:\src\get-and-see-devops` — used for Sprint 3 Track B (release)
 
@@ -229,13 +229,13 @@ Docs are split by audience and lifetime — no single person writes everything.
 4. **#26 win-x64 build trim** folded in: pins the build to win-x64 so the foreign (osx/linux/maccatalyst) `imobiledevice-net` native libs no longer land in `bin/` — silences the known Defender FP. No `.dylib`/`.so` under any `bin/`; win-x64 AFC natives intact.
 5. **Release gate:** **#21 QA Stage 2 hardware acceptance MUST PASS before the `v1.0` tag is cut.**
 
-**Open actions:** v1.0.0 shipped. **Sprint 3.5 (fake-device test harness) is dev-done — PR #56 open at the producer review gate** (the inner-loop net that the feature batch will build on; sequencing 3.5 → 4 → 4.1 → 5). Post-v1.0 backlog (not blockers): #34/#35/#36 (device defense-in-depth follow-ups — note #36's `AfcIPhoneClient`→`GuardAsync` wiring guard is **not** covered by the 3.5 fake, which replaces that layer), #23 (no-`var` enforcement), and the next feature batch — year-month folder organization + a richer terminal UI (brainstorms in `docs/brainstorm/`). All gates green on `main`: 131 + 2 tests, build 0/0, format clean, single-file EXE `--help` OK, gitleaks clean, read-only contract intact. (On `feature/sprint-3.5`: 161 + 2 tests green, `src/` unchanged.)
+**Open actions:** v1.0.0 shipped. **Sprint 3.5 (fake-device test harness) MERGED** (PR #56) — the in-process E2E harness is now the team's automated CI regression net; **CI hardened** (PR #59: stacked-PR trigger, hang/crash dumps, test-logger, NuGet cache, advisory coverage). Next: **Sprint 4 (organize & find)** on top of the harness (sequencing 4 → 4.1 → 5). Post-v1.0 backlog (not blockers): #34/#35/#36 (device defense-in-depth follow-ups — note #36's `AfcIPhoneClient`→`GuardAsync` wiring guard is **not** covered by the 3.5 fake, which replaces that layer), #23 (no-`var` enforcement), and the next feature batch — year-month folder organization + a richer terminal UI (brainstorms in `docs/brainstorm/`). All gates green on `main`: **163 (161 + 2) tests**, build 0/0, format clean, single-file EXE `--help` OK, gitleaks clean, read-only contract intact.
 
 **Blockers:** None.
 
 **Open issues:** #21 (QA Stage 2 hardware — release gate, open). #17 (Sprint 2 review polish) — **resolved in the Sprint 3 PR** (Closes #17 on merge).
 
-> **Sprint 3.5 — fake-device test harness (dev-done, PR #56 open/gated):** a scriptable `FakeAfcDevice` + one `ScriptedReadStream` fault model + an in-process `CopyPipelineHarness` that drives the **real** copy pipeline with no hardware, so the disconnect/resume/organize/verify logic is a deterministic CI regression net for the upcoming feature batch. **Entirely in `tests/` — no shipped-binary change; `ReadOnlyContractTests` green.** The env-var EXE seam (`GAS_FAKE_DEVICE`) was **deferred** (would need a new opt-in assembly + a CLI startup seam → risk to the byte-identical default run; the in-process harness already covers the exit-3 + byte-identical-resume logic). **Honest boundary:** the managed fake reproduces managed-observable failures + the exit-3→resume logic, **not** the native `afc_file_close` core-pin or the real `TerminateProcess` — a small hardware cable-yank smoke stays authoritative. Detail: `docs/sprint-3.5/done.md` + `progress.md`.
+> **Sprint 3.5 — fake-device test harness (MERGED, PR #56):** a scriptable `FakeAfcDevice` + one `ScriptedReadStream` fault model + an in-process `CopyPipelineHarness` that drives the **real** copy pipeline with no hardware, so the disconnect/resume/organize/verify logic is a deterministic CI regression net for the upcoming feature batch. **Entirely in `tests/` — no shipped-binary change; `ReadOnlyContractTests` green.** The env-var EXE seam (`GAS_FAKE_DEVICE`) was **deferred** (would need a new opt-in assembly + a CLI startup seam → risk to the byte-identical default run; the in-process harness already covers the exit-3 + byte-identical-resume logic). **Honest boundary:** the managed fake reproduces managed-observable failures + the exit-3→resume logic, **not** the native `afc_file_close` core-pin or the real `TerminateProcess` — a small hardware cable-yank smoke stays authoritative. Detail: `docs/sprint-3.5/done.md` + `progress.md`.
 
 > **Sprint 3.1–3.4 unplug hotfixes — DONE, bug beaten on hardware:** the v1.0 gate (#21 Phase B) surfaced that the mid-copy USB-disconnect bug kept relocating — #25 (open-park) → #38 (between-file spin) → #42 (intra-file spin) → **#45 (`afc_file_close` disposal-spin)**. Fixed as a **class**: one run-level **forward-progress watchdog** on the byte heartbeat (3.3) plus a **disconnect escape-hatch** (3.4) that, on a dead device, writes `summary.txt` and hard-terminates with a finalizer-skipping `TerminateProcess(3)` from the watchdog's independent timer thread — never re-entering the spinning native layer. **QA #21 Phase B PASS** (5 physical cable-yanks → exit 3 every time, CPU to idle, byte-exact resume, read-only intact). Shipped in PR #47 (closed #45/#42/#38/#39). Detail: `docs/sprint-3.4/done.md`.
 
@@ -336,25 +336,37 @@ dotnet publish src/GetAndSee.Cli -c Release -r win-x64 --self-contained true `
 
 Output: one `get-and-see.exe` (~30–60 MB self-contained). Copy it anywhere. No install, no admin rights needed at run time.
 
-### 11.2 CI pipeline (Sprint 1 deliverable)
+### 11.2 CI pipeline
 
-`.github/workflows/ci.yml` runs on **every push to `main` and every PR**:
+`.github/workflows/ci.yml` runs on **every pull request (any base — so stacked PRs are covered)**, on **every
+push to `main`**, and on **manual `workflow_dispatch`** (re-run from the Actions tab if a `synchronize` push
+ever misses). Concurrency is scoped per `workflow`+`ref` with cancel-in-progress.
 
-1. Checkout
-2. Setup .NET 10 SDK (`actions/setup-dotnet@v4`, `dotnet-version: 10.0.x`)
-3. `dotnet restore`
-4. `dotnet format --verify-no-changes` — style gate, fails the workflow on diff
-5. `dotnet build --configuration Release --no-restore`
-6. `dotnet test --configuration Release --no-build --logger trx` — **must include `ReadOnlyContractTests`** (the read-only safety gate)
-7. Upload test results artifact on failure
+**Runner:** `windows-latest` only (the tool targets Windows). All building jobs use `actions/checkout@v7` with
+**`fetch-depth: 0`** (MinVer derives the version from the git tag — see §11.3) and `actions/setup-dotnet@v5`
+(`dotnet-version: 10.0.x`, NuGet global-packages **cache** keyed on the csproj/props).
 
-**Runner:** `windows-latest` only (the tool only targets Windows; no value in running on Linux/macOS in v1).
+**Four jobs:**
+1. **`build + test`** (gating) — `dotnet restore` → `dotnet format --verify-no-changes` (style gate) →
+   `dotnet build -c Release` → `dotnet test -c Release` with **`--blame-hang-timeout 5m --blame-hang-dump-type
+   full --blame-crash`** (the fake-device harness injects real parked/spinning faults; a hang/crash fails fast
+   with a dump instead of the 6 h timeout) and **`--logger GitHubActions --logger trx`** (inline PR
+   annotations + job-summary counts). **Must include `ReadOnlyContractTests`** (the read-only safety gate). On
+   failure the dump + TRX + blame sequence upload as the `test-diagnostics` artifact.
+2. **`published EXE smoke`** (gating) — publishes the single-file win-x64 EXE and runs `--help` (proves the
+   native AFC DLLs self-extract before any release is trusted).
+3. **`gitleaks secret scan`** (gating, ubuntu) — fails on any committed secret (pre-public gate).
+4. **`coverage`** (advisory, **non-gating**) — coverlet → ReportGenerator markdown summary in the job; runs in
+   its own job + `continue-on-error` so it never blocks a merge (coverage instrumentation ~doubles test time).
 
-**Branch protection on `main`** (configured once by Dash via repo settings):
-- Require PR before merging
-- Require CI status check (`ci.yml`) to pass
-- Require linear history disabled (we use regular merge, not squash)
-- No direct pushes (matches the team rule already in Section 14)
+> Evolved past the Sprint-1 baseline by the **MinVer adoption** (checkout@v7 / setup-dotnet@v5 / fetch-depth: 0)
+> and the **CI-hardening PR #59** (stacked-PR trigger, `workflow_dispatch`, hang/crash dumps, test-logger
+> visibility, NuGet cache, the advisory coverage job).
+
+**Branch protection on `main`:** the repo is **private on the free GitHub tier**, where rulesets/required
+checks are unavailable — so "PR before merge, CI green, no direct pushes, regular-merge (not squash/rebase)"
+is **enforced by team discipline**, not settings (see §8 "Known gaps" + Section 14). Job **names** are kept
+stable so required-check enforcement works as-is if the repo later goes public/paid.
 
 ### 11.3 Release pipeline (Sprint 3 deliverable)
 
