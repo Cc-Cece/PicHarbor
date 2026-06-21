@@ -53,7 +53,7 @@ public sealed class Sprint34EscapeHatchTests : IDisposable
         FakeTimeProvider clock = new();
         RecordingProcessTerminator terminator = new();
         DisconnectEscapeHatch escapeHatch = new(destination.Path, terminator, TextWriter.Null);
-        SpinOnDisposeStream spinning = new(chunksBeforeEof: 2, chunkSize: 1024 * 1024);
+        ScriptedReadStream spinning = new(1, 392_323_980L, ReadFault.SpinOnDisposeAfter(2 * 1024 * 1024));
 
         RemoteFile file = new("/DCIM/126APPLE/IMG_6834.MOV", 392_323_980L, null);
         client.OpenReadAsync(file.Path, Arg.Any<CancellationToken>())
@@ -104,7 +104,7 @@ public sealed class Sprint34EscapeHatchTests : IDisposable
         FakeTimeProvider clock = new();
         RecordingProcessTerminator terminator = new();
         DisconnectEscapeHatch escapeHatch = new(destination.Path, terminator, TextWriter.Null);
-        ChunkThenStallReadStream stream = new(chunksBeforeStall: 3, chunkSize: 1024 * 1024);
+        ScriptedReadStream stream = new(1, 392_323_980L, ReadFault.ParkAfter(3 * 1024 * 1024, observeCancellation: false));
 
         RemoteFile file = new("/DCIM/126APPLE/IMG_PARK.MOV", 392_323_980L, null);
         client.OpenReadAsync(file.Path, Arg.Any<CancellationToken>())
@@ -116,13 +116,13 @@ public sealed class Sprint34EscapeHatchTests : IDisposable
             clock: clock, readTimeout: TimeSpan.FromSeconds(15), onDisconnect: escapeHatch.Activate);
 
         Task<CopyResult> copy = copier.CopyAsync(file, Token);
-        await stream.StalledReadStarted;            // 3 MB streamed, then the read parks
+        await stream.ParkedReadStarted;             // 3 MB streamed, then the read parks
         clock.Advance(TimeSpan.FromSeconds(15));     // a full timeout after the freeze → the watchdog trips
 
         terminator.WasInvoked.ShouldBeTrue("a parked read past the timeout must terminate (exit 3)");
         terminator.ExitCode.ShouldBe(DisconnectEscapeHatch.DisconnectExitCode);
 
-        stream.ReleaseStall(); // let the abandoned read unwind; the token-cancel path stays resumable
+        stream.ReleasePark(); // let the abandoned read unwind; the token-cancel path stays resumable
         await Should.ThrowAsync<DeviceConnectionLostException>(async () => await copy);
         journal.GetState(file.Path, file.Size).ShouldBe(FileState.InProgress);
         Directory.GetFiles(destination.Path, "*.partial", SearchOption.AllDirectories).ShouldBeEmpty();

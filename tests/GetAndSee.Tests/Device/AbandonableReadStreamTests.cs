@@ -9,19 +9,28 @@ namespace GetAndSee.Tests.Device;
 
 public sealed class AbandonableReadStreamTests
 {
+    private const int Seed = 777;
+    private const int DeclaredSize = 5 * 1024 * 1024;
+
+    // A parked inner read that, on release, delivers the requested bytes — the ControlledReadStream repro,
+    // now expressed through the one scripted fault model.
+    private static ScriptedReadStream ParkingInner(bool observeCancellation = true) =>
+        new(Seed, DeclaredSize, ReadFault.ParkAfter(0, observeCancellation));
+
     [Fact]
     public async Task Returns_bytes_when_read_completes_before_cancellation()
     {
-        var inner = new ControlledReadStream();
+        ScriptedReadStream inner = ParkingInner();
         await using var shield = new AbandonableReadStream(inner);
         var buffer = new byte[16];
 
         ValueTask<int> read = shield.ReadAsync(buffer, TestContext.Current.CancellationToken);
-        inner.Release(8);
+        await inner.ParkedReadStarted;
+        inner.ReleasePark(8);
         int bytes = await read;
 
         bytes.ShouldBe(8);
-        buffer[..8].ShouldAllBe(b => b == 1);
+        buffer[..8].ShouldBe(FakeContent.Materialize(8, Seed));
     }
 
     [Fact]
@@ -29,12 +38,12 @@ public sealed class AbandonableReadStreamTests
     {
         // The run-level forward-progress watchdog trips by cancelling the token. A stuck read must then
         // surface OperationCanceledException promptly instead of blocking on the orphaned native read.
-        var inner = new ControlledReadStream();
+        ScriptedReadStream inner = ParkingInner();
         await using var shield = new AbandonableReadStream(inner);
         using var cts = new CancellationTokenSource();
 
         ValueTask<int> read = shield.ReadAsync(new byte[8], cts.Token);
-        await inner.Started; // ensure the read is in flight
+        await inner.ParkedReadStarted; // ensure the read is in flight
         var stopwatch = Stopwatch.StartNew();
         await cts.CancelAsync();
 
@@ -49,12 +58,12 @@ public sealed class AbandonableReadStreamTests
         // Model the real native read: it ignores the cancellation token, so abandoning it leaves it in
         // flight. The shield must not block on it, must not dispose the handle while it is still running,
         // and must close the handle once the orphaned read finally returns.
-        var inner = new ControlledReadStream(observeCancellation: false);
+        ScriptedReadStream inner = ParkingInner(observeCancellation: false);
         var shield = new AbandonableReadStream(inner);
         using var cts = new CancellationTokenSource();
 
         ValueTask<int> read = shield.ReadAsync(new byte[8], cts.Token);
-        await inner.Started;
+        await inner.ParkedReadStarted;
         await cts.CancelAsync();
         await Should.ThrowAsync<OperationCanceledException>(async () => await read);
 
@@ -63,7 +72,7 @@ public sealed class AbandonableReadStreamTests
         inner.IsDisposed.ShouldBeFalse("inner must not be disposed while the orphaned read is still in flight");
 
         // When the orphaned native read finally returns, the inner stream (native handle) is closed.
-        inner.Release(0);
+        inner.ReleasePark(0);
         await WaitForAsync(() => inner.IsDisposed, TimeSpan.FromSeconds(5));
         inner.IsDisposed.ShouldBeTrue("the orphaned read completing must close the native handle (no leak)");
     }
@@ -71,16 +80,17 @@ public sealed class AbandonableReadStreamTests
     [Fact]
     public async Task Scratch_buffer_is_zeroed_after_a_read_so_no_device_bytes_linger()
     {
-        var inner = new ControlledReadStream();
+        ScriptedReadStream inner = ParkingInner();
         await using var shield = new AbandonableReadStream(inner);
         var buffer = new byte[16];
 
         ValueTask<int> read = shield.ReadAsync(buffer, TestContext.Current.CancellationToken);
-        inner.Release(8);
+        await inner.ParkedReadStarted;
+        inner.ReleasePark(8);
         int bytes = await read;
 
         bytes.ShouldBe(8);
-        buffer[..8].ShouldAllBe(b => b == 1); // the caller received its bytes
+        buffer[..8].ShouldBe(FakeContent.Materialize(8, Seed)); // the caller received its bytes
 
         // The private reusable scratch buffer must retain no device bytes at rest (defense in depth).
         byte[]? scratch = GetScratch(shield);
@@ -91,7 +101,7 @@ public sealed class AbandonableReadStreamTests
     [Fact]
     public void Synchronous_Read_is_unsupported_so_a_stuck_read_can_always_be_abandoned()
     {
-        var inner = new ControlledReadStream();
+        ScriptedReadStream inner = new(Seed, DeclaredSize);
         using var shield = new AbandonableReadStream(inner);
 
         // A sync read would block on the inner native read with no way to abandon it; it must be refused.
