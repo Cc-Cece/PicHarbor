@@ -136,7 +136,7 @@ public sealed class FileCopierTests : IDisposable
         // A device that stops sending bytes mid-file (#11 / #42): the run-level forward-progress watchdog
         // trips after the timeout and surfaces a clean, resumable connection loss instead of hanging.
         FakeTimeProvider clock = new();
-        var stallingStream = new ControlledReadStream();
+        var stallingStream = new ScriptedReadStream(1, 10_000_000, ReadFault.ParkAfter(0, observeCancellation: true));
         var file = new RemoteFile("/DCIM/100APPLE/IMG_STALL.MOV", 10_000_000, null);
         client.OpenReadAsync(file.Path, Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult<Stream>(stallingStream));
@@ -147,7 +147,7 @@ public sealed class FileCopierTests : IDisposable
             clock: clock, readTimeout: TimeSpan.FromSeconds(30));
 
         Task<CopyResult> copy = copier.CopyAsync(file, Token);
-        await stallingStream.Started;            // the read is in flight
+        await stallingStream.ParkedReadStarted;  // the read is in flight
         clock.Advance(TimeSpan.FromSeconds(30)); // no bytes for the timeout → the watchdog trips
 
         await Should.ThrowAsync<DeviceConnectionLostException>(async () => await copy);
@@ -166,7 +166,7 @@ public sealed class FileCopierTests : IDisposable
         // NOT a park from the first byte: the watchdog must reset on the bytes that DID flow and then trip
         // a full timeout after they stop, turning the intra-file spin into a clean, resumable exit-3 stop.
         FakeTimeProvider clock = new();
-        var stream = new ChunkThenStallReadStream(chunksBeforeStall: 3, chunkSize: 1024 * 1024);
+        var stream = new ScriptedReadStream(1, 392_323_980L, ReadFault.ParkAfter(3 * 1024 * 1024, observeCancellation: false));
         var file = new RemoteFile("/DCIM/126APPLE/IMG_6834.MOV", 392_323_980L, null);
         client.OpenReadAsync(file.Path, Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult<Stream>(stream));
@@ -177,7 +177,7 @@ public sealed class FileCopierTests : IDisposable
             clock: clock, readTimeout: TimeSpan.FromSeconds(15));
 
         Task<CopyResult> copy = copier.CopyAsync(file, Token);
-        await stream.StalledReadStarted;          // 3 MB streamed, then forward progress froze
+        await stream.ParkedReadStarted;           // 3 MB streamed, then forward progress froze
         clock.Advance(TimeSpan.FromSeconds(15));   // a full timeout AFTER the freeze → the watchdog trips
 
         await Should.ThrowAsync<DeviceConnectionLostException>(async () => await copy);
@@ -187,7 +187,7 @@ public sealed class FileCopierTests : IDisposable
         Directory.GetFiles(destination.Path, "*.MOV", SearchOption.AllDirectories).ShouldBeEmpty();
         Directory.GetFiles(destination.Path, "*.partial", SearchOption.AllDirectories).ShouldBeEmpty();
 
-        stream.ReleaseStall(); // let the orphaned read unwind during teardown
+        stream.ReleasePark(); // let the orphaned read unwind during teardown
     }
 
     [Fact]
