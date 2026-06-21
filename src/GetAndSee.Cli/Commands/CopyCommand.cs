@@ -78,6 +78,24 @@ internal static class CopyCommand
     private static TimeSpan ToTimeout(int seconds) =>
         seconds > 0 ? TimeSpan.FromSeconds(seconds) : TimeSpan.Zero;
 
+#if FAKE_DEVICE
+    // Opt-in test seam — present ONLY in a FAKE_DEVICE build, never in a shipped binary. Lets the real CLI
+    // run end-to-end against the in-process fake selected by GAS_FAKE_DEVICE; falls back to the real device
+    // when the env var is unset.
+    private static async Task<IPhoneClient> AcquireDeviceAsync(
+        PreflightChecks preflight, TimeSpan readTimeout, CancellationToken cancellationToken)
+    {
+        if (GetAndSee.FakeDevice.FakeDeviceGate.TryCreate() is { } fake)
+        {
+            // The fake has no driver service, so the driver-reachability pre-flight is skipped for it.
+            return fake;
+        }
+
+        await preflight.EnsureDriverServiceReachableAsync(cancellationToken).ConfigureAwait(false);
+        return new AfcIPhoneClient(readTimeout);
+    }
+#endif
+
     private static async Task<int> RunAsync(string destination, bool dryRun, TimeSpan readTimeout, bool noDashboard, bool verifyHash, CancellationToken cancellationToken)
     {
         try
@@ -106,9 +124,16 @@ internal static class CopyCommand
         destination = Path.GetFullPath(destination);
 
         var preflight = new PreflightChecks();
+#if FAKE_DEVICE
+        // Opt-in test seam (compiled out of every shipped build via the FAKE_DEVICE constant): when
+        // GAS_FAKE_DEVICE is set this swaps in the fake device so the real EXE can run end-to-end with no
+        // hardware; with the env var unset it is byte-for-byte the real path in the #else branch.
+        using IPhoneClient client = await AcquireDeviceAsync(preflight, readTimeout, cancellationToken).ConfigureAwait(false);
+#else
         await preflight.EnsureDriverServiceReachableAsync(cancellationToken).ConfigureAwait(false);
 
         using AfcIPhoneClient client = new(readTimeout);
+#endif
         Console.WriteLine("Connecting to iPhone…");
         await client.ConnectAsync(cancellationToken).ConfigureAwait(false);
         DeviceInfo? device = client.Device;
