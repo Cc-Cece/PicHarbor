@@ -62,6 +62,7 @@ public sealed class FileCopier : IDisposable
     private readonly IPhoneClient client;
     private readonly TransferJournal journal;
     private readonly DateFolderOrganizer organizer;
+    private readonly OrganizeScheme organizeScheme;
     private readonly IMediaMetadataExtractor metadataExtractor;
     private readonly TimeProvider clock;
     private readonly TimeSpan readTimeout;
@@ -76,6 +77,13 @@ public sealed class FileCopier : IDisposable
     /// <param name="client">Connected read-only device client.</param>
     /// <param name="journal">Open transfer journal at the destination root.</param>
     /// <param name="organizer">Date-folder organizer.</param>
+    /// <param name="organizeScheme">
+    /// The archive's folder layout, applied to every file's destination path. Defaults to
+    /// <see cref="OrganizeScheme.YearMonth"/> — the original v1.0 layout — so existing engine callers stay
+    /// byte-stable. Layout <i>policy</i> lives at the CLI/resolver (a new archive's product default is
+    /// <see cref="OrganizeScheme.Month"/>); the <c>copy</c> verb resolves the archive's effective scheme and
+    /// passes it here explicitly.
+    /// </param>
     /// <param name="metadataExtractor">EXIF/metadata extractor used on the local copy.</param>
     /// <param name="destinationRoot">Destination root directory.</param>
     /// <param name="clock">Time source; defaults to the system clock. Also drives the forward-progress watchdog.</param>
@@ -114,6 +122,7 @@ public sealed class FileCopier : IDisposable
         DateFolderOrganizer organizer,
         IMediaMetadataExtractor metadataExtractor,
         string destinationRoot,
+        OrganizeScheme organizeScheme = OrganizeScheme.YearMonth,
         TimeProvider? clock = null,
         TimeSpan? readTimeout = null,
         Action<long>? onBytesStreamed = null,
@@ -124,6 +133,7 @@ public sealed class FileCopier : IDisposable
         this.client = client;
         this.journal = journal;
         this.organizer = organizer;
+        this.organizeScheme = organizeScheme;
         this.metadataExtractor = metadataExtractor;
         // Normalize to the extended-length form once so every derived destination path (staging, final,
         // collision checks) can exceed MAX_PATH for free (R6).
@@ -207,7 +217,7 @@ public sealed class FileCopier : IDisposable
             }
 
             MediaMetadata metadata = metadataExtractor.Extract(stagingPath);
-            string relativeDest = ResolveUniqueRelativePath(organizer.GetRelativeDestination(file, metadata));
+            string relativeDest = ResolveUniqueRelativePath(organizer.GetRelativeDestination(file, metadata, organizeScheme));
             string finalPath = Path.Combine(destinationRoot, relativeDest);
 
             System.IO.Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);

@@ -24,6 +24,25 @@ internal static class CopyCommand
     /// <summary>Default run-level forward-progress timeout for the liveness watchdog, in seconds (#11 / #42 / R2).</summary>
     public const int DefaultReadTimeoutSeconds = 30;
 
+    /// <summary>
+    /// The <c>--organize-by</c> option. Exposed internally so tests can read its parsed value and its
+    /// explicit-vs-defaulted state from a <see cref="System.CommandLine.ParseResult"/>.
+    /// </summary>
+    internal static readonly Option<string> OrganizeByOption = BuildOrganizeByOption();
+
+    private static Option<string> BuildOrganizeByOption()
+    {
+        var option = new Option<string>("--organize-by")
+        {
+            Description =
+                "Folder layout for the archive (recorded on first copy; a later run keeps it): " +
+                "month (flat YYYY-MM, default), year-month (nested YYYY\\YYYY-MM), year, or flat.",
+            DefaultValueFactory = _ => OrganizeSchemes.MonthToken,
+        };
+        option.AcceptOnlyFromAmong([.. OrganizeSchemes.AllTokens]);
+        return option;
+    }
+
     /// <summary>Builds the <c>copy</c> command and its options.</summary>
     /// <returns>The configured command.</returns>
     public static Command Build()
@@ -57,12 +76,13 @@ internal static class CopyCommand
 
         var command = new Command(
             "copy",
-            "Copy all iPhone /DCIM/ media to the destination, organized into YYYY/YYYY-MM folders.");
+            "Copy all iPhone /DCIM/ media to the destination, organized into dated folders (default: flat YYYY-MM).");
         command.Add(destinationOption);
         command.Add(dryRunOption);
         command.Add(readTimeoutOption);
         command.Add(noDashboardOption);
         command.Add(verifyHashOption);
+        command.Add(OrganizeByOption);
         command.SetAction((parseResult, cancellationToken) =>
             RunAsync(
                 parseResult.GetValue(destinationOption)!,
@@ -70,6 +90,8 @@ internal static class CopyCommand
                 ToTimeout(parseResult.GetValue(readTimeoutOption)),
                 parseResult.GetValue(noDashboardOption),
                 parseResult.GetValue(verifyHashOption),
+                OrganizeSchemes.Parse(parseResult.GetValue(OrganizeByOption)!),
+                parseResult.GetResult(OrganizeByOption) is { Implicit: false },
                 cancellationToken));
 
         return command;
@@ -96,11 +118,11 @@ internal static class CopyCommand
     }
 #endif
 
-    private static async Task<int> RunAsync(string destination, bool dryRun, TimeSpan readTimeout, bool noDashboard, bool verifyHash, CancellationToken cancellationToken)
+    private static async Task<int> RunAsync(string destination, bool dryRun, TimeSpan readTimeout, bool noDashboard, bool verifyHash, OrganizeScheme requestedScheme, bool schemeIsExplicit, CancellationToken cancellationToken)
     {
         try
         {
-            return await ExecuteAsync(destination, dryRun, readTimeout, noDashboard, verifyHash, cancellationToken).ConfigureAwait(false);
+            return await ExecuteAsync(destination, dryRun, readTimeout, noDashboard, verifyHash, requestedScheme, schemeIsExplicit, cancellationToken).ConfigureAwait(false);
         }
         catch (PreflightException ex)
         {
@@ -119,7 +141,7 @@ internal static class CopyCommand
         }
     }
 
-    private static async Task<int> ExecuteAsync(string destination, bool dryRun, TimeSpan readTimeout, bool noDashboard, bool verifyHash, CancellationToken cancellationToken)
+    private static async Task<int> ExecuteAsync(string destination, bool dryRun, TimeSpan readTimeout, bool noDashboard, bool verifyHash, OrganizeScheme requestedScheme, bool schemeIsExplicit, CancellationToken cancellationToken)
     {
         destination = Path.GetFullPath(destination);
 
@@ -154,7 +176,10 @@ internal static class CopyCommand
         var organizer = new DateFolderOrganizer();
         if (dryRun)
         {
-            return DryRun(destination, files, organizer, totalBytes);
+            // Preview the layout a real run would use: honour an existing archive's recorded scheme
+            // (read-only), warning if an explicit --organize-by would be ignored.
+            OrganizeScheme plannedScheme = ResolveAndWarn(TryReadRecordedScheme(destination), requestedScheme, schemeIsExplicit).Effective;
+            return DryRun(destination, files, organizer, plannedScheme, totalBytes);
         }
 
         preflight.EnsureDestinationWritable(destination);
@@ -166,6 +191,16 @@ internal static class CopyCommand
         {
             journal.UpsertDevice(device.Udid, device.Name, device.ProductType, runStartedAt);
         }
+
+        // Resolve the archive's folder layout once: a recorded scheme is authoritative (an explicit,
+        // conflicting --organize-by warns and is ignored); a brand-new archive records the chosen/default.
+        SchemeResolution schemeResolution = ResolveAndWarn(journal.GetOrganizeScheme(), requestedScheme, schemeIsExplicit);
+        if (schemeResolution.ShouldRecord)
+        {
+            journal.SetOrganizeScheme(schemeResolution.Effective);
+        }
+
+        OrganizeScheme effectiveScheme = schemeResolution.Effective;
 
         foreach (RemoteFile file in files)
         {
@@ -191,7 +226,7 @@ internal static class CopyCommand
         // unwinding through native code that may busy-spin (afc_file_close on a dead transport).
         DisconnectEscapeHatch escapeHatch = new(destination, new TerminateProcessTerminator());
         using FileCopier copier = new(
-            client, journal, organizer, new ExifMetadataExtractor(), destination,
+            client, journal, organizer, new ExifMetadataExtractor(), destination, effectiveScheme,
             readTimeout: readTimeout, onBytesStreamed: progress.RecordBytes, verifyHash: verifyHash,
             onDisconnect: escapeHatch.Activate);
         copier.CleanStaging();
@@ -266,12 +301,12 @@ internal static class CopyCommand
         return exitCode;
     }
 
-    private static int DryRun(string destination, List<RemoteFile> files, DateFolderOrganizer organizer, long totalBytes)
+    private static int DryRun(string destination, List<RemoteFile> files, DateFolderOrganizer organizer, OrganizeScheme scheme, long totalBytes)
     {
         AnsiConsole.Write(new Rule("[bold]Dry run — planned copy (nothing is written)[/]").LeftJustified());
         foreach (RemoteFile file in files)
         {
-            string relative = organizer.GetRelativeDestination(file, null);
+            string relative = organizer.GetRelativeDestination(file, null, scheme);
             Console.WriteLine($"  would copy  → {Path.Combine(destination, relative)}");
         }
 
@@ -279,6 +314,34 @@ internal static class CopyCommand
         Console.WriteLine($"DRY RUN: would copy {files.Count:N0} files ({ByteSize.Humanize(totalBytes)}) to {destination}.");
         Console.WriteLine("No AFC read streams were opened and no files were written.");
         return 0;
+    }
+
+    /// <summary>
+    /// Resolves the effective organize scheme and, if an explicit <c>--organize-by</c> is being ignored in
+    /// favour of a recorded one, prints the warning. Recording the resolved scheme is left to the caller.
+    /// </summary>
+    private static SchemeResolution ResolveAndWarn(OrganizeScheme? recorded, OrganizeScheme requested, bool isExplicit)
+    {
+        SchemeResolution resolution = OrganizeSchemeResolver.Resolve(recorded, requested, isExplicit);
+        if (resolution.Warning is not null)
+        {
+            AnsiConsole.MarkupLineInterpolated($"[yellow]warning:[/] {resolution.Warning}");
+        }
+
+        return resolution;
+    }
+
+    /// <summary>Reads an existing archive's recorded scheme read-only (for the dry-run preview), or null if none.</summary>
+    private static OrganizeScheme? TryReadRecordedScheme(string destination)
+    {
+        string databasePath = Path.Combine(destination, TransferJournal.DatabaseFileName);
+        if (!File.Exists(LongPath.ToExtended(databasePath)))
+        {
+            return null;
+        }
+
+        using TransferJournal journal = TransferJournal.OpenReadOnly(destination);
+        return journal.GetOrganizeScheme();
     }
 
     private static void WriteRunSummary(string destination, RunStats stats, bool stalled)

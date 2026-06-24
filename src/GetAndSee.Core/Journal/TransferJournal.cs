@@ -27,7 +27,10 @@ public sealed class TransferJournal : IDisposable
     public const string DatabaseFileName = "get-and-see.db";
 
     /// <summary>Current journal schema version (bumped when tables are added; migrated in place).</summary>
-    public const long SchemaVersion = 2;
+    public const long SchemaVersion = 3;
+
+    /// <summary>The <c>settings</c> key under which an archive's <c>organize_scheme</c> token is stored.</summary>
+    private const string OrganizeSchemeKey = "organize_scheme";
 
     private readonly SqliteConnection connection;
     private bool disposed;
@@ -148,13 +151,25 @@ public sealed class TransferJournal : IDisposable
     }
 
     /// <summary>
-    /// Applies additive schema migrations in place using <c>PRAGMA user_version</c>. A Sprint 1
-    /// database (version 0/1) gains the <c>devices</c> and <c>runs</c> tables without touching existing
-    /// <c>files</c> data.
+    /// Applies additive schema migrations in place using <c>PRAGMA user_version</c>. v1 (version 0/1) gains
+    /// the <c>devices</c> and <c>runs</c> tables; v2 gains the <c>settings</c> table. Existing <c>files</c>
+    /// data is never touched.
     /// </summary>
+    /// <remarks>
+    /// The v2→v3 step is the migration-safety crux: a <b>pre-existing</b> archive (any file already
+    /// journaled) is stamped <c>organize_scheme = 'year-month'</c> — the only layout that existed before
+    /// v3 — so its files keep resolving to their existing paths and a resume is byte-stable. A brand-new
+    /// database (no <c>files</c> rows yet at migration time) is left unstamped, so the first <c>copy</c>
+    /// records the chosen (or default) scheme instead.
+    /// </remarks>
     private void Migrate()
     {
         long version = QueryUserVersion();
+        if (version >= SchemaVersion)
+        {
+            return;
+        }
+
         if (version < 2)
         {
             Execute(
@@ -181,8 +196,69 @@ public sealed class TransferJournal : IDisposable
                     device_udid TEXT
                 );
                 """);
-            Execute($"PRAGMA user_version = {SchemaVersion};");
         }
+
+        if (version < 3)
+        {
+            Execute(
+                """
+                CREATE TABLE IF NOT EXISTS settings (
+                    key   TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
+                """);
+
+            // Byte-stability for existing nested archives: stamp the only pre-v3 layout so resume never
+            // re-shuffles already-copied files. A fresh database has no files here and stays unstamped.
+            if (FilesTableHasAnyRow())
+            {
+                using SqliteCommand stamp = CreateCommand(
+                    "INSERT OR IGNORE INTO settings (key, value) VALUES ($key, $value);");
+                stamp.Parameters.AddWithValue("$key", OrganizeSchemeKey);
+                stamp.Parameters.AddWithValue("$value", OrganizeSchemes.YearMonthToken);
+                stamp.ExecuteNonQuery();
+            }
+        }
+
+        Execute($"PRAGMA user_version = {SchemaVersion};");
+    }
+
+    private bool FilesTableHasAnyRow()
+    {
+        using SqliteCommand command = CreateCommand("SELECT EXISTS(SELECT 1 FROM files);");
+        return command.ExecuteScalar() is long present && present != 0;
+    }
+
+    /// <summary>
+    /// Returns the archive's recorded folder-layout scheme, or <see langword="null"/> when none is recorded
+    /// (a brand-new archive, or a pre-v3 database opened read-only without the <c>settings</c> table).
+    /// </summary>
+    /// <returns>The recorded <see cref="OrganizeScheme"/>, or <see langword="null"/>.</returns>
+    public OrganizeScheme? GetOrganizeScheme()
+    {
+        if (!TableExists("settings"))
+        {
+            // A pre-v3 database opened read-only has no settings table yet.
+            return null;
+        }
+
+        using SqliteCommand command = CreateCommand("SELECT value FROM settings WHERE key = $key;");
+        command.Parameters.AddWithValue("$key", OrganizeSchemeKey);
+        return OrganizeSchemes.TryParse(command.ExecuteScalar() as string);
+    }
+
+    /// <summary>Records the archive's folder-layout scheme, replacing any previously recorded value.</summary>
+    /// <param name="scheme">The scheme to persist.</param>
+    public void SetOrganizeScheme(OrganizeScheme scheme)
+    {
+        using SqliteCommand command = CreateCommand(
+            """
+            INSERT INTO settings (key, value) VALUES ($key, $value)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+            """);
+        command.Parameters.AddWithValue("$key", OrganizeSchemeKey);
+        command.Parameters.AddWithValue("$value", OrganizeSchemes.ToToken(scheme));
+        command.ExecuteNonQuery();
     }
 
     private long QueryUserVersion()
@@ -378,6 +454,39 @@ public sealed class TransferJournal : IDisposable
         return rows;
     }
 
+    /// <summary>
+    /// Reads the columns the <c>search</c> command filters on from the <c>manifest</c> view (completed
+    /// files only): the relative destination path, a resolved capture date (EXIF <c>DateTimeOriginal</c>
+    /// when present, else the source modified time), size, camera, and GPS. Read-only.
+    /// </summary>
+    /// <returns>One row per completed file.</returns>
+    public IReadOnlyList<ManifestSearchRow> ReadSearchRows()
+    {
+        var rows = new List<ManifestSearchRow>();
+        using SqliteCommand command = CreateCommand(
+            """
+            SELECT dest_path, size_bytes, exif_datetime_original, source_mtime,
+                   camera_make, camera_model, gps_latitude, gps_longitude
+            FROM manifest;
+            """);
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            string? exif = reader.IsDBNull(2) ? null : reader.GetString(2);
+            string? mtime = reader.IsDBNull(3) ? null : reader.GetString(3);
+            rows.Add(new ManifestSearchRow(
+                reader.IsDBNull(0) ? string.Empty : reader.GetString(0),
+                ParseIsoOrNull(exif) ?? ParseIsoOrNull(mtime),
+                reader.GetInt64(1),
+                reader.IsDBNull(4) ? null : reader.GetString(4),
+                reader.IsDBNull(5) ? null : reader.GetString(5),
+                reader.IsDBNull(6) ? null : reader.GetDouble(6),
+                reader.IsDBNull(7) ? null : reader.GetDouble(7)));
+        }
+
+        return rows;
+    }
+
     /// <summary>Inserts or updates the device's record, refreshing its last-seen time (R: multi-device story).</summary>
     /// <param name="udid">Device UDID.</param>
     /// <param name="name">Device name, if known.</param>
@@ -550,6 +659,9 @@ public sealed class TransferJournal : IDisposable
             ? parsed
             : null;
 
+    private static DateTimeOffset? ParseIsoOrNull(string? value) =>
+        value is null ? null : ParseIso(value);
+
     /// <summary>Closes the underlying SQLite connection.</summary>
     public void Dispose()
     {
@@ -580,6 +692,23 @@ public sealed record ManifestEntry(
     long SizeBytes,
     string? ExifDateTimeOriginalIso,
     string? SourceMtimeIso);
+
+/// <summary>A completed-file row projected for the <c>search</c> command's filters.</summary>
+/// <param name="RelativePath">Destination path relative to the archive root.</param>
+/// <param name="CapturedAt">Resolved capture date (EXIF original, else source mtime), or <see langword="null"/>.</param>
+/// <param name="SizeBytes">File size in bytes.</param>
+/// <param name="CameraMake">EXIF camera make, or <see langword="null"/>.</param>
+/// <param name="CameraModel">EXIF camera model, or <see langword="null"/>.</param>
+/// <param name="GpsLatitude">EXIF GPS latitude, or <see langword="null"/>.</param>
+/// <param name="GpsLongitude">EXIF GPS longitude, or <see langword="null"/>.</param>
+public sealed record ManifestSearchRow(
+    string RelativePath,
+    DateTimeOffset? CapturedAt,
+    long SizeBytes,
+    string? CameraMake,
+    string? CameraModel,
+    double? GpsLatitude,
+    double? GpsLongitude);
 
 /// <summary>A device recorded in the journal's <c>devices</c> table.</summary>
 /// <param name="Udid">Device UDID.</param>
