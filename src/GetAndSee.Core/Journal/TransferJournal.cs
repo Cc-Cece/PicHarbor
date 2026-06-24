@@ -462,7 +462,7 @@ public sealed class TransferJournal : IDisposable
     /// <returns>One row per completed file.</returns>
     public IReadOnlyList<ManifestSearchRow> ReadSearchRows()
     {
-        var rows = new List<ManifestSearchRow>();
+        List<ManifestSearchRow> rows = new();
         using SqliteCommand command = CreateCommand(
             """
             SELECT dest_path, size_bytes, exif_datetime_original, source_mtime,

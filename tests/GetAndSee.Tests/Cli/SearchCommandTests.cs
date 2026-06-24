@@ -55,6 +55,17 @@ public sealed class SearchCommandTests : IDisposable
     }
 
     [Fact]
+    public void Open_caps_the_number_of_folders_revealed()
+    {
+        SeedManyMonths(12);   // 12 distinct month folders → more than the cap
+        var opener = new RecordingFolderOpener();
+
+        SearchCommand.Run(dir.Path, new MediaSearchCriteria(), open: true, opener, NewConsole());
+
+        opener.OpenedFolders.Count.ShouldBe(SearchCommand.MaxFoldersToOpen);
+    }
+
+    [Fact]
     public void Search_does_not_modify_the_database()
     {
         SeedPhotos();
@@ -123,6 +134,18 @@ public sealed class SearchCommandTests : IDisposable
         Add(journal, "/DCIM/100APPLE/A.HEIC", Path.Combine("2024-08", "A.HEIC"), new DateTime(2024, 8, 10, 9, 0, 0));
         Add(journal, "/DCIM/100APPLE/B.HEIC", Path.Combine("2024-08", "B.HEIC"), new DateTime(2024, 8, 20, 9, 0, 0));
         Add(journal, "/DCIM/101APPLE/C.HEIC", Path.Combine("2024-09", "C.HEIC"), new DateTime(2024, 9, 1, 9, 0, 0));
+    }
+
+    private void SeedManyMonths(int count)
+    {
+        using TransferJournal journal = TransferJournal.Open(dir.Path);
+        for (int i = 0; i < count; i++)
+        {
+            int month = (i % 12) + 1;
+            int year = 2020 + (i / 12);
+            string folder = $"{year:D4}-{month:D2}";
+            Add(journal, $"/DCIM/100APPLE/IMG_{i}.HEIC", Path.Combine(folder, $"IMG_{i}.HEIC"), new DateTime(year, month, 1, 9, 0, 0));
+        }
     }
 
     private static void Add(TransferJournal journal, string sourcePath, string dest, DateTime captured)

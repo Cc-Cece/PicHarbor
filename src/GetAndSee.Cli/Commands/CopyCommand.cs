@@ -32,7 +32,7 @@ internal static class CopyCommand
 
     private static Option<string> BuildOrganizeByOption()
     {
-        var option = new Option<string>("--organize-by")
+        Option<string> option = new("--organize-by")
         {
             Description =
                 "Folder layout for the archive (recorded on first copy; a later run keeps it): " +
@@ -331,8 +331,13 @@ internal static class CopyCommand
         return resolution;
     }
 
-    /// <summary>Reads an existing archive's recorded scheme read-only (for the dry-run preview), or null if none.</summary>
-    private static OrganizeScheme? TryReadRecordedScheme(string destination)
+    /// <summary>
+    /// Reads the scheme a real <c>copy</c> would use for an existing archive, read-only (for the dry-run
+    /// preview): the recorded scheme if present, else — for a pre-v3 archive that already holds files — the
+    /// <c>year-month</c> the v2→v3 migration would stamp, so the preview matches reality. <see langword="null"/>
+    /// when there is no archive (or a brand-new, empty one).
+    /// </summary>
+    internal static OrganizeScheme? TryReadRecordedScheme(string destination)
     {
         string databasePath = Path.Combine(destination, TransferJournal.DatabaseFileName);
         if (!File.Exists(LongPath.ToExtended(databasePath)))
@@ -341,7 +346,17 @@ internal static class CopyCommand
         }
 
         using TransferJournal journal = TransferJournal.OpenReadOnly(destination);
-        return journal.GetOrganizeScheme();
+        OrganizeScheme? recorded = journal.GetOrganizeScheme();
+        if (recorded is not null)
+        {
+            return recorded;
+        }
+
+        // No settings table → a pre-v3 database. The real run opens read-write and the v2→v3 migration
+        // stamps 'year-month' for any archive that already holds files; mirror that so the preview is honest.
+        JournalCounts counts = journal.CountByState();
+        bool hasFiles = counts.Pending + counts.InProgress + counts.Done + counts.Failed > 0;
+        return hasFiles ? OrganizeScheme.YearMonth : null;
     }
 
     private static void WriteRunSummary(string destination, RunStats stats, bool stalled)

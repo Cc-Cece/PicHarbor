@@ -21,46 +21,46 @@ internal static class SearchCommand
     /// <returns>The configured command.</returns>
     public static Command Build()
     {
-        var destinationOption = new Option<string>("--dest", "-d")
+        Option<string> destinationOption = new("--dest", "-d")
         {
             Description = "Destination root folder of an existing get-and-see archive.",
             Required = true,
         };
-        var fromOption = new Option<string?>("--from")
+        Option<string?> fromOption = new("--from")
         {
             Description = "Only files captured on or after this date (yyyy-MM-dd).",
         };
-        var toOption = new Option<string?>("--to")
+        Option<string?> toOption = new("--to")
         {
             Description = "Only files captured on or before this date (yyyy-MM-dd).",
         };
-        var typeOption = new Option<string?>("--type")
+        Option<string?> typeOption = new("--type")
         {
             Description = "Media type: photo, video, screenshot, or other.",
         };
         typeOption.AcceptOnlyFromAmong("photo", "video", "screenshot", "other");
-        var cameraOption = new Option<string?>("--camera")
+        Option<string?> cameraOption = new("--camera")
         {
             Description = "Case-insensitive substring of the camera make or model (e.g. \"iPhone 12\").",
         };
-        var minSizeOption = new Option<long?>("--min-size")
+        Option<long?> minSizeOption = new("--min-size")
         {
             Description = "Minimum file size in bytes.",
         };
-        var maxSizeOption = new Option<long?>("--max-size")
+        Option<long?> maxSizeOption = new("--max-size")
         {
             Description = "Maximum file size in bytes.",
         };
-        var hasGpsOption = new Option<bool>("--has-gps")
+        Option<bool> hasGpsOption = new("--has-gps")
         {
             Description = "Only files that carry GPS coordinates.",
         };
-        var openOption = new Option<bool>("--open")
+        Option<bool> openOption = new("--open")
         {
             Description = "Open the matches' containing folders in Explorer (Windows).",
         };
 
-        var command = new Command(
+        Command command = new(
             "search",
             "Search the archive manifest by date, type, size, camera, or GPS (read-only; no device needed).");
         command.Add(destinationOption);
@@ -249,7 +249,7 @@ internal static class SearchCommand
             return;
         }
 
-        var table = new Table().Border(TableBorder.Rounded);
+        Table table = new Table().Border(TableBorder.Rounded);
         table.AddColumn("Path");
         table.AddColumn("Date");
         table.AddColumn(new TableColumn("Size").RightAligned());
@@ -270,8 +270,8 @@ internal static class SearchCommand
 
     private static IReadOnlyList<string> DistinctContainingFolders(string destination, IReadOnlyList<MediaSearchHit> hits)
     {
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var folders = new List<string>();
+        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+        List<string> folders = new();
         foreach (MediaSearchHit hit in hits)
         {
             string full = Path.Combine(destination, hit.RelativePath);

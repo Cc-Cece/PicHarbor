@@ -20,7 +20,7 @@ namespace GetAndSee.Core.Transfer;
 ///   <item>stream the AFC read stream into a staging <c>.partial</c> under the destination, counting bytes;</item>
 ///   <item>flush to disk (fsync);</item>
 ///   <item>verify the byte count equals the AFC-reported size — mismatch ⇒ fail, never publish;</item>
-///   <item>read EXIF from the local copy to choose the <c>YYYY/YYYY-MM</c> folder;</item>
+///   <item>read EXIF from the local copy to choose its date folder under the archive's <see cref="OrganizeScheme"/>;</item>
 ///   <item>resolve any filename collision (<c>_2</c>, <c>_3</c>, …);</item>
 ///   <item>atomically <see cref="File.Move(string,string)"/> the staging file into its final path;</item>
 ///   <item>mark <c>done</c> with the recorded metadata.</item>

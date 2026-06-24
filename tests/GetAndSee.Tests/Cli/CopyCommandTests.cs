@@ -1,6 +1,9 @@
 using System.CommandLine;
 using GetAndSee.Cli.Commands;
+using GetAndSee.Core.Device;
+using GetAndSee.Core.Journal;
 using GetAndSee.Core.Organize;
+using GetAndSee.Tests.TestSupport;
 using Shouldly;
 using Xunit;
 
@@ -45,5 +48,44 @@ public sealed class CopyCommandTests
         ParseResult result = copy.Parse(["--dest", "X", "--organize-by", "weekly"]);
 
         result.Errors.ShouldNotBeEmpty();
+    }
+
+    [Fact]
+    public void Dry_run_scheme_preview_treats_a_pre_v3_archive_as_year_month()
+    {
+        using TempDirectory dir = new();
+        // A pre-v3 archive with a copied file: the real run's v2→v3 migration will stamp year-month, so the
+        // dry-run preview must report year-month too (not the flat-month default) — otherwise it misleads
+        // exactly the upgrade population the per-archive scheme protects.
+        var file = new RemoteFile("/DCIM/100APPLE/IMG_1.HEIC", 100, new DateTimeOffset(2024, 8, 15, 9, 0, 0, TimeSpan.Zero));
+        using (TransferJournal journal = TransferJournal.Open(dir.Path))
+        {
+            journal.EnsurePending(file);
+            journal.MarkDone(file.Path, file.Size, Path.Combine("2024", "2024-08", "IMG_1.HEIC"), MediaMetadata.Empty, DateTimeOffset.UtcNow);
+        }
+
+        JournalFixtures.DowngradeToV2(dir.Path);
+
+        CopyCommand.TryReadRecordedScheme(dir.Path).ShouldBe(OrganizeScheme.YearMonth);
+    }
+
+    [Fact]
+    public void Dry_run_scheme_preview_returns_a_recorded_scheme()
+    {
+        using TempDirectory dir = new();
+        using (TransferJournal journal = TransferJournal.Open(dir.Path))
+        {
+            journal.SetOrganizeScheme(OrganizeScheme.Flat);
+        }
+
+        CopyCommand.TryReadRecordedScheme(dir.Path).ShouldBe(OrganizeScheme.Flat);
+    }
+
+    [Fact]
+    public void Dry_run_scheme_preview_is_null_without_an_archive()
+    {
+        using TempDirectory dir = new();
+
+        CopyCommand.TryReadRecordedScheme(dir.Path).ShouldBeNull();
     }
 }

@@ -48,7 +48,7 @@ public static class MediaSearch
         ArgumentNullException.ThrowIfNull(rows);
         ArgumentNullException.ThrowIfNull(criteria);
 
-        var hits = new List<MediaSearchHit>();
+        List<MediaSearchHit> hits = new();
         foreach (ManifestSearchRow row in rows)
         {
             MediaType type = MediaTypeClassifier.Classify(row.RelativePath);
