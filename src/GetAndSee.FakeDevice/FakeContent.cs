@@ -1,4 +1,4 @@
-namespace GetAndSee.Tests.TestSupport;
+namespace GetAndSee.FakeDevice;
 
 /// <summary>
 /// Deterministic, position-addressable synthetic file content for the fake device. The byte at any

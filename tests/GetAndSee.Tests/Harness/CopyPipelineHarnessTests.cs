@@ -2,6 +2,7 @@ using GetAndSee.Core.Device;
 using GetAndSee.Core.Journal;
 using GetAndSee.Core.Organize;
 using GetAndSee.Core.Summary;
+using GetAndSee.FakeDevice;
 using GetAndSee.Tests.TestSupport;
 using Microsoft.Extensions.Time.Testing;
 using Shouldly;

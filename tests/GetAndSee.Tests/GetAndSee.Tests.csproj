@@ -20,6 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\GetAndSee.Core\GetAndSee.Core.csproj" />
     <ProjectReference Include="..\..\src\GetAndSee.Cli\GetAndSee.Cli.csproj" />
+    <ProjectReference Include="..\..\src\GetAndSee.FakeDevice\GetAndSee.FakeDevice.csproj" />
   </ItemGroup>
 
   <ItemGroup>

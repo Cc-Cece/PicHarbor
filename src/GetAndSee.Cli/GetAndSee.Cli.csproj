@@ -30,4 +30,20 @@
     <InternalsVisibleTo Include="GetAndSee.Tests" />
   </ItemGroup>
 
+  <!--
+    Opt-in, NON-shipping fake-device build. `dotnet build/publish -p:FakeDevice=true` defines the FAKE_DEVICE
+    compile constant and references the product-free GetAndSee.FakeDevice library, so the real EXE can run
+    end-to-end against the fake selected by the GAS_FAKE_DEVICE env var. A NORMAL build defines nothing and
+    references nothing extra: the #if FAKE_DEVICE code is not emitted and the fake assembly is not in the
+    graph, so the shipped get-and-see.exe is byte-identical and never contains the fake. CI asserts the
+    Release output carries no GetAndSee.FakeDevice reference.
+  -->
+  <PropertyGroup Condition="'$(FakeDevice)' == 'true'">
+    <DefineConstants>$(DefineConstants);FAKE_DEVICE</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(FakeDevice)' == 'true'">
+    <ProjectReference Include="..\GetAndSee.FakeDevice\GetAndSee.FakeDevice.csproj" />
+  </ItemGroup>
+
 </Project>

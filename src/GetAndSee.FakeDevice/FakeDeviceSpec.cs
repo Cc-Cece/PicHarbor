@@ -1,6 +1,6 @@
 using GetAndSee.Core.Device;
 
-namespace GetAndSee.Tests.TestSupport;
+namespace GetAndSee.FakeDevice;
 
 /// <summary>
 /// A fluent description of a fake iPhone's read-only <c>/DCIM</c> tree: the device identity plus an ordered

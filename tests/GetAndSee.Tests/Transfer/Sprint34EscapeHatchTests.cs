@@ -5,6 +5,7 @@ using GetAndSee.Core.Journal;
 using GetAndSee.Core.Organize;
 using GetAndSee.Core.Summary;
 using GetAndSee.Core.Transfer;
+using GetAndSee.FakeDevice;
 using GetAndSee.Tests.TestSupport;
 using Microsoft.Extensions.Time.Testing;
 using NSubstitute;

@@ -4,6 +4,7 @@ using GetAndSee.Core.Journal;
 using GetAndSee.Core.Organize;
 using GetAndSee.Core.Summary;
 using GetAndSee.Core.Transfer;
+using GetAndSee.FakeDevice;
 
 namespace GetAndSee.Tests.TestSupport;
 

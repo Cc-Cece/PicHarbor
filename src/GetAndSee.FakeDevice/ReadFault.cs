@@ -1,4 +1,4 @@
-namespace GetAndSee.Tests.TestSupport;
+namespace GetAndSee.FakeDevice;
 
 /// <summary>
 /// The kind of managed-observable read failure a <see cref="ScriptedReadStream"/> injects. These are the

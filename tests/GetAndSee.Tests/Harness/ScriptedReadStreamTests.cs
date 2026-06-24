@@ -1,4 +1,5 @@
 using GetAndSee.Core.Errors;
+using GetAndSee.FakeDevice;
 using GetAndSee.Tests.TestSupport;
 using Shouldly;
 using Xunit;
