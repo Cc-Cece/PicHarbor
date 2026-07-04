@@ -32,12 +32,15 @@ the same command resumes exactly where it left off. Nothing is ever written to o
 ## What you get
 
 - **Every file** in `/DCIM/` — copied faithfully, with all original EXIF metadata preserved.
-- **Organized by date**: `YYYY/YYYY-MM/filename.ext` (e.g. `2024/2024-08/IMG_4821.HEIC`); files with no
-  trustworthy capture date go to `unsorted/`.
+- **Organized by date**: flat `YYYY-MM/filename.ext` by default (e.g. `2024-08/IMG_4821.HEIC`) — pick the
+  layout with `--organize-by` (`month` · `year-month` · `year` · `flat`); files with no trustworthy capture
+  date go to `unsorted/`.
 - **A SQLite manifest** (`get-and-see.db`) at the destination root — a queryable index of everything
   copied (date, GPS, camera, size, paths). See [manifest schema](docs/user/manifest-schema.md).
 - **A human-readable `summary.txt`** regenerated after every run.
 - **Resume**: re-run the same command and it skips what's done and continues where it stopped.
+- **Search** the archive by date, type, size, camera, or GPS with `search` — optionally `--open` the
+  matches in Explorer. Read-only; no iPhone needed.
 
 ## What this tool does **NOT** do
 
@@ -109,8 +112,11 @@ dotnet publish src/GetAndSee.Cli -c Release -r win-x64 --self-contained true `
 ## Usage
 
 ```pwsh
-# Copy everything to D:\Photos (organized into YYYY/YYYY-MM folders)
+# Copy everything to D:\Photos (organized into flat YYYY-MM folders by default)
 get-and-see copy --dest "D:\Photos"
+
+# Choose the folder layout (recorded per-archive on the first copy)
+get-and-see copy --dest "D:\Photos" --organize-by year-month
 
 # Plan only — enumerate and show what WOULD be copied; opens no read streams, writes nothing
 get-and-see copy --dest "D:\Photos" --dry-run
@@ -121,6 +127,9 @@ get-and-see copy --dest "D:\Photos" --verify-hash
 # Show archive totals and the last-run summary — no iPhone needed
 get-and-see status --dest "D:\Photos"
 
+# Search the archive (read-only, no iPhone needed) — e.g. by camera, and open the matches' folders
+get-and-see search --dest "D:\Photos" --camera "iPhone 12" --open
+
 get-and-see --help
 ```
 
@@ -129,6 +138,7 @@ get-and-see --help
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--dest, -d` | *(required)* | Destination root folder for the date-organized archive. |
+| `--organize-by <scheme>` | `month` | Folder layout, **recorded per-archive on the first copy**: `month` (flat `YYYY-MM`), `year-month` (nested `YYYY\YYYY-MM`), `year`, or `flat`. A later run keeps the recorded layout (changing it will be the job of `reorganize`). |
 | `--dry-run` | off | Enumerate and plan only — no read streams opened, nothing written. |
 | `--verify-hash` | off | Also compute each file's SHA-256 while it copies and record it in the manifest. Read-only; slower. |
 | `--read-timeout <seconds>` | `30` | Seconds with no bytes from the device before a read is treated as a stall and the run stops cleanly (resumable). `0` disables the watchdog. |
@@ -167,6 +177,29 @@ Runs: 3 (first run 2026-06-01, latest 2026-06-07)
 
 Last run: 21,402 copied · 6,072 skipped (already done) · 0 failed · 2h 41m
 ```
+
+### `search`
+
+Find files in an existing archive **without the iPhone** — `search` reads the manifest (`get-and-see.db`)
+only, never the device, and never changes anything on disk.
+
+```pwsh
+# Large 2024 videos that have GPS — and open their folders in Explorer
+get-and-see search --dest "D:\Photos" --type video --from 2024-01-01 --min-size 104857600 --has-gps --open
+```
+
+| Option | Description |
+|--------|-------------|
+| `--dest, -d` | *(required)* Destination root of an existing archive. |
+| `--from <yyyy-MM-dd>` | Only files captured on or after this date. |
+| `--to <yyyy-MM-dd>` | Only files captured on or before this date (the whole day is included). |
+| `--type <photo\|video\|screenshot\|other>` | Media type, derived from the file extension. |
+| `--camera <substr>` | Case-insensitive substring of the camera make or model. |
+| `--min-size <bytes>` / `--max-size <bytes>` | File-size bounds, in bytes. |
+| `--has-gps` | Only files that carry GPS coordinates. |
+| `--open` | Open the matches' containing folders in Explorer (capped at 10 folders). |
+
+Results print as a table (path, capture date, size, type) with a count. An empty result is not an error.
 
 ### Exit codes
 

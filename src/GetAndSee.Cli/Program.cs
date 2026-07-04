@@ -21,6 +21,7 @@ internal static class Program
         var root = new RootCommand("get-and-see — read-only iPhone → PC media copier (USB / AFC).");
         root.Add(CopyCommand.Build());
         root.Add(StatusCommand.Build());
+        root.Add(SearchCommand.Build());
 
         return await root.Parse(args).InvokeAsync(cancellationToken: cancellation.Token).ConfigureAwait(false);
     }

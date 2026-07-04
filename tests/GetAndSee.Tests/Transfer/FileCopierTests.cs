@@ -277,6 +277,35 @@ public sealed class FileCopierTests : IDisposable
         File.Delete(extended);
     }
 
+    [Theory]
+    [InlineData(OrganizeScheme.Month)]
+    [InlineData(OrganizeScheme.YearMonth)]
+    [InlineData(OrganizeScheme.Year)]
+    [InlineData(OrganizeScheme.Flat)]
+    public async Task Copies_into_a_long_destination_path_under_every_scheme(OrganizeScheme scheme)
+    {
+        // R6 per scheme: a long original filename pushes the full destination past MAX_PATH under every
+        // layout — even flat, where there is no date subfolder. The \\?\ prefix must keep the copy working.
+        string longStem = new('L', 230);
+        byte[] content = Encoding.UTF8.GetBytes("long path media bytes per scheme");
+        var file = new RemoteFile($"/DCIM/100APPLE/{longStem}.HEIC", content.Length, null);
+        SetupRead(file.Path, content);
+        journal.EnsurePending(file);
+
+        using FileCopier copier = new(client, journal, organizer, extractor, destination.Path, scheme);
+        CopyResult result = await copier.CopyAsync(file, Token);
+
+        result.Status.ShouldBe(CopyStatus.Copied);
+        string fullPath = Path.Combine(destination.Path, result.RelativeDestPath!);
+        fullPath.Length.ShouldBeGreaterThan(260, "the test must exercise a path beyond MAX_PATH");
+        string extended = LongPath.ToExtended(fullPath);
+        File.Exists(extended).ShouldBeTrue();
+        File.ReadAllBytes(extended).ShouldBe(content);
+
+        // Remove the > 260 file via the extended path so TempDirectory (non-extended) cleanup succeeds.
+        File.Delete(extended);
+    }
+
     [Fact]
     public async Task Verify_hash_records_the_sha256_into_the_manifest()
     {

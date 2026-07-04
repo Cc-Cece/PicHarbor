@@ -16,7 +16,7 @@ sqlite3 "D:\Photos\get-and-see.db" "SELECT COUNT(*) FROM manifest;"
 > **Read-only tip:** open it read-only so a query can never interfere with a running copy:
 > `sqlite3 -readonly "D:\Photos\get-and-see.db" "..."`
 
-The schema version is tracked in `PRAGMA user_version` (currently **2**).
+The schema version is tracked in `PRAGMA user_version` (currently **3**).
 
 ---
 
@@ -28,7 +28,7 @@ files only (`state = 'done'`), so you never see in-progress or failed rows.
 | Column | Type | Meaning |
 |--------|------|---------|
 | `source_path` | TEXT | Absolute path on the device, e.g. `/DCIM/100APPLE/IMG_4821.HEIC`. |
-| `dest_path` | TEXT | Path on the PC **relative to the destination root**, e.g. `2024\2024-08\IMG_4821.HEIC`. |
+| `dest_path` | TEXT | Path on the PC **relative to the destination root**, e.g. `2024-08\IMG_4821.HEIC` (the folder layout depends on the archive's `--organize-by` scheme). |
 | `size_bytes` | INTEGER | File size in bytes (the verified size). |
 | `source_mtime` | TEXT | Device last-modified time (ISO-8601), or `NULL`. |
 | `exif_datetime_original` | TEXT | EXIF capture time (`DateTimeOriginal`) when available, else `NULL`. |
@@ -89,6 +89,25 @@ The `manifest` view is simply `files` filtered to `state = 'done'` with the user
 | `exit_code` | INTEGER | Process exit code for that run. |
 | `device_udid` | TEXT | UDID of the device used, or `NULL`. |
 
+### `settings` — per-archive settings (key/value)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `key` | TEXT | Primary key. The only key today is `organize_scheme`. |
+| `value` | TEXT | The setting's value. |
+
+`organize_scheme` records the archive's folder layout (`month`, `year-month`, `year`, or `flat`), chosen on
+the first `copy` and honored by every later run so an archive is never silently re-shuffled.
+
+### Schema migrations
+
+The schema is migrated in place (additively) via `PRAGMA user_version`:
+
+- **v1 → v2** added the `devices` and `runs` tables.
+- **v2 → v3** added the `settings` table. An archive that already had files when it was upgraded is stamped
+  `organize_scheme = 'year-month'` (the only layout that existed before v3), so existing nested archives keep
+  resolving to their existing paths and **resume byte-stable** — the upgrade never moves or re-copies a file.
+
 ---
 
 ## Example queries
@@ -139,7 +158,7 @@ ORDER BY dest_path;
 You can re-hash a file on disk and compare to its recorded digest:
 
 ```pwsh
-(Get-FileHash "D:\Photos\2024\2024-08\IMG_4821.HEIC" -Algorithm SHA256).Hash.ToLower()
+(Get-FileHash "D:\Photos\2024-08\IMG_4821.HEIC" -Algorithm SHA256).Hash.ToLower()
 # compare to the sha256 value in the manifest for that dest_path
 ```
 

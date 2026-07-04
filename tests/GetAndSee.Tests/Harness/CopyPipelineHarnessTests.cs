@@ -317,22 +317,108 @@ public sealed class CopyPipelineHarnessTests
         AssertArchiveByteIdentical(dest.Path, spec);
     }
 
-    private static void AssertArchiveByteIdentical(string destinationRoot, FakeDeviceSpec spec)
+    [Theory]
+    [InlineData(OrganizeScheme.Month)]
+    [InlineData(OrganizeScheme.Year)]
+    [InlineData(OrganizeScheme.Flat)]
+    public async Task Copies_a_full_library_byte_identical_under_each_scheme(OrganizeScheme scheme)
+    {
+        using TempDirectory dest = new();
+        FakeDeviceSpec spec = FakeDeviceSpec.Create().AddSmallLibrary();
+        FakeAfcDevice device = spec.Build();
+
+        HarnessResult result = await new CopyPipelineHarness(dest.Path, device, requestedScheme: scheme).RunAsync(Token);
+
+        result.ExitCode.ShouldBe(0);
+        result.Copied.ShouldBe(spec.Files.Count);
+        AssertArchiveByteIdentical(dest.Path, spec, scheme);
+        // The chosen scheme is recorded for next time.
+        using TransferJournal journal = TransferJournal.OpenReadOnly(dest.Path);
+        journal.GetOrganizeScheme().ShouldBe(scheme);
+    }
+
+    [Theory]
+    [InlineData(OrganizeScheme.Month, "2024-08")]
+    [InlineData(OrganizeScheme.Flat, "")]
+    public async Task Disambiguates_collisions_with_numeric_suffixes_under_each_scheme(OrganizeScheme scheme, string folder)
+    {
+        using TempDirectory dest = new();
+        // Three same-named files captured the same month collide on the destination name under any scheme.
+        FakeDeviceSpec spec = FakeDeviceSpec.Create()
+            .AddSmallPhoto("/DCIM/100APPLE/IMG_0001.HEIC", Aug2024)
+            .AddSmallPhoto("/DCIM/101APPLE/IMG_0001.HEIC", Aug2024)
+            .AddSmallPhoto("/DCIM/102APPLE/IMG_0001.HEIC", Aug2024);
+        FakeAfcDevice device = spec.Build();
+
+        HarnessResult result = await new CopyPipelineHarness(dest.Path, device, requestedScheme: scheme).RunAsync(Token);
+
+        result.ExitCode.ShouldBe(0);
+        result.Copied.ShouldBe(3);
+        string dir = folder.Length == 0 ? dest.Path : Path.Combine(dest.Path, folder);
+        File.Exists(Path.Combine(dir, "IMG_0001.HEIC")).ShouldBeTrue();
+        File.Exists(Path.Combine(dir, "IMG_0001_2.HEIC")).ShouldBeTrue();
+        File.Exists(Path.Combine(dir, "IMG_0001_3.HEIC")).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task A_v2_nested_archive_resumes_byte_stable_under_the_new_month_default()
+    {
+        using TempDirectory dest = new();
+        // Seed a fully-copied archive in the original nested year-month layout, then make it look like a
+        // real pre-v3 (v1.0/v2) database that predates the recorded-scheme feature.
+        FakeDeviceSpec spec = FakeDeviceSpec.Create().AddSmallLibrary();
+        await new CopyPipelineHarness(dest.Path, spec.Build(), requestedScheme: OrganizeScheme.YearMonth).RunAsync(Token);
+        JournalFixtures.DowngradeToV2(dest.Path);
+
+        // Re-run with the NEW default (month), NOT explicit — exactly what an upgraded user who just
+        // re-runs `copy` gets. The recorded (year-month) layout must win, so nothing is re-shuffled.
+        HarnessResult resume = await new CopyPipelineHarness(
+            dest.Path, spec.Build(), requestedScheme: OrganizeScheme.Month, schemeExplicit: false).RunAsync(Token);
+
+        resume.ExitCode.ShouldBe(0);
+        resume.Copied.ShouldBe(0);
+        resume.Skipped.ShouldBe(spec.Files.Count);   // every file already done → no re-copy
+        AssertArchiveByteIdentical(dest.Path, spec, OrganizeScheme.YearMonth);   // still nested + byte-identical
+        using TransferJournal journal = TransferJournal.OpenReadOnly(dest.Path);
+        journal.GetOrganizeScheme().ShouldBe(OrganizeScheme.YearMonth);
+    }
+
+    [Fact]
+    public async Task An_explicit_conflicting_scheme_is_ignored_on_an_existing_archive()
+    {
+        using TempDirectory dest = new();
+        // A brand-new archive records flat month.
+        FakeDeviceSpec spec = FakeDeviceSpec.Create().AddSmallLibrary();
+        await new CopyPipelineHarness(
+            dest.Path, spec.Build(), requestedScheme: OrganizeScheme.Month, schemeExplicit: true).RunAsync(Token);
+
+        // A later run that explicitly asks for a DIFFERENT layout keeps the recorded one (byte-stable).
+        HarnessResult second = await new CopyPipelineHarness(
+            dest.Path, spec.Build(), requestedScheme: OrganizeScheme.YearMonth, schemeExplicit: true).RunAsync(Token);
+
+        second.ExitCode.ShouldBe(0);
+        second.Skipped.ShouldBe(spec.Files.Count);
+        AssertArchiveByteIdentical(dest.Path, spec, OrganizeScheme.Month);   // stayed flat month
+        using TransferJournal journal = TransferJournal.OpenReadOnly(dest.Path);
+        journal.GetOrganizeScheme().ShouldBe(OrganizeScheme.Month);
+    }
+
+    private static void AssertArchiveByteIdentical(string destinationRoot, FakeDeviceSpec spec, OrganizeScheme scheme = OrganizeScheme.YearMonth)
     {
         foreach (FakeDeviceFile file in spec.Files)
         {
-            string full = Path.Combine(destinationRoot, ExpectedRelativePath(file));
-            File.Exists(full).ShouldBeTrue($"{file.Path} should be copied to {ExpectedRelativePath(file)}");
+            string full = Path.Combine(destinationRoot, ExpectedRelativePath(file, scheme));
+            File.Exists(full).ShouldBeTrue($"{file.Path} should be copied to {ExpectedRelativePath(file, scheme)}");
             byte[] expected = FakeContent.Materialize((int)file.Size, file.ContentSeed);
             File.ReadAllBytes(full).ShouldBe(expected, $"{file.Path} content must be byte-identical");
         }
     }
 
-    private static string ExpectedRelativePath(FakeDeviceFile file)
+    private static string ExpectedRelativePath(FakeDeviceFile file, OrganizeScheme scheme = OrganizeScheme.YearMonth)
     {
         DateFolderOrganizer organizer = new();
         RemoteFile remote = new(file.Path, file.Size, file.CaptureDate);
-        return organizer.GetRelativeDestination(remote, MediaMetadata.Empty);
+        return organizer.GetRelativeDestination(remote, MediaMetadata.Empty, scheme);
     }
 
     private static string ExpectedSha256(FakeDeviceFile file)

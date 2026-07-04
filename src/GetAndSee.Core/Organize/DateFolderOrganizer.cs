@@ -3,14 +3,16 @@ using GetAndSee.Core.Device;
 namespace GetAndSee.Core.Organize;
 
 /// <summary>
-/// Maps a remote file to its relative destination path: <c>YYYY/YYYY-MM/&lt;name&gt;</c> when a sane
-/// capture date is available, otherwise <c>unsorted/&lt;name&gt;</c>.
+/// Maps a remote file to its relative destination path under a chosen <see cref="OrganizeScheme"/> when a
+/// sane capture date is available, otherwise <c>unsorted/&lt;name&gt;</c>.
 /// </summary>
 /// <remarks>
 /// Date source preference (R16): EXIF <c>DateTimeOriginal</c> → file modified time → <c>unsorted</c>.
 /// A date is only trusted if it falls within <c>[1990-01-01, now + 1 day]</c>; nonsense dates are
 /// routed to <c>unsorted</c>. Filenames are sanitized so device-supplied strings can never escape
-/// the destination tree (PROJECT_BRIEF §9.3).
+/// the destination tree (PROJECT_BRIEF §9.3). The scheme only changes the date-folder shape; the
+/// <c>unsorted</c> fallback is identical under every scheme, and two files sharing a capture date (e.g. a
+/// Live Photo's <c>.HEIC</c> + <c>.MOV</c>) always co-locate.
 /// </remarks>
 public sealed class DateFolderOrganizer
 {
@@ -26,24 +28,39 @@ public sealed class DateFolderOrganizer
     public DateFolderOrganizer(TimeProvider? clock = null) => this.clock = clock ?? TimeProvider.System;
 
     /// <summary>
-    /// Computes the destination path for a file, relative to the destination root.
+    /// Computes the destination path for a file under <paramref name="scheme"/>, relative to the
+    /// destination root.
     /// </summary>
     /// <param name="file">The enumerated device file.</param>
     /// <param name="metadata">Extracted metadata, or <see langword="null"/> if none is available yet (e.g. dry-run).</param>
-    /// <returns>A relative path such as <c>2024\2024-08\IMG_1234.HEIC</c> or <c>unsorted\IMG_1234.HEIC</c>.</returns>
-    public string GetRelativeDestination(RemoteFile file, MediaMetadata? metadata)
+    /// <param name="scheme">The archive's folder layout.</param>
+    /// <returns>
+    /// A relative path such as <c>2024-08\IMG_1234.HEIC</c> (<see cref="OrganizeScheme.Month"/>),
+    /// <c>2024\2024-08\IMG_1234.HEIC</c> (<see cref="OrganizeScheme.YearMonth"/>), or
+    /// <c>unsorted\IMG_1234.HEIC</c> when no trustworthy date exists (identical under every scheme).
+    /// </returns>
+    public string GetRelativeDestination(RemoteFile file, MediaMetadata? metadata, OrganizeScheme scheme)
     {
         string fileName = SanitizeFileName(ExtractFileName(file.Path));
         DateTime? date = ResolveDate(file, metadata);
 
         if (date is null)
         {
+            // Unsorted is identical under every scheme — a file with no trustworthy date is never
+            // placed in a dated folder.
             return Path.Combine(UnsortedFolder, fileName);
         }
 
         string year = date.Value.Year.ToString("D4");
         string month = $"{date.Value.Year:D4}-{date.Value.Month:D2}";
-        return Path.Combine(year, month, fileName);
+        return scheme switch
+        {
+            OrganizeScheme.Month => Path.Combine(month, fileName),
+            OrganizeScheme.YearMonth => Path.Combine(year, month, fileName),
+            OrganizeScheme.Year => Path.Combine(year, fileName),
+            OrganizeScheme.Flat => fileName,
+            _ => throw new ArgumentOutOfRangeException(nameof(scheme), scheme, "Unknown organize scheme."),
+        };
     }
 
     private DateTime? ResolveDate(RemoteFile file, MediaMetadata? metadata)

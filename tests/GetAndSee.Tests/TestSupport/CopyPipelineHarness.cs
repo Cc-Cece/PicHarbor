@@ -47,6 +47,8 @@ public sealed class CopyPipelineHarness
     private readonly bool verifyHash;
     private readonly IProcessTerminator terminator;
     private readonly IMediaMetadataExtractor metadataExtractor;
+    private readonly OrganizeScheme requestedScheme;
+    private readonly bool schemeExplicit;
 
     /// <summary>Creates a harness targeting <paramref name="destinationRoot"/>, driving the real pipeline against <paramref name="device"/>.</summary>
     /// <param name="destinationRoot">Destination root (a temp directory).</param>
@@ -59,6 +61,12 @@ public sealed class CopyPipelineHarness
     /// (so a watchdog trip never kills the test host); pass your own to assert its invocation directly.
     /// </param>
     /// <param name="metadataExtractor">Metadata extractor; defaults to <see cref="EmptyMetadataExtractor"/> (mtime-driven organize).</param>
+    /// <param name="requestedScheme">
+    /// The <c>--organize-by</c> request. Resolved against the archive's recorded scheme exactly as the
+    /// <c>copy</c> verb does. Defaults to <see cref="OrganizeScheme.YearMonth"/> — the historical layout —
+    /// so pre-Sprint-4 path assertions are unaffected.
+    /// </param>
+    /// <param name="schemeExplicit">Whether <paramref name="requestedScheme"/> models an explicitly-passed flag (vs a defaulted one).</param>
     public CopyPipelineHarness(
         string destinationRoot,
         FakeAfcDevice device,
@@ -66,7 +74,9 @@ public sealed class CopyPipelineHarness
         TimeSpan? readTimeout = null,
         bool verifyHash = false,
         IProcessTerminator? terminator = null,
-        IMediaMetadataExtractor? metadataExtractor = null)
+        IMediaMetadataExtractor? metadataExtractor = null,
+        OrganizeScheme requestedScheme = OrganizeScheme.YearMonth,
+        bool schemeExplicit = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
         ArgumentNullException.ThrowIfNull(device);
@@ -79,6 +89,8 @@ public sealed class CopyPipelineHarness
         // wants to assert the escape-hatch fired passes its own and holds the reference.
         this.terminator = terminator ?? new RecordingProcessTerminator();
         this.metadataExtractor = metadataExtractor ?? new EmptyMetadataExtractor();
+        this.requestedScheme = requestedScheme;
+        this.schemeExplicit = schemeExplicit;
     }
 
     /// <summary>Runs one full copy pass (connect → enumerate → copy loop → summary) and returns its outcome.</summary>
@@ -108,10 +120,19 @@ public sealed class CopyPipelineHarness
             journal.EnsurePending(file);
         }
 
+        // Resolve the archive's folder layout exactly as the copy verb does: a recorded scheme is
+        // authoritative; a brand-new archive records the requested (or default) one.
+        SchemeResolution schemeResolution =
+            OrganizeSchemeResolver.Resolve(journal.GetOrganizeScheme(), requestedScheme, schemeExplicit);
+        if (schemeResolution.ShouldRecord)
+        {
+            journal.SetOrganizeScheme(schemeResolution.Effective);
+        }
+
         DateFolderOrganizer organizer = new();
         DisconnectEscapeHatch escapeHatch = new(destinationRoot, terminator, TextWriter.Null);
         using FileCopier copier = new(
-            device, journal, organizer, metadataExtractor, destinationRoot,
+            device, journal, organizer, metadataExtractor, destinationRoot, schemeResolution.Effective,
             clock: clock, readTimeout: readTimeout, verifyHash: verifyHash,
             onDisconnect: escapeHatch.Activate);
         copier.CleanStaging();
