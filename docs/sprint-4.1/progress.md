@@ -22,6 +22,19 @@
 ## Phase log
 
 ### Phase 1 — organizer refactor + shared collision helper + required scheme
+- **Done.** `DateFolderOrganizer.GetRelativeDestination(fileName, captureDate, scheme)` + public
+  `ResolveDate(exif, mtime)`; RemoteFile overloads delegate (no copy behavior change — 43 organizer/copier
+  tests green). Extracted `Organize/CollisionSuffix.Resolve(path, isAvailable)`; copier routes through it.
+  `FileCopier.organizeScheme` now required; updated 15 call sites (2 prod, 13 test). Build 0/0. Commit `2872bb0`.
+
+### Phase 2 — journal ops for reorganize
+- **Done.** `UpdateDestPath` (single `UPDATE dest_path`), `EnumerateDoneForReorganize` (`WHERE state='done'`
+  `ORDER BY source_path`, parses stored EXIF wall-clock + UTC mtime into a `ReorganizeEntry`), and the
+  `reorganize_target` marker `Get/Set/Clear` (settings k/v — **no schema-version bump**). 5 journal tests
+  green (update-keeps-done, deterministic order + excludes non-done, unsorted null dates, marker round-trip,
+  marker independent of recorded scheme). Parameterized SQL throughout.
+
+### Phase 3 — `Reorganizer` engine
 - _in progress_
 
 ## Bugs / Issues Found

@@ -32,6 +32,13 @@ public sealed class TransferJournal : IDisposable
     /// <summary>The <c>settings</c> key under which an archive's <c>organize_scheme</c> token is stored.</summary>
     private const string OrganizeSchemeKey = "organize_scheme";
 
+    /// <summary>
+    /// The <c>settings</c> key holding an in-flight <c>reorganize</c>'s target scheme token. It is present
+    /// only while a layout migration is underway (a crash/resume marker) and cleared when the migration
+    /// completes cleanly; it is a settings key only, so it needs no schema-version bump.
+    /// </summary>
+    private const string ReorganizeTargetKey = "reorganize_target";
+
     private readonly SqliteConnection connection;
     private bool disposed;
 
@@ -261,6 +268,47 @@ public sealed class TransferJournal : IDisposable
         command.ExecuteNonQuery();
     }
 
+    /// <summary>
+    /// Returns the target scheme of an in-flight <c>reorganize</c> (the <c>reorganize_target</c> marker), or
+    /// <see langword="null"/> when no layout migration is underway. Used to resume an interrupted reorganize
+    /// and to let <c>copy</c> refuse an archive that is mid-migration.
+    /// </summary>
+    /// <returns>The in-flight target <see cref="OrganizeScheme"/>, or <see langword="null"/>.</returns>
+    public OrganizeScheme? GetReorganizeTarget()
+    {
+        if (!TableExists("settings"))
+        {
+            // A pre-v3 database has no settings table, hence never an in-flight reorganize.
+            return null;
+        }
+
+        using SqliteCommand command = CreateCommand("SELECT value FROM settings WHERE key = $key;");
+        command.Parameters.AddWithValue("$key", ReorganizeTargetKey);
+        return OrganizeSchemes.TryParse(command.ExecuteScalar() as string);
+    }
+
+    /// <summary>Records that a <c>reorganize</c> toward <paramref name="target"/> is in progress (crash/resume marker).</summary>
+    /// <param name="target">The layout the reorganize is migrating the archive to.</param>
+    public void SetReorganizeTarget(OrganizeScheme target)
+    {
+        using SqliteCommand command = CreateCommand(
+            """
+            INSERT INTO settings (key, value) VALUES ($key, $value)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+            """);
+        command.Parameters.AddWithValue("$key", ReorganizeTargetKey);
+        command.Parameters.AddWithValue("$value", OrganizeSchemes.ToToken(target));
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Clears the in-flight <c>reorganize</c> marker once a layout migration has completed cleanly.</summary>
+    public void ClearReorganizeTarget()
+    {
+        using SqliteCommand command = CreateCommand("DELETE FROM settings WHERE key = $key;");
+        command.Parameters.AddWithValue("$key", ReorganizeTargetKey);
+        command.ExecuteNonQuery();
+    }
+
     private long QueryUserVersion()
     {
         using SqliteCommand command = CreateCommand("PRAGMA user_version;");
@@ -357,6 +405,25 @@ public sealed class TransferJournal : IDisposable
         command.Parameters.AddWithValue("$model", (object?)metadata.CameraModel ?? DBNull.Value);
         command.Parameters.AddWithValue("$copied", IsoUtc(copiedAt)!);
         command.Parameters.AddWithValue("$sha", (object?)sha256 ?? DBNull.Value);
+        command.Parameters.AddWithValue("$path", sourcePath);
+        command.Parameters.AddWithValue("$size", sourceSize);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Updates a completed file's recorded destination path after <c>reorganize</c> moves it on disk — a
+    /// single <c>UPDATE</c> so the manifest always points at the file's real on-disk location. The file's
+    /// <c>done</c> state and every other column are untouched; only <c>dest_path</c> changes.
+    /// </summary>
+    /// <param name="sourcePath">Device source path (part of the file's identity).</param>
+    /// <param name="sourceSize">Source size in bytes (part of the file's identity).</param>
+    /// <param name="newRelativeDestPath">The new destination path, relative to the archive root.</param>
+    public void UpdateDestPath(string sourcePath, long sourceSize, string newRelativeDestPath)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(newRelativeDestPath);
+        using SqliteCommand command = CreateCommand(
+            "UPDATE files SET dest_path = $dest WHERE source_path = $path AND source_size = $size;");
+        command.Parameters.AddWithValue("$dest", newRelativeDestPath);
         command.Parameters.AddWithValue("$path", sourcePath);
         command.Parameters.AddWithValue("$size", sourceSize);
         command.ExecuteNonQuery();
@@ -482,6 +549,37 @@ public sealed class TransferJournal : IDisposable
                 reader.IsDBNull(5) ? null : reader.GetString(5),
                 reader.IsDBNull(6) ? null : reader.GetDouble(6),
                 reader.IsDBNull(7) ? null : reader.GetDouble(7)));
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// Reads every completed file with the inputs <c>reorganize</c> needs to re-place it: its identity
+    /// (<c>source_path</c> + <c>source_size</c>), current <c>dest_path</c>, and the two stored timestamps
+    /// that resolve its folder date — in a <b>deterministic order</b> (by <c>source_path</c>) so
+    /// collision-suffix assignment is reproducible across runs and interruptions. Read-only.
+    /// </summary>
+    /// <returns>One entry per completed file, ordered by source path.</returns>
+    public IReadOnlyList<ReorganizeEntry> EnumerateDoneForReorganize()
+    {
+        List<ReorganizeEntry> rows = new();
+        using SqliteCommand command = CreateCommand(
+            """
+            SELECT source_path, source_size, dest_path, exif_datetime_original, source_mtime
+            FROM files
+            WHERE state = 'done' AND dest_path IS NOT NULL
+            ORDER BY source_path;
+            """);
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            rows.Add(new ReorganizeEntry(
+                reader.GetString(0),
+                reader.GetInt64(1),
+                reader.GetString(2),
+                ParseWallOrNull(reader.IsDBNull(3) ? null : reader.GetString(3)),
+                ParseIsoOrNull(reader.IsDBNull(4) ? null : reader.GetString(4))));
         }
 
         return rows;
@@ -659,6 +757,12 @@ public sealed class TransferJournal : IDisposable
             ? parsed
             : null;
 
+    private static DateTime? ParseWallOrNull(string? value) =>
+        value is not null &&
+        DateTime.TryParseExact(value, "yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsed)
+            ? parsed
+            : null;
+
     private static DateTimeOffset? ParseIsoOrNull(string? value) =>
         value is null ? null : ParseIso(value);
 
@@ -709,6 +813,19 @@ public sealed record ManifestSearchRow(
     string? CameraModel,
     double? GpsLatitude,
     double? GpsLongitude);
+
+/// <summary>A completed-file row projected for the <c>reorganize</c> engine's placement and move planning.</summary>
+/// <param name="SourcePath">Device source path (part of the file's identity).</param>
+/// <param name="SourceSize">Source size in bytes (identity, and the expected on-disk size when reconciling a move).</param>
+/// <param name="DestPath">Current destination path relative to the archive root.</param>
+/// <param name="ExifDateTimeOriginal">Parsed EXIF capture time (wall clock), or <see langword="null"/>.</param>
+/// <param name="SourceMtime">Parsed source modified time, or <see langword="null"/>.</param>
+public sealed record ReorganizeEntry(
+    string SourcePath,
+    long SourceSize,
+    string DestPath,
+    DateTime? ExifDateTimeOriginal,
+    DateTimeOffset? SourceMtime);
 
 /// <summary>A device recorded in the journal's <c>devices</c> table.</summary>
 /// <param name="Udid">Device UDID.</param>
