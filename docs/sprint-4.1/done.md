@@ -1,6 +1,6 @@
 # Sprint 4.1 — done (handoff)
 
-**Branch:** `feature/sprint-4.1` (off `main`) · **PR:** _(opened below — dev done, STOP at the producer gate)_
+**Branch:** `feature/sprint-4.1` (off `main`) · **PR:** #68 — dev done, **STOP at the producer gate (do not merge)**
 **Status:** Dev complete + self-reviewed. **Not merged.** Next: producer independent gate → QA (light hardware
 is optional — this sprint is offline/PC-only; the crux is on-disk move integrity, fully covered in CI).
 
