@@ -314,6 +314,29 @@ public sealed class ReorganizerTests
         AssertJournalMatchesDiskAndContent(dest.Path, spec);
     }
 
+    // ---- Area 9: offline / read-only --------------------------------------------------------------------
+
+    [Fact]
+    public void The_engine_has_no_device_dependency()
+    {
+        // Offline by construction: the reorganize engine must never hold or accept the device client, so it
+        // cannot make an AFC call. (The whole-assembly device-write scan lives in ReadOnlyContractTests.)
+        Type client = typeof(GetAndSee.Core.Device.IPhoneClient);
+        Type engine = typeof(Reorganizer);
+
+        engine.GetConstructors()
+            .SelectMany(constructor => constructor.GetParameters())
+            .Any(parameter => client.IsAssignableFrom(parameter.ParameterType))
+            .ShouldBeFalse("no constructor parameter may be the device client");
+        engine.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
+            .Any(field => client.IsAssignableFrom(field.FieldType))
+            .ShouldBeFalse("no field may hold the device client");
+        engine.GetMethods()
+            .Any(method => client.IsAssignableFrom(method.ReturnType)
+                || method.GetParameters().Any(parameter => client.IsAssignableFrom(parameter.ParameterType)))
+            .ShouldBeFalse("no method may take or return the device client");
+    }
+
     // ---- helpers ----------------------------------------------------------------------------------------
 
     private static async Task BuildArchive(string dest, FakeDeviceSpec spec, OrganizeScheme scheme)
