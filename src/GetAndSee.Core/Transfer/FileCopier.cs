@@ -78,11 +78,10 @@ public sealed class FileCopier : IDisposable
     /// <param name="journal">Open transfer journal at the destination root.</param>
     /// <param name="organizer">Date-folder organizer.</param>
     /// <param name="organizeScheme">
-    /// The archive's folder layout, applied to every file's destination path. Defaults to
-    /// <see cref="OrganizeScheme.YearMonth"/> — the original v1.0 layout — so existing engine callers stay
-    /// byte-stable. Layout <i>policy</i> lives at the CLI/resolver (a new archive's product default is
-    /// <see cref="OrganizeScheme.Month"/>); the <c>copy</c> verb resolves the archive's effective scheme and
-    /// passes it here explicitly.
+    /// The archive's folder layout, applied to every file's destination path. <b>Required</b> — layout is an
+    /// archive property, so the caller must thread the resolved scheme here explicitly (the CLI/resolver owns
+    /// the product default; a new archive's default is <see cref="OrganizeScheme.Month"/>). The historical
+    /// byte-stable direction for an existing nested archive is <see cref="OrganizeScheme.YearMonth"/>.
     /// </param>
     /// <param name="metadataExtractor">EXIF/metadata extractor used on the local copy.</param>
     /// <param name="destinationRoot">Destination root directory.</param>
@@ -122,7 +121,7 @@ public sealed class FileCopier : IDisposable
         DateFolderOrganizer organizer,
         IMediaMetadataExtractor metadataExtractor,
         string destinationRoot,
-        OrganizeScheme organizeScheme = OrganizeScheme.YearMonth,
+        OrganizeScheme organizeScheme,
         TimeProvider? clock = null,
         TimeSpan? readTimeout = null,
         Action<long>? onBytesStreamed = null,
@@ -328,25 +327,9 @@ public sealed class FileCopier : IDisposable
 
     private string ResolveUniqueRelativePath(string relativePath)
     {
-        if (IsAvailable(relativePath))
-        {
-            assignedDestPaths.Add(relativePath);
-            return relativePath;
-        }
-
-        string directory = Path.GetDirectoryName(relativePath) ?? string.Empty;
-        string stem = Path.GetFileNameWithoutExtension(relativePath);
-        string extension = Path.GetExtension(relativePath);
-
-        for (int suffix = 2; ; suffix++)
-        {
-            string candidate = Path.Combine(directory, $"{stem}_{suffix}{extension}");
-            if (IsAvailable(candidate))
-            {
-                assignedDestPaths.Add(candidate);
-                return candidate;
-            }
-        }
+        string resolved = CollisionSuffix.Resolve(relativePath, IsAvailable);
+        assignedDestPaths.Add(resolved);
+        return resolved;
     }
 
     private bool IsAvailable(string relativePath) =>
