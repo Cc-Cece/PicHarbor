@@ -42,17 +42,36 @@ public sealed class DateFolderOrganizer
     public string GetRelativeDestination(RemoteFile file, MediaMetadata? metadata, OrganizeScheme scheme)
     {
         string fileName = SanitizeFileName(ExtractFileName(file.Path));
-        DateTime? date = ResolveDate(file, metadata);
+        DateTime? date = ResolveDate(metadata?.DateTimeOriginal, file.ModifiedAt);
+        return GetRelativeDestination(fileName, date, scheme);
+    }
 
-        if (date is null)
+    /// <summary>
+    /// Computes the relative destination path for an already-final leaf <paramref name="fileName"/> placed by
+    /// <paramref name="captureDate"/> under <paramref name="scheme"/>. This is the pure folder-shape rule
+    /// shared by the copier (which derives the name and date from a device file) and <c>reorganize</c> (which
+    /// derives them from the journal), so the two can never disagree on where a file belongs.
+    /// </summary>
+    /// <param name="fileName">The final destination leaf name — already sanitized, and carrying any <c>_2</c>/<c>_3</c> suffix assigned at copy time.</param>
+    /// <param name="captureDate">The resolved capture date (see <see cref="ResolveDate(DateTime?, DateTimeOffset?)"/>), or <see langword="null"/> for <c>unsorted</c>.</param>
+    /// <param name="scheme">The archive's folder layout.</param>
+    /// <returns>
+    /// A relative path such as <c>2024-08\IMG_1234.HEIC</c> (<see cref="OrganizeScheme.Month"/>) or
+    /// <c>unsorted\IMG_1234.HEIC</c> when no trustworthy date exists (identical under every scheme).
+    /// </returns>
+    public string GetRelativeDestination(string fileName, DateTime? captureDate, OrganizeScheme scheme)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(fileName);
+
+        if (captureDate is null)
         {
             // Unsorted is identical under every scheme — a file with no trustworthy date is never
             // placed in a dated folder.
             return Path.Combine(UnsortedFolder, fileName);
         }
 
-        string year = date.Value.Year.ToString("D4");
-        string month = $"{date.Value.Year:D4}-{date.Value.Month:D2}";
+        string year = captureDate.Value.Year.ToString("D4");
+        string month = $"{captureDate.Value.Year:D4}-{captureDate.Value.Month:D2}";
         return scheme switch
         {
             OrganizeScheme.Month => Path.Combine(month, fileName),
@@ -63,14 +82,22 @@ public sealed class DateFolderOrganizer
         };
     }
 
-    private DateTime? ResolveDate(RemoteFile file, MediaMetadata? metadata)
+    /// <summary>
+    /// Resolves a file's folder date from its two stored timestamps using the R16 trust rule: a sane EXIF
+    /// <c>DateTimeOriginal</c> wins, else a sane file modified time, else <see langword="null"/> (⇒ <c>unsorted</c>).
+    /// Shared by the copier and <c>reorganize</c> so both agree on placement from the same inputs.
+    /// </summary>
+    /// <param name="exifOriginal">EXIF capture time (wall clock), or <see langword="null"/>.</param>
+    /// <param name="modifiedAt">File modified time, or <see langword="null"/>.</param>
+    /// <returns>The trusted capture date, or <see langword="null"/> when neither timestamp is trustworthy.</returns>
+    public DateTime? ResolveDate(DateTime? exifOriginal, DateTimeOffset? modifiedAt)
     {
-        if (metadata?.DateTimeOriginal is DateTime exif && IsSane(exif))
+        if (exifOriginal is DateTime exif && IsSane(exif))
         {
             return exif;
         }
 
-        if (file.ModifiedAt is DateTimeOffset mtime)
+        if (modifiedAt is DateTimeOffset mtime)
         {
             DateTime utc = mtime.UtcDateTime;
             if (IsSane(utc))

@@ -1,9 +1,11 @@
 using System.Globalization;
 using GetAndSee.Core.Device;
+using GetAndSee.Core.Journal;
 using GetAndSee.Core.Organize;
 using GetAndSee.Core.Summary;
 using GetAndSee.FakeDevice;
 using GetAndSee.Tests.TestSupport;
+using Microsoft.Data.Sqlite;
 using Shouldly;
 using Xunit;
 
@@ -157,12 +159,69 @@ public sealed class FakeDeviceExeE2ETests : IClassFixture<FakeDeviceExeFixture>
         AssertArchiveByteIdentical(destination.Path, FakeDeviceSpecParser.Parse("small"));
     }
 
+    [Fact]
+    public async Task Reorganize_round_trip_moves_files_on_disk_and_stays_byte_identical()
+    {
+        using TempDirectory destination = new();
+
+        // Build a month-layout archive with the fake device, then reorganize it OFFLINE (no GAS_FAKE_DEVICE)
+        // to nested year-month and back — the real EXE moving real files on disk with no device attached.
+        ProcessRunResult copy = await RunCopyAsync("small", destination.Path);
+        copy.ExitCode.ShouldBe(0, Diagnostics(copy));
+
+        ProcessRunResult toNested = await RunReorganizeAsync(destination.Path, "year-month");
+        toNested.ExitCode.ShouldBe(0, Diagnostics(toNested));
+        // It actually moved files: the nested year/month folders now exist and the flat ones are gone.
+        Directory.Exists(Path.Combine(destination.Path, "2024", "2024-08")).ShouldBeTrue(Diagnostics(toNested));
+        Directory.Exists(Path.Combine(destination.Path, "2024-08")).ShouldBeFalse();
+
+        ProcessRunResult toFlat = await RunReorganizeAsync(destination.Path, "month");
+        toFlat.ExitCode.ShouldBe(0, Diagnostics(toFlat));
+        Directory.Exists(Path.Combine(destination.Path, "2024")).ShouldBeFalse();
+
+        // Back at the original month layout, byte-identical to the source.
+        AssertArchiveByteIdentical(destination.Path, FakeDeviceSpecParser.Parse("small"));
+    }
+
+    [Fact]
+    public async Task Copy_refuses_an_archive_with_an_unfinished_reorganize()
+    {
+        using TempDirectory destination = new();
+        ProcessRunResult copy = await RunCopyAsync("small", destination.Path);
+        copy.ExitCode.ShouldBe(0, Diagnostics(copy));
+
+        // Simulate an interrupted reorganize: the recorded scheme is month (the copy default), but an
+        // in-flight marker points at a different target — the exact state a crashed reorganize leaves.
+        using (TransferJournal journal = TransferJournal.Open(destination.Path))
+        {
+            journal.SetReorganizeTarget(OrganizeScheme.YearMonth);
+        }
+
+        SqliteConnection.ClearAllPools(); // release the pooled handle before the EXE opens the same db
+
+        ProcessRunResult blocked = await RunCopyAsync("small", destination.Path);
+
+        blocked.ExitCode.ShouldBe(2, Diagnostics(blocked));
+        (blocked.StandardOutput + blocked.StandardError)
+            .ShouldContain("unfinished reorganize", Case.Insensitive, Diagnostics(blocked));
+    }
+
     private Task<ProcessRunResult> RunCopyAsync(string fakeSpec, string destination) =>
         ProcessRunner.RunAsync(
             fixture.ExePath,
             ["copy", "--dest", destination, "--no-dashboard"],
             workingDirectory: Path.GetDirectoryName(fixture.ExePath),
             environment: new Dictionary<string, string> { [FakeDeviceGate.EnvironmentVariable] = fakeSpec },
+            CopyTimeout,
+            Token);
+
+    // reorganize is offline — no GAS_FAKE_DEVICE env var; the real EXE moves files with no device attached.
+    private Task<ProcessRunResult> RunReorganizeAsync(string destination, string scheme) =>
+        ProcessRunner.RunAsync(
+            fixture.ExePath,
+            ["reorganize", "--dest", destination, "--organize-by", scheme],
+            workingDirectory: Path.GetDirectoryName(fixture.ExePath),
+            environment: null,
             CopyTimeout,
             Token);
 

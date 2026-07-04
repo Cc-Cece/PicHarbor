@@ -62,7 +62,7 @@ public sealed class Sprint34EscapeHatchTests : IDisposable
         journal.EnsurePending(file);
 
         using FileCopier copier = new(
-            client, journal, organizer, extractor, destination.Path,
+            client, journal, organizer, extractor, destination.Path, OrganizeScheme.YearMonth,
             clock: clock, readTimeout: TimeSpan.FromSeconds(30),
             onDisconnect: escapeHatch.Activate);
 
@@ -113,7 +113,7 @@ public sealed class Sprint34EscapeHatchTests : IDisposable
         journal.EnsurePending(file);
 
         using FileCopier copier = new(
-            client, journal, organizer, extractor, destination.Path,
+            client, journal, organizer, extractor, destination.Path, OrganizeScheme.YearMonth,
             clock: clock, readTimeout: TimeSpan.FromSeconds(15), onDisconnect: escapeHatch.Activate);
 
         Task<CopyResult> copy = copier.CopyAsync(file, Token);
@@ -144,7 +144,7 @@ public sealed class Sprint34EscapeHatchTests : IDisposable
         journal.EnsurePending(file);
 
         using FileCopier copier = new(
-            client, journal, organizer, extractor, destination.Path,
+            client, journal, organizer, extractor, destination.Path, OrganizeScheme.YearMonth,
             clock: clock, readTimeout: TimeSpan.FromSeconds(15), onDisconnect: escapeHatch.Activate);
 
         CopyResult result = await copier.CopyAsync(file, Token);

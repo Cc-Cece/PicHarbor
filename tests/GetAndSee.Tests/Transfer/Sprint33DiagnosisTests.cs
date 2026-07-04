@@ -79,7 +79,7 @@ public sealed class Sprint33DiagnosisTests : IDisposable
         RemoteFile file = new("/DCIM/100APPLE/IMG_6834.MOV", 392_323_980L, null);
         journal.EnsurePending(file);
         FileCopier copier = new(
-            client, journal, organizer, extractor, destination.Path,
+            client, journal, organizer, extractor, destination.Path, OrganizeScheme.YearMonth,
             readTimeout: TimeSpan.FromMinutes(10));
 
         CopyResult result = await copier.CopyAsync(file, Token);
@@ -104,7 +104,7 @@ public sealed class Sprint33DiagnosisTests : IDisposable
         RemoteFile file = new("/DCIM/100APPLE/IMG_6834.MOV", 392_323_980L, null);
         journal.EnsurePending(file);
         FileCopier copier = new(
-            client, journal, organizer, extractor, destination.Path,
+            client, journal, organizer, extractor, destination.Path, OrganizeScheme.YearMonth,
             readTimeout: TimeSpan.FromSeconds(30));
 
         await copier.CopyAsync(file, Token);

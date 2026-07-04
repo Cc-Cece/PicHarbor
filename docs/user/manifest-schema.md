@@ -93,11 +93,16 @@ The `manifest` view is simply `files` filtered to `state = 'done'` with the user
 
 | Column | Type | Notes |
 |--------|------|-------|
-| `key` | TEXT | Primary key. The only key today is `organize_scheme`. |
+| `key` | TEXT | Primary key. Keys: `organize_scheme`, and — only while a `reorganize` is in flight — `reorganize_target`. |
 | `value` | TEXT | The setting's value. |
 
 `organize_scheme` records the archive's folder layout (`month`, `year-month`, `year`, or `flat`), chosen on
 the first `copy` and honored by every later run so an archive is never silently re-shuffled.
+
+`reorganize_target` is a transient marker present **only while a `reorganize` is underway**: it records the
+layout being migrated to so an interrupted reorganize is detected and resumed, and so `copy` refuses to run
+into a half-migrated archive. It is removed when the reorganize completes. It is a settings key only, so it
+needs no schema-version bump.
 
 ### Schema migrations
 

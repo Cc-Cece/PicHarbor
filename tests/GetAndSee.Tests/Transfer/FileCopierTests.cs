@@ -45,7 +45,7 @@ public sealed class FileCopierTests : IDisposable
             .Returns(_ => Task.FromResult<Stream>(new MemoryStream(content, writable: false)));
 
     private FileCopier CreateCopier() =>
-        new(client, journal, organizer, extractor, destination.Path);
+        new(client, journal, organizer, extractor, destination.Path, OrganizeScheme.YearMonth);
 
     private string? ReadManifestSha256(string relativeDest)
     {
@@ -144,7 +144,7 @@ public sealed class FileCopierTests : IDisposable
         journal.EnsurePending(file);
 
         using FileCopier copier = new(
-            client, journal, organizer, extractor, destination.Path,
+            client, journal, organizer, extractor, destination.Path, OrganizeScheme.YearMonth,
             clock: clock, readTimeout: TimeSpan.FromSeconds(30));
 
         Task<CopyResult> copy = copier.CopyAsync(file, Token);
@@ -174,7 +174,7 @@ public sealed class FileCopierTests : IDisposable
         journal.EnsurePending(file);
 
         using FileCopier copier = new(
-            client, journal, organizer, extractor, destination.Path,
+            client, journal, organizer, extractor, destination.Path, OrganizeScheme.YearMonth,
             clock: clock, readTimeout: TimeSpan.FromSeconds(15));
 
         Task<CopyResult> copy = copier.CopyAsync(file, Token);
@@ -203,7 +203,7 @@ public sealed class FileCopierTests : IDisposable
         journal.EnsurePending(file);
 
         using FileCopier copier = new(
-            client, journal, organizer, extractor, destination.Path,
+            client, journal, organizer, extractor, destination.Path, OrganizeScheme.YearMonth,
             clock: clock, readTimeout: TimeSpan.FromSeconds(15));
 
         CopyResult result = await copier.CopyAsync(file, Token);
@@ -316,7 +316,7 @@ public sealed class FileCopierTests : IDisposable
         string expectedSha = Convert.ToHexStringLower(SHA256.HashData(content));
 
         var copier = new FileCopier(
-            client, journal, organizer, extractor, destination.Path, verifyHash: true);
+            client, journal, organizer, extractor, destination.Path, OrganizeScheme.YearMonth, verifyHash: true);
         CopyResult result = await copier.CopyAsync(file, Token);
 
         result.Status.ShouldBe(CopyStatus.Copied);
@@ -338,7 +338,7 @@ public sealed class FileCopierTests : IDisposable
         journal.EnsurePending(file);
 
         var copier = new FileCopier(
-            client, journal, organizer, extractor, destination.Path, verifyHash: true);
+            client, journal, organizer, extractor, destination.Path, OrganizeScheme.YearMonth, verifyHash: true);
         CopyResult result = await copier.CopyAsync(file, Token);
 
         result.Sha256.ShouldNotBe(goodSha);
@@ -374,7 +374,7 @@ public sealed class FileCopierTests : IDisposable
         string expectedSha = Convert.ToHexStringLower(SHA256.HashData(content));
 
         var copier = new FileCopier(
-            client, journal, organizer, extractor, destination.Path, verifyHash: true);
+            client, journal, organizer, extractor, destination.Path, OrganizeScheme.YearMonth, verifyHash: true);
         CopyResult result = await copier.CopyAsync(file, Token);
 
         result.Status.ShouldBe(CopyStatus.Copied);
@@ -401,7 +401,7 @@ public sealed class FileCopierTests : IDisposable
         }
 
         using FileCopier copier = new(
-            client, journal, organizer, extractor, destination.Path,
+            client, journal, organizer, extractor, destination.Path, OrganizeScheme.YearMonth,
             readTimeout: TimeSpan.FromSeconds(30), consecutiveFailureLimit: limit);
 
         int processed = await CountProcessedUntilStopAsync(copier, files);
@@ -430,7 +430,7 @@ public sealed class FileCopierTests : IDisposable
         }
 
         using FileCopier copier = new(
-            client, journal, organizer, extractor, destination.Path,
+            client, journal, organizer, extractor, destination.Path, OrganizeScheme.YearMonth,
             readTimeout: TimeSpan.FromSeconds(30), consecutiveFailureLimit: limit);
 
         int processed = await CountProcessedUntilStopAsync(copier, files);
@@ -467,7 +467,7 @@ public sealed class FileCopierTests : IDisposable
         }
 
         using FileCopier copier = new(
-            client, journal, organizer, extractor, destination.Path,
+            client, journal, organizer, extractor, destination.Path, OrganizeScheme.YearMonth,
             readTimeout: TimeSpan.FromSeconds(30), consecutiveFailureLimit: limit);
 
         int copied = 0, failed = 0;

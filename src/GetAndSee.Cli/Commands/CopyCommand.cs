@@ -192,6 +192,14 @@ internal static class CopyCommand
             journal.UpsertDevice(device.Udid, device.Name, device.ProductType, runStartedAt);
         }
 
+        // Refuse to copy into a half-migrated tree: an unfinished reorganize must be completed first so new
+        // files are not written under the old layout while existing files sit under the new one.
+        if (IncompleteReorganizeError(journal, destination) is string reorganizeError)
+        {
+            WriteError(reorganizeError);
+            return 2;
+        }
+
         // Resolve the archive's folder layout once: a recorded scheme is authoritative (an explicit,
         // conflicting --organize-by warns and is ignored); a brand-new archive records the chosen/default.
         SchemeResolution schemeResolution = ResolveAndWarn(journal.GetOrganizeScheme(), requestedScheme, schemeIsExplicit);
@@ -357,6 +365,29 @@ internal static class CopyCommand
         JournalCounts counts = journal.CountByState();
         bool hasFiles = counts.Pending + counts.InProgress + counts.Done + counts.Failed > 0;
         return hasFiles ? OrganizeScheme.YearMonth : null;
+    }
+
+    /// <summary>
+    /// Returns an actionable error when the archive has an <b>unfinished</b> <c>reorganize</c> (its
+    /// <c>reorganize_target</c> marker is set to a scheme other than the recorded one), otherwise
+    /// <see langword="null"/>. <c>copy</c> refuses in that state (exit 2) rather than copying new files into a
+    /// half-migrated tree. A benign marker left equal to the recorded scheme (a crash in the tiny window
+    /// between stamping the new scheme and clearing the marker) does not block copy.
+    /// </summary>
+    /// <param name="journal">The archive's open journal.</param>
+    /// <param name="destination">The archive root, for the actionable message.</param>
+    /// <returns>The refusal message, or <see langword="null"/> when copy may proceed.</returns>
+    internal static string? IncompleteReorganizeError(TransferJournal journal, string destination)
+    {
+        if (journal.GetReorganizeTarget() is OrganizeScheme target && target != journal.GetOrganizeScheme())
+        {
+            string token = OrganizeSchemes.ToToken(target);
+            return
+                $"This archive has an unfinished reorganize (→ '{token}'). " +
+                $"Run 'get-and-see reorganize --dest \"{destination}\" --organize-by {token}' to finish it first.";
+        }
+
+        return null;
     }
 
     private static void WriteRunSummary(string destination, RunStats stats, bool stalled)
