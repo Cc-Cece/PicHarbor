@@ -130,6 +130,9 @@ get-and-see status --dest "D:\Photos"
 # Search the archive (read-only, no iPhone needed) — e.g. by camera, and open the matches' folders
 get-and-see search --dest "D:\Photos" --camera "iPhone 12" --open
 
+# Reorganize an existing archive into a different folder layout (offline; moves files on the PC)
+get-and-see reorganize --dest "D:\Photos" --organize-by year-month
+
 get-and-see --help
 ```
 
@@ -138,7 +141,7 @@ get-and-see --help
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--dest, -d` | *(required)* | Destination root folder for the date-organized archive. |
-| `--organize-by <scheme>` | `month` | Folder layout, **recorded per-archive on the first copy**: `month` (flat `YYYY-MM`), `year-month` (nested `YYYY\YYYY-MM`), `year`, or `flat`. A later run keeps the recorded layout (changing it will be the job of `reorganize`). |
+| `--organize-by <scheme>` | `month` | Folder layout, **recorded per-archive on the first copy**: `month` (flat `YYYY-MM`), `year-month` (nested `YYYY\YYYY-MM`), `year`, or `flat`. A later run keeps the recorded layout; use [`reorganize`](#reorganize) to change it. |
 | `--dry-run` | off | Enumerate and plan only — no read streams opened, nothing written. |
 | `--verify-hash` | off | Also compute each file's SHA-256 while it copies and record it in the manifest. Read-only; slower. |
 | `--read-timeout <seconds>` | `30` | Seconds with no bytes from the device before a read is treated as a stall and the run stops cleanly (resumable). `0` disables the watchdog. |
@@ -200,6 +203,30 @@ get-and-see search --dest "D:\Photos" --type video --from 2024-01-01 --min-size 
 | `--open` | Open the matches' containing folders in Explorer (capped at 10 folders). |
 
 Results print as a table (path, capture date, size, type) with a count. An empty result is not an error.
+
+### `reorganize`
+
+Change an **existing** archive's folder layout by moving files on the PC — the sanctioned way to switch
+`--organize-by` after the fact (a `copy` re-run with a different `--organize-by` keeps the recorded layout).
+`reorganize` is **offline** (never touches the iPhone), **atomic** (each file is an all-or-nothing move on
+the same drive), and **resumable** (interrupt it and re-run the same command to finish). It never loses or
+corrupts a byte, keeps each file's name (adding `_2`/`_3` only if a coarser layout would collide two files),
+leaves `unsorted\` files where they are, and removes the folders it empties.
+
+```pwsh
+# Preview the moves first, then migrate D:\Photos to nested YYYY\YYYY-MM folders
+get-and-see reorganize --dest "D:\Photos" --organize-by year-month --dry-run
+get-and-see reorganize --dest "D:\Photos" --organize-by year-month
+```
+
+| Option | Description |
+|--------|-------------|
+| `--dest, -d` | *(required)* Destination root of an existing archive. |
+| `--organize-by <month\|year-month\|year\|flat>` | *(required)* The target layout to migrate to. |
+| `--dry-run` | Show the planned moves and write nothing (no move, no journal change). |
+
+While a reorganize is unfinished (e.g. it was interrupted), `copy` refuses to run and tells you to finish the
+reorganize first, so new files are never copied into a half-migrated tree.
 
 ### Exit codes
 
