@@ -1,4 +1,6 @@
 using System.Security.Cryptography;
+using System.Text;
+using GetAndSee.Core.Device;
 using GetAndSee.Core.Journal;
 using GetAndSee.Core.Organize;
 using GetAndSee.Core.Reorganize;
@@ -232,6 +234,71 @@ public sealed class ReorganizerTests
         File.Exists(Path.Combine(dest.Path, "2024-09", "IMG_LIVE.HEIC")).ShouldBeTrue();
         File.Exists(Path.Combine(dest.Path, "2024-09", "IMG_LIVE.MOV")).ShouldBeTrue();
         AssertJournalMatchesDiskAndContent(dest.Path, spec);
+    }
+
+    [Fact]
+    public void A_file_recorded_as_unsorted_never_moves_even_if_its_stored_date_resolves_sane()
+    {
+        using TempDirectory dest = new();
+        // A file copy placed in unsorted/ (no trustworthy date at the time — e.g. a device clock skew that
+        // put its capture time beyond copy's "now + 1 day" sanity bound), but whose stored timestamp now
+        // resolves as a sane 2024 date. Reorganize must respect copy's original decision and leave it put —
+        // never re-classify unsorted → dated (which would make placement clock-dependent).
+        RemoteFile file = new("/DCIM/100APPLE/SKEWED.HEIC", 10, new DateTimeOffset(2024, 8, 15, 9, 0, 0, TimeSpan.Zero));
+        using (TransferJournal journal = TransferJournal.Open(dest.Path))
+        {
+            journal.EnsurePending(file);
+            journal.MarkDone(
+                file.Path, file.Size, Path.Combine(DateFolderOrganizer.UnsortedFolder, "SKEWED.HEIC"),
+                new MediaMetadata(new DateTime(2024, 8, 15, 10, 0, 0), null, null, null, null), DateTimeOffset.UtcNow);
+        }
+
+        ReorganizePlan plan = ComputePlan(dest.Path, OrganizeScheme.YearMonth);
+
+        plan.Moves.ShouldBeEmpty();
+        plan.AlreadyPlaced.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task A_foreign_file_blocking_a_target_fails_that_move_without_clobbering()
+    {
+        using TempDirectory dest = new();
+        FakeDeviceSpec spec = FakeDeviceSpec.Create().AddSmallPhoto("/DCIM/100APPLE/IMG_0001.HEIC", Aug2024);
+        await BuildArchive(dest.Path, spec, OrganizeScheme.YearMonth);
+
+        // Pre-place a foreign (user's own) file exactly where the single planned move wants to land.
+        PlannedMove move = FirstPlannedMove(dest.Path, OrganizeScheme.Month);
+        string targetAbs = Path.Combine(dest.Path, move.TargetDestPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(targetAbs)!);
+        byte[] foreign = Encoding.UTF8.GetBytes("a user's own file — must never be clobbered");
+        File.WriteAllBytes(targetAbs, foreign);
+
+        ReorganizeReport report = Reorganize(dest.Path, OrganizeScheme.Month);
+
+        report.Failed.ShouldBe(1);
+        report.Moved.ShouldBe(0);
+        File.ReadAllBytes(targetAbs).ShouldBe(foreign, "the foreign file must not be overwritten");
+        using (TransferJournal journal = TransferJournal.OpenReadOnly(dest.Path))
+        {
+            // The row is never dropped — still done at its original path — and the run stays resumable:
+            // the marker is left set (so copy refuses) and the recorded scheme is unchanged.
+            journal.GetState(spec.Files[0].Path, spec.Files[0].Size).ShouldBe(FileState.Done);
+            journal.EnumerateDoneForReorganize().ShouldHaveSingleItem().DestPath.ShouldBe(move.CurrentDestPath);
+            journal.GetReorganizeTarget().ShouldBe(OrganizeScheme.Month);
+            journal.GetOrganizeScheme().ShouldBe(OrganizeScheme.YearMonth);
+        }
+
+        // Once the blocker is removed, a re-run completes cleanly and finalizes the migration.
+        File.Delete(targetAbs);
+        ReorganizeReport rerun = Reorganize(dest.Path, OrganizeScheme.Month);
+        rerun.Failed.ShouldBe(0);
+        rerun.Moved.ShouldBe(1);
+        AssertJournalMatchesDiskAndContent(dest.Path, spec);
+        using (TransferJournal journal = TransferJournal.OpenReadOnly(dest.Path))
+        {
+            journal.GetReorganizeTarget().ShouldBeNull();
+            journal.GetOrganizeScheme().ShouldBe(OrganizeScheme.Month);
+        }
     }
 
     // ---- Area 7: long path (R6) -------------------------------------------------------------------------

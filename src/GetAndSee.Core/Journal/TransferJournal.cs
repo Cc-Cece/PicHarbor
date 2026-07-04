@@ -569,7 +569,7 @@ public sealed class TransferJournal : IDisposable
             SELECT source_path, source_size, dest_path, exif_datetime_original, source_mtime
             FROM files
             WHERE state = 'done' AND dest_path IS NOT NULL
-            ORDER BY source_path;
+            ORDER BY source_path, source_size;
             """);
         using SqliteDataReader reader = command.ExecuteReader();
         while (reader.Read())

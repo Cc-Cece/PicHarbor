@@ -55,11 +55,33 @@
   marker → allow, benign stamp-then-clear window → allow).
 
 ### Phase 6 — docs + real-`.exe` E2E + full validation
-- _in progress_
+- **Done.** README `reorganize` section + `--organize-by` cross-link; `manifest-schema.md` `reorganize_target`
+  settings key. Real-`.exe` E2E: offline reorganize round-trip (year-month↔month, byte-identical) + copy
+  refuses an archive with an unfinished reorganize (exit 2). Offline structural guard test (engine holds no
+  `IPhoneClient`). Fast lane **293** `GetAndSee.Tests` + **2** `SafetyTests` green; **E2E 5** green; format
+  clean; Release build `0/0` (`TreatWarningsAsErrors`); `ReadOnlyContractTests` green.
+
+### Phase 7 — layer-1 self-review + fixes
+- **Done.** Independent reviewer (find-problems framing) → **PASS-WITH-NITS, 0 blockers / 0 majors**; verified
+  move-integrity, crash-resume, clobber-safety, the required-param change, the marker lifecycle, and offline.
+  Report: `docs/review/sprint-4.1-review.md`; profile updated. **Fixed all 4 findings:**
+  - **[MINOR]** an `unsorted/` file could move out on a later run under a device-clock-skew edge (stored raw
+    EXIF + a `now+1day` sanity bound) → `Reorganizer.Plan` now keeps any file whose current `dest_path` is
+    under `unsorted/` put, respecting copy's original null-date decision (+ regression test).
+  - **[MINOR]** the `Failed`/clobber-guard branch was untested → added a foreign-file-at-target test (no
+    overwrite, row untouched, marker stays set, exit 1, re-run completes).
+  - **[NIT]** `ORDER BY source_path` → `ORDER BY source_path, source_size` (provably total = deterministic).
+  - **[NIT]** empty-dir cleanup now name-protects `unsorted\` (matches the plan's guardrail).
 
 ## Bugs / Issues Found
 
-_(none yet)_
+- **Self-review [MINOR]: reorganize placement was time-dependent for `unsorted/` files.** A future-dated file
+  `copy` binned as `unsorted` (its date exceeded the `now+1day` sanity bound at copy time) could later
+  re-resolve as sane and move out of `unsorted/`. Data-safe (atomic move, journal accurate) but a spec gap.
+  **Fixed:** reorganize treats a file already under `unsorted/` as staying put.
+- **Self-review [MINOR]: the per-file failure / clobber-guard branch had no test.** **Fixed:** added a
+  foreign-file-at-target test proving no clobber, no dropped row, marker retained, exit 1, clean re-run.
+- **Self-review [NIT]×2:** non-total `ORDER BY` and emptiness-only (not name) protection of `unsorted\`. Fixed.
 
 ## Decisions / deviations
 

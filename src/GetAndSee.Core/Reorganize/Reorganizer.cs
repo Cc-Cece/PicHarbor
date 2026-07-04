@@ -79,8 +79,21 @@ public sealed class Reorganizer
         foreach (ReorganizeEntry entry in entries)
         {
             string leaf = Path.GetFileName(entry.DestPath);
-            DateTime? date = organizer.ResolveDate(entry.ExifDateTimeOriginal, entry.SourceMtime);
-            string rawTarget = organizer.GetRelativeDestination(leaf, date, targetScheme);
+            string rawTarget;
+            if (IsUnderUnsorted(entry.DestPath))
+            {
+                // Respect copy's original "no trustworthy date" decision: a file copy placed in unsorted/
+                // never moves, even if its stored timestamp would now resolve as sane (e.g. a clock-skewed
+                // future date whose sanity window has since passed). This keeps reorganize placement
+                // time-independent and never in disagreement with where copy put the file.
+                rawTarget = entry.DestPath;
+            }
+            else
+            {
+                DateTime? date = organizer.ResolveDate(entry.ExifDateTimeOriginal, entry.SourceMtime);
+                rawTarget = organizer.GetRelativeDestination(leaf, date, targetScheme);
+            }
+
             computed.Add((entry, rawTarget));
         }
 
@@ -243,9 +256,12 @@ public sealed class Reorganizer
         int removed = 0;
         foreach (string dir in CollectSubdirectoriesDeepestFirst(destinationRootExtended))
         {
-            // Never remove the staging dir (it holds a copy's in-progress .partial files; reorganize is
-            // offline, but stay conservative). The archive root is never in this list.
-            if (string.Equals(Path.GetFileName(dir), StagingFolderName, StringComparison.OrdinalIgnoreCase))
+            // Never remove the staging dir (it holds a copy's in-progress .partial files) or the unsorted
+            // folder (a named-protected archive dir); reorganize is offline, but stay conservative. The
+            // archive root is never in this list.
+            string name = Path.GetFileName(dir);
+            if (string.Equals(name, StagingFolderName, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, DateFolderOrganizer.UnsortedFolder, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -299,6 +315,16 @@ public sealed class Reorganizer
 
     private static bool PathsEqual(string a, string b) =>
         string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsUnderUnsorted(string relativeDestPath)
+    {
+        // Unsorted files are placed at "unsorted\<leaf>" under every scheme, so the first path segment
+        // identifies them.
+        ReadOnlySpan<char> span = relativeDestPath.AsSpan();
+        int separator = span.IndexOfAny('\\', '/');
+        ReadOnlySpan<char> firstSegment = separator >= 0 ? span[..separator] : span;
+        return firstSegment.Equals(DateFolderOrganizer.UnsortedFolder, StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 /// <summary>One planned file move within a <see cref="ReorganizePlan"/>.</summary>
