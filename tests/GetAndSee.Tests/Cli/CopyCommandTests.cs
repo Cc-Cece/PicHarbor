@@ -88,4 +88,42 @@ public sealed class CopyCommandTests
 
         CopyCommand.TryReadRecordedScheme(dir.Path).ShouldBeNull();
     }
+
+    [Fact]
+    public void Incomplete_reorganize_guard_returns_an_actionable_error_when_a_migration_is_unfinished()
+    {
+        using TempDirectory dir = new();
+        using TransferJournal journal = TransferJournal.Open(dir.Path);
+        journal.SetOrganizeScheme(OrganizeScheme.YearMonth);
+        journal.SetReorganizeTarget(OrganizeScheme.Month); // a reorganize toward month is mid-flight
+
+        string? error = CopyCommand.IncompleteReorganizeError(journal, dir.Path);
+
+        error.ShouldNotBeNull();
+        error.ShouldContain("unfinished reorganize");
+        error.ShouldContain("--organize-by month"); // the actionable command to finish it
+    }
+
+    [Fact]
+    public void Incomplete_reorganize_guard_allows_copy_when_no_migration_is_pending()
+    {
+        using TempDirectory dir = new();
+        using TransferJournal journal = TransferJournal.Open(dir.Path);
+        journal.SetOrganizeScheme(OrganizeScheme.Month);
+
+        CopyCommand.IncompleteReorganizeError(journal, dir.Path).ShouldBeNull();
+    }
+
+    [Fact]
+    public void Incomplete_reorganize_guard_allows_copy_in_the_benign_stamp_then_clear_window()
+    {
+        // The tiny window where the scheme is already stamped to the target but the marker was not yet
+        // cleared: marker == recorded scheme, so copy is not blocked.
+        using TempDirectory dir = new();
+        using TransferJournal journal = TransferJournal.Open(dir.Path);
+        journal.SetOrganizeScheme(OrganizeScheme.Month);
+        journal.SetReorganizeTarget(OrganizeScheme.Month);
+
+        CopyCommand.IncompleteReorganizeError(journal, dir.Path).ShouldBeNull();
+    }
 }

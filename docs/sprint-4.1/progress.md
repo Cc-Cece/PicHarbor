@@ -35,6 +35,26 @@
   marker independent of recorded scheme). Parameterized SQL throughout.
 
 ### Phase 3 — `Reorganizer` engine
+- **Done.** `Core/Reorganize/Reorganizer` (+ `PlannedMove`/`ReorganizePlan`/`ReorganizeReport`). Plan is
+  deterministic (by `source_path`, in-run assignment set only); execute does per-file atomic
+  same-volume `File.Move` → `UpdateDestPath` → crash-reconcile (file-at-target + size match ⇒ heal;
+  missing/foreign ⇒ per-file fail, never drop) → bottom-up empty-dir cleanup → stamp scheme + clear marker
+  only on a clean run. Offline (zero `IPhoneClient`); every path via `LongPath.ToExtended`. 12 engine tests
+  green (incl. the crux crash-resume + deterministic-collision-under-interruption). Commit `e726bc5`.
+
+### Phase 4 — `ReorganizeCommand` (CLI)
+- **Done.** `Cli/Commands/ReorganizeCommand` mirrors `SearchCommand`: `--dest` (req), `--organize-by`
+  (req, target), `--dry-run`; opens the journal **writable**; exit `0/1/2/130` (no `3`). Injectable
+  `IAnsiConsole`. Registered in `Program.cs`. `reorganize --help` renders. 8 CLI tests (parse, no-archive=2,
+  dry-run side-effect-free, real-move success).
+
+### Phase 5 — cash the gate nit + copy guard
+- **Done.** `FileCopier.organizeScheme` was made required in Phase 1. Added
+  `CopyCommand.IncompleteReorganizeError(journal, dest)` → wired into `ExecuteAsync` (refuse + actionable
+  message + exit `2`) after the journal open/device upsert. 3 guard unit tests (conflict → actionable, no
+  marker → allow, benign stamp-then-clear window → allow).
+
+### Phase 6 — docs + real-`.exe` E2E + full validation
 - _in progress_
 
 ## Bugs / Issues Found
