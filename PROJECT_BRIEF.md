@@ -378,14 +378,15 @@ ever misses). Concurrency is scoped per `workflow`+`ref` with cancel-in-progress
 > visibility, NuGet cache, the advisory coverage job), and **Sprint 3.6 (PR #57)** — the `publish-smoke`
 > release guard + the `exe-e2e` real-`.exe` lane.
 
-**Branch protection on `main` (GitHub-enforced since 2026-07-11, when the repo went public):** classic
-protection now requires **a pull request** (0 approvals — the solo owner merges their own PRs, no direct
+**Branch protection on `main` (GitHub-enforced since 2026-07-11, when the repo went public):** a repository **ruleset** (`main protection`)
+now requires **a pull request** (0 approvals — the solo owner merges their own PRs, no direct
 pushes) with **three required status checks green** — `build + test (windows-latest, .NET 10)`,
 `published EXE smoke (--help, windows-latest)`, and `gitleaks secret scan (pre-public gate)` (the fast
 gating jobs; the ~17-min `real-.exe E2E` and the advisory `coverage` job are intentionally **not**
 required) — and **blocks force-pushes and deletion** of `main`. Merge commits are allowed (no
-linear-history requirement — matches the regular-merge convention). `enforce_admins` is **off** so the
-owner is never locked out. **GitHub secret scanning + push protection** are also on. Job **names** are kept
+linear-history requirement — matches the regular-merge convention). The rule lets the **author self-merge**
+(0 approvals, no last-push-approval), so the solo owner is never locked out; there are **no bypass actors**.
+**GitHub secret scanning + push protection** are also on. Job **names** are kept
 stable so the required-check contexts stay valid. (This was discipline-only while the repo was private on
 the free tier.)
 
@@ -483,7 +484,7 @@ dotnet build
 
 **Branch strategy:** Feature branches → PR → regular merge to `main`. Never push directly to `main`. Never squash. Never rebase feature branches (causes commit loss). PRs require CI to pass before merge.
 
-> **Update (2026-07-11):** the repo is now **public** and branch protection is **enforced on the GitHub side** — a required PR (0 approvals), three required checks (`build + test`, `published EXE smoke`, `gitleaks`), and blocked force-pushes/deletion on `main` (`enforce_admins` off so the owner isn't locked out); secret scanning + push protection are on. This supersedes the 2026-06-06 discipline-only note below. See `docs/sprint-1/branch-protection-setup.md`.
+> **Update (2026-07-11):** the repo is now **public** and branch protection is **enforced on the GitHub side** — a required PR (0 approvals), three required checks (`build + test`, `published EXE smoke`, `gitleaks`), and blocked force-pushes/deletion on `main` (a repository **ruleset** — solo-friendly: 0 approvals + no last-push-approval, so the owner isn't locked out); secret scanning + push protection are on. This supersedes the 2026-06-06 discipline-only note below. See `docs/sprint-1/branch-protection-setup.md`.
 
 **PR conventions:**
 - Title: imperative present (`add atomic copier`, not `added atomic copier`)
