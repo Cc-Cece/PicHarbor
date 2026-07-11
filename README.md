@@ -147,16 +147,9 @@ get-and-see --help
 | `--read-timeout <seconds>` | `30` | Seconds with no bytes from the device before a read is treated as a stall and the run stops cleanly (resumable). `0` disables the watchdog. |
 | `--no-dashboard` | off | Disable the live dashboard; use plain per-file text output (also auto-used when output is redirected). |
 
-A multi-hour transfer shows a **live dashboard** (illustrative, redacted):
+The `copy` command shows a **live dashboard** while a transfer runs:
 
-```text
-╭───────────────────────── get-and-see — copying ─────────────────────────╮
-│ Overall  [######################------] 78.5%   210.4 GB / 269.0 GB   (21,402/27,478 files) │
-│ Current  [###############-------------] IMG_4821.HEIC                                       │
-│ Speed    28.9 MB/s (avg 30.1)   ETA 33m 12s                                                 │
-│ Files    21,380 done · 18 skipped · 0 failed                                                │
-╰────────────────────────────────────────────────────────────────────────╯
-```
+![get-and-see live dashboard during a copy — overall and current progress bars, throughput, ETA, and per-file done/skipped/failed counts](docs/user/cli.png)
 
 > Throughput is bounded by the iPhone's USB-2.0 Lightning link (~30 MB/s on an iPhone 12 Pro), not by
 > the tool. A full ~270 GB library takes a few hours; leave it running (and disable PC sleep).
