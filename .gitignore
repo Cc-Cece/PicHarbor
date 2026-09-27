@@ -19,3 +19,6 @@ obj/
 
 # Test runner output
 TestResults/
+
+# other
+.docs/

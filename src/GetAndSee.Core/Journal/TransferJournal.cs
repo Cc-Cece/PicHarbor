@@ -27,7 +27,7 @@ public sealed class TransferJournal : IDisposable
     public const string DatabaseFileName = "get-and-see.db";
 
     /// <summary>Current journal schema version (bumped when tables are added; migrated in place).</summary>
-    public const long SchemaVersion = 3;
+    public const long SchemaVersion = 4;
 
     /// <summary>The <c>settings</c> key under which an archive's <c>organize_scheme</c> token is stored.</summary>
     private const string OrganizeSchemeKey = "organize_scheme";
@@ -227,6 +227,28 @@ public sealed class TransferJournal : IDisposable
             }
         }
 
+        if (version < 4)
+        {
+            Execute(
+                """
+                CREATE TABLE IF NOT EXISTS android_devices (
+                    device_id    TEXT PRIMARY KEY,
+                    name         TEXT NOT NULL,
+                    created_at   TEXT NOT NULL,
+                    last_seen_at TEXT NOT NULL
+                );
+                """);
+            Execute(
+                """
+                CREATE TABLE IF NOT EXISTS android_sync_records (
+                    dest_path TEXT NOT NULL,
+                    device_id TEXT NOT NULL,
+                    synced_at TEXT NOT NULL,
+                    PRIMARY KEY (dest_path, device_id)
+                );
+                """);
+        }
+
         Execute($"PRAGMA user_version = {SchemaVersion};");
     }
 
@@ -345,6 +367,16 @@ public sealed class TransferJournal : IDisposable
         command.Parameters.AddWithValue("$path", sourcePath);
         command.Parameters.AddWithValue("$size", sourceSize);
         return FileStateText.FromText(command.ExecuteScalar() as string);
+    }
+
+    /// <summary>Returns the recorded destination path for a file, or null if not yet set.</summary>
+    public string? GetDestRelativePath(string sourcePath, long sourceSize)
+    {
+        using SqliteCommand command = CreateCommand(
+            "SELECT dest_path FROM files WHERE source_path = $path AND source_size = $size;");
+        command.Parameters.AddWithValue("$path", sourcePath);
+        command.Parameters.AddWithValue("$size", sourceSize);
+        return command.ExecuteScalar() as string;
     }
 
     /// <summary>Marks a file as <see cref="FileState.InProgress"/> and stamps its start time.</summary>
@@ -765,6 +797,92 @@ public sealed class TransferJournal : IDisposable
 
     private static DateTimeOffset? ParseIsoOrNull(string? value) =>
         value is null ? null : ParseIso(value);
+
+    /// <summary>Registers or updates an Android device record in SQLite.</summary>
+    public void UpsertAndroidDevice(string deviceId, string name, DateTimeOffset lastSeenAt)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        using SqliteCommand command = CreateCommand(
+            """
+            INSERT INTO android_devices (device_id, name, created_at, last_seen_at)
+            VALUES ($device_id, $name, $created_at, $last_seen_at)
+            ON CONFLICT(device_id) DO UPDATE SET
+                name = excluded.name,
+                last_seen_at = excluded.last_seen_at;
+            """);
+        command.Parameters.AddWithValue("$device_id", deviceId);
+        command.Parameters.AddWithValue("$name", name);
+        command.Parameters.AddWithValue("$created_at", lastSeenAt.ToString("o", CultureInfo.InvariantCulture));
+        command.Parameters.AddWithValue("$last_seen_at", lastSeenAt.ToString("o", CultureInfo.InvariantCulture));
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Records that a file was successfully transferred over FTP to a specific Android device.</summary>
+    public void RecordAndroidSync(string destPath, string deviceId, DateTimeOffset syncedAt)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+
+        using SqliteCommand command = CreateCommand(
+            """
+            INSERT OR REPLACE INTO android_sync_records (dest_path, device_id, synced_at)
+            VALUES ($dest_path, $device_id, $synced_at);
+            """);
+        command.Parameters.AddWithValue("$dest_path", destPath);
+        command.Parameters.AddWithValue("$device_id", deviceId);
+        command.Parameters.AddWithValue("$synced_at", syncedAt.ToString("o", CultureInfo.InvariantCulture));
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Returns the set of relative destination paths that have been synced to the target Android device.</summary>
+    public HashSet<string> GetAndroidSyncedDestPaths(string deviceId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        if (!TableExists("android_sync_records"))
+        {
+            return set;
+        }
+
+        using SqliteCommand command = CreateCommand(
+            "SELECT dest_path FROM android_sync_records WHERE device_id = $device_id;");
+        command.Parameters.AddWithValue("$device_id", deviceId);
+
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            set.Add(reader.GetString(0));
+        }
+
+        return set;
+    }
+
+    /// <summary>Reads all registered Android devices from SQLite.</summary>
+    public IReadOnlyList<Android.AndroidDeviceRecord> ReadAndroidDevices()
+    {
+        var list = new List<Android.AndroidDeviceRecord>();
+        if (!TableExists("android_devices"))
+        {
+            return list;
+        }
+
+        using SqliteCommand command = CreateCommand(
+            "SELECT device_id, name, created_at, last_seen_at FROM android_devices ORDER BY last_seen_at DESC;");
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            string id = reader.GetString(0);
+            string name = reader.GetString(1);
+            DateTimeOffset created = DateTimeOffset.TryParse(reader.GetString(2), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var c) ? c : DateTimeOffset.MinValue;
+            DateTimeOffset last = DateTimeOffset.TryParse(reader.GetString(3), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var l) ? l : DateTimeOffset.MinValue;
+
+            list.Add(new Android.AndroidDeviceRecord(id, name, created, last));
+        }
+
+        return list;
+    }
 
     /// <summary>Closes the underlying SQLite connection.</summary>
     public void Dispose()
