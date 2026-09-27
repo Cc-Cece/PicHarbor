@@ -64,6 +64,41 @@ public sealed class JournalSchemaV5Tests : IDisposable
         dev.SyncFolder.ShouldBe(@"D:\Photos\.AppleSync\iPhone 15 Pro");
     }
 
+    [Fact]
+    public void IPhone_manual_selections_can_be_added_queried_batch_modified_and_cleared()
+    {
+        using TransferJournal journal = TransferJournal.Open(dir.Path);
+
+        journal.GetManualSelections("iPhone 15 Pro").ShouldBeEmpty();
+
+        journal.AddManualSelection("iPhone 15 Pro", "2024/2024-05/IMG_0001.HEIC");
+        journal.AddManualSelection("iPhone 15 Pro", "2024/2024-05/IMG_0002.JPG");
+
+        var selections = journal.GetManualSelections("iPhone 15 Pro");
+        selections.Count.ShouldBe(2);
+        selections.ShouldContain("2024/2024-05/IMG_0001.HEIC");
+        selections.ShouldContain("2024/2024-05/IMG_0002.JPG");
+
+        // Single Remove
+        journal.RemoveManualSelection("iPhone 15 Pro", "2024/2024-05/IMG_0001.HEIC");
+        journal.GetManualSelections("iPhone 15 Pro").Count.ShouldBe(1);
+
+        // Batch Add
+        journal.BatchAddManualSelections("iPhone 15 Pro", new[] { "2024/2024-05/IMG_0003.JPG", "2024/2024-05/IMG_0004.JPG" });
+        journal.GetManualSelections("iPhone 15 Pro").Count.ShouldBe(3);
+
+        // Batch Remove
+        journal.BatchRemoveManualSelections("iPhone 15 Pro", new[] { "2024/2024-05/IMG_0002.JPG", "2024/2024-05/IMG_0003.JPG" });
+        var remaining = journal.GetManualSelections("iPhone 15 Pro");
+        remaining.Count.ShouldBe(1);
+        remaining.ShouldContain("2024/2024-05/IMG_0004.JPG");
+
+        // Clear All
+        journal.ClearManualSelections("iPhone 15 Pro");
+        journal.GetManualSelections("iPhone 15 Pro").ShouldBeEmpty();
+    }
+
+
     private static long ReadUserVersion(string destinationRoot)
     {
         string dbPath = Path.Combine(destinationRoot, TransferJournal.DatabaseFileName);

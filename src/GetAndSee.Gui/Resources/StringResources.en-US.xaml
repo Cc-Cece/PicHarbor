@@ -192,4 +192,26 @@
     <sys:String x:Key="MsgMirrorDeleteWarningTitle">ℹ️ Disable Mirror Delete Notice</sys:String>
     <sys:String x:Key="MsgMirrorDeleteWarningBody">After disabling, photos deleted from the archive will remain in the sync folder and won't be removed from iPhone during sync. Confirm?</sys:String>
 
+    <!-- Restore Scope & Manual Selection Strings -->
+    <sys:String x:Key="IPhoneScopeHeader">🎯 Step 1: Restore Scope &amp; Filter</sys:String>
+    <sys:String x:Key="IPhoneScopeModeLabel">Restore Scope:</sys:String>
+    <sys:String x:Key="ScopeModeAll">All (Default Full Mirror)</sys:String>
+    <sys:String x:Key="ScopeModeDateRange">By Date Range (For recent photos)</sys:String>
+    <sys:String x:Key="ScopeModeSubfolder">By Subfolder/Album</sys:String>
+    <sys:String x:Key="ScopeModeManual">Manual Selection Mode</sys:String>
+    <sys:String x:Key="ScopeDateFromLabel">Start Date:</sys:String>
+    <sys:String x:Key="ScopeDateToLabel">End Date:</sys:String>
+    <sys:String x:Key="ScopeSubfoldersLabel">Select subfolders/albums to restore:</sys:String>
+    <sys:String x:Key="ScopeViewEditListBtn">👁️ View/Edit List ({0})</sys:String>
+    <sys:String x:Key="ScopeClearListBtn">🗑️ Clear List</sys:String>
+    <sys:String x:Key="MenuAddToIPhone">📱 Add to iPhone Restore Selection</sys:String>
+    <sys:String x:Key="MenuRemoveFromIPhone">❌ Remove from Selection</sys:String>
+    <sys:String x:Key="ManualSelectionModalTitle">📱 Manual Selection Restore List</sys:String>
+    <sys:String x:Key="RemoveFromListBtn">🗑️ Remove</sys:String>
+    <sys:String x:Key="ClearAllListBtn">🗑️ Clear All</sys:String>
+    <sys:String x:Key="Step1HeaderCard">🎯 Step 1: Restore Scope &amp; Filter</sys:String>
+    <sys:String x:Key="Step2HeaderCard">⚙️ Step 2: Sync Folder &amp; Rule Settings</sys:String>
+    <sys:String x:Key="Step3HeaderCard">🚀 Step 3: Execution &amp; Guide Console</sys:String>
+
 </ResourceDictionary>
+

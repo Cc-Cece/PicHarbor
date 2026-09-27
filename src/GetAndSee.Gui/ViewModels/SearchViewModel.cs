@@ -32,7 +32,11 @@ public partial class MediaSearchResultItem : ObservableObject
     private ImageSource? thumbnailImage;
 
     public bool IsThumbnailLoaded => ThumbnailImage is not null;
+
+    [ObservableProperty]
+    private bool isManualSelectedForIPhone = false;
 }
+
 
 public partial class GalleryRow : ObservableObject
 {
@@ -43,8 +47,11 @@ public partial class SearchViewModel : ObservableObject
 {
     private CancellationTokenSource? thumbnailCts;
 
+    public IPhoneSyncViewModel? IPhoneSyncVM { get; set; }
+
     [ObservableProperty]
     private string archivePath = MainViewModel.DefaultArchivePath;
+
 
     [ObservableProperty]
     private string filterFrom = "";
@@ -223,6 +230,8 @@ public partial class SearchViewModel : ObservableObject
             int startIndex = loadedHitIndex;
             string archivePathCopy = ArchivePath;
 
+            var manualSet = IPhoneSyncVM?.GetManualSelectionPathsSet() ?? new HashSet<string>();
+
             var (newItems, newGridRows) = await Task.Run(() =>
             {
                 var list = new List<MediaSearchResultItem>(countToTake);
@@ -242,9 +251,11 @@ public partial class SearchViewModel : ObservableObject
                         MediaTypeIcon = GetMediaTypeIcon(hit.Type),
                         CameraModel = "Manifest",
                         GpsCoordinates = "Manifest",
-                        HasThumbnail = isImage
+                        HasThumbnail = isImage,
+                        IsManualSelectedForIPhone = manualSet.Contains(hit.RelativePath)
                     });
                 }
+
 
                 var gridRows = new List<GalleryRow>();
                 const int itemsPerRow = 5;
@@ -560,6 +571,93 @@ public partial class SearchViewModel : ObservableObject
             ShellServices.ShowProperties(existing, hwnd);
         }
     }
+
+    [RelayCommand]
+    private void AddToIPhoneSelection(object? parameter)
+    {
+        var items = ExtractMediaItems(parameter);
+        if (items.Count == 0) return;
+
+        var destPaths = items.Select(x => x.RelativePath).Where(p => !string.IsNullOrEmpty(p)).ToList();
+        if (destPaths.Count == 0) return;
+
+        string path = ArchivePath;
+        string deviceModel = IPhoneSyncVM?.DeviceModel ?? "iPhone 15 Pro";
+
+        if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
+        {
+            try
+            {
+                using var journal = TransferJournal.Open(path);
+                journal.BatchAddManualSelections(deviceModel, destPaths);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"BatchAddManualSelections error: {ex.Message}");
+            }
+        }
+
+        foreach (var item in items)
+        {
+            item.IsManualSelectedForIPhone = true;
+        }
+
+        IPhoneSyncVM?.LoadManualSelectionsFromDb();
+        IPhoneSyncVM?.RecalculateScopeSummary();
+    }
+
+    [RelayCommand]
+    private void RemoveFromIPhoneSelection(object? parameter)
+    {
+        var items = ExtractMediaItems(parameter);
+        if (items.Count == 0) return;
+
+        var destPaths = items.Select(x => x.RelativePath).Where(p => !string.IsNullOrEmpty(p)).ToList();
+        if (destPaths.Count == 0) return;
+
+        string path = ArchivePath;
+        string deviceModel = IPhoneSyncVM?.DeviceModel ?? "iPhone 15 Pro";
+
+        if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
+        {
+            try
+            {
+                using var journal = TransferJournal.Open(path);
+                journal.BatchRemoveManualSelections(deviceModel, destPaths);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"BatchRemoveManualSelections error: {ex.Message}");
+            }
+        }
+
+        foreach (var item in items)
+        {
+            item.IsManualSelectedForIPhone = false;
+        }
+
+        IPhoneSyncVM?.LoadManualSelectionsFromDb();
+        IPhoneSyncVM?.RecalculateScopeSummary();
+    }
+
+    private static List<MediaSearchResultItem> ExtractMediaItems(object? parameter)
+    {
+        var list = new List<MediaSearchResultItem>();
+        if (parameter is MediaSearchResultItem single)
+        {
+            list.Add(single);
+        }
+        else if (parameter is System.Collections.IEnumerable collection)
+        {
+            foreach (var obj in collection)
+            {
+                if (obj is MediaSearchResultItem item)
+                    list.Add(item);
+            }
+        }
+        return list;
+    }
+
 
     private static IntPtr GetMainWindowHandle()
     {

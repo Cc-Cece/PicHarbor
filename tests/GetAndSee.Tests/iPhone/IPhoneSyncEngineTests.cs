@@ -143,4 +143,117 @@ public sealed class IPhoneSyncEngineTests : IDisposable
         string exportRoot = Path.Combine(archiveDir.Path, ".AppleSync", "iPhone 15 Pro");
         File.Exists(Path.Combine(exportRoot, "IMG_0003.JPG")).ShouldBeTrue();
     }
+
+    [Fact]
+    public async Task ExportAsync_filters_by_DateRange_scope()
+    {
+        string file1 = Path.Combine(archiveDir.Path, "2023", "2023-01", "IMG_2023.JPG");
+        string file2 = Path.Combine(archiveDir.Path, "2024", "2024-06", "IMG_2024.JPG");
+        Directory.CreateDirectory(Path.GetDirectoryName(file1)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(file2)!);
+        File.WriteAllBytes(file1, new byte[] { 1 });
+        File.WriteAllBytes(file2, new byte[] { 2 });
+
+        using (var journal = TransferJournal.Open(archiveDir.Path))
+        {
+            var rf1 = new RemoteFile("/DCIM/IMG_2023.JPG", 1, new DateTimeOffset(2023, 1, 15, 0, 0, 0, TimeSpan.Zero));
+            var rf2 = new RemoteFile("/DCIM/IMG_2024.JPG", 2, new DateTimeOffset(2024, 6, 15, 0, 0, 0, TimeSpan.Zero));
+
+            journal.EnsurePending(rf1);
+            journal.MarkDone(rf1.Path, rf1.Size, "2023/2023-01/IMG_2023.JPG", new MediaMetadata(rf1.ModifiedAt!.Value.DateTime, null, null, null, null), DateTimeOffset.UtcNow);
+
+            journal.EnsurePending(rf2);
+            journal.MarkDone(rf2.Path, rf2.Size, "2024/2024-06/IMG_2024.JPG", new MediaMetadata(rf2.ModifiedAt!.Value.DateTime, null, null, null, null), DateTimeOffset.UtcNow);
+
+        }
+
+        var config = new IPhoneExportConfig
+        {
+            DeviceModel = "iPhone 15 Pro",
+            ScopeMode = IPhoneRestoreScopeMode.DateRange,
+            DateFrom = new DateTime(2024, 1, 1),
+            DateTo = new DateTime(2024, 12, 31)
+        };
+
+        var result = await IPhoneSyncEngine.ExportAsync(archiveDir.Path, config, cancellationToken: TestContext.Current.CancellationToken);
+
+        result.CopiedCount.ShouldBe(1);
+        string exportRoot = Path.Combine(archiveDir.Path, ".AppleSync", "iPhone 15 Pro");
+        File.Exists(Path.Combine(exportRoot, "2024-06", "IMG_2024.JPG")).ShouldBeTrue();
+        File.Exists(Path.Combine(exportRoot, "2023-01", "IMG_2023.JPG")).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task ExportAsync_filters_by_Subfolder_scope()
+    {
+        string file1 = Path.Combine(archiveDir.Path, "Vacation", "IMG_01.JPG");
+        string file2 = Path.Combine(archiveDir.Path, "Work", "IMG_02.JPG");
+        Directory.CreateDirectory(Path.GetDirectoryName(file1)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(file2)!);
+        File.WriteAllBytes(file1, new byte[] { 1 });
+        File.WriteAllBytes(file2, new byte[] { 2 });
+
+        using (var journal = TransferJournal.Open(archiveDir.Path))
+        {
+            var rf1 = new RemoteFile("/DCIM/IMG_01.JPG", 1, null);
+            var rf2 = new RemoteFile("/DCIM/IMG_02.JPG", 2, null);
+
+            journal.EnsurePending(rf1);
+            journal.MarkDone(rf1.Path, rf1.Size, "Vacation/IMG_01.JPG", MediaMetadata.Empty, DateTimeOffset.UtcNow);
+
+            journal.EnsurePending(rf2);
+            journal.MarkDone(rf2.Path, rf2.Size, "Work/IMG_02.JPG", MediaMetadata.Empty, DateTimeOffset.UtcNow);
+        }
+
+        var config = new IPhoneExportConfig
+        {
+            DeviceModel = "iPhone 15 Pro",
+            ScopeMode = IPhoneRestoreScopeMode.Subfolder,
+            SelectedSubfolders = new HashSet<string> { "Vacation" }
+        };
+
+        var result = await IPhoneSyncEngine.ExportAsync(archiveDir.Path, config, cancellationToken: TestContext.Current.CancellationToken);
+
+        result.CopiedCount.ShouldBe(1);
+        string exportRoot = Path.Combine(archiveDir.Path, ".AppleSync", "iPhone 15 Pro");
+        File.Exists(Path.Combine(exportRoot, "Vacation", "IMG_01.JPG")).ShouldBeTrue();
+        File.Exists(Path.Combine(exportRoot, "Work", "IMG_02.JPG")).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task ExportAsync_filters_by_ManualSelection_scope()
+    {
+        string file1 = Path.Combine(archiveDir.Path, "A.JPG");
+        string file2 = Path.Combine(archiveDir.Path, "B.JPG");
+        File.WriteAllBytes(file1, new byte[] { 1 });
+        File.WriteAllBytes(file2, new byte[] { 2 });
+
+        using (var journal = TransferJournal.Open(archiveDir.Path))
+        {
+            var rf1 = new RemoteFile("/DCIM/A.JPG", 1, null);
+            var rf2 = new RemoteFile("/DCIM/B.JPG", 2, null);
+
+            journal.EnsurePending(rf1);
+            journal.MarkDone(rf1.Path, rf1.Size, "A.JPG", MediaMetadata.Empty, DateTimeOffset.UtcNow);
+
+            journal.EnsurePending(rf2);
+            journal.MarkDone(rf2.Path, rf2.Size, "B.JPG", MediaMetadata.Empty, DateTimeOffset.UtcNow);
+
+            journal.AddManualSelection("iPhone 15 Pro", "A.JPG");
+        }
+
+        var config = new IPhoneExportConfig
+        {
+            DeviceModel = "iPhone 15 Pro",
+            ScopeMode = IPhoneRestoreScopeMode.ManualSelection
+        };
+
+        var result = await IPhoneSyncEngine.ExportAsync(archiveDir.Path, config, cancellationToken: TestContext.Current.CancellationToken);
+
+        result.CopiedCount.ShouldBe(1);
+        string exportRoot = Path.Combine(archiveDir.Path, ".AppleSync", "iPhone 15 Pro");
+        File.Exists(Path.Combine(exportRoot, "A.JPG")).ShouldBeTrue();
+        File.Exists(Path.Combine(exportRoot, "B.JPG")).ShouldBeFalse();
+    }
 }
+

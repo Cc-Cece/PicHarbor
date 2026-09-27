@@ -192,4 +192,26 @@
     <sys:String x:Key="MsgMirrorDeleteWarningTitle">ℹ️ 关闭镜像删除提示</sys:String>
     <sys:String x:Key="MsgMirrorDeleteWarningBody">关闭后，归档中已删除的照片仍将保留在同步文件夹中，同步到 iPhone 的照片将不会自动移除。是否确认？</sys:String>
 
+    <!-- Restore Scope & Manual Selection Strings -->
+    <sys:String x:Key="IPhoneScopeHeader">🎯 第一步：选择恢复范围 (Restore Scope &amp; Filter)</sys:String>
+    <sys:String x:Key="IPhoneScopeModeLabel">恢复模式:</sys:String>
+    <sys:String x:Key="ScopeModeAll">全量恢复 (默认完整镜像)</sys:String>
+    <sys:String x:Key="ScopeModeDateRange">按时间段恢复 (适合手机存近期照片)</sys:String>
+    <sys:String x:Key="ScopeModeSubfolder">按目录/相册选择</sys:String>
+    <sys:String x:Key="ScopeModeManual">手动挑选模式</sys:String>
+    <sys:String x:Key="ScopeDateFromLabel">起始时间:</sys:String>
+    <sys:String x:Key="ScopeDateToLabel">截止时间:</sys:String>
+    <sys:String x:Key="ScopeSubfoldersLabel">选择要恢复的相册/子目录:</sys:String>
+    <sys:String x:Key="ScopeViewEditListBtn">👁️ 查看/编辑清单 ({0})</sys:String>
+    <sys:String x:Key="ScopeClearListBtn">🗑️ 清空清单</sys:String>
+    <sys:String x:Key="MenuAddToIPhone">📱 添加到 iPhone 恢复清单</sys:String>
+    <sys:String x:Key="MenuRemoveFromIPhone">❌ 从清单中移除</sys:String>
+    <sys:String x:Key="ManualSelectionModalTitle">📱 手动挑选恢复清单</sys:String>
+    <sys:String x:Key="RemoveFromListBtn">🗑️ 移除</sys:String>
+    <sys:String x:Key="ClearAllListBtn">🗑️ 全部清空</sys:String>
+    <sys:String x:Key="Step1HeaderCard">🎯 第一步：选择恢复范围 (Restore Scope &amp; Filter)</sys:String>
+    <sys:String x:Key="Step2HeaderCard">⚙️ 第二步：同步文件夹与规则设置</sys:String>
+    <sys:String x:Key="Step3HeaderCard">🚀 第三步：执行与引导 (Execution Console)</sys:String>
+
 </ResourceDictionary>
+

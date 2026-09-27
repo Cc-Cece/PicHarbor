@@ -37,14 +37,23 @@ public static class IPhoneSyncEngine
 
         // 1. Open database and read manifest
         using var journal = TransferJournal.Open(pcDestinationRoot);
-        var manifest = journal.ReadManifest();
+        var fullManifest = journal.ReadManifest();
+
+        // Load manual selections from database if ScopeMode is ManualSelection and set is null
+        if (config.ScopeMode == IPhoneRestoreScopeMode.ManualSelection && config.ManualSelectedPaths is null)
+        {
+            config.ManualSelectedPaths = journal.GetManualSelections(config.DeviceModel);
+        }
+
+        var manifest = fullManifest.Where(config.IsEntryIncluded).ToList();
 
         // 2. Resolve effective export root folder (.AppleSync/<DeviceModel>/ or custom)
         string exportRoot = config.GetEffectiveExportPath(pcDestinationRoot);
         Directory.CreateDirectory(exportRoot);
 
         onLog?.Invoke($"[iPhoneSync] Effective export folder: {exportRoot}");
-        onLog?.Invoke($"[iPhoneSync] Mode: {config.AlbumMode}, MirrorDelete: {config.EnableMirrorDelete}");
+        onLog?.Invoke($"[iPhoneSync] ScopeMode: {config.ScopeMode}, AlbumMode: {config.AlbumMode}, MirrorDelete: {config.EnableMirrorDelete}");
+        onLog?.Invoke($"[iPhoneSync] Filtered {manifest.Count} / {fullManifest.Count} archive items for export.");
 
         // 3. Resolve target relative paths for all manifest items (handling Live Photo pairing HEIC+MOV)
         var plannedExports = PlanTargetPaths(manifest, config.AlbumMode);

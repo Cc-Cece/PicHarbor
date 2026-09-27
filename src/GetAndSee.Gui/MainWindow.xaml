@@ -108,10 +108,18 @@
                                      IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=0}"
                                      Click="NavButton_Click" Tag="0"
                                      Style="{StaticResource TabRadioButton}" />
-                        <RadioButton Content="{DynamicResource NavIPhoneSync}" 
-                                     IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=1}"
+                        <RadioButton IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=1}"
                                      Click="NavButton_Click" Tag="1"
-                                     Style="{StaticResource TabRadioButton}" />
+                                     Style="{StaticResource TabRadioButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{DynamicResource NavIPhoneSync}" VerticalAlignment="Center"/>
+                                <Border Margin="8,0,0,0" Padding="6,2" Background="#0284C7" CornerRadius="8" VerticalAlignment="Center"
+                                        Visibility="{Binding IPhoneSyncVM.HasManualSelections, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Text="{Binding IPhoneSyncVM.ManualSelectionCount}" Foreground="White" FontSize="10" FontWeight="Bold"/>
+                                </Border>
+                            </StackPanel>
+                        </RadioButton>
+
                         <RadioButton Content="{DynamicResource NavAndroidSync}" 
                                      IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=2}"
                                      Click="NavButton_Click" Tag="2"
@@ -369,10 +377,79 @@
                                     </StackPanel>
                                 </Border>
 
-                                <!-- Settings Card -->
+                                <!-- Card 1: Restore Scope & Filter -->
                                 <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
                                     <StackPanel>
-                                        <TextBlock Text="{DynamicResource IPhoneSyncFolderHeader}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,12"/>
+                                        <TextBlock Text="{DynamicResource Step1HeaderCard}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,12"/>
+
+                                        <Grid Margin="0,0,0,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{DynamicResource IPhoneScopeModeLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Top" Margin="0,2,12,0"/>
+                                            <StackPanel Grid.Column="1">
+                                                <RadioButton Content="{DynamicResource ScopeModeAll}" IsChecked="{Binding IsScopeAll, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,0,8" Padding="12,6"/>
+                                                <RadioButton Content="{DynamicResource ScopeModeDateRange}" IsChecked="{Binding IsScopeDateRange, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,0,8" Padding="12,6"/>
+
+                                                <!-- Date Range Inputs -->
+                                                <Border Margin="24,0,0,8" Padding="10" Background="#0F172A" CornerRadius="6"
+                                                        Visibility="{Binding IsScopeDateRange, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{DynamicResource ScopeDateFromLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                        <TextBox Text="{Binding ScopeDateFromText, UpdateSourceTrigger=PropertyChanged}" Width="130" Style="{StaticResource ModernTextBox}" Margin="0,0,16,0"/>
+                                                        <TextBlock Text="{DynamicResource ScopeDateToLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                        <TextBox Text="{Binding ScopeDateToText, UpdateSourceTrigger=PropertyChanged}" Width="130" Style="{StaticResource ModernTextBox}"/>
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <RadioButton Content="{DynamicResource ScopeModeSubfolder}" IsChecked="{Binding IsScopeSubfolder, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,0,8" Padding="12,6"/>
+
+                                                <!-- Subfolder checklist -->
+                                                <Border Margin="24,0,0,8" Padding="10" Background="#0F172A" CornerRadius="6"
+                                                        Visibility="{Binding IsScopeSubfolder, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{DynamicResource ScopeSubfoldersLabel}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
+                                                        <ItemsControl ItemsSource="{Binding Subfolders}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <CheckBox Content="{Binding FolderName}" IsChecked="{Binding IsChecked, Mode=TwoWay}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2,12,2"/>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                            <ItemsControl.ItemsPanel>
+                                                                <ItemsPanelTemplate>
+                                                                    <WrapPanel />
+                                                                </ItemsPanelTemplate>
+                                                            </ItemsControl.ItemsPanel>
+                                                        </ItemsControl>
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <RadioButton Content="{DynamicResource ScopeModeManual}" IsChecked="{Binding IsScopeManualSelection, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,0,0" Padding="12,6"/>
+
+                                                <!-- Manual selection controls -->
+                                                <Border Margin="24,8,0,0" Padding="10" Background="#0F172A" CornerRadius="6"
+                                                        Visibility="{Binding IsScopeManualSelection, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding ManualSelectionCountText}" Foreground="{StaticResource PrimaryHoverBrush}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                                                        <Button Content="{Binding ManualSelectionModalBtnText}" Command="{Binding OpenManualModalCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Padding="12,6"/>
+                                                        <Button Content="{DynamicResource ScopeClearListBtn}" Command="{Binding ClearAllManualSelectionsCommand}" Style="{StaticResource SecondaryButton}" Padding="12,6"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- Scope Summary Banner Card -->
+                                        <Border Background="#0F172A" BorderBrush="{StaticResource PrimaryHoverBrush}" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,4,0,0">
+                                            <TextBlock Text="{Binding ScopeSummaryText}" Foreground="{StaticResource PrimaryHoverBrush}" FontWeight="Bold" FontSize="13"/>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Card 2: Settings Card -->
+                                <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource Step2HeaderCard}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,12"/>
 
                                         <Grid Margin="0,0,0,10">
                                             <Grid.ColumnDefinitions>
@@ -406,9 +483,11 @@
                                     </StackPanel>
                                 </Border>
 
-                                <!-- Action Buttons Card -->
+                                <!-- Card 3: Execution Console Card -->
                                 <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
                                     <StackPanel>
+                                        <TextBlock Text="{DynamicResource Step3HeaderCard}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,12"/>
+
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                                             <Button Content="{DynamicResource Step1PrepareBtn}" Command="{Binding StartExportCommand}" Style="{StaticResource PrimaryButton}" Padding="20,10" Margin="0,0,12,0"/>
                                             <Button Content="{DynamicResource Step2OpenAppleDevicesBtn}" Command="{Binding OpenAppleDevicesCommand}" Style="{StaticResource SecondaryButton}" Padding="16,10" Margin="0,0,12,0"/>
@@ -480,6 +559,85 @@
                             </StackPanel>
                         </ScrollViewer>
 
+                        <!-- Manual Selection List Modal Overlay -->
+                        <Grid Visibility="{Binding IsManualModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
+                              Background="#C0000000" Panel.ZIndex="1000">
+                            <Border Background="#1E293B" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1"
+                                    CornerRadius="12" Width="920" Height="580" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Padding="20">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <Grid Grid.Row="0" Margin="0,0,0,15">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="{DynamicResource ManualSelectionModalTitle}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="{Binding ManualSelectionCountText}" Foreground="{StaticResource PrimaryHoverBrush}" FontSize="12" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                        </StackPanel>
+                                        <Button Content="✕" Command="{Binding CloseManualModalCommand}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Width="32" Height="32" Padding="0"/>
+                                    </Grid>
+
+                                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Background="#0F172A" Padding="10">
+                                        <ItemsControl ItemsSource="{Binding ManualSelectedItems}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Width="160" Height="170" CornerRadius="8" Background="#1E293B" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1" Margin="6" ClipToBounds="True">
+                                                        <Grid>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="110"/>
+                                                                <RowDefinition Height="*"/>
+                                                            </Grid.RowDefinitions>
+
+                                                            <Grid Grid.Row="0" Background="#0F172A">
+                                                                <TextBlock Text="🖼️" FontSize="32" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#475569"/>
+                                                                <Image Source="{Binding ThumbnailImage}" Stretch="UniformToFill">
+                                                                    <Image.Style>
+                                                                        <Style TargetType="Image">
+                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsThumbnailLoaded}" Value="True">
+                                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Image.Style>
+                                                                </Image>
+                                                                
+                                                                <Button Content="✕" Command="{Binding DataContext.RemoveManualItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                                                        Style="{StaticResource SecondaryButton}" Width="24" Height="24" Padding="0" FontSize="11"
+                                                                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4" ToolTip="{DynamicResource RemoveFromListBtn}"/>
+                                                            </Grid>
+
+                                                            <StackPanel Grid.Row="1" Padding="6,4">
+                                                                <TextBlock Text="{Binding RelativePath}" Foreground="White" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                                <Grid Margin="0,2,0,0">
+                                                                    <TextBlock Text="{Binding CapturedAt}" Foreground="#94A3B8" FontSize="10"/>
+                                                                    <TextBlock Text="{Binding SizeText}" Foreground="{StaticResource PrimaryHoverBrush}" FontSize="10" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                                                                </Grid>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+
+                                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+                                        <Button Content="{DynamicResource ClearAllListBtn}" Command="{Binding ClearAllManualSelectionsCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,12,0" Padding="16,8"/>
+                                        <Button Content="{DynamicResource CloseBtn}" Command="{Binding CloseManualModalCommand}" Style="{StaticResource PrimaryButton}" Padding="20,8"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+
                         <!-- High-Risk Safety Confirmation Modal Overlay -->
                         <Grid Visibility="{Binding IsModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
                               Background="#C0000000" Panel.ZIndex="999">
@@ -498,6 +656,7 @@
                         </Grid>
                     </Grid>
                 </TabItem>
+
 
                 <!-- TAB 2: ANDROID SYNC -->
                 <TabItem>
@@ -941,6 +1100,14 @@
                                                 <MenuItem Header="{DynamicResource MenuProperties}" 
                                                           Command="{Binding PlacementTarget.DataContext.PropertiesCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                           CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                <Separator/>
+                                                <MenuItem Header="{DynamicResource MenuAddToIPhone}" 
+                                                          Command="{Binding PlacementTarget.DataContext.AddToIPhoneSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                          CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                <MenuItem Header="{DynamicResource MenuRemoveFromIPhone}" 
+                                                          Command="{Binding PlacementTarget.DataContext.RemoveFromIPhoneSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                          CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+
                                             </ContextMenu>
                                         </DataGrid.ContextMenu>
                                         <DataGrid.Columns>
@@ -1052,6 +1219,14 @@
                                                                         <MenuItem Header="{DynamicResource MenuProperties}" 
                                                                                   Command="{Binding PlacementTarget.Tag.PropertiesCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                                        <Separator/>
+                                                                        <MenuItem Header="{DynamicResource MenuAddToIPhone}" 
+                                                                                  Command="{Binding PlacementTarget.Tag.AddToIPhoneSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                                        <MenuItem Header="{DynamicResource MenuRemoveFromIPhone}" 
+                                                                                  Command="{Binding PlacementTarget.Tag.RemoveFromIPhoneSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+
                                                                     </ContextMenu>
                                                                 </Border.ContextMenu>
                                                                 <Grid>
@@ -1083,7 +1258,16 @@
                                                                         </StackPanel>
                                                                     </Border>
 
-                                                                    <!-- Bottom Gradient Text Overlay -->
+                                                                    <!-- Top-Right iPhone Selection Badge Pill -->
+                                                                     <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" Background="#E016A34A" CornerRadius="4" Padding="6,2"
+                                                                             Visibility="{Binding IsManualSelectedForIPhone, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                         <StackPanel Orientation="Horizontal">
+                                                                             <TextBlock Text="📱" FontSize="10" Margin="0,0,2,0" VerticalAlignment="Center"/>
+                                                                             <TextBlock Text="iPhone" Foreground="White" FontSize="10" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                                         </StackPanel>
+                                                                     </Border>
+
+                                                                     <!-- Bottom Gradient Text Overlay -->
                                                                     <Border VerticalAlignment="Bottom" Padding="8,10,8,6">
                                                                         <Border.Background>
                                                                             <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">

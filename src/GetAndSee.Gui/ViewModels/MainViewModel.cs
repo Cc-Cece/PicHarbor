@@ -52,8 +52,12 @@ public partial class MainViewModel : ObservableObject
             App.SwitchLanguage(config.CurrentLanguage);
         }
 
+        // Link SearchVM to IPhoneSyncVM for manual selection coordination
+        SearchVM.IPhoneSyncVM = IPhoneSyncVM;
+
         // Sync initial destination path across all sub-ViewModels
         SyncDestinationPath(DestinationPath);
+
 
         deviceProbeTimer = new DispatcherTimer
         {

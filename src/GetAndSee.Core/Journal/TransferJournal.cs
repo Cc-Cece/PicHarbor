@@ -270,6 +270,15 @@ public sealed class TransferJournal : IDisposable
                     last_exported   TEXT NOT NULL
                 );
                 """);
+            Execute(
+                """
+                CREATE TABLE IF NOT EXISTS iphone_manual_selections (
+                    device_model   TEXT NOT NULL,
+                    dest_path      TEXT NOT NULL,
+                    added_at       TEXT NOT NULL,
+                    PRIMARY KEY (device_model, dest_path)
+                );
+                """);
         }
 
         Execute($"PRAGMA user_version = {SchemaVersion};");
@@ -1013,6 +1022,128 @@ public sealed class TransferJournal : IDisposable
         command.Parameters.AddWithValue("$model", deviceModel);
         command.Parameters.AddWithValue("$folder", syncFolder);
         command.Parameters.AddWithValue("$at", IsoUtc(lastExported)!);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Returns all manually selected destination relative paths for the specified device model.</summary>
+    public HashSet<string> GetManualSelections(string deviceModel)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!TableExists("iphone_manual_selections"))
+        {
+            return set;
+        }
+
+        using SqliteCommand command = CreateCommand(
+            "SELECT dest_path FROM iphone_manual_selections WHERE device_model = $model;");
+        command.Parameters.AddWithValue("$model", deviceModel);
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            set.Add(reader.GetString(0));
+        }
+
+        return set;
+    }
+
+    /// <summary>Adds a destination path to manual selections for the specified device model.</summary>
+    public void AddManualSelection(string deviceModel, string destPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destPath);
+
+        using SqliteCommand command = CreateCommand(
+            """
+            INSERT OR IGNORE INTO iphone_manual_selections (device_model, dest_path, added_at)
+            VALUES ($model, $dest, $at);
+            """);
+        command.Parameters.AddWithValue("$model", deviceModel);
+        command.Parameters.AddWithValue("$dest", destPath);
+        command.Parameters.AddWithValue("$at", IsoUtc(DateTimeOffset.UtcNow)!);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Removes a destination path from manual selections for the specified device model.</summary>
+    public void RemoveManualSelection(string deviceModel, string destPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destPath);
+
+        if (!TableExists("iphone_manual_selections")) return;
+
+        using SqliteCommand command = CreateCommand(
+            "DELETE FROM iphone_manual_selections WHERE device_model = $model AND dest_path = $dest;");
+        command.Parameters.AddWithValue("$model", deviceModel);
+        command.Parameters.AddWithValue("$dest", destPath);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Adds multiple destination paths to manual selections inside a single transaction.</summary>
+    public void BatchAddManualSelections(string deviceModel, IEnumerable<string> destPaths)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        ArgumentNullException.ThrowIfNull(destPaths);
+
+        using var transaction = connection.BeginTransaction();
+        using SqliteCommand command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            """
+            INSERT OR IGNORE INTO iphone_manual_selections (device_model, dest_path, added_at)
+            VALUES ($model, $dest, $at);
+            """;
+        var modelParam = command.Parameters.Add("$model", SqliteType.Text);
+        var destParam = command.Parameters.Add("$dest", SqliteType.Text);
+        var atParam = command.Parameters.Add("$at", SqliteType.Text);
+        modelParam.Value = deviceModel;
+        atParam.Value = IsoUtc(DateTimeOffset.UtcNow)!;
+
+        foreach (var path in destPaths)
+        {
+            if (string.IsNullOrWhiteSpace(path)) continue;
+            destParam.Value = path;
+            command.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    /// <summary>Removes multiple destination paths from manual selections inside a single transaction.</summary>
+    public void BatchRemoveManualSelections(string deviceModel, IEnumerable<string> destPaths)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        ArgumentNullException.ThrowIfNull(destPaths);
+
+        if (!TableExists("iphone_manual_selections")) return;
+
+        using var transaction = connection.BeginTransaction();
+        using SqliteCommand command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "DELETE FROM iphone_manual_selections WHERE device_model = $model AND dest_path = $dest;";
+        var modelParam = command.Parameters.Add("$model", SqliteType.Text);
+        var destParam = command.Parameters.Add("$dest", SqliteType.Text);
+        modelParam.Value = deviceModel;
+
+        foreach (var path in destPaths)
+        {
+            if (string.IsNullOrWhiteSpace(path)) continue;
+            destParam.Value = path;
+            command.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    /// <summary>Clears all manual selections for the specified device model.</summary>
+    public void ClearManualSelections(string deviceModel)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        if (!TableExists("iphone_manual_selections")) return;
+
+        using SqliteCommand command = CreateCommand(
+            "DELETE FROM iphone_manual_selections WHERE device_model = $model;");
+        command.Parameters.AddWithValue("$model", deviceModel);
         command.ExecuteNonQuery();
     }
 
