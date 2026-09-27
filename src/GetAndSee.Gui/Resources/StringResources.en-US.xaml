@@ -11,6 +11,7 @@
 
     <!-- Sidebar Navigation -->
     <sys:String x:Key="NavBackup">📥 Backup to PC</sys:String>
+    <sys:String x:Key="NavIPhoneSync">📱 Restore to iPhone</sys:String>
     <sys:String x:Key="NavAndroidSync">🤖 Restore to Android</sys:String>
     <sys:String x:Key="NavStatus">📊 Archive Status</sys:String>
     <sys:String x:Key="NavSearch">🔍 Media Search</sys:String>
@@ -165,6 +166,30 @@
     <sys:String x:Key="ReexifHeader">⏱️ Reset File Timestamps</sys:String>
     <sys:String x:Key="SyncNowBtn">⚡ Sync EXIF Timestamps for All Files Now</sys:String>
     <sys:String x:Key="CloseEscBtn">✕ Close (Esc)</sys:String>
-    <sys:String x:Key="LightboxToolTip">Double-click to open original file with default application</sys:String>
+    <!-- iPhone Sync Tab -->
+    <sys:String x:Key="IPhoneSyncTitle">📱 Restore to iPhone (Apple Devices Sync)</sys:String>
+    <sys:String x:Key="IPhoneSyncDescription">Incrementally export archived media files to a dedicated sync folder via GetAndSee, then use Apple Devices official app to sync to iPhone native Photos App (preserving Live Photos and EXIF metadata).</sys:String>
+    <sys:String x:Key="IPhoneSyncFolderHeader">⚙️ Sync Directory &amp; Album Settings</sys:String>
+    <sys:String x:Key="IPhoneSyncFolderLabel">Dedicated Sync Folder:</sys:String>
+    <sys:String x:Key="IPhoneDeviceModelLabel">iPhone Model:</sys:String>
+    <sys:String x:Key="IPhoneAlbumModeLabel">Album Mode:</sys:String>
+    <sys:String x:Key="AlbumModeYearMonth">Sub-albums by Year-Month (YYYY-MM)</sys:String>
+    <sys:String x:Key="AlbumModeFlat">Flat in root photo library</sys:String>
+    <sys:String x:Key="EnableMirrorDeleteLabel">Auto-clean deleted photos (Mirror Delete)</sys:String>
+    <sys:String x:Key="Step1PrepareBtn">🚀 Step 1: Prepare Sync Folder</sys:String>
+    <sys:String x:Key="Step2OpenAppleDevicesBtn">📱 Step 2: Open Apple Devices App</sys:String>
+    <sys:String x:Key="OpenSyncFolderBtn">📁 Open Sync Folder</sys:String>
+    <sys:String x:Key="GuideHeader">💡 Apple Devices Sync Guide:</sys:String>
+    <sys:String x:Key="GuideStep1">1. Connect iPhone to PC and unlock screen</sys:String>
+    <sys:String x:Key="GuideStep2">2. Open Apple Devices, select "Photos" on the left, check "Sync Photos"</sys:String>
+    <sys:String x:Key="GuideStep3">3. Set folder path to the dedicated sync folder above, click "Apply/Sync" at bottom right</sys:String>
+    <sys:String x:Key="LabelDeleted">Mirror Deleted</sys:String>
+    <sys:String x:Key="ToolTipDeleted">Click to view auto-cleaned redundant/deleted files</sys:String>
+    <sys:String x:Key="MsgPathWarningTitle">⚠️ High-Risk Warning: Change iPhone Sync Folder</sys:String>
+    <sys:String x:Key="MsgPathWarningBody">Detected that this iPhone was previously synced with a different folder. Switching sync source in Apple Devices will automatically remove all previously PC-synced photos from the iPhone (photos taken on iPhone are unaffected).&#x0a;Are you sure you want to change the sync folder?</sys:String>
+    <sys:String x:Key="MsgAlbumModeWarningTitle">ℹ️ Confirm Album Structure Change</sys:String>
+    <sys:String x:Key="MsgAlbumModeWarningBody">Changing album structure will reorganize subfolders in the sync directory. Albums on iPhone will be reorganized during the next sync in Apple Devices. Confirm change?</sys:String>
+    <sys:String x:Key="MsgMirrorDeleteWarningTitle">ℹ️ Disable Mirror Delete Notice</sys:String>
+    <sys:String x:Key="MsgMirrorDeleteWarningBody">After disabling, photos deleted from the archive will remain in the sync folder and won't be removed from iPhone during sync. Confirm?</sys:String>
 
 </ResourceDictionary>

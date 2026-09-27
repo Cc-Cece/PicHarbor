@@ -30,6 +30,7 @@ public partial class MainViewModel : ObservableObject
     private string currentLanguage = "zh-CN";
 
     public BackupViewModel BackupVM { get; }
+    public IPhoneSyncViewModel IPhoneSyncVM { get; } = new();
     public AndroidSyncViewModel AndroidSyncVM { get; } = new();
     public StatusViewModel StatusVM { get; } = new();
     public SearchViewModel SearchVM { get; } = new();
@@ -90,6 +91,7 @@ public partial class MainViewModel : ObservableObject
     private void SyncDestinationPath(string path)
     {
         BackupVM.DestinationPath = path;
+        IPhoneSyncVM.ArchivePath = path;
         AndroidSyncVM.ArchivePath = path;
         StatusVM.DatabasePath = path;
         SearchVM.ArchivePath = path;
@@ -113,6 +115,10 @@ public partial class MainViewModel : ObservableObject
             string name = string.IsNullOrWhiteSpace(device.Name) ? "iPhone" : device.Name;
             string model = string.IsNullOrWhiteSpace(device.ProductType) ? "" : $" ({device.ProductType})";
             DeviceStatusText = string.Format(App.GetString("MsgConnected", "已连接: {0}{1}"), name, model);
+            if (!string.IsNullOrWhiteSpace(device.Name))
+            {
+                IPhoneSyncVM.DeviceModel = device.Name;
+            }
         }
         else if (result.Status == DeviceProbeStatus.TrustRequired)
         {
@@ -136,6 +142,7 @@ public partial class MainViewModel : ObservableObject
     {
         CurrentLanguage = culture;
         App.SwitchLanguage(culture);
+        IPhoneSyncVM.OnLanguageChanged();
         SaveConfig();
         _ = ProbeDeviceStatusAsync();
     }

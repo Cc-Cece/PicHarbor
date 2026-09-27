@@ -11,6 +11,7 @@
 
     <!-- Sidebar Navigation -->
     <sys:String x:Key="NavBackup">📥 备份到电脑</sys:String>
+    <sys:String x:Key="NavIPhoneSync">📱 恢复到 iPhone</sys:String>
     <sys:String x:Key="NavAndroidSync">🤖 恢复到 Android</sys:String>
     <sys:String x:Key="NavStatus">📊 归档状态</sys:String>
     <sys:String x:Key="NavSearch">🔍 媒体检索</sys:String>
@@ -165,6 +166,30 @@
     <sys:String x:Key="ReexifHeader">⏱️ 重新设置文件时间</sys:String>
     <sys:String x:Key="SyncNowBtn">⚡ 立即同步归档目录中所有文件的 EXIF 时间</sys:String>
     <sys:String x:Key="CloseEscBtn">✕ 关闭 (Esc)</sys:String>
-    <sys:String x:Key="LightboxToolTip">双击使用系统默认程序打开原图</sys:String>
+    <!-- iPhone Sync Tab -->
+    <sys:String x:Key="IPhoneSyncTitle">📱 恢复到 iPhone (Apple Devices 官方同步)</sys:String>
+    <sys:String x:Key="IPhoneSyncDescription">通过 GetAndSee 将媒体增量整理导出至专用同步目录，随后使用 Apple Devices 官方应用一键同步至 iPhone 原生「照片」App（完美保留 Live Photo 与 EXIF 元数据）。</sys:String>
+    <sys:String x:Key="IPhoneSyncFolderHeader">⚙️ 专用同步目录与结构设置</sys:String>
+    <sys:String x:Key="IPhoneSyncFolderLabel">专用同步目录:</sys:String>
+    <sys:String x:Key="IPhoneDeviceModelLabel">iPhone 设备型号:</sys:String>
+    <sys:String x:Key="IPhoneAlbumModeLabel">相册建立模式:</sys:String>
+    <sys:String x:Key="AlbumModeYearMonth">按年月建立独立相册 (YYYY-MM)</sys:String>
+    <sys:String x:Key="AlbumModeFlat">单一大图库平铺</sys:String>
+    <sys:String x:Key="EnableMirrorDeleteLabel">自动清理归档中已删除的照片 (镜像删除)</sys:String>
+    <sys:String x:Key="Step1PrepareBtn">🚀 步骤 1: 整理并就绪同步文件夹</sys:String>
+    <sys:String x:Key="Step2OpenAppleDevicesBtn">📱 步骤 2: 打开 Apple Devices 软件</sys:String>
+    <sys:String x:Key="OpenSyncFolderBtn">📁 打开同步文件夹</sys:String>
+    <sys:String x:Key="GuideHeader">💡 Apple Devices 同步引导步骤：</sys:String>
+    <sys:String x:Key="GuideStep1">1. 连接 iPhone 至电脑并解锁屏幕</sys:String>
+    <sys:String x:Key="GuideStep2">2. 打开 Apple Devices，在左侧选择「照片」，勾选「同步照片」</sys:String>
+    <sys:String x:Key="GuideStep3">3. 选择文件夹路径为上述专用同步目录，点击右下角「应用 / 同步」</sys:String>
+    <sys:String x:Key="LabelDeleted">镜像删除</sys:String>
+    <sys:String x:Key="ToolTipDeleted">点击查看自动清理的冗余/误删文件</sys:String>
+    <sys:String x:Key="MsgPathWarningTitle">⚠️ 高危操作警告：更改 iPhone 同步目录</sys:String>
+    <sys:String x:Key="MsgPathWarningBody">检测到该 iPhone 先前已与原有目录进行过同步。在 Apple Devices 中将同步源切换到新目录后，iPhone 上原先通过电脑同步的所有照片将被系统自动移除（手机本机拍摄的照片不受影响）。&#x0a;是否确认更改同步路径？</sys:String>
+    <sys:String x:Key="MsgAlbumModeWarningTitle">ℹ️ 确认更改相册组织结构</sys:String>
+    <sys:String x:Key="MsgAlbumModeWarningBody">更改相册结构将重新整理同步文件夹下的目录形态，下一次在 Apple Devices 同步时，iPhone 上的相册分类将会相应重组。是否确认更改？</sys:String>
+    <sys:String x:Key="MsgMirrorDeleteWarningTitle">ℹ️ 关闭镜像删除提示</sys:String>
+    <sys:String x:Key="MsgMirrorDeleteWarningBody">关闭后，归档中已删除的照片仍将保留在同步文件夹中，同步到 iPhone 的照片将不会自动移除。是否确认？</sys:String>
 
 </ResourceDictionary>

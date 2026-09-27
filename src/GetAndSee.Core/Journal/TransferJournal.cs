@@ -27,7 +27,7 @@ public sealed class TransferJournal : IDisposable
     public const string DatabaseFileName = "get-and-see.db";
 
     /// <summary>Current journal schema version (bumped when tables are added; migrated in place).</summary>
-    public const long SchemaVersion = 4;
+    public const long SchemaVersion = 5;
 
     /// <summary>The <c>settings</c> key under which an archive's <c>organize_scheme</c> token is stored.</summary>
     private const string OrganizeSchemeKey = "organize_scheme";
@@ -245,6 +245,29 @@ public sealed class TransferJournal : IDisposable
                     device_id TEXT NOT NULL,
                     synced_at TEXT NOT NULL,
                     PRIMARY KEY (dest_path, device_id)
+                );
+                """);
+        }
+
+        if (version < 5)
+        {
+            Execute(
+                """
+                CREATE TABLE IF NOT EXISTS iphone_exported_files (
+                    dest_path       TEXT PRIMARY KEY,
+                    exported_path   TEXT NOT NULL,
+                    device_model    TEXT NOT NULL,
+                    exported_at     TEXT NOT NULL,
+                    file_size       INTEGER NOT NULL,
+                    sha256          TEXT
+                );
+                """);
+            Execute(
+                """
+                CREATE TABLE IF NOT EXISTS iphone_devices (
+                    device_model    TEXT PRIMARY KEY,
+                    sync_folder     TEXT NOT NULL,
+                    last_exported   TEXT NOT NULL
                 );
                 """);
         }
@@ -884,6 +907,115 @@ public sealed class TransferJournal : IDisposable
         return list;
     }
 
+    /// <summary>Returns all exported file records for the given device model from <c>iphone_exported_files</c>.</summary>
+    public IReadOnlyList<IPhoneExportedFileRecord> GetIPhoneExportedFiles(string deviceModel)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        var result = new List<IPhoneExportedFileRecord>();
+        if (!TableExists("iphone_exported_files"))
+        {
+            return result;
+        }
+
+        using SqliteCommand command = CreateCommand(
+            """
+            SELECT dest_path, exported_path, device_model, exported_at, file_size, sha256
+            FROM iphone_exported_files
+            WHERE device_model = $model;
+            """);
+        command.Parameters.AddWithValue("$model", deviceModel);
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add(new IPhoneExportedFileRecord(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                DateTimeOffset.Parse(reader.GetString(3), CultureInfo.InvariantCulture),
+                reader.GetInt64(4),
+                reader.IsDBNull(5) ? null : reader.GetString(5)));
+        }
+
+        return result;
+    }
+
+    /// <summary>Upserts a row into <c>iphone_exported_files</c>.</summary>
+    public void UpsertIPhoneExportedFile(IPhoneExportedFileRecord record)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        using SqliteCommand command = CreateCommand(
+            """
+            INSERT INTO iphone_exported_files (dest_path, exported_path, device_model, exported_at, file_size, sha256)
+            VALUES ($dest, $exported, $model, $at, $size, $sha)
+            ON CONFLICT(dest_path) DO UPDATE SET
+                exported_path = excluded.exported_path,
+                device_model = excluded.device_model,
+                exported_at = excluded.exported_at,
+                file_size = excluded.file_size,
+                sha256 = excluded.sha256;
+            """);
+        command.Parameters.AddWithValue("$dest", record.DestPath);
+        command.Parameters.AddWithValue("$exported", record.ExportedPath);
+        command.Parameters.AddWithValue("$model", record.DeviceModel);
+        command.Parameters.AddWithValue("$at", IsoUtc(record.ExportedAt)!);
+        command.Parameters.AddWithValue("$size", record.FileSize);
+        command.Parameters.AddWithValue("$sha", (object?)record.Sha256 ?? DBNull.Value);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Removes a row from <c>iphone_exported_files</c> by its destination relative path.</summary>
+    public void DeleteIPhoneExportedFile(string destPath)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(destPath);
+        if (!TableExists("iphone_exported_files")) return;
+
+        using SqliteCommand command = CreateCommand(
+            "DELETE FROM iphone_exported_files WHERE dest_path = $dest;");
+        command.Parameters.AddWithValue("$dest", destPath);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Returns the recorded <c>iphone_devices</c> row for the specified device model, if any.</summary>
+    public IPhoneDeviceRecord? GetIPhoneDevice(string deviceModel)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        if (!TableExists("iphone_devices")) return null;
+
+        using SqliteCommand command = CreateCommand(
+            "SELECT device_model, sync_folder, last_exported FROM iphone_devices WHERE device_model = $model;");
+        command.Parameters.AddWithValue("$model", deviceModel);
+        using SqliteDataReader reader = command.ExecuteReader();
+        if (reader.Read())
+        {
+            return new IPhoneDeviceRecord(
+                reader.GetString(0),
+                reader.GetString(1),
+                DateTimeOffset.Parse(reader.GetString(2), CultureInfo.InvariantCulture));
+        }
+
+        return null;
+    }
+
+    /// <summary>Upserts a row into <c>iphone_devices</c>.</summary>
+    public void UpsertIPhoneDevice(string deviceModel, string syncFolder, DateTimeOffset lastExported)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        ArgumentException.ThrowIfNullOrWhiteSpace(syncFolder);
+
+        using SqliteCommand command = CreateCommand(
+            """
+            INSERT INTO iphone_devices (device_model, sync_folder, last_exported)
+            VALUES ($model, $folder, $at)
+            ON CONFLICT(device_model) DO UPDATE SET
+                sync_folder = excluded.sync_folder,
+                last_exported = excluded.last_exported;
+            """);
+        command.Parameters.AddWithValue("$model", deviceModel);
+        command.Parameters.AddWithValue("$folder", syncFolder);
+        command.Parameters.AddWithValue("$at", IsoUtc(lastExported)!);
+        command.ExecuteNonQuery();
+    }
+
     /// <summary>Closes the underlying SQLite connection.</summary>
     public void Dispose()
     {
@@ -896,6 +1028,21 @@ public sealed class TransferJournal : IDisposable
         connection.Dispose();
     }
 }
+
+/// <summary>An exported file row recorded in <c>iphone_exported_files</c>.</summary>
+public sealed record IPhoneExportedFileRecord(
+    string DestPath,
+    string ExportedPath,
+    string DeviceModel,
+    DateTimeOffset ExportedAt,
+    long FileSize,
+    string? Sha256 = null);
+
+/// <summary>An iPhone sync device record in <c>iphone_devices</c>.</summary>
+public sealed record IPhoneDeviceRecord(
+    string DeviceModel,
+    string SyncFolder,
+    DateTimeOffset LastExported);
 
 /// <summary>Per-state file counts from the journal.</summary>
 /// <param name="Pending">Files not yet started.</param>

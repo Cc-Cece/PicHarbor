@@ -15,14 +15,14 @@ public sealed class AndroidSyncTests : IDisposable
     public void Dispose() => dir.Dispose();
 
     [Fact]
-    public void Open_journal_migrates_schema_to_v4()
+    public void Open_journal_migrates_schema_to_v5()
     {
         using (TransferJournal journal = TransferJournal.Open(dir.Path))
         {
             journal.EnsurePending(new RemoteFile("/DCIM/IMG_1001.JPG", 1024, null));
         }
 
-        ReadUserVersion(dir.Path).ShouldBe(4);
+        ReadUserVersion(dir.Path).ShouldBe(5);
     }
 
     [Fact]

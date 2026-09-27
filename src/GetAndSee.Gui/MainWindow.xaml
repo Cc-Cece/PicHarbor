@@ -108,25 +108,29 @@
                                      IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=0}"
                                      Click="NavButton_Click" Tag="0"
                                      Style="{StaticResource TabRadioButton}" />
-                        <RadioButton Content="{DynamicResource NavAndroidSync}" 
+                        <RadioButton Content="{DynamicResource NavIPhoneSync}" 
                                      IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=1}"
                                      Click="NavButton_Click" Tag="1"
                                      Style="{StaticResource TabRadioButton}" />
-                        <RadioButton Content="{DynamicResource NavStatus}" 
+                        <RadioButton Content="{DynamicResource NavAndroidSync}" 
                                      IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=2}"
                                      Click="NavButton_Click" Tag="2"
                                      Style="{StaticResource TabRadioButton}" />
-                        <RadioButton Content="{DynamicResource NavSearch}" 
+                        <RadioButton Content="{DynamicResource NavStatus}" 
                                      IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=3}"
                                      Click="NavButton_Click" Tag="3"
                                      Style="{StaticResource TabRadioButton}" />
-                        <RadioButton Content="{DynamicResource NavReorganize}" 
+                        <RadioButton Content="{DynamicResource NavSearch}" 
                                      IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=4}"
                                      Click="NavButton_Click" Tag="4"
                                      Style="{StaticResource TabRadioButton}" />
-                        <RadioButton Content="{DynamicResource NavSettings}" 
+                        <RadioButton Content="{DynamicResource NavReorganize}" 
                                      IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=5}"
                                      Click="NavButton_Click" Tag="5"
+                                     Style="{StaticResource TabRadioButton}" />
+                        <RadioButton Content="{DynamicResource NavSettings}" 
+                                     IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=6}"
+                                     Click="NavButton_Click" Tag="6"
                                      Style="{StaticResource TabRadioButton}" />
                     </StackPanel>
 
@@ -351,7 +355,151 @@
                     </Grid>
                 </TabItem>
 
-                <!-- TAB 1: ANDROID SYNC -->
+                <!-- TAB 1: IPHONE RESTORE (Apple Devices Sync) -->
+                <TabItem>
+                    <Grid DataContext="{Binding IPhoneSyncVM}">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
+                            <StackPanel>
+                                <!-- Header Banner Card -->
+                                <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource IPhoneSyncTitle}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6"/>
+                                        <TextBlock Text="{DynamicResource IPhoneSyncDescription}" 
+                                                   Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Settings Card -->
+                                <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource IPhoneSyncFolderHeader}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,12"/>
+
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="160"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{DynamicResource IPhoneSyncFolderLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBox Grid.Column="1" Text="{Binding EffectiveSyncFolder, Mode=OneWay}" IsReadOnly="True" Style="{StaticResource ModernTextBox}" Background="#0F172A" Margin="0,0,8,0"/>
+                                            <Button Grid.Column="2" Content="{DynamicResource BrowseButton}" Command="{Binding BrowseSyncFolderCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,16,0"/>
+
+                                            <TextBlock Grid.Column="3" Text="{DynamicResource IPhoneDeviceModelLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBox Grid.Column="4" Text="{Binding DeviceModel, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}"/>
+                                        </Grid>
+
+                                        <!-- Album Mode & Mirror Delete Controls -->
+                                        <Grid Margin="0,4,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{DynamicResource IPhoneAlbumModeLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <RadioButton Content="{DynamicResource AlbumModeYearMonth}" IsChecked="{Binding IsYearMonthMode, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,12,0" Padding="12,6"/>
+                                                <RadioButton Content="{DynamicResource AlbumModeFlat}" IsChecked="{Binding IsFlatMode, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,24,0" Padding="12,6"/>
+                                                <CheckBox Content="{DynamicResource EnableMirrorDeleteLabel}" IsChecked="{Binding EnableMirrorDelete, Mode=TwoWay}" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Action Buttons Card -->
+                                <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                            <Button Content="{DynamicResource Step1PrepareBtn}" Command="{Binding StartExportCommand}" Style="{StaticResource PrimaryButton}" Padding="20,10" Margin="0,0,12,0"/>
+                                            <Button Content="{DynamicResource Step2OpenAppleDevicesBtn}" Command="{Binding OpenAppleDevicesCommand}" Style="{StaticResource SecondaryButton}" Padding="16,10" Margin="0,0,12,0"/>
+                                            <Button Content="{DynamicResource OpenSyncFolderBtn}" Command="{Binding OpenSyncFolderCommand}" Style="{StaticResource SecondaryButton}" Padding="16,10"/>
+                                        </StackPanel>
+
+                                        <!-- Progress Bar -->
+                                        <Grid Margin="0,0,0,10">
+                                            <ProgressBar Value="{Binding ProgressValue}" Height="20" Minimum="0" Maximum="100" Foreground="{StaticResource PrimaryBrush}" Background="#0F172A"/>
+                                            <TextBlock Text="{Binding ProgressText}" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" FontWeight="Bold" FontSize="11"/>
+                                        </Grid>
+
+                                        <!-- Stat Cards Grid -->
+                                        <UniformGrid Columns="4" Margin="0,0,0,12">
+                                            <Border Background="#0F172A" CornerRadius="8" Padding="8,8" Margin="0,0,4,0">
+                                                <StackPanel HorizontalAlignment="Center">
+                                                    <TextBlock Text="{DynamicResource LabelTransferred}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding CopiedCount}" Foreground="{StaticResource AccentGreenBrush}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <Border Background="#0F172A" CornerRadius="8" Padding="8,8" Margin="2,0,2,0">
+                                                <StackPanel HorizontalAlignment="Center">
+                                                    <TextBlock Text="{DynamicResource LabelSkipped}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding SkippedCount}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <Border Background="#0F172A" CornerRadius="8" Padding="8,8" Margin="2,0,2,0" ToolTip="{DynamicResource ToolTipDeleted}">
+                                                <StackPanel HorizontalAlignment="Center">
+                                                    <TextBlock Text="{DynamicResource LabelDeleted}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding DeletedCount}" Foreground="{StaticResource AccentYellowBrush}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <Border Background="#0F172A" CornerRadius="8" Padding="8,8" Margin="4,0,0,0">
+                                                <StackPanel HorizontalAlignment="Center">
+                                                    <TextBlock Text="{DynamicResource LabelFailed}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding FailedCount}" Foreground="{StaticResource AccentRedBrush}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </UniformGrid>
+
+                                        <!-- User Guide Card -->
+                                        <Border Background="#1E293B" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="12">
+                                            <StackPanel>
+                                                <TextBlock Text="{DynamicResource GuideHeader}" Foreground="{StaticResource PrimaryHoverBrush}" FontWeight="Bold" FontSize="12" Margin="0,0,0,4"/>
+                                                <TextBlock Text="{DynamicResource GuideStep1}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,2,0,2"/>
+                                                <TextBlock Text="{DynamicResource GuideStep2}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,0,0,2"/>
+                                                <TextBlock Text="{DynamicResource GuideStep3}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Real-time Log Stream Card -->
+                                <Border Style="{StaticResource ModernCard}">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource TransferLogHeader}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8"/>
+                                        <ListBox ItemsSource="{Binding LogEntries}" Height="180" Background="#0F172A" BorderThickness="0" Padding="8">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="11" Foreground="#A7F3D0"/>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- High-Risk Safety Confirmation Modal Overlay -->
+                        <Grid Visibility="{Binding IsModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
+                              Background="#C0000000" Panel.ZIndex="999">
+                            <Border Background="#1E293B" BorderBrush="{StaticResource AccentRedBrush}" BorderThickness="2"
+                                    CornerRadius="12" Width="540" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Padding="24">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding ModalTitle}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource AccentRedBrush}" Margin="0,0,0,12"/>
+                                    <TextBlock Text="{Binding ModalMessage}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,20"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Button Content="{DynamicResource CloseBtn}" Command="{Binding CancelModalCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,12,0" Padding="16,8"/>
+                                        <Button Content="{Binding ModalConfirmText}" Command="{Binding ConfirmModalCommand}" Style="{StaticResource PrimaryButton}" Padding="16,8"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </TabItem>
+
+                <!-- TAB 2: ANDROID SYNC -->
                 <TabItem>
                     <Grid DataContext="{Binding AndroidSyncVM}">
                         <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
