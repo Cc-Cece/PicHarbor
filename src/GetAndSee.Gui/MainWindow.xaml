@@ -567,7 +567,7 @@
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                                 <RadioButton Content="{DynamicResource AlbumModeYearMonth}" IsChecked="{Binding IsYearMonthMode, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,12,0" Padding="12,6"/>
                                                 <RadioButton Content="{DynamicResource AlbumModeFlat}" IsChecked="{Binding IsFlatMode, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,24,0" Padding="12,6"/>
-                                                <CheckBox Content="{DynamicResource EnableMirrorDeleteLabel}" IsChecked="{Binding EnableMirrorDelete, Mode=TwoWay}" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                                
                                             </StackPanel>
                                         </Grid>
                                     </StackPanel>
@@ -871,7 +871,11 @@
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <CheckBox Grid.Column="0" Content="{DynamicResource EnableMirrorDeleteLabel}" IsChecked="{Binding EnableMirrorDelete, Mode=TwoWay}" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{DynamicResource AndroidRestoreModeLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <RadioButton Content="{DynamicResource AndroidRestoreModeDefault}" IsChecked="{Binding IsDefaultRestoreMode, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,12,0" Padding="12,6"/>
+                                                <RadioButton Content="{DynamicResource AndroidRestoreModeHistorical}" IsChecked="{Binding IsHistoricalIncrementalMode, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,12,0" Padding="12,6"/>
+                                            </StackPanel>
                                         </Grid>
 
                                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0">

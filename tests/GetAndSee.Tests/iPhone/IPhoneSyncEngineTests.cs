@@ -42,8 +42,7 @@ public sealed class IPhoneSyncEngineTests : IDisposable
         var config = new IPhoneExportConfig
         {
             DeviceModel = "iPhone 15 Pro",
-            AlbumMode = IPhoneAlbumMode.YearMonth,
-            EnableMirrorDelete = true
+            AlbumMode = IPhoneAlbumMode.YearMonth
         };
 
         var result = await IPhoneSyncEngine.ExportAsync(archiveDir.Path, config, cancellationToken: TestContext.Current.CancellationToken);
@@ -63,7 +62,7 @@ public sealed class IPhoneSyncEngineTests : IDisposable
     }
 
     [Fact]
-    public async Task ExportAsync_strictly_ignores_iPod_Photo_Cache_during_mirror_delete()
+    public async Task ExportAsync_strictly_ignores_iPod_Photo_Cache()
     {
         // Create archive with 1 file
         string imgPath = Path.Combine(archiveDir.Path, "IMG_0002.JPG");
@@ -85,37 +84,13 @@ public sealed class IPhoneSyncEngineTests : IDisposable
 
         var config = new IPhoneExportConfig
         {
-            DeviceModel = "iPhone 15 Pro",
-            EnableMirrorDelete = true
+            DeviceModel = "iPhone 15 Pro"
         };
 
         var result = await IPhoneSyncEngine.ExportAsync(archiveDir.Path, config, cancellationToken: TestContext.Current.CancellationToken);
 
         // iPod Photo Cache thumbnail file MUST be untouched!
         File.Exists(cacheFile).ShouldBeTrue();
-    }
-
-    [Fact]
-    public async Task ExportAsync_deletes_orphaned_files_when_mirror_delete_enabled()
-    {
-        string exportRoot = Path.Combine(archiveDir.Path, ".AppleSync", "iPhone 15 Pro");
-        string orphanFile = Path.Combine(exportRoot, "2023-01", "OldPhoto.JPG");
-        Directory.CreateDirectory(Path.GetDirectoryName(orphanFile)!);
-        File.WriteAllBytes(orphanFile, new byte[] { 1, 1, 1 });
-
-        // Database has 0 files
-        using (var journal = TransferJournal.Open(archiveDir.Path)) { }
-
-        var config = new IPhoneExportConfig
-        {
-            DeviceModel = "iPhone 15 Pro",
-            EnableMirrorDelete = true
-        };
-
-        var result = await IPhoneSyncEngine.ExportAsync(archiveDir.Path, config, cancellationToken: TestContext.Current.CancellationToken);
-
-        result.DeletedCount.ShouldBe(1);
-        File.Exists(orphanFile).ShouldBeFalse();
     }
 
     [Fact]

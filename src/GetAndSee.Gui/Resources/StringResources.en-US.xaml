@@ -194,6 +194,9 @@
 
     <!-- Restore Scope & Manual Selection Strings -->
     <sys:String x:Key="IPhoneScopeHeader">🎯 Step 1: Restore Scope &amp; Filter</sys:String>
+    <sys:String x:Key="AndroidRestoreModeLabel">Restore Mode:</sys:String>
+    <sys:String x:Key="AndroidRestoreModeDefault">Default Restore (Scope &amp; Target Equivalence, records history on success)</sys:String>
+    <sys:String x:Key="AndroidRestoreModeHistorical">Historical Incremental (Skips based on device history, records history on success)</sys:String>
     <sys:String x:Key="IPhoneScopeModeLabel">Restore Scope:</sys:String>
     <sys:String x:Key="ScopeModeAll">All (Default Full Mirror)</sys:String>
     <sys:String x:Key="ScopeModeDateRange">By Date Range (For recent photos)</sys:String>

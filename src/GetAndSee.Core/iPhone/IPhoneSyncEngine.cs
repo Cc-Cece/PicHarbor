@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using GetAndSee.Core.Journal;
 using GetAndSee.Core.Progress;
+using GetAndSee.Core.Transfer;
 using GetAndSee.Core.Util;
 
 namespace GetAndSee.Core.iPhone;
@@ -52,7 +53,7 @@ public static class IPhoneSyncEngine
         Directory.CreateDirectory(exportRoot);
 
         onLog?.Invoke($"[iPhoneSync] Effective export folder: {exportRoot}");
-        onLog?.Invoke($"[iPhoneSync] ScopeMode: {config.ScopeMode}, AlbumMode: {config.AlbumMode}, MirrorDelete: {config.EnableMirrorDelete}");
+        onLog?.Invoke($"[iPhoneSync] ScopeMode: {config.ScopeMode}, AlbumMode: {config.AlbumMode}");
         onLog?.Invoke($"[iPhoneSync] Filtered {manifest.Count} / {fullManifest.Count} archive items for export.");
 
         // 3. Resolve target relative paths for all manifest items (handling Live Photo pairing HEIC+MOV)
@@ -67,13 +68,7 @@ public static class IPhoneSyncEngine
         long totalPlannedBytes = manifest.Sum(m => m.SizeBytes);
         long processedBytes = 0;
 
-        // 4. Mirror Delete Phase (if enabled)
-        if (config.EnableMirrorDelete)
-        {
-            deletedCount = CleanOrphanedExportFiles(exportRoot, plannedExports, journal, onLog);
-        }
-
-        // 5. Incremental Copy Phase
+        // 4. Incremental Copy Phase using Current Target Equivalence
         for (int i = 0; i < manifest.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -91,10 +86,8 @@ public static class IPhoneSyncEngine
                 continue;
             }
 
-            var targetFileInfo = new FileInfo(LongPath.ToExtended(targetAbsPath));
-            bool isUpToDate = targetFileInfo.Exists &&
-                              targetFileInfo.Length == sourceFileInfo.Length &&
-                              Math.Abs((targetFileInfo.LastWriteTimeUtc - sourceFileInfo.LastWriteTimeUtc).TotalSeconds) < 2.0;
+            var equivResult = FileEquivalenceResolver.ResolveLocalFile(sourceAbsPath, targetAbsPath);
+            bool isUpToDate = equivResult == FileEquivalenceResult.Equivalent;
 
             if (isUpToDate)
             {
@@ -280,85 +273,5 @@ public static class IPhoneSyncEngine
         }
 
         return null;
-    }
-
-    /// <summary>
-    /// Scans exportRoot and removes physical files that are no longer part of the planned export set,
-    /// strictly ignoring <c>iPod Photo Cache</c>.
-    /// </summary>
-    private static int CleanOrphanedExportFiles(
-        string exportRoot,
-        Dictionary<string, string> plannedExports,
-        TransferJournal journal,
-        Action<string>? onLog)
-    {
-        int deletedCount = 0;
-        var validTargetRelPaths = new HashSet<string>(plannedExports.Values, StringComparer.OrdinalIgnoreCase);
-        var targetToDestMap = plannedExports.ToDictionary(kvp => kvp.Value, kvp => kvp.Key, StringComparer.OrdinalIgnoreCase);
-
-        if (!Directory.Exists(exportRoot)) return 0;
-
-        var files = Directory.GetFiles(exportRoot, "*", SearchOption.AllDirectories);
-        foreach (var fullPath in files)
-        {
-            string relPath = Path.GetRelativePath(exportRoot, fullPath).Replace('\\', '/');
-
-            // CRITICAL: Protect iPod Photo Cache from any modification or deletion!
-            if (IsPhotoCachePath(relPath))
-            {
-                continue;
-            }
-
-            if (!validTargetRelPaths.Contains(relPath))
-            {
-                try
-                {
-                    File.Delete(fullPath);
-                    deletedCount++;
-                    onLog?.Invoke($"[iPhoneSync] 🗑️ Mirror Deleted orphan file: {relPath}");
-
-                    // If DB has an export record for this target, remove it
-                    if (targetToDestMap.TryGetValue(relPath, out var destPath))
-                    {
-                        journal.DeleteIPhoneExportedFile(destPath);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    onLog?.Invoke($"[iPhoneSync] ⚠️ Could not delete orphan file {relPath}: {ex.Message}");
-                }
-            }
-        }
-
-        // Clean up empty directories (except iPod Photo Cache and root)
-        CleanEmptyDirectories(exportRoot, onLog);
-
-        return deletedCount;
-    }
-
-    private static void CleanEmptyDirectories(string startDir, Action<string>? onLog)
-    {
-        foreach (var dir in Directory.GetDirectories(startDir))
-        {
-            string dirName = Path.GetFileName(dir);
-            if (dirName.Equals(PhotoCacheFolderName, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            CleanEmptyDirectories(dir, onLog);
-
-            if (!Directory.EnumerateFileSystemEntries(dir).Any())
-            {
-                try
-                {
-                    Directory.Delete(dir);
-                }
-                catch
-                {
-                    // Ignore directory deletion errors
-                }
-            }
-        }
     }
 }

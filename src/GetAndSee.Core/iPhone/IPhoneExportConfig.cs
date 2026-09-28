@@ -20,9 +20,6 @@ public sealed class IPhoneExportConfig
     /// <summary>Album organization mode (YearMonth or Flat).</summary>
     public IPhoneAlbumMode AlbumMode { get; set; } = IPhoneAlbumMode.YearMonth;
 
-    /// <summary>Whether to clean up orphaned exported files when they are removed from the archive.</summary>
-    public bool EnableMirrorDelete { get; set; } = true;
-
     /// <summary>Restore scope mode (All, DateRange, Subfolder, ManualSelection).</summary>
     public IPhoneRestoreScopeMode ScopeMode { get; set; } = IPhoneRestoreScopeMode.All;
 

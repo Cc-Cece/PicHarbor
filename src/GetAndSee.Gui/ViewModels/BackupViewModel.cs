@@ -10,6 +10,7 @@ using GetAndSee.Core.Journal;
 using GetAndSee.Core.Organize;
 using GetAndSee.Core.Preflight;
 using GetAndSee.Core.Progress;
+using GetAndSee.Core.Scope;
 using GetAndSee.Core.Summary;
 using GetAndSee.Core.Transfer;
 using GetAndSee.Core.Util;
@@ -99,6 +100,100 @@ public partial class BackupViewModel : ObservableObject
     private void CloseDetailModal()
     {
         IsDetailModalOpen = false;
+    }
+
+    // --- Scope Properties ---
+    [ObservableProperty]
+    private ScopeMode scopeMode = ScopeMode.All;
+
+    public bool IsScopeAll
+    {
+        get => ScopeMode == ScopeMode.All;
+        set
+        {
+            if (value && ScopeMode != ScopeMode.All)
+            {
+                ScopeMode = ScopeMode.All;
+                NotifyScopeProperties();
+            }
+        }
+    }
+
+    public bool IsScopeDateRange
+    {
+        get => ScopeMode == ScopeMode.Date;
+        set
+        {
+            if (value && ScopeMode != ScopeMode.Date)
+            {
+                ScopeMode = ScopeMode.Date;
+                NotifyScopeProperties();
+            }
+        }
+    }
+
+    public bool IsScopeSubfolder
+    {
+        get => ScopeMode == ScopeMode.Folder;
+        set
+        {
+            if (value && ScopeMode != ScopeMode.Folder)
+            {
+                ScopeMode = ScopeMode.Folder;
+                NotifyScopeProperties();
+            }
+        }
+    }
+
+    public bool IsScopeManualSelection
+    {
+        get => ScopeMode == ScopeMode.Manual;
+        set
+        {
+            if (value && ScopeMode != ScopeMode.Manual)
+            {
+                ScopeMode = ScopeMode.Manual;
+                NotifyScopeProperties();
+            }
+        }
+    }
+
+    private void NotifyScopeProperties()
+    {
+        OnPropertyChanged(nameof(IsScopeAll));
+        OnPropertyChanged(nameof(IsScopeDateRange));
+        OnPropertyChanged(nameof(IsScopeSubfolder));
+        OnPropertyChanged(nameof(IsScopeManualSelection));
+    }
+
+    [ObservableProperty]
+    private DateTime? scopeDateFrom;
+
+    [ObservableProperty]
+    private DateTime? scopeDateTo;
+
+    [ObservableProperty]
+    private string scopeDateFromText = "";
+
+    [ObservableProperty]
+    private string scopeDateToText = "";
+
+    partial void OnScopeDateFromChanged(DateTime? value)
+    {
+        string formatted = value?.ToString("yyyy-MM-dd") ?? "";
+        if (scopeDateFromText != formatted)
+        {
+            ScopeDateFromText = formatted;
+        }
+    }
+
+    partial void OnScopeDateToChanged(DateTime? value)
+    {
+        string formatted = value?.ToString("yyyy-MM-dd") ?? "";
+        if (scopeDateToText != formatted)
+        {
+            ScopeDateToText = formatted;
+        }
     }
 
     [ObservableProperty]
@@ -261,10 +356,25 @@ public partial class BackupViewModel : ObservableObject
                 await foreach (RemoteFile file in enumerator.EnumerateAsync(cancellationToken: ct).ConfigureAwait(false))
                 {
                     files.Add(file);
-                    totalBytes += file.Size;
                 }
 
-                AddLog($"[INFO] Found {files.Count:N0} files ({ByteSize.Humanize(totalBytes)}).");
+                DateTime? dateFrom = DateTime.TryParse(ScopeDateFromText, out var df) ? df : null;
+                DateTime? dateTo = DateTime.TryParse(ScopeDateToText, out var dt) ? dt : null;
+
+                if (ScopeMode == ScopeMode.Date)
+                {
+                    files = files.Where(f =>
+                    {
+                        if (!f.ModifiedAt.HasValue) return true;
+                        DateTime d = f.ModifiedAt.Value.LocalDateTime.Date;
+                        if (dateFrom.HasValue && d < dateFrom.Value.Date) return false;
+                        if (dateTo.HasValue && d > dateTo.Value.Date) return false;
+                        return true;
+                    }).ToList();
+                }
+
+                totalBytes = files.Sum(f => f.Size);
+                AddLog($"[INFO] Found {files.Count:N0} files matching scope mode ({ByteSize.Humanize(totalBytes)}).");
 
                 preflight.EnsureDestinationWritable(DestinationPath);
                 preflight.EnsureSufficientFreeSpace(DestinationPath, totalBytes);

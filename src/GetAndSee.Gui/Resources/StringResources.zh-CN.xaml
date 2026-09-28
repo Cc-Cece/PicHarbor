@@ -194,7 +194,10 @@
 
     <!-- Restore Scope & Manual Selection Strings -->
     <sys:String x:Key="IPhoneScopeHeader">🎯 第一步：选择恢复范围 (Restore Scope &amp; Filter)</sys:String>
-    <sys:String x:Key="IPhoneScopeModeLabel">恢复模式:</sys:String>
+    <sys:String x:Key="AndroidRestoreModeLabel">恢复模式:</sys:String>
+    <sys:String x:Key="AndroidRestoreModeDefault">默认恢复 (按选择范围恢复，不读取历史记录跳过，防重后记录历史)</sys:String>
+    <sys:String x:Key="AndroidRestoreModeHistorical">历史增量 (根据当前设备历史恢复记录跳过，成功后记录历史)</sys:String>
+    <sys:String x:Key="IPhoneScopeModeLabel">范围筛选:</sys:String>
     <sys:String x:Key="ScopeModeAll">全量恢复 (默认完整镜像)</sys:String>
     <sys:String x:Key="ScopeModeDateRange">按时间段恢复 (适合手机存近期照片)</sys:String>
     <sys:String x:Key="ScopeModeSubfolder">按目录/相册选择</sys:String>

@@ -30,8 +30,8 @@ public sealed class AndroidSyncConfig
     /// <summary>Target directory on Android remote storage (e.g. "/DCIM/GetAndSee/").</summary>
     public string RemoteTargetDir { get; set; } = "/DCIM/GetAndSee/";
 
-    /// <summary>Whether to remove files from Android storage that are no longer selected or deleted in archive.</summary>
-    public bool EnableMirrorDelete { get; set; } = true;
+    /// <summary>Android restore mode (Default or HistoricalIncremental).</summary>
+    public AndroidRestoreMode RestoreMode { get; set; } = AndroidRestoreMode.Default;
 
     /// <summary>Restore scope mode (All, DateRange, Subfolder, ManualSelection).</summary>
     public IPhoneRestoreScopeMode ScopeMode { get; set; } = IPhoneRestoreScopeMode.All;
