@@ -13,6 +13,8 @@ namespace GetAndSee.Core.Search;
 /// <param name="MinSize">Inclusive minimum size in bytes, or <see langword="null"/>.</param>
 /// <param name="MaxSize">Inclusive maximum size in bytes, or <see langword="null"/>.</param>
 /// <param name="HasGps">When <see langword="true"/>, only files that carry GPS coordinates match.</param>
+/// <param name="IncludeHeic">When <see langword="true"/>, HEIC/HEIF files are included; when <see langword="false"/>, HEIC/HEIF files are excluded.</param>
+/// <param name="FileNameKeyword">Case-insensitive substring matched against file name or relative path, or <see langword="null"/>.</param>
 public sealed record MediaSearchCriteria(
     DateTimeOffset? From = null,
     DateTimeOffset? To = null,
@@ -20,7 +22,9 @@ public sealed record MediaSearchCriteria(
     string? Camera = null,
     long? MinSize = null,
     long? MaxSize = null,
-    bool HasGps = false);
+    bool HasGps = false,
+    bool IncludeHeic = true,
+    string? FileNameKeyword = null);
 
 /// <summary>A single file that matched a <see cref="MediaSearchCriteria"/>.</summary>
 /// <param name="RelativePath">Destination path relative to the archive root.</param>
@@ -83,6 +87,25 @@ public static class MediaSearch
         if (criteria.Type is MediaType wanted && type != wanted)
         {
             return false;
+        }
+
+        if (!criteria.IncludeHeic)
+        {
+            string ext = Path.GetExtension(row.RelativePath);
+            if (ext.Equals(".heic", StringComparison.OrdinalIgnoreCase) || ext.Equals(".heif", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(criteria.FileNameKeyword))
+        {
+            string fileName = Path.GetFileName(row.RelativePath);
+            if (!fileName.Contains(criteria.FileNameKeyword, StringComparison.OrdinalIgnoreCase) &&
+                !row.RelativePath.Contains(criteria.FileNameKeyword, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
         }
 
         if (criteria.From is DateTimeOffset from && (row.CapturedAt is not DateTimeOffset captured || captured < from))

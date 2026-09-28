@@ -115,4 +115,15 @@ public sealed class TransferJournalTests : IDisposable
         counts.Done.ShouldBe(1);
         counts.Failed.ShouldBe(1);
     }
+
+    [Fact]
+    public void GetDestRelativePath_returns_recorded_dest_path()
+    {
+        var file = new RemoteFile("/DCIM/test.HEIC", 100, null);
+        journal.EnsurePending(file);
+        string dest = Path.Combine("2026-09", "test.HEIC");
+        journal.MarkDone(file.Path, file.Size, dest, MediaMetadata.Empty, DateTimeOffset.UtcNow);
+
+        journal.GetDestRelativePath(file.Path, file.Size).ShouldBe(dest);
+    }
 }

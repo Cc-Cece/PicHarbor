@@ -27,7 +27,7 @@ public sealed class TransferJournal : IDisposable
     public const string DatabaseFileName = "get-and-see.db";
 
     /// <summary>Current journal schema version (bumped when tables are added; migrated in place).</summary>
-    public const long SchemaVersion = 3;
+    public const long SchemaVersion = 6;
 
     /// <summary>The <c>settings</c> key under which an archive's <c>organize_scheme</c> token is stored.</summary>
     private const string OrganizeSchemeKey = "organize_scheme";
@@ -154,6 +154,98 @@ public sealed class TransferJournal : IDisposable
             WHERE state = 'done';
             """);
 
+        Execute(
+            """
+            CREATE TABLE IF NOT EXISTS devices (
+                udid       TEXT PRIMARY KEY,
+                name       TEXT,
+                model      TEXT,
+                first_seen TEXT,
+                last_seen  TEXT
+            );
+            """);
+        Execute(
+            """
+            CREATE TABLE IF NOT EXISTS runs (
+                id          INTEGER PRIMARY KEY,
+                started_at  TEXT NOT NULL,
+                finished_at TEXT,
+                command     TEXT,
+                copied      INTEGER NOT NULL DEFAULT 0,
+                skipped     INTEGER NOT NULL DEFAULT 0,
+                failed      INTEGER NOT NULL DEFAULT 0,
+                exit_code   INTEGER,
+                device_udid TEXT
+            );
+            """);
+        Execute(
+            """
+            CREATE TABLE IF NOT EXISTS settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            """);
+        Execute(
+            """
+            CREATE TABLE IF NOT EXISTS android_devices (
+                device_id    TEXT PRIMARY KEY,
+                name         TEXT NOT NULL,
+                created_at   TEXT NOT NULL,
+                last_seen_at TEXT NOT NULL
+            );
+            """);
+        Execute(
+            """
+            CREATE TABLE IF NOT EXISTS android_sync_records (
+                dest_path TEXT NOT NULL,
+                device_id TEXT NOT NULL,
+                synced_at TEXT NOT NULL,
+                PRIMARY KEY (dest_path, device_id)
+            );
+            """);
+        Execute(
+            """
+            CREATE TABLE IF NOT EXISTS iphone_exported_files (
+                dest_path       TEXT PRIMARY KEY,
+                exported_path   TEXT NOT NULL,
+                device_model    TEXT NOT NULL,
+                exported_at     TEXT NOT NULL,
+                file_size       INTEGER NOT NULL,
+                sha256          TEXT
+            );
+            """);
+        Execute(
+            """
+            CREATE TABLE IF NOT EXISTS iphone_devices (
+                device_model    TEXT PRIMARY KEY,
+                sync_folder     TEXT NOT NULL,
+                last_exported   TEXT NOT NULL
+            );
+            """);
+        Execute(
+            """
+            CREATE TABLE IF NOT EXISTS iphone_manual_selections (
+                device_model   TEXT NOT NULL,
+                dest_path      TEXT NOT NULL,
+                added_at       TEXT NOT NULL,
+                is_autofilled  INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (device_model, dest_path)
+            );
+            """);
+        Execute(
+            """
+            CREATE TABLE IF NOT EXISTS android_manual_selections (
+                device_id      TEXT NOT NULL,
+                dest_path      TEXT NOT NULL,
+                added_at       TEXT NOT NULL,
+                is_autofilled  INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (device_id, dest_path)
+            );
+            """);
+
+        EnsureColumnExists("iphone_manual_selections", "is_autofilled", "INTEGER NOT NULL DEFAULT 0");
+        EnsureColumnExists("android_manual_selections", "is_autofilled", "INTEGER NOT NULL DEFAULT 0");
+
         Migrate();
     }
 
@@ -225,6 +317,73 @@ public sealed class TransferJournal : IDisposable
                 stamp.Parameters.AddWithValue("$value", OrganizeSchemes.YearMonthToken);
                 stamp.ExecuteNonQuery();
             }
+        }
+
+        if (version < 4)
+        {
+            Execute(
+                """
+                CREATE TABLE IF NOT EXISTS android_devices (
+                    device_id    TEXT PRIMARY KEY,
+                    name         TEXT NOT NULL,
+                    created_at   TEXT NOT NULL,
+                    last_seen_at TEXT NOT NULL
+                );
+                """);
+            Execute(
+                """
+                CREATE TABLE IF NOT EXISTS android_sync_records (
+                    dest_path TEXT NOT NULL,
+                    device_id TEXT NOT NULL,
+                    synced_at TEXT NOT NULL,
+                    PRIMARY KEY (dest_path, device_id)
+                );
+                """);
+        }
+
+        if (version < 5)
+        {
+            Execute(
+                """
+                CREATE TABLE IF NOT EXISTS iphone_exported_files (
+                    dest_path       TEXT PRIMARY KEY,
+                    exported_path   TEXT NOT NULL,
+                    device_model    TEXT NOT NULL,
+                    exported_at     TEXT NOT NULL,
+                    file_size       INTEGER NOT NULL,
+                    sha256          TEXT
+                );
+                """);
+            Execute(
+                """
+                CREATE TABLE IF NOT EXISTS iphone_devices (
+                    device_model    TEXT PRIMARY KEY,
+                    sync_folder     TEXT NOT NULL,
+                    last_exported   TEXT NOT NULL
+                );
+                """);
+            Execute(
+                """
+                CREATE TABLE IF NOT EXISTS iphone_manual_selections (
+                    device_model   TEXT NOT NULL,
+                    dest_path      TEXT NOT NULL,
+                    added_at       TEXT NOT NULL,
+                    PRIMARY KEY (device_model, dest_path)
+                );
+                """);
+        }
+
+        if (version < 6)
+        {
+            Execute(
+                """
+                CREATE TABLE IF NOT EXISTS android_manual_selections (
+                    device_id      TEXT NOT NULL,
+                    dest_path      TEXT NOT NULL,
+                    added_at       TEXT NOT NULL,
+                    PRIMARY KEY (device_id, dest_path)
+                );
+                """);
         }
 
         Execute($"PRAGMA user_version = {SchemaVersion};");
@@ -345,6 +504,16 @@ public sealed class TransferJournal : IDisposable
         command.Parameters.AddWithValue("$path", sourcePath);
         command.Parameters.AddWithValue("$size", sourceSize);
         return FileStateText.FromText(command.ExecuteScalar() as string);
+    }
+
+    /// <summary>Returns the recorded destination path for a file, or null if not yet set.</summary>
+    public string? GetDestRelativePath(string sourcePath, long sourceSize)
+    {
+        using SqliteCommand command = CreateCommand(
+            "SELECT dest_path FROM files WHERE source_path = $path AND source_size = $size;");
+        command.Parameters.AddWithValue("$path", sourcePath);
+        command.Parameters.AddWithValue("$size", sourceSize);
+        return command.ExecuteScalar() as string;
     }
 
     /// <summary>Marks a file as <see cref="FileState.InProgress"/> and stamps its start time.</summary>
@@ -742,6 +911,26 @@ public sealed class TransferJournal : IDisposable
         return command.ExecuteScalar() is not null;
     }
 
+    private void EnsureColumnExists(string table, string column, string definition)
+    {
+        if (!TableExists(table)) return;
+        try
+        {
+            using SqliteCommand pragma = CreateCommand($"PRAGMA table_info({table});");
+            using SqliteDataReader reader = pragma.ExecuteReader();
+            while (reader.Read())
+            {
+                if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase))
+                {
+                    return; // Column already exists
+                }
+            }
+
+            Execute($"ALTER TABLE {table} ADD COLUMN {column} {definition};");
+        }
+        catch { }
+    }
+
     private static string? IsoUtc(DateTimeOffset? value) =>
         value?.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
 
@@ -766,6 +955,626 @@ public sealed class TransferJournal : IDisposable
     private static DateTimeOffset? ParseIsoOrNull(string? value) =>
         value is null ? null : ParseIso(value);
 
+    /// <summary>Registers or updates an Android device record in SQLite.</summary>
+    public void UpsertAndroidDevice(string deviceId, string name, DateTimeOffset lastSeenAt)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        using SqliteCommand command = CreateCommand(
+            """
+            INSERT INTO android_devices (device_id, name, created_at, last_seen_at)
+            VALUES ($device_id, $name, $created_at, $last_seen_at)
+            ON CONFLICT(device_id) DO UPDATE SET
+                name = excluded.name,
+                last_seen_at = excluded.last_seen_at;
+            """);
+        command.Parameters.AddWithValue("$device_id", deviceId);
+        command.Parameters.AddWithValue("$name", name);
+        command.Parameters.AddWithValue("$created_at", lastSeenAt.ToString("o", CultureInfo.InvariantCulture));
+        command.Parameters.AddWithValue("$last_seen_at", lastSeenAt.ToString("o", CultureInfo.InvariantCulture));
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Records that a file was successfully transferred over FTP to a specific Android device.</summary>
+    public void RecordAndroidSync(string destPath, string deviceId, DateTimeOffset syncedAt)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+
+        using SqliteCommand command = CreateCommand(
+            """
+            INSERT OR REPLACE INTO android_sync_records (dest_path, device_id, synced_at)
+            VALUES ($dest_path, $device_id, $synced_at);
+            """);
+        command.Parameters.AddWithValue("$dest_path", destPath);
+        command.Parameters.AddWithValue("$device_id", deviceId);
+        command.Parameters.AddWithValue("$synced_at", syncedAt.ToString("o", CultureInfo.InvariantCulture));
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Returns the set of relative destination paths that have been synced to the target Android device.</summary>
+    public HashSet<string> GetAndroidSyncedDestPaths(string deviceId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        if (!TableExists("android_sync_records"))
+        {
+            return set;
+        }
+
+        using SqliteCommand command = CreateCommand(
+            "SELECT dest_path FROM android_sync_records WHERE device_id = $device_id;");
+        command.Parameters.AddWithValue("$device_id", deviceId);
+
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            set.Add(reader.GetString(0));
+        }
+
+        return set;
+    }
+
+    /// <summary>Reads all registered Android devices from SQLite.</summary>
+    public IReadOnlyList<Android.AndroidDeviceRecord> ReadAndroidDevices()
+    {
+        var list = new List<Android.AndroidDeviceRecord>();
+        if (!TableExists("android_devices"))
+        {
+            return list;
+        }
+
+        using SqliteCommand command = CreateCommand(
+            "SELECT device_id, name, created_at, last_seen_at FROM android_devices ORDER BY last_seen_at DESC;");
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            string id = reader.GetString(0);
+            string name = reader.GetString(1);
+            DateTimeOffset created = DateTimeOffset.TryParse(reader.GetString(2), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var c) ? c : DateTimeOffset.MinValue;
+            DateTimeOffset last = DateTimeOffset.TryParse(reader.GetString(3), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var l) ? l : DateTimeOffset.MinValue;
+
+            list.Add(new Android.AndroidDeviceRecord(id, name, created, last));
+        }
+
+        return list;
+    }
+
+    /// <summary>Returns all exported file records for the given device model from <c>iphone_exported_files</c>.</summary>
+    public IReadOnlyList<IPhoneExportedFileRecord> GetIPhoneExportedFiles(string deviceModel)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        var result = new List<IPhoneExportedFileRecord>();
+        if (!TableExists("iphone_exported_files"))
+        {
+            return result;
+        }
+
+        using SqliteCommand command = CreateCommand(
+            """
+            SELECT dest_path, exported_path, device_model, exported_at, file_size, sha256
+            FROM iphone_exported_files
+            WHERE device_model = $model;
+            """);
+        command.Parameters.AddWithValue("$model", deviceModel);
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add(new IPhoneExportedFileRecord(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                DateTimeOffset.Parse(reader.GetString(3), CultureInfo.InvariantCulture),
+                reader.GetInt64(4),
+                reader.IsDBNull(5) ? null : reader.GetString(5)));
+        }
+
+        return result;
+    }
+
+    /// <summary>Upserts a row into <c>iphone_exported_files</c>.</summary>
+    public void UpsertIPhoneExportedFile(IPhoneExportedFileRecord record)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        using SqliteCommand command = CreateCommand(
+            """
+            INSERT INTO iphone_exported_files (dest_path, exported_path, device_model, exported_at, file_size, sha256)
+            VALUES ($dest, $exported, $model, $at, $size, $sha)
+            ON CONFLICT(dest_path) DO UPDATE SET
+                exported_path = excluded.exported_path,
+                device_model = excluded.device_model,
+                exported_at = excluded.exported_at,
+                file_size = excluded.file_size,
+                sha256 = excluded.sha256;
+            """);
+        command.Parameters.AddWithValue("$dest", record.DestPath);
+        command.Parameters.AddWithValue("$exported", record.ExportedPath);
+        command.Parameters.AddWithValue("$model", record.DeviceModel);
+        command.Parameters.AddWithValue("$at", IsoUtc(record.ExportedAt)!);
+        command.Parameters.AddWithValue("$size", record.FileSize);
+        command.Parameters.AddWithValue("$sha", (object?)record.Sha256 ?? DBNull.Value);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Removes a row from <c>iphone_exported_files</c> by its destination relative path.</summary>
+    public void DeleteIPhoneExportedFile(string destPath)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(destPath);
+        if (!TableExists("iphone_exported_files")) return;
+
+        using SqliteCommand command = CreateCommand(
+            "DELETE FROM iphone_exported_files WHERE dest_path = $dest;");
+        command.Parameters.AddWithValue("$dest", destPath);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Returns the recorded <c>iphone_devices</c> row for the specified device model, if any.</summary>
+    public IPhoneDeviceRecord? GetIPhoneDevice(string deviceModel)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        if (!TableExists("iphone_devices")) return null;
+
+        using SqliteCommand command = CreateCommand(
+            "SELECT device_model, sync_folder, last_exported FROM iphone_devices WHERE device_model = $model;");
+        command.Parameters.AddWithValue("$model", deviceModel);
+        using SqliteDataReader reader = command.ExecuteReader();
+        if (reader.Read())
+        {
+            return new IPhoneDeviceRecord(
+                reader.GetString(0),
+                reader.GetString(1),
+                DateTimeOffset.Parse(reader.GetString(2), CultureInfo.InvariantCulture));
+        }
+
+        return null;
+    }
+
+    /// <summary>Upserts a row into <c>iphone_devices</c>.</summary>
+    public void UpsertIPhoneDevice(string deviceModel, string syncFolder, DateTimeOffset lastExported)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        ArgumentException.ThrowIfNullOrWhiteSpace(syncFolder);
+
+        using SqliteCommand command = CreateCommand(
+            """
+            INSERT INTO iphone_devices (device_model, sync_folder, last_exported)
+            VALUES ($model, $folder, $at)
+            ON CONFLICT(device_model) DO UPDATE SET
+                sync_folder = excluded.sync_folder,
+                last_exported = excluded.last_exported;
+            """);
+        command.Parameters.AddWithValue("$model", deviceModel);
+        command.Parameters.AddWithValue("$folder", syncFolder);
+        command.Parameters.AddWithValue("$at", IsoUtc(lastExported)!);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Returns all manually selected destination relative paths for the specified device model.</summary>
+    public HashSet<string> GetManualSelections(string deviceModel)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!TableExists("iphone_manual_selections"))
+        {
+            return set;
+        }
+
+        using SqliteCommand command = CreateCommand(
+            "SELECT dest_path FROM iphone_manual_selections WHERE device_model = $model;");
+        command.Parameters.AddWithValue("$model", deviceModel);
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            set.Add(reader.GetString(0));
+        }
+
+        return set;
+    }
+
+    /// <summary>Returns dictionary of manually selected destination relative paths mapping to whether they were auto-filled.</summary>
+    public Dictionary<string, bool> GetManualSelectionsWithAutofilled(string deviceModel)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        var dict = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        if (!TableExists("iphone_manual_selections"))
+        {
+            return dict;
+        }
+
+        using SqliteCommand command = CreateCommand(
+            "SELECT dest_path, is_autofilled FROM iphone_manual_selections WHERE device_model = $model;");
+        command.Parameters.AddWithValue("$model", deviceModel);
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            dict[reader.GetString(0)] = reader.GetInt32(1) == 1;
+        }
+
+        return dict;
+    }
+
+    /// <summary>
+    /// Checks if a given relative destination path exists in the <c>files</c> table with <c>state = 'done'</c>.
+    /// </summary>
+    public bool IsFileArchivedAndDone(string destPath)
+    {
+        if (string.IsNullOrWhiteSpace(destPath)) return false;
+        string forward = destPath.Replace('\\', '/');
+        string back = destPath.Replace('/', '\\');
+        using SqliteCommand command = CreateCommand(
+            "SELECT EXISTS(SELECT 1 FROM files WHERE (dest_path = $p1 OR dest_path = $p2) AND state = 'done');");
+        command.Parameters.AddWithValue("$p1", forward);
+        command.Parameters.AddWithValue("$p2", back);
+        return command.ExecuteScalar() is long present && present != 0;
+    }
+
+    /// <summary>Adds a destination path to manual selections for the specified device model. Returns true if newly added.</summary>
+    public bool AddManualSelection(string deviceModel, string destPath, bool isAutofilled = false)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destPath);
+
+        using SqliteCommand command = CreateCommand(
+            """
+            INSERT INTO iphone_manual_selections (device_model, dest_path, added_at, is_autofilled)
+            VALUES ($model, $dest, $at, $is_autofilled)
+            ON CONFLICT(device_model, dest_path) DO UPDATE SET is_autofilled = excluded.is_autofilled;
+            """);
+        command.Parameters.AddWithValue("$model", deviceModel);
+        command.Parameters.AddWithValue("$dest", destPath);
+        command.Parameters.AddWithValue("$at", IsoUtc(DateTimeOffset.UtcNow)!);
+        command.Parameters.AddWithValue("$is_autofilled", isAutofilled ? 1 : 0);
+        return command.ExecuteNonQuery() > 0;
+    }
+
+    /// <summary>Removes a destination path from manual selections and cascades cleanup of orphaned auto-filled pairs.</summary>
+    public void RemoveManualSelection(string deviceModel, string destPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destPath);
+
+        if (!TableExists("iphone_manual_selections")) return;
+
+        using SqliteCommand command = CreateCommand(
+            "DELETE FROM iphone_manual_selections WHERE device_model = $model AND dest_path = $dest;");
+        command.Parameters.AddWithValue("$model", deviceModel);
+        command.Parameters.AddWithValue("$dest", destPath);
+        command.ExecuteNonQuery();
+
+        CascadeRemoveOrphanedAutofills(deviceModel);
+    }
+
+    /// <summary>Removes orphaned auto-filled selections that no longer have a manually selected main item in the same folder.</summary>
+    public void CascadeRemoveOrphanedAutofills(string deviceModel)
+    {
+        if (!TableExists("iphone_manual_selections")) return;
+        var dict = GetManualSelectionsWithAutofilled(deviceModel);
+        var autofilledItems = dict.Where(kv => kv.Value).Select(kv => kv.Key).ToList();
+        var manualItems = dict.Where(kv => !kv.Value).Select(kv => kv.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var toRemove = new List<string>();
+        foreach (var autoItem in autofilledItems)
+        {
+            string dir = Path.GetDirectoryName(autoItem.Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
+            string stem = Path.GetFileNameWithoutExtension(autoItem);
+
+            bool hasManualParent = manualItems.Any(m =>
+            {
+                string mDir = Path.GetDirectoryName(m.Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
+                string mStem = Path.GetFileNameWithoutExtension(m);
+                return string.Equals(mDir, dir, StringComparison.OrdinalIgnoreCase) &&
+                       string.Equals(mStem, stem, StringComparison.OrdinalIgnoreCase);
+            });
+
+            if (!hasManualParent)
+            {
+                toRemove.Add(autoItem);
+            }
+        }
+
+        if (toRemove.Count > 0)
+        {
+            BatchRemoveManualSelections(deviceModel, toRemove);
+        }
+    }
+
+    /// <summary>Adds multiple destination paths to manual selections inside a single transaction.</summary>
+    public void BatchAddManualSelections(string deviceModel, IEnumerable<string> destPaths, bool isAutofilled = false)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        ArgumentNullException.ThrowIfNull(destPaths);
+
+        using var transaction = connection.BeginTransaction();
+        using SqliteCommand command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            """
+            INSERT INTO iphone_manual_selections (device_model, dest_path, added_at, is_autofilled)
+            VALUES ($model, $dest, $at, $is_autofilled)
+            ON CONFLICT(device_model, dest_path) DO UPDATE SET is_autofilled = excluded.is_autofilled;
+            """;
+        var modelParam = command.Parameters.Add("$model", SqliteType.Text);
+        var destParam = command.Parameters.Add("$dest", SqliteType.Text);
+        var atParam = command.Parameters.Add("$at", SqliteType.Text);
+        var autoParam = command.Parameters.Add("$is_autofilled", SqliteType.Integer);
+        modelParam.Value = deviceModel;
+        atParam.Value = IsoUtc(DateTimeOffset.UtcNow)!;
+        autoParam.Value = isAutofilled ? 1 : 0;
+
+        foreach (var path in destPaths)
+        {
+            if (string.IsNullOrWhiteSpace(path)) continue;
+            destParam.Value = path;
+            command.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    /// <summary>Removes multiple destination paths from manual selections inside a single transaction.</summary>
+    public void BatchRemoveManualSelections(string deviceModel, IEnumerable<string> destPaths)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        ArgumentNullException.ThrowIfNull(destPaths);
+
+        if (!TableExists("iphone_manual_selections")) return;
+
+        using var transaction = connection.BeginTransaction();
+        using SqliteCommand command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "DELETE FROM iphone_manual_selections WHERE device_model = $model AND dest_path = $dest;";
+        var modelParam = command.Parameters.Add("$model", SqliteType.Text);
+        var destParam = command.Parameters.Add("$dest", SqliteType.Text);
+        modelParam.Value = deviceModel;
+
+        foreach (var path in destPaths)
+        {
+            if (string.IsNullOrWhiteSpace(path)) continue;
+            destParam.Value = path;
+            command.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    /// <summary>Clears all manual selections for the specified device model.</summary>
+    public void ClearManualSelections(string deviceModel)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
+        if (!TableExists("iphone_manual_selections")) return;
+
+        using SqliteCommand command = CreateCommand(
+            "DELETE FROM iphone_manual_selections WHERE device_model = $model;");
+        command.Parameters.AddWithValue("$model", deviceModel);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Returns all manually selected destination relative paths for the specified Android device ID.</summary>
+    public HashSet<string> GetAndroidManualSelections(string deviceId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!TableExists("android_manual_selections"))
+        {
+            return set;
+        }
+
+        using SqliteCommand command = CreateCommand(
+            "SELECT dest_path FROM android_manual_selections WHERE device_id = $device_id;");
+        command.Parameters.AddWithValue("$device_id", deviceId);
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            set.Add(reader.GetString(0));
+        }
+
+        return set;
+    }
+
+    /// <summary>Returns dictionary of manually selected destination relative paths mapping to whether they were auto-filled for Android.</summary>
+    public Dictionary<string, bool> GetAndroidManualSelectionsWithAutofilled(string deviceId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        var dict = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        if (!TableExists("android_manual_selections"))
+        {
+            return dict;
+        }
+
+        using SqliteCommand command = CreateCommand(
+            "SELECT dest_path, is_autofilled FROM android_manual_selections WHERE device_id = $device_id;");
+        command.Parameters.AddWithValue("$device_id", deviceId);
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            dict[reader.GetString(0)] = reader.GetInt32(1) == 1;
+        }
+
+        return dict;
+    }
+
+    /// <summary>Adds a destination path to manual selections for the specified Android device ID. Returns true if newly added.</summary>
+    public bool AddAndroidManualSelection(string deviceId, string destPath, bool isAutofilled = false)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destPath);
+
+        using SqliteCommand command = CreateCommand(
+            """
+            INSERT INTO android_manual_selections (device_id, dest_path, added_at, is_autofilled)
+            VALUES ($device_id, $dest, $at, $is_autofilled)
+            ON CONFLICT(device_id, dest_path) DO UPDATE SET is_autofilled = excluded.is_autofilled;
+            """);
+        command.Parameters.AddWithValue("$device_id", deviceId);
+        command.Parameters.AddWithValue("$dest", destPath);
+        command.Parameters.AddWithValue("$at", IsoUtc(DateTimeOffset.UtcNow)!);
+        command.Parameters.AddWithValue("$is_autofilled", isAutofilled ? 1 : 0);
+        return command.ExecuteNonQuery() > 0;
+    }
+
+    /// <summary>Removes a destination path from manual selections for the specified Android device ID.</summary>
+    public void RemoveAndroidManualSelection(string deviceId, string destPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destPath);
+
+        if (!TableExists("android_manual_selections")) return;
+
+        using SqliteCommand command = CreateCommand(
+            "DELETE FROM android_manual_selections WHERE device_id = $device_id AND dest_path = $dest;");
+        command.Parameters.AddWithValue("$device_id", deviceId);
+        command.Parameters.AddWithValue("$dest", destPath);
+        command.ExecuteNonQuery();
+
+        CascadeRemoveOrphanedAndroidAutofills(deviceId);
+    }
+
+    /// <summary>Removes orphaned auto-filled selections that no longer have a manually selected main item in the same folder for Android.</summary>
+    public void CascadeRemoveOrphanedAndroidAutofills(string deviceId)
+    {
+        if (!TableExists("android_manual_selections")) return;
+        var dict = GetAndroidManualSelectionsWithAutofilled(deviceId);
+        var autofilledItems = dict.Where(kv => kv.Value).Select(kv => kv.Key).ToList();
+        var manualItems = dict.Where(kv => !kv.Value).Select(kv => kv.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var toRemove = new List<string>();
+        foreach (var autoItem in autofilledItems)
+        {
+            string dir = Path.GetDirectoryName(autoItem.Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
+            string stem = Path.GetFileNameWithoutExtension(autoItem);
+
+            bool hasManualParent = manualItems.Any(m =>
+            {
+                string mDir = Path.GetDirectoryName(m.Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
+                string mStem = Path.GetFileNameWithoutExtension(m);
+                return string.Equals(mDir, dir, StringComparison.OrdinalIgnoreCase) &&
+                       string.Equals(mStem, stem, StringComparison.OrdinalIgnoreCase);
+            });
+
+            if (!hasManualParent)
+            {
+                toRemove.Add(autoItem);
+            }
+        }
+
+        if (toRemove.Count > 0)
+        {
+            BatchRemoveAndroidManualSelections(deviceId, toRemove);
+        }
+    }
+
+    /// <summary>Adds multiple destination paths to manual selections for Android inside a single transaction.</summary>
+    public void BatchAddAndroidManualSelections(string deviceId, IEnumerable<string> destPaths, bool isAutofilled = false)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        ArgumentNullException.ThrowIfNull(destPaths);
+
+        using var transaction = connection.BeginTransaction();
+        using SqliteCommand command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            """
+            INSERT INTO android_manual_selections (device_id, dest_path, added_at, is_autofilled)
+            VALUES ($device_id, $dest, $at, $is_autofilled)
+            ON CONFLICT(device_id, dest_path) DO UPDATE SET is_autofilled = excluded.is_autofilled;
+            """;
+        var idParam = command.Parameters.Add("$device_id", SqliteType.Text);
+        var destParam = command.Parameters.Add("$dest", SqliteType.Text);
+        var atParam = command.Parameters.Add("$at", SqliteType.Text);
+        var autoParam = command.Parameters.Add("$is_autofilled", SqliteType.Integer);
+        idParam.Value = deviceId;
+        atParam.Value = IsoUtc(DateTimeOffset.UtcNow)!;
+        autoParam.Value = isAutofilled ? 1 : 0;
+
+        foreach (var path in destPaths)
+        {
+            if (string.IsNullOrWhiteSpace(path)) continue;
+            destParam.Value = path;
+            command.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    /// <summary>Removes multiple destination paths from manual selections for Android inside a single transaction.</summary>
+    public void BatchRemoveAndroidManualSelections(string deviceId, IEnumerable<string> destPaths)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        ArgumentNullException.ThrowIfNull(destPaths);
+
+        if (!TableExists("android_manual_selections")) return;
+
+        using var transaction = connection.BeginTransaction();
+        using SqliteCommand command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "DELETE FROM android_manual_selections WHERE device_id = $device_id AND dest_path = $dest;";
+        var idParam = command.Parameters.Add("$device_id", SqliteType.Text);
+        var destParam = command.Parameters.Add("$dest", SqliteType.Text);
+        idParam.Value = deviceId;
+
+        foreach (var path in destPaths)
+        {
+            if (string.IsNullOrWhiteSpace(path)) continue;
+            destParam.Value = path;
+            command.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    /// <summary>Clears all manual selections for the specified Android device ID.</summary>
+    public void ClearAndroidManualSelections(string deviceId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        if (!TableExists("android_manual_selections")) return;
+
+        using SqliteCommand command = CreateCommand(
+            "DELETE FROM android_manual_selections WHERE device_id = $device_id;");
+        command.Parameters.AddWithValue("$device_id", deviceId);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Removes an Android sync record by destination path and device ID.</summary>
+    public void RemoveAndroidSyncRecord(string destPath, string deviceId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+
+        if (!TableExists("android_sync_records")) return;
+
+        using SqliteCommand command = CreateCommand(
+            "DELETE FROM android_sync_records WHERE dest_path = $dest AND device_id = $device_id;");
+        command.Parameters.AddWithValue("$dest", destPath);
+        command.Parameters.AddWithValue("$device_id", deviceId);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Returns synced destination paths for an Android device that are no longer in the target set.</summary>
+    public List<string> GetOrphanedAndroidSyncedFiles(string deviceId, IReadOnlySet<string> activeTargetPaths)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        ArgumentNullException.ThrowIfNull(activeTargetPaths);
+
+        var list = new List<string>();
+        if (!TableExists("android_sync_records")) return list;
+
+        using SqliteCommand command = CreateCommand(
+            "SELECT dest_path FROM android_sync_records WHERE device_id = $device_id;");
+        command.Parameters.AddWithValue("$device_id", deviceId);
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            string path = reader.GetString(0);
+            if (!activeTargetPaths.Contains(path))
+            {
+                list.Add(path);
+            }
+        }
+
+        return list;
+    }
+
     /// <summary>Closes the underlying SQLite connection.</summary>
     public void Dispose()
     {
@@ -778,6 +1587,21 @@ public sealed class TransferJournal : IDisposable
         connection.Dispose();
     }
 }
+
+/// <summary>An exported file row recorded in <c>iphone_exported_files</c>.</summary>
+public sealed record IPhoneExportedFileRecord(
+    string DestPath,
+    string ExportedPath,
+    string DeviceModel,
+    DateTimeOffset ExportedAt,
+    long FileSize,
+    string? Sha256 = null);
+
+/// <summary>An iPhone sync device record in <c>iphone_devices</c>.</summary>
+public sealed record IPhoneDeviceRecord(
+    string DeviceModel,
+    string SyncFolder,
+    DateTimeOffset LastExported);
 
 /// <summary>Per-state file counts from the journal.</summary>
 /// <param name="Pending">Files not yet started.</param>

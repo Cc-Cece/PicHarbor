@@ -43,6 +43,8 @@ public static class LongPath
             return path;
         }
 
+        path = path.Replace('/', '\\');
+
         // Already extended (covers both \\?\ and \\?\UNC\).
         if (path.StartsWith(ExtendedPrefix, StringComparison.Ordinal))
         {

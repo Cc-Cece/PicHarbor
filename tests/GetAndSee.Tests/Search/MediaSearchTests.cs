@@ -109,6 +109,19 @@ public sealed class MediaSearchTests : IDisposable
     }
 
     [Fact]
+    public void Excludes_heic_when_IncludeHeic_is_false()
+    {
+        Find(new MediaSearchCriteria(IncludeHeic: false)).ShouldBe([ShotC, VideoB, OtherD]);
+    }
+
+    [Fact]
+    public void Filters_by_filename_keyword()
+    {
+        Find(new MediaSearchCriteria(FileNameKeyword: "A.HEIC")).ShouldBe([PhotoA]);
+        Find(new MediaSearchCriteria(FileNameKeyword: "2024-09")).ShouldBe([VideoB]);
+    }
+
+    [Fact]
     public void Returns_empty_when_nothing_matches()
     {
         Find(new MediaSearchCriteria(Type: MediaType.Photo, To: EndOfDay(2020, 12, 31))).ShouldBeEmpty();
