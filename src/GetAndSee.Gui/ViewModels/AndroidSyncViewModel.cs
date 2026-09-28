@@ -45,7 +45,35 @@ public partial class AndroidSyncViewModel : ObservableObject
     private string androidDeviceId = "";
 
     [ObservableProperty]
-    private bool enableMirrorDelete = true;
+    private AndroidRestoreMode restoreMode = AndroidRestoreMode.Default;
+
+    public bool IsDefaultRestoreMode
+    {
+        get => RestoreMode == AndroidRestoreMode.Default;
+        set
+        {
+            if (value && RestoreMode != AndroidRestoreMode.Default)
+            {
+                RestoreMode = AndroidRestoreMode.Default;
+                OnPropertyChanged(nameof(IsDefaultRestoreMode));
+                OnPropertyChanged(nameof(IsHistoricalIncrementalMode));
+            }
+        }
+    }
+
+    public bool IsHistoricalIncrementalMode
+    {
+        get => RestoreMode == AndroidRestoreMode.HistoricalIncremental;
+        set
+        {
+            if (value && RestoreMode != AndroidRestoreMode.HistoricalIncremental)
+            {
+                RestoreMode = AndroidRestoreMode.HistoricalIncremental;
+                OnPropertyChanged(nameof(IsDefaultRestoreMode));
+                OnPropertyChanged(nameof(IsHistoricalIncrementalMode));
+            }
+        }
+    }
 
     // --- Restore Scope Properties ---
     [ObservableProperty]
@@ -1090,7 +1118,7 @@ public partial class AndroidSyncViewModel : ObservableObject
             FtpUser = AndroidFtpUser,
             FtpPassword = AndroidFtpPassword,
             RemoteTargetDir = AndroidTargetDir,
-            EnableMirrorDelete = EnableMirrorDelete,
+            RestoreMode = RestoreMode,
             ScopeMode = ScopeMode,
             DateFrom = dateFrom,
             DateTo = dateTo,

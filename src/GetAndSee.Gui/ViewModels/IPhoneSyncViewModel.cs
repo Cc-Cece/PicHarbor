@@ -76,9 +76,6 @@ public partial class IPhoneSyncViewModel : ObservableObject
     [ObservableProperty]
     private IPhoneAlbumMode albumMode = IPhoneAlbumMode.YearMonth;
 
-    [ObservableProperty]
-    private bool enableMirrorDelete = true;
-
     // --- Restore Scope Properties ---
     [ObservableProperty]
     private IPhoneRestoreScopeMode scopeMode = IPhoneRestoreScopeMode.All;
@@ -900,27 +897,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
             });
     }
 
-    public void RequestMirrorDeleteToggle(bool newValue)
-    {
-        if (newValue)
-        {
-            EnableMirrorDelete = true;
-            return;
-        }
 
-        ShowConfirmationModal(
-            App.GetString("MsgMirrorDeleteWarningTitle", "ℹ️ 关闭镜像删除提示"),
-            App.GetString("MsgMirrorDeleteWarningBody", "关闭后，归档中已删除的照片仍将保留在同步文件夹中，同步到 iPhone 的照片将不会自动移除。是否确认？"),
-            () =>
-            {
-                EnableMirrorDelete = false;
-                AddLog("[INFO] 镜像删除选项已关闭。");
-            },
-            () =>
-            {
-                OnPropertyChanged(nameof(EnableMirrorDelete));
-            });
-    }
 
     public void RequestSyncPathChange(string newPath)
     {
@@ -1140,7 +1117,6 @@ public partial class IPhoneSyncViewModel : ObservableObject
             DeviceModel = DeviceModel,
             CustomSyncFolder = string.IsNullOrWhiteSpace(CustomSyncFolder) ? null : CustomSyncFolder,
             AlbumMode = AlbumMode,
-            EnableMirrorDelete = EnableMirrorDelete,
             ScopeMode = ScopeMode,
             DateFrom = dateFrom,
             DateTo = dateTo,

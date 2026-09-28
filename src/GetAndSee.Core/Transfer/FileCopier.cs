@@ -185,10 +185,31 @@ public sealed class FileCopier : IDisposable
             throw new DeviceConnectionLostException();
         }
 
-        if (journal.GetState(file.Path, file.Size) == FileState.Done)
+        string? relPath = journal.GetDestRelativePath(file.Path, file.Size)
+                          ?? organizer.GetRelativeDestination(file, null, organizeScheme);
+        string candidatePath = LongPath.ToExtended(Path.Combine(destinationRoot, relPath));
+
+        if (File.Exists(candidatePath))
         {
-            progressWatchdog?.RecordProgress();
-            return new CopyResult(CopyStatus.Skipped, file, null, 0, null);
+            var targetInfo = new FileInfo(candidatePath);
+            bool isJournalDone = journal.GetState(file.Path, file.Size) == FileState.Done;
+
+            var sourceId = new FileIdentity(file.Path, file.Size, file.ModifiedAt);
+            var targetId = new FileIdentity(candidatePath, targetInfo.Length, targetInfo.LastWriteTimeUtc);
+
+            var equiv = FileEquivalenceResolver.Resolve(sourceId, targetId, allowHashCheck: false);
+            bool isEquivalent = equiv == FileEquivalenceResult.Equivalent ||
+                                (targetInfo.Length == file.Size && isJournalDone);
+
+            if (isEquivalent)
+            {
+                if (!isJournalDone)
+                {
+                    journal.MarkDone(file.Path, file.Size, relPath, MediaMetadata.Empty, clock.GetUtcNow(), null);
+                }
+                progressWatchdog?.RecordProgress();
+                return new CopyResult(CopyStatus.Skipped, file, relPath, 0, null);
+            }
         }
 
         journal.MarkInProgress(file.Path, file.Size, clock.GetUtcNow());

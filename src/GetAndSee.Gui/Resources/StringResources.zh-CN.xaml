@@ -41,6 +41,11 @@
     <sys:String x:Key="CopiedCountLabel">已复制:</sys:String>
     <sys:String x:Key="SkippedCountLabel">已跳过:</sys:String>
     <sys:String x:Key="FailedCountLabel">失败数:</sys:String>
+    <sys:String x:Key="BackupScopeHeader">🎯 第一步：选择备份范围 (Backup Scope &amp; Filter)</sys:String>
+    <sys:String x:Key="BackupScopeModeAll">全量备份 (默认完整媒体)</sys:String>
+    <sys:String x:Key="BackupScopeModeDateRange">按时间段备份 (适合只备份近期照片)</sys:String>
+    <sys:String x:Key="BackupScopeModeSubfolder">按相册/目录选择</sys:String>
+    <sys:String x:Key="BackupScopeSubfoldersLabel">选择要备份的相册/子目录:</sys:String>
 
     <!-- Android Sync Tab -->
     <sys:String x:Key="AndroidSyncTitle">🤖 恢复到 Android</sys:String>
@@ -194,7 +199,10 @@
 
     <!-- Restore Scope & Manual Selection Strings -->
     <sys:String x:Key="IPhoneScopeHeader">🎯 第一步：选择恢复范围 (Restore Scope &amp; Filter)</sys:String>
-    <sys:String x:Key="IPhoneScopeModeLabel">恢复模式:</sys:String>
+    <sys:String x:Key="AndroidRestoreModeLabel">恢复模式:</sys:String>
+    <sys:String x:Key="AndroidRestoreModeDefault">默认恢复 (按选择范围恢复，不读取历史记录跳过，防重后记录历史)</sys:String>
+    <sys:String x:Key="AndroidRestoreModeHistorical">历史增量 (根据当前设备历史恢复记录跳过，成功后记录历史)</sys:String>
+    <sys:String x:Key="IPhoneScopeModeLabel">范围筛选:</sys:String>
     <sys:String x:Key="ScopeModeAll">全量恢复 (默认完整镜像)</sys:String>
     <sys:String x:Key="ScopeModeDateRange">按时间段恢复 (适合手机存近期照片)</sys:String>
     <sys:String x:Key="ScopeModeSubfolder">按目录/相册选择</sys:String>

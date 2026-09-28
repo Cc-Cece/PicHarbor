@@ -62,33 +62,11 @@ public static class AndroidSyncEngine
 
         string normalizedDir = config.RemoteTargetDir.Replace('\\', '/').TrimEnd('/');
 
-        // Remote FTP Mirror Delete Phase (if enabled)
-        if (config.EnableMirrorDelete)
-        {
-            var targetDestSet = manifestFiles.Select(m => m.DestPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            List<string> orphanedFiles = journal.GetOrphanedAndroidSyncedFiles(deviceId, targetDestSet);
-            foreach (string file in orphanedFiles)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                string remotePath = $"{normalizedDir}/{file.Replace('\\', '/')}";
-                try
-                {
-                    await ftp.DeleteFileAsync(remotePath, cancellationToken).ConfigureAwait(false);
-                    onLog?.Invoke($"[ANDROID MIRROR CLEAN] 🗑️ Deleted obsolete file on remote device: {file}");
-                }
-                catch (Exception ex)
-                {
-                    onLog?.Invoke($"[ANDROID MIRROR CLEAN WARNING] Failed deleting remote file {remotePath}: {ex.Message}");
-                }
-                journal.RemoveAndroidSyncRecord(file, deviceId);
-            }
-        }
-
         int copied = 0, skipped = 0, failed = 0;
         long bytesCopied = 0;
         long totalBytes = manifestFiles.Sum(f => f.SizeBytes);
 
-        onLog?.Invoke($"[ANDROID] Starting sync for device {deviceId} ({manifestFiles.Count:N0} files matched by scope out of {fullManifest.Count:N0} in archive, {syncedSet.Count:N0} previously synced)...");
+        onLog?.Invoke($"[ANDROID] Starting sync for device {deviceId} (RestoreMode: {config.RestoreMode}, {manifestFiles.Count:N0} files matched by scope out of {fullManifest.Count:N0} in archive)...");
 
         var progressModel = new TransferProgress(manifestFiles.Count, totalBytes);
         using var reporter = new ObservableProgressReporter(progressTarget, TimeSpan.FromMilliseconds(200));
@@ -99,13 +77,35 @@ public static class AndroidSyncEngine
             cancellationToken.ThrowIfCancellationRequested();
             string remoteFilePath = $"{normalizedDir}/{file.DestPath.Replace('\\', '/')}";
 
-            if (syncedSet.Contains(file.DestPath))
+            bool shouldSkip = false;
+            string skipReasonDesc = "";
+
+            if (config.RestoreMode == AndroidRestoreMode.HistoricalIncremental)
+            {
+                if (syncedSet.Contains(file.DestPath))
+                {
+                    shouldSkip = true;
+                    skipReasonDesc = "根据设备历史恢复记录跳过（Historical Incremental）";
+                }
+            }
+            else
+            {
+                // Default Restore: Check Current Target State (FTP remote file size equivalence)
+                long? remoteSize = await ftp.GetFileSizeAsync(remoteFilePath, cancellationToken).ConfigureAwait(false);
+                if (remoteSize.HasValue && remoteSize.Value == file.SizeBytes)
+                {
+                    shouldSkip = true;
+                    skipReasonDesc = "Android 目标文件已存在且大小等价（Current Target Equivalence）";
+                }
+            }
+
+            if (shouldSkip)
             {
                 skipped++;
                 progressModel.StartFile(file.DestPath, file.SizeBytes);
                 progressModel.RecordSkippedBytes(file.SizeBytes);
                 progressModel.CompleteFile(CopyStatus.Skipped);
-                onItemOutcome?.Invoke(file.DestPath, remoteFilePath, file.SizeBytes, CopyStatus.Skipped, "Android 目标目录及 SQLite 日志显示该文件已同步");
+                onItemOutcome?.Invoke(file.DestPath, remoteFilePath, file.SizeBytes, CopyStatus.Skipped, skipReasonDesc);
                 continue;
             }
 

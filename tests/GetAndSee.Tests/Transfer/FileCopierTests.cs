@@ -99,9 +99,14 @@ public sealed class FileCopierTests : IDisposable
     public async Task Skips_files_already_done()
     {
         var file = new RemoteFile("/DCIM/100APPLE/IMG_3.HEIC", 10, null);
+        string relPath = "2024/2024-08/IMG_3.HEIC";
+        string absPath = Path.Combine(destination.Path, relPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(absPath)!);
+        File.WriteAllBytes(absPath, new byte[10]);
+
         journal.EnsurePending(file);
         journal.MarkDone(
-            file.Path, file.Size, Path.Combine("2024", "2024-08", "IMG_3.HEIC"),
+            file.Path, file.Size, relPath,
             MediaMetadata.Empty, DateTimeOffset.UtcNow);
 
         CopyResult result = await CreateCopier().CopyAsync(file, Token);

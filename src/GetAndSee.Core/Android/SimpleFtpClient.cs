@@ -147,6 +147,32 @@ public sealed class SimpleFtpClient : IDisposable
     }
 
     /// <summary>
+    /// Returns the size of a remote file on the FTP server in bytes, or null if the file does not exist or size is unavailable.
+    /// </summary>
+    public async Task<long?> GetFileSizeAsync(string remoteFilePath, CancellationToken cancellationToken = default)
+    {
+        EnsureConnected();
+        string remotePath = remoteFilePath.Replace('\\', '/');
+        try
+        {
+            string resp = await SendCommandAsync($"SIZE {remotePath}", cancellationToken).ConfigureAwait(false);
+            if (resp.StartsWith("213", StringComparison.Ordinal))
+            {
+                string sizeStr = resp.Substring(4).Trim();
+                if (long.TryParse(sizeStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out long size))
+                {
+                    return size;
+                }
+            }
+        }
+        catch
+        {
+            // Ignore error if SIZE is unsupported or file missing
+        }
+        return null;
+    }
+
+    /// <summary>
     /// Deletes a file on the remote FTP server (using DELE command).
     /// </summary>
     public async Task DeleteFileAsync(string remoteFilePath, CancellationToken cancellationToken = default)
