@@ -201,7 +201,7 @@
                                 <!-- Backup Scope Selection Card -->
                                 <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
                                     <StackPanel>
-                                        <TextBlock Text="{DynamicResource Step1HeaderCard}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,12"/>
+                                        <TextBlock Text="{DynamicResource BackupScopeHeader}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,12"/>
 
                                         <Grid Margin="0,0,0,12">
                                             <Grid.ColumnDefinitions>
@@ -211,8 +211,8 @@
                                             <TextBlock Text="{DynamicResource IPhoneScopeModeLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Top" Margin="0,2,12,0"/>
                                             <StackPanel Grid.Column="1">
                                                 <!-- Scope options: All, Date, Subfolder ONLY (NO Manual) -->
-                                                <RadioButton Content="{DynamicResource ScopeModeAll}" IsChecked="{Binding IsScopeAll, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,0,8" Padding="12,6"/>
-                                                <RadioButton Content="{DynamicResource ScopeModeDateRange}" IsChecked="{Binding IsScopeDateRange, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,0,8" Padding="12,6"/>
+                                                <RadioButton Content="{DynamicResource BackupScopeModeAll}" IsChecked="{Binding IsScopeAll, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,0,8" Padding="12,6"/>
+                                                <RadioButton Content="{DynamicResource BackupScopeModeDateRange}" IsChecked="{Binding IsScopeDateRange, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,0,8" Padding="12,6"/>
 
                                                 <!-- Date Range Inputs with Calendar & Presets -->
                                                 <Border Margin="24,4,0,8" Padding="12" Background="#0F172A" CornerRadius="8" BorderBrush="#1E293B" BorderThickness="1"
@@ -240,14 +240,14 @@
                                                     </StackPanel>
                                                 </Border>
 
-                                                <RadioButton Content="{DynamicResource ScopeModeSubfolder}" IsChecked="{Binding IsScopeSubfolder, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,0,8" Padding="12,6"/>
+                                                <RadioButton Content="{DynamicResource BackupScopeModeSubfolder}" IsChecked="{Binding IsScopeSubfolder, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,0,8" Padding="12,6"/>
 
                                                 <!-- Subfolder checklist -->
                                                 <Border Margin="24,0,0,8" Padding="10" Background="#0F172A" CornerRadius="6"
                                                         Visibility="{Binding IsScopeSubfolder, Converter={StaticResource BooleanToVisibilityConverter}}">
                                                     <StackPanel>
                                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                                            <TextBlock Text="{DynamicResource ScopeSubfoldersLabel}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                            <TextBlock Text="{DynamicResource BackupScopeSubfoldersLabel}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
                                                             <Button Content="🔄 刷新 iPhone 目录" Command="{Binding RefreshSubfoldersCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" FontSize="11"/>
                                                         </StackPanel>
                                                         <ItemsControl ItemsSource="{Binding Subfolders}">
