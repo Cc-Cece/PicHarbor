@@ -15,14 +15,72 @@ public sealed class AndroidSyncTests : IDisposable
     public void Dispose() => dir.Dispose();
 
     [Fact]
-    public void Open_journal_migrates_schema_to_v5()
+    public void Open_journal_migrates_schema_to_v6()
     {
         using (TransferJournal journal = TransferJournal.Open(dir.Path))
         {
             journal.EnsurePending(new RemoteFile("/DCIM/IMG_1001.JPG", 1024, null));
         }
 
-        ReadUserVersion(dir.Path).ShouldBe(5);
+        ReadUserVersion(dir.Path).ShouldBe(6);
+    }
+
+    [Fact]
+    public void Android_manual_selections_can_be_managed()
+    {
+        using TransferJournal journal = TransferJournal.Open(dir.Path);
+        string devId = "Pixel_8";
+
+        journal.AddAndroidManualSelection(devId, "2024-05/IMG_0001.JPG");
+        journal.AddAndroidManualSelection(devId, "2024-05/IMG_0002.JPG");
+
+        HashSet<string> selections = journal.GetAndroidManualSelections(devId);
+        selections.Count.ShouldBe(2);
+        selections.ShouldContain("2024-05/IMG_0001.JPG");
+        selections.ShouldContain("2024-05/IMG_0002.JPG");
+
+        journal.RemoveAndroidManualSelection(devId, "2024-05/IMG_0001.JPG");
+        selections = journal.GetAndroidManualSelections(devId);
+        selections.Count.ShouldBe(1);
+        selections.ShouldContain("2024-05/IMG_0002.JPG");
+
+        journal.ClearAndroidManualSelections(devId);
+        journal.GetAndroidManualSelections(devId).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Android_sync_config_filters_entries_correctly()
+    {
+        var entry1 = new ManifestEntry("2024/01/IMG_1.JPG", 1000, "2024-01-15T10:00:00Z", "2024-01-15T10:00:00Z");
+        var entry2 = new ManifestEntry("2024/06/IMG_2.JPG", 2000, "2024-06-20T10:00:00Z", "2024-06-20T10:00:00Z");
+
+        // DateRange scope filter
+        var dateConfig = new AndroidSyncConfig
+        {
+            ScopeMode = GetAndSee.Core.iPhone.IPhoneRestoreScopeMode.DateRange,
+            DateFrom = new DateTime(2024, 6, 1),
+            DateTo = new DateTime(2024, 6, 30)
+        };
+        dateConfig.IsEntryIncluded(entry1).ShouldBeFalse();
+        dateConfig.IsEntryIncluded(entry2).ShouldBeTrue();
+
+        // Subfolder scope filter
+        var folderConfig = new AndroidSyncConfig
+        {
+            ScopeMode = GetAndSee.Core.iPhone.IPhoneRestoreScopeMode.Subfolder,
+            SelectedSubfolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "2024/06" }
+        };
+        folderConfig.IsEntryIncluded(entry1).ShouldBeFalse();
+        folderConfig.IsEntryIncluded(entry2).ShouldBeTrue();
+
+        // ManualSelection scope filter
+        var manualConfig = new AndroidSyncConfig
+        {
+            ScopeMode = GetAndSee.Core.iPhone.IPhoneRestoreScopeMode.ManualSelection,
+            ManualSelectedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "2024/01/IMG_1.JPG" }
+        };
+        manualConfig.IsEntryIncluded(entry1).ShouldBeTrue();
+        manualConfig.IsEntryIncluded(entry2).ShouldBeFalse();
     }
 
     [Fact]

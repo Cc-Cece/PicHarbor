@@ -216,4 +216,85 @@ public static class ShellServices
             }
         }
     }
+
+    #region Shell Thumbnail Integration
+
+    [Guid("bcc82b79-4808-4161-967d-098852779423")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IShellItemImageFactory
+    {
+        [PreserveSig]
+        int GetImage(SIZE size, SIIGBF flags, out IntPtr phbm);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SIZE
+    {
+        public int cx;
+        public int cy;
+        public SIZE(int cx, int cy) { this.cx = cx; this.cy = cy; }
+    }
+
+    [Flags]
+    private enum SIIGBF
+    {
+        SIIGBF_RESIZETOFIT = 0x00,
+        SIIGBF_BIGGERSIZEOK = 0x01,
+        SIIGBF_MEMORYONLY = 0x02,
+        SIIGBF_ICONONLY = 0x04,
+        SIIGBF_THUMBNAILONLY = 0x08,
+        SIIGBF_INCACHEONLY = 0x10
+    }
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern int SHCreateItemFromParsingName(
+        [MarshalAs(UnmanagedType.LPWStr)] string pszPath,
+        IntPtr pbc,
+        [In] ref Guid riid,
+        [MarshalAs(UnmanagedType.Interface)] out IShellItemImageFactory ppv);
+
+    [DllImport("gdi32.dll", SetLastError = true)]
+    private static extern bool DeleteObject(IntPtr hObject);
+
+    /// <summary>
+    /// Attempts to retrieve a native Windows Explorer thumbnail image for the specified file.
+    /// Supports HEIC, MOV, MP4, RAW and standard images using registered shell thumbnail handlers.
+    /// </summary>
+    public static System.Windows.Media.ImageSource? GetShellThumbnail(string filePath, int width = 160, int height = 160)
+    {
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            return null;
+
+        try
+        {
+            Guid uuid = typeof(IShellItemImageFactory).GUID;
+            int hr = SHCreateItemFromParsingName(filePath, IntPtr.Zero, ref uuid, out var factory);
+            if (hr == 0 && factory != null)
+            {
+                hr = factory.GetImage(new SIZE(width, height), SIIGBF.SIIGBF_RESIZETOFIT, out IntPtr hBitmap);
+                if (hr == 0 && hBitmap != IntPtr.Zero)
+                {
+                    try
+                    {
+                        var bitmap = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+                            hBitmap,
+                            IntPtr.Zero,
+                            Int32Rect.Empty,
+                            System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
+                        bitmap.Freeze();
+                        return bitmap;
+                    }
+                    finally
+                    {
+                        DeleteObject(hBitmap);
+                    }
+                }
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    #endregion
 }

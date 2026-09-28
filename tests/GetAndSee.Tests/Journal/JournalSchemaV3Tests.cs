@@ -57,7 +57,7 @@ public sealed class JournalSchemaV3Tests : IDisposable
             journal.EnsurePending(new RemoteFile("/DCIM/IMG_1.HEIC", 100, null));
         }
 
-        ReadUserVersion(dir.Path).ShouldBe(5);
+        ReadUserVersion(dir.Path).ShouldBe(TransferJournal.SchemaVersion);
     }
 
     [Fact]

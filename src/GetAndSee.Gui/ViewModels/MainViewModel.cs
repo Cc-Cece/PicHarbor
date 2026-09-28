@@ -52,8 +52,13 @@ public partial class MainViewModel : ObservableObject
             App.SwitchLanguage(config.CurrentLanguage);
         }
 
-        // Link SearchVM to IPhoneSyncVM for manual selection coordination
+        // Link SearchVM to IPhoneSyncVM and AndroidSyncVM for manual selection coordination
         SearchVM.IPhoneSyncVM = IPhoneSyncVM;
+        SearchVM.AndroidSyncVM = AndroidSyncVM;
+
+        // Wire navigation callbacks for Auto-completion Settings
+        IPhoneSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 6;
+        AndroidSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 6;
 
         // Sync initial destination path across all sub-ViewModels
         SyncDestinationPath(DestinationPath);
@@ -147,7 +152,14 @@ public partial class MainViewModel : ObservableObject
         CurrentLanguage = culture;
         App.SwitchLanguage(culture);
         IPhoneSyncVM.OnLanguageChanged();
+        AndroidSyncVM.OnLanguageChanged();
         SaveConfig();
         _ = ProbeDeviceStatusAsync();
+    }
+
+    [RelayCommand]
+    private void NavigateToSettings()
+    {
+        SelectedTabIndex = 6;
     }
 }

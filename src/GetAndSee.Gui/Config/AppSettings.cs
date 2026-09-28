@@ -21,6 +21,11 @@ public sealed class AppConfig
     public string AndroidFtpPassword { get; set; } = "";
     public string AndroidTargetDir { get; set; } = "/DCIM/GetAndSee/iPhone/";
     public string AndroidDeviceId { get; set; } = "";
+
+    // Auto-Completion Settings
+    public bool AutoCompleteLivePhotoPair { get; set; } = true;
+    public bool AutoCompleteAaeSidecar { get; set; } = true;
+    public bool AutoCompleteRawJpg { get; set; } = false;
 }
 
 public static class AppSettings

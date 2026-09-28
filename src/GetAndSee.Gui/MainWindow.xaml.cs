@@ -146,28 +146,111 @@ public partial class MainWindow : Window
         try
         {
             base.OnKeyDown(e);
-            if (DataContext is MainViewModel { SearchVM: { IsPreviewOpen: true } searchVM })
+            if (DataContext is MainViewModel mainVM)
             {
-                if (e.Key == Key.Escape)
+                if (mainVM.SearchVM is { IsPreviewOpen: true } searchVM)
                 {
-                    searchVM.ClosePreviewCommand.Execute(null);
-                    e.Handled = true;
+                    if (e.Key == Key.Escape)
+                    {
+                        searchVM.ClosePreviewCommand.Execute(null);
+                        e.Handled = true;
+                        return;
+                    }
+                    else if (e.Key == Key.Left)
+                    {
+                        searchVM.PrevPreviewCommand.Execute(null);
+                        e.Handled = true;
+                        return;
+                    }
+                    else if (e.Key == Key.Right)
+                    {
+                        searchVM.NextPreviewCommand.Execute(null);
+                        e.Handled = true;
+                        return;
+                    }
                 }
-                else if (e.Key == Key.Left)
+
+                if (e.Key == Key.V && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
                 {
-                    searchVM.PrevPreviewCommand.Execute(null);
-                    e.Handled = true;
-                }
-                else if (e.Key == Key.Right)
-                {
-                    searchVM.NextPreviewCommand.Execute(null);
-                    e.Handled = true;
+                    if (mainVM.SelectedTabIndex == 1 && mainVM.IPhoneSyncVM.IsScopeManualSelection)
+                    {
+                        if (mainVM.IPhoneSyncVM.PasteFilesFromClipboardCommand.CanExecute(null))
+                        {
+                            mainVM.IPhoneSyncVM.PasteFilesFromClipboardCommand.Execute(null);
+                            e.Handled = true;
+                        }
+                    }
+                    else if (mainVM.SelectedTabIndex == 2 && mainVM.AndroidSyncVM.IsScopeManualSelection)
+                    {
+                        if (mainVM.AndroidSyncVM.PasteFilesFromClipboardCommand.CanExecute(null))
+                        {
+                            mainVM.AndroidSyncVM.PasteFilesFromClipboardCommand.Execute(null);
+                            e.Handled = true;
+                        }
+                    }
                 }
             }
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"OnKeyDown error: {ex.Message}");
+        }
+    }
+
+    private void ManualDropZone_DragOver(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            e.Effects = DragDropEffects.Copy;
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+        e.Handled = true;
+    }
+
+    private void IPhoneManualDropZone_Drop(object sender, DragEventArgs e)
+    {
+        try
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
+                {
+                    if (DataContext is MainViewModel { IPhoneSyncVM: { } vm })
+                    {
+                        vm.ProcessPickedFiles(files);
+                        e.Handled = true;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"IPhoneManualDropZone_Drop error: {ex.Message}");
+        }
+    }
+
+    private void AndroidManualDropZone_Drop(object sender, DragEventArgs e)
+    {
+        try
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
+                {
+                    if (DataContext is MainViewModel { AndroidSyncVM: { } vm })
+                    {
+                        vm.ProcessPickedFiles(files);
+                        e.Handled = true;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"AndroidManualDropZone_Drop error: {ex.Message}");
         }
     }
 

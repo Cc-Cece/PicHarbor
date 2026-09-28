@@ -205,13 +205,57 @@
     <sys:String x:Key="ScopeViewEditListBtn">👁️ View/Edit List ({0})</sys:String>
     <sys:String x:Key="ScopeClearListBtn">🗑️ Clear List</sys:String>
     <sys:String x:Key="MenuAddToIPhone">📱 Add to iPhone Restore Selection</sys:String>
-    <sys:String x:Key="MenuRemoveFromIPhone">❌ Remove from Selection</sys:String>
-    <sys:String x:Key="ManualSelectionModalTitle">📱 Manual Selection Restore List</sys:String>
+    <sys:String x:Key="MenuRemoveFromIPhone">❌ Remove from iPhone Selection</sys:String>
+    <sys:String x:Key="MenuAddToAndroid">🤖 Add to Android Restore Selection</sys:String>
+    <sys:String x:Key="MenuRemoveFromAndroid">❌ Remove from Android Selection</sys:String>
+    <sys:String x:Key="ManualSelectionModalTitle">Manual Selection List</sys:String>
+    <sys:String x:Key="AndroidManualSelectionModalTitle">Android Manual Selection List</sys:String>
+    <sys:String x:Key="ScopeManualEmptyHint">No media items in manual selection list</sys:String>
+    <sys:String x:Key="ScopeManualEmptySubHint">Go to "Media Search" tab and right-click any photo or video to add it to iPhone or Android selection list.</sys:String>
     <sys:String x:Key="RemoveFromListBtn">🗑️ Remove</sys:String>
     <sys:String x:Key="ClearAllListBtn">🗑️ Clear All</sys:String>
     <sys:String x:Key="Step1HeaderCard">🎯 Step 1: Restore Scope &amp; Filter</sys:String>
     <sys:String x:Key="Step2HeaderCard">⚙️ Step 2: Sync Folder &amp; Rule Settings</sys:String>
     <sys:String x:Key="Step3HeaderCard">🚀 Step 3: Execution &amp; Guide Console</sys:String>
+    <sys:String x:Key="AndroidStep2HeaderCard">🌐 Step 2: Android FTP Connection &amp; Settings</sys:String>
+    <sys:String x:Key="AndroidStep3HeaderCard">🚀 Step 3: FTP Action Console</sys:String>
+
+    <!-- Explorer Selection Integration Strings -->
+    <sys:String x:Key="PickFilesFromExplorerBtn">📂 Pick Photos from Explorer...</sys:String>
+    <sys:String x:Key="DragDropZoneHint">📥 Drag photos from Explorer here, or press Ctrl+V to paste</sys:String>
+    <sys:String x:Key="TitlePickFilesFromExplorer">Pick Photos from Explorer...</sys:String>
+    <sys:String x:Key="FilterMediaFiles">Media Files|*.jpg;*.jpeg;*.heic;*.png;*.webp;*.mov;*.mp4;*.dng;*.cr2;*.nef;*.arw|All Files|*.*</sys:String>
+    <sys:String x:Key="MsgPickedSuccess">✅ Successfully added {0} photos to selection list.</sys:String>
+    <sys:String x:Key="MsgPickedWithIgnored">⚠️ Successfully added {0} photos. ({1} non-archived files ignored)</sys:String>
+    <sys:String x:Key="MsgPickedAlreadyExists">ℹ️ Selected files are already in the selection list.</sys:String>
+    <sys:String x:Key="MsgClipboardNoFiles">⚠️ No file paths in clipboard. Copy (Ctrl+C) photos in Explorer first.</sys:String>
+
+    <!-- Auto-Completion & Preflight Check Strings -->
+    <sys:String x:Key="ScopeAutoPairCountText">🪄 Auto-complete missing pair files ({0})</sys:String>
+    <sys:String x:Key="MsgAutoPairSuccess">✨ Auto-completion success! Added {0} Live Photo/sidecar pair files.</sys:String>
+    <sys:String x:Key="TitlePreflightIntercept">⚠️ Pre-Export Sanity Interception</sys:String>
+    <sys:String x:Key="MsgPreflightBrokenPairs">💡 Detected {0} media items with missing Live Photo video/sidecar components:</sys:String>
+    <sys:String x:Key="MsgPreflightMissingFiles">❌ Detected {0} physical files missing or deleted on PC disk:</sys:String>
+    <sys:String x:Key="FixPreflightAndProceedBtn">🪄 Auto-Fix Pairs &amp; Proceed</sys:String>
+    <sys:String x:Key="IgnorePreflightAndProceedBtn">⚠️ Ignore Warning &amp; Proceed</sys:String>
+    <sys:String x:Key="CancelPreflightModalBtn">✕ Cancel Export</sys:String>
+    <sys:String x:Key="SmartAutoPairHeaderCard">💡 Smart Media Pairing Suggestions</sys:String>
+    <sys:String x:Key="SettingAutoCompleteHeader">🪄 Media Restore Auto-Completion Settings</sys:String>
+    <sys:String x:Key="SettingAutoCompleteLivePhoto">Auto-complete matching .MOV video when selecting Live Photos (.HEIC/.JPG)</sys:String>
+    <sys:String x:Key="SettingAutoCompleteAae">Auto-complete matching .AAE sidecars when selecting edited photos</sys:String>
+    <sys:String x:Key="SettingAutoCompleteRawJpg">Auto-complete matching .JPG previews when selecting RAW photos (.DNG)</sys:String>
+    <sys:String x:Key="BadgeAutofilledLabel">🪄 Auto-filled</sys:String>
+    <sys:String x:Key="ToolTipAutofilledBadge">This item was automatically added by system auto-completion rules</sys:String>
+    <sys:String x:Key="MsgPickedWithAutoPairNotice">✨ Added {0} photos! Automatically paired {1} associated files ({2}). Marked as [🪄 Auto-filled] in selection list.</sys:String>
+    <sys:String x:Key="OpenSettingsTabBtn">⚙️ Open Auto-Completion Settings</sys:String>
+
+    <!-- Date Picker & Preset Quick Shortcut Strings -->
+    <sys:String x:Key="ScopeClearDateBtn">🗑️ Reset Dates</sys:String>
+    <sys:String x:Key="ScopeQuickPresetsLabel">Presets:</sys:String>
+    <sys:String x:Key="PresetLast30Days">⚡ Last 30 Days</sys:String>
+    <sys:String x:Key="PresetLast90Days">⚡ Last 3 Months</sys:String>
+    <sys:String x:Key="PresetLast1Year">⚡ Last 1 Year</sys:String>
+    <sys:String x:Key="PresetThisYear">⚡ This Year</sys:String>
 
 </ResourceDictionary>
 

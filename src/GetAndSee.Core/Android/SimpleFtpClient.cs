@@ -147,6 +147,20 @@ public sealed class SimpleFtpClient : IDisposable
     }
 
     /// <summary>
+    /// Deletes a file on the remote FTP server (using DELE command).
+    /// </summary>
+    public async Task DeleteFileAsync(string remoteFilePath, CancellationToken cancellationToken = default)
+    {
+        EnsureConnected();
+        string remotePath = remoteFilePath.Replace('\\', '/');
+        string deleResp = await SendCommandAsync($"DELE {remotePath}", cancellationToken).ConfigureAwait(false);
+        if (!deleResp.StartsWith("250", StringComparison.Ordinal) && !deleResp.StartsWith("200", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"FTP DELE command failed ({remotePath}): {deleResp}");
+        }
+    }
+
+    /// <summary>
     /// Uploads text content to a remote FTP path.
     /// </summary>
     public async Task UploadTextAsync(string remoteFilePath, string content, CancellationToken cancellationToken = default)

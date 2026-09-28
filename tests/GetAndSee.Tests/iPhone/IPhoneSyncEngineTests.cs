@@ -208,6 +208,7 @@ public sealed class IPhoneSyncEngineTests : IDisposable
         var config = new IPhoneExportConfig
         {
             DeviceModel = "iPhone 15 Pro",
+            AlbumMode = IPhoneAlbumMode.Flat,
             ScopeMode = IPhoneRestoreScopeMode.Subfolder,
             SelectedSubfolders = new HashSet<string> { "Vacation" }
         };
@@ -216,8 +217,8 @@ public sealed class IPhoneSyncEngineTests : IDisposable
 
         result.CopiedCount.ShouldBe(1);
         string exportRoot = Path.Combine(archiveDir.Path, ".AppleSync", "iPhone 15 Pro");
-        File.Exists(Path.Combine(exportRoot, "Vacation", "IMG_01.JPG")).ShouldBeTrue();
-        File.Exists(Path.Combine(exportRoot, "Work", "IMG_02.JPG")).ShouldBeFalse();
+        File.Exists(Path.Combine(exportRoot, "IMG_01.JPG")).ShouldBeTrue();
+        File.Exists(Path.Combine(exportRoot, "IMG_02.JPG")).ShouldBeFalse();
     }
 
     [Fact]
@@ -245,6 +246,7 @@ public sealed class IPhoneSyncEngineTests : IDisposable
         var config = new IPhoneExportConfig
         {
             DeviceModel = "iPhone 15 Pro",
+            AlbumMode = IPhoneAlbumMode.Flat,
             ScopeMode = IPhoneRestoreScopeMode.ManualSelection
         };
 

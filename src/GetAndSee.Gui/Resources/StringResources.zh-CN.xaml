@@ -205,13 +205,57 @@
     <sys:String x:Key="ScopeViewEditListBtn">👁️ 查看/编辑清单 ({0})</sys:String>
     <sys:String x:Key="ScopeClearListBtn">🗑️ 清空清单</sys:String>
     <sys:String x:Key="MenuAddToIPhone">📱 添加到 iPhone 恢复清单</sys:String>
-    <sys:String x:Key="MenuRemoveFromIPhone">❌ 从清单中移除</sys:String>
-    <sys:String x:Key="ManualSelectionModalTitle">📱 手动挑选恢复清单</sys:String>
+    <sys:String x:Key="MenuRemoveFromIPhone">❌ 从 iPhone 清单中移除</sys:String>
+    <sys:String x:Key="MenuAddToAndroid">🤖 添加到 Android 恢复清单</sys:String>
+    <sys:String x:Key="MenuRemoveFromAndroid">❌ 从 Android 清单中移除</sys:String>
+    <sys:String x:Key="ManualSelectionModalTitle">手动挑选恢复清单</sys:String>
+    <sys:String x:Key="AndroidManualSelectionModalTitle">手动挑选 Android 恢复清单</sys:String>
+    <sys:String x:Key="ScopeManualEmptyHint">清单中暂无手动挑选的媒体</sys:String>
+    <sys:String x:Key="ScopeManualEmptySubHint">请前往「媒体检索」页面，右键照片或视频选择【📱 添加到 iPhone 恢复清单】或【🤖 添加到 Android 恢复清单】</sys:String>
     <sys:String x:Key="RemoveFromListBtn">🗑️ 移除</sys:String>
     <sys:String x:Key="ClearAllListBtn">🗑️ 全部清空</sys:String>
     <sys:String x:Key="Step1HeaderCard">🎯 第一步：选择恢复范围 (Restore Scope &amp; Filter)</sys:String>
     <sys:String x:Key="Step2HeaderCard">⚙️ 第二步：同步文件夹与规则设置</sys:String>
     <sys:String x:Key="Step3HeaderCard">🚀 第三步：执行与引导 (Execution Console)</sys:String>
+    <sys:String x:Key="AndroidStep2HeaderCard">🌐 第二步：Android FTP 连接与参数设置</sys:String>
+    <sys:String x:Key="AndroidStep3HeaderCard">🚀 第三步：FTP 传输控制台 (Action Console)</sys:String>
+
+    <!-- Explorer Selection Integration Strings -->
+    <sys:String x:Key="PickFilesFromExplorerBtn">📂 从资源管理器挑选照片...</sys:String>
+    <sys:String x:Key="DragDropZoneHint">📥 将资源管理器中的照片拖拽至此，或按 Ctrl+V 粘贴</sys:String>
+    <sys:String x:Key="TitlePickFilesFromExplorer">从资源管理器挑选照片...</sys:String>
+    <sys:String x:Key="FilterMediaFiles">媒体文件|*.jpg;*.jpeg;*.heic;*.png;*.webp;*.mov;*.mp4;*.dng;*.cr2;*.nef;*.arw|所有文件|*.*</sys:String>
+    <sys:String x:Key="MsgPickedSuccess">✅ 成功添加 {0} 项照片到挑选清单。</sys:String>
+    <sys:String x:Key="MsgPickedWithIgnored">⚠️ 成功添加 {0} 项照片。（已自动忽略 {1} 项不在归档库中的文件）</sys:String>
+    <sys:String x:Key="MsgPickedAlreadyExists">ℹ️ 选中的文件已存在于挑选清单中。</sys:String>
+    <sys:String x:Key="MsgClipboardNoFiles">⚠️ 剪贴板中没有可粘贴的文件路径。请在 Windows 资源管理器中复制 (Ctrl+C) 照片后重试。</sys:String>
+
+    <!-- Auto-Completion & Preflight Check Strings -->
+    <sys:String x:Key="ScopeAutoPairCountText">🪄 一键补全缺失的配对文件 ({0}项)</sys:String>
+    <sys:String x:Key="MsgAutoPairSuccess">✨ 智能补全成功！自动增加了 {0} 项 Live Photo/侧车配对文件。</sys:String>
+    <sys:String x:Key="TitlePreflightIntercept">⚠️ 恢复完整性校验拦截</sys:String>
+    <sys:String x:Key="MsgPreflightBrokenPairs">💡 检测到 {0} 项媒体缺失配对的 Live Photo 动态视频/侧车组件：</sys:String>
+    <sys:String x:Key="MsgPreflightMissingFiles">❌ 检测到 {0} 项文件在 PC 磁盘上已被移动或删除：</sys:String>
+    <sys:String x:Key="FixPreflightAndProceedBtn">🪄 一键修复配对并继续导出</sys:String>
+    <sys:String x:Key="IgnorePreflightAndProceedBtn">⚠️ 强制跳过自动补全并继续导出</sys:String>
+    <sys:String x:Key="CancelPreflightModalBtn">✕ 取消导出</sys:String>
+    <sys:String x:Key="SmartAutoPairHeaderCard">💡 智能媒体配对建议</sys:String>
+    <sys:String x:Key="SettingAutoCompleteHeader">🪄 媒体恢复自动补全选项</sys:String>
+    <sys:String x:Key="SettingAutoCompleteLivePhoto">挑选 Live Photo (.HEIC/.JPG) 时，自动补全同名 .MOV 动态视频</sys:String>
+    <sys:String x:Key="SettingAutoCompleteAae">挑选已编辑照片时，自动补全同名 .AAE 侧车修图数据文件</sys:String>
+    <sys:String x:Key="SettingAutoCompleteRawJpg">挑选 RAW 照片 (.DNG) 时，自动补全同名 .JPG 预览图</sys:String>
+    <sys:String x:Key="BadgeAutofilledLabel">来自自动补全</sys:String>
+    <sys:String x:Key="ToolTipAutofilledBadge">该项目由系统根据 Live Photo / AAE 侧车配对规则自动补全添加</sys:String>
+    <sys:String x:Key="MsgPickedWithAutoPairNotice">✨ 成功挑选 {0} 项照片！已根据配置自动补全了 {1} 项 Live Photo/侧车配对文件（如 {2}）。在「查看/编辑清单」中已标注 [🪄 来自自动补全] 标记。</sys:String>
+    <sys:String x:Key="OpenSettingsTabBtn">⚙️ 开启自动补全设置</sys:String>
+
+    <!-- Date Picker & Preset Quick Shortcut Strings -->
+    <sys:String x:Key="ScopeClearDateBtn">🗑️ 重置日期</sys:String>
+    <sys:String x:Key="ScopeQuickPresetsLabel">快捷时间段:</sys:String>
+    <sys:String x:Key="PresetLast30Days">⚡ 近 30 天</sys:String>
+    <sys:String x:Key="PresetLast90Days">⚡ 近 3 个月</sys:String>
+    <sys:String x:Key="PresetLast1Year">⚡ 近 1 年</sys:String>
+    <sys:String x:Key="PresetThisYear">⚡ 今年</sys:String>
 
 </ResourceDictionary>
 

@@ -120,10 +120,17 @@
                             </StackPanel>
                         </RadioButton>
 
-                        <RadioButton Content="{DynamicResource NavAndroidSync}" 
-                                     IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=2}"
+                        <RadioButton IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=2}"
                                      Click="NavButton_Click" Tag="2"
-                                     Style="{StaticResource TabRadioButton}" />
+                                     Style="{StaticResource TabRadioButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{DynamicResource NavAndroidSync}" VerticalAlignment="Center"/>
+                                <Border Margin="8,0,0,0" Padding="6,2" Background="#16A34A" CornerRadius="8" VerticalAlignment="Center"
+                                        Visibility="{Binding AndroidSyncVM.HasManualSelections, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Text="{Binding AndroidSyncVM.ManualSelectionCount}" Foreground="White" FontSize="10" FontWeight="Bold"/>
+                                </Border>
+                            </StackPanel>
+                        </RadioButton>
                         <RadioButton Content="{DynamicResource NavStatus}" 
                                      IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=3}"
                                      Click="NavButton_Click" Tag="3"
@@ -392,14 +399,29 @@
                                                 <RadioButton Content="{DynamicResource ScopeModeAll}" IsChecked="{Binding IsScopeAll, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,0,8" Padding="12,6"/>
                                                 <RadioButton Content="{DynamicResource ScopeModeDateRange}" IsChecked="{Binding IsScopeDateRange, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,0,8" Padding="12,6"/>
 
-                                                <!-- Date Range Inputs -->
-                                                <Border Margin="24,0,0,8" Padding="10" Background="#0F172A" CornerRadius="6"
+                                                <!-- Date Range Inputs with Calendar & Presets -->
+                                                <Border Margin="24,4,0,8" Padding="12" Background="#0F172A" CornerRadius="8" BorderBrush="#1E293B" BorderThickness="1"
                                                         Visibility="{Binding IsScopeDateRange, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <TextBlock Text="{DynamicResource ScopeDateFromLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                                        <TextBox Text="{Binding ScopeDateFromText, UpdateSourceTrigger=PropertyChanged}" Width="130" Style="{StaticResource ModernTextBox}" Margin="0,0,16,0"/>
-                                                        <TextBlock Text="{DynamicResource ScopeDateToLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                                        <TextBox Text="{Binding ScopeDateToText, UpdateSourceTrigger=PropertyChanged}" Width="130" Style="{StaticResource ModernTextBox}"/>
+                                                    <StackPanel>
+                                                        <!-- Date Pickers Row -->
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,8">
+                                                            <TextBlock Text="{DynamicResource ScopeDateFromLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12"/>
+                                                            <DatePicker SelectedDate="{Binding ScopeDateFrom, Mode=TwoWay}" Width="140" Height="30" Margin="0,0,16,0"/>
+                                                            
+                                                            <TextBlock Text="{DynamicResource ScopeDateToLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12"/>
+                                                            <DatePicker SelectedDate="{Binding ScopeDateTo, Mode=TwoWay}" Width="140" Height="30" Margin="0,0,16,0"/>
+
+                                                            <Button Content="{DynamicResource ScopeClearDateBtn}" Command="{Binding ClearDateRangeCommand}" Style="{StaticResource SecondaryButton}" Padding="8,4" FontSize="11"/>
+                                                        </StackPanel>
+
+                                                        <!-- Quick Presets Row -->
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <TextBlock Text="{DynamicResource ScopeQuickPresetsLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
+                                                            <Button Content="{DynamicResource PresetLast30Days}" Command="{Binding SetDatePresetLast30DaysCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,0" FontSize="11"/>
+                                                            <Button Content="{DynamicResource PresetLast90Days}" Command="{Binding SetDatePresetLast90DaysCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,0" FontSize="11"/>
+                                                            <Button Content="{DynamicResource PresetLast1Year}" Command="{Binding SetDatePresetLast1YearCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,0" FontSize="11"/>
+                                                            <Button Content="{DynamicResource PresetThisYear}" Command="{Binding SetDatePresetThisYearCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,0" FontSize="11"/>
+                                                        </StackPanel>
                                                     </StackPanel>
                                                 </Border>
 
@@ -427,13 +449,81 @@
 
                                                 <RadioButton Content="{DynamicResource ScopeModeManual}" IsChecked="{Binding IsScopeManualSelection, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,0,0" Padding="12,6"/>
 
-                                                <!-- Manual selection controls -->
-                                                <Border Margin="24,8,0,0" Padding="10" Background="#0F172A" CornerRadius="6"
+                                                <!-- Manual selection controls & Explorer integration -->
+                                                <Border Margin="24,8,0,0" Padding="12" Background="#0F172A" CornerRadius="8"
                                                         Visibility="{Binding IsScopeManualSelection, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding ManualSelectionCountText}" Foreground="{StaticResource PrimaryHoverBrush}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                                                        <Button Content="{Binding ManualSelectionModalBtnText}" Command="{Binding OpenManualModalCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Padding="12,6"/>
-                                                        <Button Content="{DynamicResource ScopeClearListBtn}" Command="{Binding ClearAllManualSelectionsCommand}" Style="{StaticResource SecondaryButton}" Padding="12,6"/>
+                                                    <StackPanel>
+                                                        <!-- Top Action Row (Path A & Path B Drop Zone) -->
+                                                        <Grid Margin="0,0,0,10">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <!-- Path A: Pick from Explorer button -->
+                                                            <Button Grid.Column="0" Content="{DynamicResource PickFilesFromExplorerBtn}" Command="{Binding PickFilesFromExplorerCommand}"
+                                                                    Style="{StaticResource PrimaryButton}" Padding="14,8" Margin="0,0,12,0"/>
+
+                                                            <!-- Path B: Drag & Drop Zone -->
+                                                            <Border Grid.Column="1" Background="#1E293B" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,6"
+                                                                    AllowDrop="True" DragOver="ManualDropZone_DragOver" Drop="IPhoneManualDropZone_Drop" Cursor="Hand">
+                                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                    <TextBlock Text="{DynamicResource DragDropZoneHint}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center"/>
+                                                                </StackPanel>
+                                                            </Border>
+                                                        </Grid>
+
+                                                        <!-- Notification Banner / Feedback Message -->
+                                                        <Border Background="#1E293B" BorderBrush="{StaticResource PrimaryHoverBrush}" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,10">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding NotificationMessage}" Value="">
+                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding NotificationMessage}" Value="{x:Null}">
+                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <TextBlock Text="{Binding NotificationMessage}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" TextWrapping="Wrap"/>
+                                                        </Border>
+
+                                                        <!-- Smart Auto-Pair Suggestions Banner -->
+                                                        <Border Background="#1E293B" BorderBrush="{StaticResource AccentYellowBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,10"
+                                                                Visibility="{Binding HasMissingPairSuggestions, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                            <StackPanel>
+                                                                <TextBlock Text="{DynamicResource SmartAutoPairHeaderCard}" Foreground="{StaticResource AccentYellowBrush}" FontWeight="Bold" FontSize="12" Margin="0,0,0,4"/>
+                                                                <ItemsControl ItemsSource="{Binding MissingPairSuggestions}" Margin="0,0,0,6">
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="4,1">
+                                                                                <Run Text="• "/>
+                                                                                <Run Text="{Binding SourceRelativePath}"/>
+                                                                                <Run Text=" ➔ 缺失 "/>
+                                                                                <Run Text="{Binding SuggestedRelativePath}" FontWeight="SemiBold" Foreground="{StaticResource PrimaryHoverBrush}"/>
+                                                                                <Run Text=" ("/>
+                                                                                <Run Text="{Binding ReasonText}"/>
+                                                                                <Run Text=")"/>
+                                                                            </TextBlock>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <Button Content="{Binding MissingPairCountText}" Command="{Binding AutoFixMissingPairsCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" Padding="12,6" FontSize="12"/>
+                                                                    <Button Content="{DynamicResource OpenSettingsTabBtn}" Command="{Binding OpenSettingsTabCommand}" Style="{StaticResource SecondaryButton}" Padding="12,6" FontSize="12"/>
+                                                                </StackPanel>
+                                                            </StackPanel>
+                                                        </Border>
+
+                                                        <!-- Bottom Controls Row -->
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding ManualSelectionCountText}" Foreground="{StaticResource PrimaryHoverBrush}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                                                            <Button Content="{Binding ManualSelectionModalBtnText}" Command="{Binding OpenManualModalCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Padding="12,6"/>
+                                                            <Button Content="{DynamicResource ScopeClearListBtn}" Command="{Binding ClearAllManualSelectionsCommand}" Style="{StaticResource SecondaryButton}" Padding="12,6"/>
+                                                        </StackPanel>
                                                     </StackPanel>
                                                 </Border>
                                             </StackPanel>
@@ -558,103 +648,6 @@
                                 </Border>
                             </StackPanel>
                         </ScrollViewer>
-
-                        <!-- Manual Selection List Modal Overlay -->
-                        <Grid Visibility="{Binding IsManualModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
-                              Background="#C0000000" Panel.ZIndex="1000">
-                            <Border Background="#1E293B" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1"
-                                    CornerRadius="12" Width="920" Height="580" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                    Padding="20">
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="*"/>
-                                        <RowDefinition Height="Auto"/>
-                                    </Grid.RowDefinitions>
-
-                                    <Grid Grid.Row="0" Margin="0,0,0,15">
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBlock Text="{DynamicResource ManualSelectionModalTitle}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                            <TextBlock Text="{Binding ManualSelectionCountText}" Foreground="{StaticResource PrimaryHoverBrush}" FontSize="12" VerticalAlignment="Center" Margin="12,0,0,0"/>
-                                        </StackPanel>
-                                        <Button Content="✕" Command="{Binding CloseManualModalCommand}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Width="32" Height="32" Padding="0"/>
-                                    </Grid>
-
-                                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Background="#0F172A" Padding="10">
-                                        <ItemsControl ItemsSource="{Binding ManualSelectedItems}">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <WrapPanel />
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Border Width="160" Height="170" CornerRadius="8" Background="#1E293B" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1" Margin="6" ClipToBounds="True">
-                                                        <Grid>
-                                                            <Grid.RowDefinitions>
-                                                                <RowDefinition Height="110"/>
-                                                                <RowDefinition Height="*"/>
-                                                            </Grid.RowDefinitions>
-
-                                                            <Grid Grid.Row="0" Background="#0F172A">
-                                                                <TextBlock Text="🖼️" FontSize="32" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#475569"/>
-                                                                <Image Source="{Binding ThumbnailImage}" Stretch="UniformToFill">
-                                                                    <Image.Style>
-                                                                        <Style TargetType="Image">
-                                                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                                                            <Style.Triggers>
-                                                                                <DataTrigger Binding="{Binding IsThumbnailLoaded}" Value="True">
-                                                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                                                </DataTrigger>
-                                                                            </Style.Triggers>
-                                                                        </Style>
-                                                                    </Image.Style>
-                                                                </Image>
-                                                                
-                                                                <Button Content="✕" Command="{Binding DataContext.RemoveManualItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
-                                                                        Style="{StaticResource SecondaryButton}" Width="24" Height="24" Padding="0" FontSize="11"
-                                                                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4" ToolTip="{DynamicResource RemoveFromListBtn}"/>
-                                                            </Grid>
-
-                                                            <StackPanel Grid.Row="1" Margin="6,4">
-
-                                                                <TextBlock Text="{Binding RelativePath}" Foreground="White" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                                                <Grid Margin="0,2,0,0">
-                                                                    <TextBlock Text="{Binding CapturedAt}" Foreground="#94A3B8" FontSize="10"/>
-                                                                    <TextBlock Text="{Binding SizeText}" Foreground="{StaticResource PrimaryHoverBrush}" FontSize="10" HorizontalAlignment="Right" FontWeight="SemiBold"/>
-                                                                </Grid>
-                                                            </StackPanel>
-                                                        </Grid>
-                                                    </Border>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </ScrollViewer>
-
-                                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
-                                        <Button Content="{DynamicResource ClearAllListBtn}" Command="{Binding ClearAllManualSelectionsCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,12,0" Padding="16,8"/>
-                                        <Button Content="{DynamicResource CloseBtn}" Command="{Binding CloseManualModalCommand}" Style="{StaticResource PrimaryButton}" Padding="20,8"/>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-                        </Grid>
-
-                        <!-- High-Risk Safety Confirmation Modal Overlay -->
-                        <Grid Visibility="{Binding IsModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
-                              Background="#C0000000" Panel.ZIndex="999">
-                            <Border Background="#1E293B" BorderBrush="{StaticResource AccentRedBrush}" BorderThickness="2"
-                                    CornerRadius="12" Width="540" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                    Padding="24">
-                                <StackPanel>
-                                    <TextBlock Text="{Binding ModalTitle}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource AccentRedBrush}" Margin="0,0,0,12"/>
-                                    <TextBlock Text="{Binding ModalMessage}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,20"/>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <Button Content="{DynamicResource CloseBtn}" Command="{Binding CancelModalCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,12,0" Padding="16,8"/>
-                                        <Button Content="{Binding ModalConfirmText}" Command="{Binding ConfirmModalCommand}" Style="{StaticResource PrimaryButton}" Padding="16,8"/>
-                                    </StackPanel>
-                                </StackPanel>
-                            </Border>
-                        </Grid>
                     </Grid>
                 </TabItem>
 
@@ -673,7 +666,159 @@
                                     </StackPanel>
                                 </Border>
 
-                                <!-- Settings & Connection Test Card -->
+                                <!-- Card 1: Restore Scope & Filter -->
+                                <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource Step1HeaderCard}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,12"/>
+
+                                        <Grid Margin="0,0,0,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{DynamicResource IPhoneScopeModeLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Top" Margin="0,2,12,0"/>
+                                            <StackPanel Grid.Column="1">
+                                                <RadioButton Content="{DynamicResource ScopeModeAll}" IsChecked="{Binding IsScopeAll, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,0,8" Padding="12,6"/>
+                                                <RadioButton Content="{DynamicResource ScopeModeDateRange}" IsChecked="{Binding IsScopeDateRange, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,0,8" Padding="12,6"/>
+
+                                                <!-- Date Range Inputs with Calendar & Presets -->
+                                                <Border Margin="24,4,0,8" Padding="12" Background="#0F172A" CornerRadius="8" BorderBrush="#1E293B" BorderThickness="1"
+                                                        Visibility="{Binding IsScopeDateRange, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                    <StackPanel>
+                                                        <!-- Date Pickers Row -->
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,8">
+                                                            <TextBlock Text="{DynamicResource ScopeDateFromLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12"/>
+                                                            <DatePicker SelectedDate="{Binding ScopeDateFrom, Mode=TwoWay}" Width="140" Height="30" Margin="0,0,16,0"/>
+                                                            
+                                                            <TextBlock Text="{DynamicResource ScopeDateToLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12"/>
+                                                            <DatePicker SelectedDate="{Binding ScopeDateTo, Mode=TwoWay}" Width="140" Height="30" Margin="0,0,16,0"/>
+
+                                                            <Button Content="{DynamicResource ScopeClearDateBtn}" Command="{Binding ClearDateRangeCommand}" Style="{StaticResource SecondaryButton}" Padding="8,4" FontSize="11"/>
+                                                        </StackPanel>
+
+                                                        <!-- Quick Presets Row -->
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <TextBlock Text="{DynamicResource ScopeQuickPresetsLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
+                                                            <Button Content="{DynamicResource PresetLast30Days}" Command="{Binding SetDatePresetLast30DaysCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,0" FontSize="11"/>
+                                                            <Button Content="{DynamicResource PresetLast90Days}" Command="{Binding SetDatePresetLast90DaysCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,0" FontSize="11"/>
+                                                            <Button Content="{DynamicResource PresetLast1Year}" Command="{Binding SetDatePresetLast1YearCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,0" FontSize="11"/>
+                                                            <Button Content="{DynamicResource PresetThisYear}" Command="{Binding SetDatePresetThisYearCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,0" FontSize="11"/>
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <RadioButton Content="{DynamicResource ScopeModeSubfolder}" IsChecked="{Binding IsScopeSubfolder, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,0,8" Padding="12,6"/>
+
+                                                <!-- Subfolder checklist -->
+                                                <Border Margin="24,0,0,8" Padding="10" Background="#0F172A" CornerRadius="6"
+                                                        Visibility="{Binding IsScopeSubfolder, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{DynamicResource ScopeSubfoldersLabel}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,6"/>
+                                                        <ItemsControl ItemsSource="{Binding Subfolders}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <CheckBox Content="{Binding FolderName}" IsChecked="{Binding IsChecked, Mode=TwoWay}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,2,12,2"/>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                            <ItemsControl.ItemsPanel>
+                                                                <ItemsPanelTemplate>
+                                                                    <WrapPanel />
+                                                                </ItemsPanelTemplate>
+                                                            </ItemsControl.ItemsPanel>
+                                                        </ItemsControl>
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <RadioButton Content="{DynamicResource ScopeModeManual}" IsChecked="{Binding IsScopeManualSelection, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,0,0" Padding="12,6"/>
+
+                                                <!-- Manual selection controls & Explorer integration -->
+                                                <Border Margin="24,8,0,0" Padding="12" Background="#0F172A" CornerRadius="8"
+                                                        Visibility="{Binding IsScopeManualSelection, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                    <StackPanel>
+                                                        <!-- Top Action Row (Path A & Path B Drop Zone) -->
+                                                        <Grid Margin="0,0,0,10">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <!-- Path A: Pick from Explorer button -->
+                                                            <Button Grid.Column="0" Content="{DynamicResource PickFilesFromExplorerBtn}" Command="{Binding PickFilesFromExplorerCommand}"
+                                                                    Style="{StaticResource PrimaryButton}" Padding="14,8" Margin="0,0,12,0"/>
+
+                                                            <!-- Path B: Drag & Drop Zone -->
+                                                            <Border Grid.Column="1" Background="#1E293B" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,6"
+                                                                    AllowDrop="True" DragOver="ManualDropZone_DragOver" Drop="AndroidManualDropZone_Drop" Cursor="Hand">
+                                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                    <TextBlock Text="{DynamicResource DragDropZoneHint}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" VerticalAlignment="Center"/>
+                                                                </StackPanel>
+                                                            </Border>
+                                                        </Grid>
+
+                                                        <!-- Notification Banner / Feedback Message -->
+                                                        <Border Background="#1E293B" BorderBrush="{StaticResource PrimaryHoverBrush}" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,10">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding NotificationMessage}" Value="">
+                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding NotificationMessage}" Value="{x:Null}">
+                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <TextBlock Text="{Binding NotificationMessage}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" TextWrapping="Wrap"/>
+                                                        </Border>
+
+                                                        <!-- Smart Auto-Pair Suggestions Banner -->
+                                                        <Border Background="#1E293B" BorderBrush="{StaticResource AccentYellowBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,10"
+                                                                Visibility="{Binding HasMissingPairSuggestions, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                            <StackPanel>
+                                                                <TextBlock Text="{DynamicResource SmartAutoPairHeaderCard}" Foreground="{StaticResource AccentYellowBrush}" FontWeight="Bold" FontSize="12" Margin="0,0,0,4"/>
+                                                                <ItemsControl ItemsSource="{Binding MissingPairSuggestions}" Margin="0,0,0,6">
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="4,1">
+                                                                                <Run Text="• "/>
+                                                                                <Run Text="{Binding SourceRelativePath}"/>
+                                                                                <Run Text=" ➔ 缺失 "/>
+                                                                                <Run Text="{Binding SuggestedRelativePath}" FontWeight="SemiBold" Foreground="{StaticResource PrimaryHoverBrush}"/>
+                                                                                <Run Text=" ("/>
+                                                                                <Run Text="{Binding ReasonText}"/>
+                                                                                <Run Text=")"/>
+                                                                            </TextBlock>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <Button Content="{Binding MissingPairCountText}" Command="{Binding AutoFixMissingPairsCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" Padding="12,6" FontSize="12"/>
+                                                                    <Button Content="{DynamicResource OpenSettingsTabBtn}" Command="{Binding OpenSettingsTabCommand}" Style="{StaticResource SecondaryButton}" Padding="12,6" FontSize="12"/>
+                                                                </StackPanel>
+                                                            </StackPanel>
+                                                        </Border>
+
+                                                        <!-- Bottom Controls Row -->
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding ManualSelectionCountText}" Foreground="{StaticResource PrimaryHoverBrush}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                                                            <Button Content="{Binding ManualSelectionModalBtnText}" Command="{Binding OpenManualModalCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Padding="12,6"/>
+                                                            <Button Content="{DynamicResource ScopeClearListBtn}" Command="{Binding ClearAllManualSelectionsCommand}" Style="{StaticResource SecondaryButton}" Padding="12,6"/>
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- Scope Summary Banner Card -->
+                                        <Border Background="#0F172A" BorderBrush="{StaticResource PrimaryHoverBrush}" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,4,0,0">
+                                            <TextBlock Text="{Binding ScopeSummaryText}" Foreground="{StaticResource PrimaryHoverBrush}" FontWeight="Bold" FontSize="13"/>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Card 2: Settings & Connection Test Card -->
                                 <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
                                     <StackPanel>
                                         <TextBlock Text="{DynamicResource AndroidFtpHeader}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,12"/>
@@ -718,6 +863,15 @@
 
                                             <TextBlock Grid.Column="2" Text="{DynamicResource AndroidTargetDirLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                             <TextBox Grid.Column="3" Text="{Binding AndroidTargetDir, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}"/>
+                                        </Grid>
+
+                                        <!-- Mirror Delete Checkbox -->
+                                        <Grid Margin="0,4,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <CheckBox Grid.Column="0" Content="{DynamicResource EnableMirrorDeleteLabel}" IsChecked="{Binding EnableMirrorDelete, Mode=TwoWay}" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                         </Grid>
 
                                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
@@ -1002,19 +1156,32 @@
                                         <TextBox Grid.Column="3" Text="{Binding CameraFilter, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}"/>
                                     </Grid>
 
-                                    <!-- Row 2: Date From & Date To -->
+                                    <!-- Row 2: Date Pickers & Presets -->
                                     <Grid Margin="0,0,0,10">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="{DynamicResource DateFromLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox Grid.Column="1" Text="{Binding FilterFrom, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}" Margin="0,0,16,0"/>
+                                        <DatePicker Grid.Column="1" SelectedDate="{Binding FilterFromDate, Mode=TwoWay}" Width="140" Height="30" Margin="0,0,16,0"/>
 
                                         <TextBlock Grid.Column="2" Text="{DynamicResource DateToLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox Grid.Column="3" Text="{Binding FilterTo, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}"/>
+                                        <DatePicker Grid.Column="3" SelectedDate="{Binding FilterToDate, Mode=TwoWay}" Width="140" Height="30" Margin="0,0,16,0"/>
+
+                                        <Button Grid.Column="4" Content="{DynamicResource ScopeClearDateBtn}" Command="{Binding ClearDateRangeCommand}" Style="{StaticResource SecondaryButton}" Padding="8,4" FontSize="11" Margin="0,0,16,0"/>
+
+                                        <!-- Quick Presets -->
+                                        <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                            <TextBlock Text="{DynamicResource ScopeQuickPresetsLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
+                                            <Button Content="{DynamicResource PresetLast30Days}" Command="{Binding SetDatePresetLast30DaysCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,0" FontSize="11"/>
+                                            <Button Content="{DynamicResource PresetLast90Days}" Command="{Binding SetDatePresetLast90DaysCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,0" FontSize="11"/>
+                                            <Button Content="{DynamicResource PresetLast1Year}" Command="{Binding SetDatePresetLast1YearCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,0" FontSize="11"/>
+                                            <Button Content="{DynamicResource PresetThisYear}" Command="{Binding SetDatePresetThisYearCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,0,0" FontSize="11"/>
+                                        </StackPanel>
                                     </Grid>
 
                                     <!-- Row 3: Media Type, Checkboxes & Search Button -->
@@ -1107,6 +1274,13 @@
                                                           CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                                 <MenuItem Header="{DynamicResource MenuRemoveFromIPhone}" 
                                                           Command="{Binding PlacementTarget.DataContext.RemoveFromIPhoneSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                          CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                <Separator/>
+                                                <MenuItem Header="{DynamicResource MenuAddToAndroid}" 
+                                                          Command="{Binding PlacementTarget.DataContext.AddToAndroidSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                          CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                <MenuItem Header="{DynamicResource MenuRemoveFromAndroid}" 
+                                                          Command="{Binding PlacementTarget.DataContext.RemoveFromAndroidSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                           CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
 
                                             </ContextMenu>
@@ -1226,6 +1400,13 @@
                                                                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                                                         <MenuItem Header="{DynamicResource MenuRemoveFromIPhone}" 
                                                                                   Command="{Binding PlacementTarget.Tag.RemoveFromIPhoneSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                                        <Separator/>
+                                                                        <MenuItem Header="{DynamicResource MenuAddToAndroid}" 
+                                                                                  Command="{Binding PlacementTarget.Tag.AddToAndroidSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                                        <MenuItem Header="{DynamicResource MenuRemoveFromAndroid}" 
+                                                                                  Command="{Binding PlacementTarget.Tag.RemoveFromAndroidSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
 
                                                                     </ContextMenu>
@@ -1394,6 +1575,16 @@
                                         </StackPanel>
                                     </Border>
 
+                                    <!-- Auto-Completion Settings Section -->
+                                    <Border Background="#0F172A" CornerRadius="8" Padding="14" Margin="0,0,0,16">
+                                        <StackPanel>
+                                            <TextBlock Text="{DynamicResource SettingAutoCompleteHeader}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource PrimaryHoverBrush}" Margin="0,0,0,8"/>
+                                            <CheckBox Content="{DynamicResource SettingAutoCompleteLivePhoto}" IsChecked="{Binding AutoCompleteLivePhotoPair}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8"/>
+                                            <CheckBox Content="{DynamicResource SettingAutoCompleteAae}" IsChecked="{Binding AutoCompleteAaeSidecar}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8"/>
+                                            <CheckBox Content="{DynamicResource SettingAutoCompleteRawJpg}" IsChecked="{Binding AutoCompleteRawJpg}" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                        </StackPanel>
+                                    </Border>
+
                                     <!-- Timeout Setting -->
                                     <Grid Margin="0,0,0,16">
                                         <Grid.ColumnDefinitions>
@@ -1469,6 +1660,308 @@
                         </StackPanel>
                     </Grid>
                 </Grid>
+            </Border>
+        </Grid>
+
+        <!-- MANUAL SELECTION LIST MODAL OVERLAY -->
+        <Grid Grid.RowSpan="2" DataContext="{Binding IPhoneSyncVM}"
+              Visibility="{Binding IsManualModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
+              Panel.ZIndex="1000" Background="#C0000000">
+            <Border Background="#1E293B" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1"
+                    CornerRadius="12" MaxWidth="900" MaxHeight="600" Margin="40" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Padding="20">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="0,0,0,15">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Width="32" Height="32" CornerRadius="6" Background="#333B82F6" Margin="0,0,10,0">
+                                <TextBlock Text="📱" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="{DynamicResource ManualSelectionModalTitle}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{Binding ManualSelectionCountText}" Foreground="{StaticResource PrimaryHoverBrush}" FontSize="12" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                        </StackPanel>
+                        <Button Content="✕" Command="{Binding CloseManualModalCommand}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Width="32" Height="32" Padding="0"/>
+                    </Grid>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Background="#0F172A" Padding="10">
+                        <Grid>
+                            <!-- Empty State Placeholder -->
+                            <StackPanel Visibility="{Binding HasNoManualSelections, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,60">
+                                <Border Width="64" Height="64" CornerRadius="32" Background="#1E293B" HorizontalAlignment="Center" Margin="0,0,0,16">
+                                    <TextBlock Text="📱" FontSize="32" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Text="{DynamicResource ScopeManualEmptyHint}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                <TextBlock Text="{DynamicResource ScopeManualEmptySubHint}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="480" TextAlignment="Center"/>
+                            </StackPanel>
+
+                            <!-- Items Grid -->
+                            <ItemsControl ItemsSource="{Binding ManualSelectedItems}" Visibility="{Binding HasManualSelections, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Width="160" Height="175" CornerRadius="8" Background="#1E293B" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1" Margin="6" ClipToBounds="True">
+                                            <Border.ToolTip>
+                                                <ToolTip Background="#0F172A" BorderBrush="#38BDF8" BorderThickness="1" Foreground="White">
+                                                    <StackPanel Margin="4">
+                                                        <TextBlock Text="{Binding RelativePath}" FontWeight="Bold" Foreground="#38BDF8"/>
+                                                        <TextBlock Text="{Binding CapturedAt, StringFormat='拍摄/修改时间: {0}'}" Foreground="#94A3B8" FontSize="11"/>
+                                                        <TextBlock Text="{Binding SizeText, StringFormat='文件大小: {0}'}" Foreground="#94A3B8" FontSize="11"/>
+                                                    </StackPanel>
+                                                </ToolTip>
+                                            </Border.ToolTip>
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="115"/>
+                                                    <RowDefinition Height="*"/>
+                                                </Grid.RowDefinitions>
+
+                                                <Grid Grid.Row="0" Background="#0F172A">
+                                                    <TextBlock Text="🖼️" FontSize="32" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#475569"/>
+                                                    <Image Source="{Binding ThumbnailImage}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality">
+                                                        <Image.Style>
+                                                            <Style TargetType="Image">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsThumbnailLoaded}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Image.Style>
+                                                    </Image>
+
+                                                    <!-- Autofill Badge Overlay -->
+                                                    <Border Visibility="{Binding IsAutofilled, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                            Background="#E00F172A" BorderBrush="#38BDF8" BorderThickness="1"
+                                                            CornerRadius="4" Padding="5,2" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="4"
+                                                            ToolTip="{DynamicResource ToolTipAutofilledBadge}">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="✨" FontSize="10" Foreground="#38BDF8" Margin="0,0,3,0" VerticalAlignment="Center" FontFamily="Segoe UI Emoji, Segoe UI"/>
+                                                            <TextBlock Text="{DynamicResource BadgeAutofilledLabel}" Foreground="#38BDF8" FontSize="9" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                    
+                                                    <Button Content="✕" Command="{Binding DataContext.RemoveManualItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                                            Style="{StaticResource SecondaryButton}" Width="22" Height="22" Padding="0" FontSize="10"
+                                                            HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4" ToolTip="{DynamicResource RemoveFromListBtn}"/>
+                                                </Grid>
+
+                                                <StackPanel Grid.Row="1" Margin="6,4">
+                                                    <TextBlock Text="{Binding RelativePath}" Foreground="White" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                    <Grid Margin="0,2,0,0">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding DisplayCapturedAt}" Foreground="#94A3B8" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,0,4,0"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding SizeText}" Foreground="{StaticResource PrimaryHoverBrush}" FontSize="10" FontWeight="SemiBold"/>
+                                                    </Grid>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                    </ScrollViewer>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+                        <Button Content="{DynamicResource ClearAllListBtn}" Command="{Binding ClearAllManualSelectionsCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,12,0" Padding="16,8"/>
+                        <Button Content="{DynamicResource CloseBtn}" Command="{Binding CloseManualModalCommand}" Style="{StaticResource PrimaryButton}" Padding="20,8"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ANDROID MANUAL SELECTION LIST MODAL OVERLAY -->
+        <Grid Grid.RowSpan="2" DataContext="{Binding AndroidSyncVM}"
+              Visibility="{Binding IsManualModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
+              Panel.ZIndex="1000" Background="#C0000000">
+            <Border Background="#1E293B" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1"
+                    CornerRadius="12" MaxWidth="900" MaxHeight="600" Margin="40" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Padding="20">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="0,0,0,15">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Width="32" Height="32" CornerRadius="6" Background="#3310B981" Margin="0,0,10,0">
+                                <TextBlock Text="🤖" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="{DynamicResource AndroidManualSelectionModalTitle}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{Binding ManualSelectionCountText}" Foreground="{StaticResource PrimaryHoverBrush}" FontSize="12" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                        </StackPanel>
+                        <Button Content="✕" Command="{Binding CloseManualModalCommand}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Width="32" Height="32" Padding="0"/>
+                    </Grid>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Background="#0F172A" Padding="10">
+                        <Grid>
+                            <!-- Empty State Placeholder -->
+                            <StackPanel Visibility="{Binding HasNoManualSelections, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,60">
+                                <Border Width="64" Height="64" CornerRadius="32" Background="#1E293B" HorizontalAlignment="Center" Margin="0,0,0,16">
+                                    <TextBlock Text="🤖" FontSize="32" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Text="{DynamicResource ScopeManualEmptyHint}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                <TextBlock Text="{DynamicResource ScopeManualEmptySubHint}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="480" TextAlignment="Center"/>
+                            </StackPanel>
+
+                            <!-- Items Grid -->
+                            <ItemsControl ItemsSource="{Binding ManualSelectedItems}" Visibility="{Binding HasManualSelections, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Width="160" Height="175" CornerRadius="8" Background="#1E293B" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1" Margin="6" ClipToBounds="True">
+                                            <Border.ToolTip>
+                                                <ToolTip Background="#0F172A" BorderBrush="#38BDF8" BorderThickness="1" Foreground="White">
+                                                    <StackPanel Margin="4">
+                                                        <TextBlock Text="{Binding RelativePath}" FontWeight="Bold" Foreground="#38BDF8"/>
+                                                        <TextBlock Text="{Binding CapturedAt, StringFormat='拍摄/修改时间: {0}'}" Foreground="#94A3B8" FontSize="11"/>
+                                                        <TextBlock Text="{Binding SizeText, StringFormat='文件大小: {0}'}" Foreground="#94A3B8" FontSize="11"/>
+                                                    </StackPanel>
+                                                </ToolTip>
+                                            </Border.ToolTip>
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="115"/>
+                                                    <RowDefinition Height="*"/>
+                                                </Grid.RowDefinitions>
+
+                                                <Grid Grid.Row="0" Background="#0F172A">
+                                                    <TextBlock Text="🖼️" FontSize="32" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#475569"/>
+                                                    <Image Source="{Binding ThumbnailImage}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality">
+                                                        <Image.Style>
+                                                            <Style TargetType="Image">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsThumbnailLoaded}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Image.Style>
+                                                    </Image>
+
+                                                    <!-- Autofill Badge Overlay -->
+                                                    <Border Visibility="{Binding IsAutofilled, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                            Background="#E00F172A" BorderBrush="#38BDF8" BorderThickness="1"
+                                                            CornerRadius="4" Padding="5,2" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="4"
+                                                            ToolTip="{DynamicResource ToolTipAutofilledBadge}">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="✨" FontSize="10" Foreground="#38BDF8" Margin="0,0,3,0" VerticalAlignment="Center" FontFamily="Segoe UI Emoji, Segoe UI"/>
+                                                            <TextBlock Text="{DynamicResource BadgeAutofilledLabel}" Foreground="#38BDF8" FontSize="9" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                    
+                                                    <Button Content="✕" Command="{Binding DataContext.RemoveManualItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                                            Style="{StaticResource SecondaryButton}" Width="22" Height="22" Padding="0" FontSize="10"
+                                                            HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4" ToolTip="{DynamicResource RemoveFromListBtn}"/>
+                                                </Grid>
+
+                                                <StackPanel Grid.Row="1" Margin="6,4">
+                                                    <TextBlock Text="{Binding RelativePath}" Foreground="White" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                    <Grid Margin="0,2,0,0">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding DisplayCapturedAt}" Foreground="#94A3B8" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,0,4,0"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding SizeText}" Foreground="{StaticResource PrimaryHoverBrush}" FontSize="10" FontWeight="SemiBold"/>
+                                                    </Grid>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                    </ScrollViewer>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+                        <Button Content="{DynamicResource ClearAllListBtn}" Command="{Binding ClearAllManualSelectionsCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,12,0" Padding="16,8"/>
+                        <Button Content="{DynamicResource CloseBtn}" Command="{Binding CloseManualModalCommand}" Style="{StaticResource PrimaryButton}" Padding="20,8"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- HIGH-RISK SAFETY CONFIRMATION MODAL OVERLAY -->
+        <Grid Grid.RowSpan="2" DataContext="{Binding IPhoneSyncVM}"
+              Visibility="{Binding IsModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
+              Panel.ZIndex="999" Background="#C0000000">
+            <Border Background="#1E293B" BorderBrush="{StaticResource AccentRedBrush}" BorderThickness="2"
+                    CornerRadius="12" Width="540" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Padding="24">
+                <StackPanel>
+                    <TextBlock Text="{Binding ModalTitle}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource AccentRedBrush}" Margin="0,0,0,12"/>
+                    <TextBlock Text="{Binding ModalMessage}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,20"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="{DynamicResource CloseBtn}" Command="{Binding CancelModalCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,12,0" Padding="16,8"/>
+                        <Button Content="{Binding ModalConfirmText}" Command="{Binding ConfirmModalCommand}" Style="{StaticResource PrimaryButton}" Padding="16,8"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- IPHONE PREFLIGHT INTERCEPT MODAL OVERLAY -->
+        <Grid Grid.RowSpan="2" DataContext="{Binding IPhoneSyncVM}"
+              Visibility="{Binding IsPreflightModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
+              Panel.ZIndex="1001" Background="#C0000000">
+            <Border Background="#1E293B" BorderBrush="{StaticResource AccentYellowBrush}" BorderThickness="2"
+                    CornerRadius="12" Width="620" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Padding="24">
+                <StackPanel>
+                    <TextBlock Text="{Binding PreflightTitle}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource AccentYellowBrush}" Margin="0,0,0,12"/>
+                    <ScrollViewer MaxHeight="280" VerticalScrollBarVisibility="Auto" Margin="0,0,0,20" Background="#0F172A" Padding="12">
+                        <TextBlock Text="{Binding PreflightMessage}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12" TextWrapping="Wrap" FontFamily="Consolas"/>
+                    </ScrollViewer>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="{DynamicResource CancelPreflightModalBtn}" Command="{Binding CancelPreflightModalCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Padding="12,8"/>
+                        <Button Content="{DynamicResource OpenSettingsTabBtn}" Command="{Binding OpenSettingsTabCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Padding="12,8"/>
+                        <Button Content="{DynamicResource IgnorePreflightAndProceedBtn}" Command="{Binding IgnorePreflightAndProceedCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Padding="12,8"/>
+                        <Button Content="{DynamicResource FixPreflightAndProceedBtn}" Command="{Binding FixPreflightAndProceedCommand}" Style="{StaticResource PrimaryButton}" Padding="14,8"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ANDROID PREFLIGHT INTERCEPT MODAL OVERLAY -->
+        <Grid Grid.RowSpan="2" DataContext="{Binding AndroidSyncVM}"
+              Visibility="{Binding IsPreflightModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
+              Panel.ZIndex="1001" Background="#C0000000">
+            <Border Background="#1E293B" BorderBrush="{StaticResource AccentYellowBrush}" BorderThickness="2"
+                    CornerRadius="12" Width="620" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Padding="24">
+                <StackPanel>
+                    <TextBlock Text="{Binding PreflightTitle}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource AccentYellowBrush}" Margin="0,0,0,12"/>
+                    <ScrollViewer MaxHeight="280" VerticalScrollBarVisibility="Auto" Margin="0,0,0,20" Background="#0F172A" Padding="12">
+                        <TextBlock Text="{Binding PreflightMessage}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12" TextWrapping="Wrap" FontFamily="Consolas"/>
+                    </ScrollViewer>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="{DynamicResource CancelPreflightModalBtn}" Command="{Binding CancelPreflightModalCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Padding="12,8"/>
+                        <Button Content="{DynamicResource OpenSettingsTabBtn}" Command="{Binding OpenSettingsTabCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Padding="12,8"/>
+                        <Button Content="{DynamicResource IgnorePreflightAndProceedBtn}" Command="{Binding IgnorePreflightAndProceedCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Padding="12,8"/>
+                        <Button Content="{DynamicResource FixPreflightAndProceedBtn}" Command="{Binding FixPreflightAndProceedCommand}" Style="{StaticResource PrimaryButton}" Padding="14,8"/>
+                    </StackPanel>
+                </StackPanel>
             </Border>
         </Grid>
     </Grid>

@@ -35,6 +35,9 @@ public partial class MediaSearchResultItem : ObservableObject
 
     [ObservableProperty]
     private bool isManualSelectedForIPhone = false;
+
+    [ObservableProperty]
+    private bool isManualSelectedForAndroid = false;
 }
 
 
@@ -48,16 +51,102 @@ public partial class SearchViewModel : ObservableObject
     private CancellationTokenSource? thumbnailCts;
 
     public IPhoneSyncViewModel? IPhoneSyncVM { get; set; }
+    public AndroidSyncViewModel? AndroidSyncVM { get; set; }
 
     [ObservableProperty]
     private string archivePath = MainViewModel.DefaultArchivePath;
 
 
     [ObservableProperty]
+    private DateTime? filterFromDate;
+
+    [ObservableProperty]
+    private DateTime? filterToDate;
+
+    [ObservableProperty]
     private string filterFrom = "";
 
     [ObservableProperty]
     private string filterTo = "";
+
+    partial void OnFilterFromDateChanged(DateTime? value)
+    {
+        string formatted = value?.ToString("yyyy-MM-dd") ?? "";
+        if (filterFrom != formatted)
+        {
+            FilterFrom = formatted;
+        }
+    }
+
+    partial void OnFilterToDateChanged(DateTime? value)
+    {
+        string formatted = value?.ToString("yyyy-MM-dd") ?? "";
+        if (filterTo != formatted)
+        {
+            FilterTo = formatted;
+        }
+    }
+
+    partial void OnFilterFromChanged(string value)
+    {
+        if (DateTime.TryParse(value, out var dt))
+        {
+            if (filterFromDate != dt.Date) filterFromDate = dt.Date;
+        }
+        else if (string.IsNullOrWhiteSpace(value) && filterFromDate != null)
+        {
+            filterFromDate = null;
+        }
+    }
+
+    partial void OnFilterToChanged(string value)
+    {
+        if (DateTime.TryParse(value, out var dt))
+        {
+            if (filterToDate != dt.Date) filterToDate = dt.Date;
+        }
+        else if (string.IsNullOrWhiteSpace(value) && filterToDate != null)
+        {
+            filterToDate = null;
+        }
+    }
+
+    [RelayCommand]
+    private void SetDatePresetLast30Days()
+    {
+        FilterToDate = DateTime.Today;
+        FilterFromDate = DateTime.Today.AddDays(-30);
+    }
+
+    [RelayCommand]
+    private void SetDatePresetLast90Days()
+    {
+        FilterToDate = DateTime.Today;
+        FilterFromDate = DateTime.Today.AddDays(-90);
+    }
+
+    [RelayCommand]
+    private void SetDatePresetLast1Year()
+    {
+        FilterToDate = DateTime.Today;
+        FilterFromDate = DateTime.Today.AddYears(-1);
+    }
+
+    [RelayCommand]
+    private void SetDatePresetThisYear()
+    {
+        FilterToDate = DateTime.Today;
+        FilterFromDate = new DateTime(DateTime.Today.Year, 1, 1);
+    }
+
+    [RelayCommand]
+    private void ClearDateRange()
+    {
+        FilterFromDate = null;
+        FilterToDate = null;
+        FilterFrom = "";
+        FilterTo = "";
+    }
 
     [ObservableProperty]
     private string selectedType = "All (全部)";
@@ -231,6 +320,7 @@ public partial class SearchViewModel : ObservableObject
             string archivePathCopy = ArchivePath;
 
             var manualSet = IPhoneSyncVM?.GetManualSelectionPathsSet() ?? new HashSet<string>();
+            var androidManualSet = AndroidSyncVM?.GetManualSelectionPathsSet() ?? new HashSet<string>();
 
             var (newItems, newGridRows) = await Task.Run(() =>
             {
@@ -252,7 +342,8 @@ public partial class SearchViewModel : ObservableObject
                         CameraModel = "Manifest",
                         GpsCoordinates = "Manifest",
                         HasThumbnail = isImage,
-                        IsManualSelectedForIPhone = manualSet.Contains(hit.RelativePath)
+                        IsManualSelectedForIPhone = manualSet.Contains(hit.RelativePath),
+                        IsManualSelectedForAndroid = androidManualSet.Contains(hit.RelativePath)
                     });
                 }
 
@@ -638,6 +729,76 @@ public partial class SearchViewModel : ObservableObject
 
         IPhoneSyncVM?.LoadManualSelectionsFromDb();
         IPhoneSyncVM?.RecalculateScopeSummary();
+    }
+
+    [RelayCommand]
+    private void AddToAndroidSelection(object? parameter)
+    {
+        var items = ExtractMediaItems(parameter);
+        if (items.Count == 0) return;
+
+        var destPaths = items.Select(x => x.RelativePath).Where(p => !string.IsNullOrEmpty(p)).ToList();
+        if (destPaths.Count == 0) return;
+
+        string path = ArchivePath;
+        string deviceId = AndroidSyncVM?.AndroidDeviceId ?? "Android Device";
+        if (string.IsNullOrWhiteSpace(deviceId)) deviceId = "Android Device";
+
+        if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
+        {
+            try
+            {
+                using var journal = TransferJournal.Open(path);
+                journal.BatchAddAndroidManualSelections(deviceId, destPaths);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"BatchAddAndroidManualSelections error: {ex.Message}");
+            }
+        }
+
+        foreach (var item in items)
+        {
+            item.IsManualSelectedForAndroid = true;
+        }
+
+        AndroidSyncVM?.LoadManualSelectionsFromDb();
+        AndroidSyncVM?.RecalculateScopeSummary();
+    }
+
+    [RelayCommand]
+    private void RemoveFromAndroidSelection(object? parameter)
+    {
+        var items = ExtractMediaItems(parameter);
+        if (items.Count == 0) return;
+
+        var destPaths = items.Select(x => x.RelativePath).Where(p => !string.IsNullOrEmpty(p)).ToList();
+        if (destPaths.Count == 0) return;
+
+        string path = ArchivePath;
+        string deviceId = AndroidSyncVM?.AndroidDeviceId ?? "Android Device";
+        if (string.IsNullOrWhiteSpace(deviceId)) deviceId = "Android Device";
+
+        if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
+        {
+            try
+            {
+                using var journal = TransferJournal.Open(path);
+                journal.BatchRemoveAndroidManualSelections(deviceId, destPaths);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"BatchRemoveAndroidManualSelections error: {ex.Message}");
+            }
+        }
+
+        foreach (var item in items)
+        {
+            item.IsManualSelectedForAndroid = false;
+        }
+
+        AndroidSyncVM?.LoadManualSelectionsFromDb();
+        AndroidSyncVM?.RecalculateScopeSummary();
     }
 
     private static List<MediaSearchResultItem> ExtractMediaItems(object? parameter)

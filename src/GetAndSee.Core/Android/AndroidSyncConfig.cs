@@ -1,26 +1,36 @@
 using System.Globalization;
 using GetAndSee.Core.Journal;
+using GetAndSee.Core.iPhone;
 
-namespace GetAndSee.Core.iPhone;
+namespace GetAndSee.Core.Android;
 
 /// <summary>
-/// Configuration parameters for incremental export to the dedicated Apple Sync folder.
+/// Configuration parameters for incremental FTP synchronization to an Android device.
 /// </summary>
-public sealed class IPhoneExportConfig
+public sealed class AndroidSyncConfig
 {
-    /// <summary>Target iPhone device model/identifier (e.g. "iPhone 15 Pro" or "iPhone").</summary>
-    public string DeviceModel { get; set; } = "iPhone";
+    /// <summary>Target Android device name (e.g. "Pixel 8").</summary>
+    public string DeviceName { get; set; } = "Android Device";
 
-    /// <summary>
-    /// Custom export folder path override. When null or empty, defaults to
-    /// <c>&lt;pcDestinationRoot&gt;/.AppleSync/&lt;DeviceModel&gt;/</c>.
-    /// </summary>
-    public string? CustomSyncFolder { get; set; }
+    /// <summary>Target Android device ID. Generated or read via device probe.</summary>
+    public string ConfiguredDeviceId { get; set; } = "";
 
-    /// <summary>Album organization mode (YearMonth or Flat).</summary>
-    public IPhoneAlbumMode AlbumMode { get; set; } = IPhoneAlbumMode.YearMonth;
+    /// <summary>Remote FTP server IP host address.</summary>
+    public string FtpHost { get; set; } = "192.168.1.100";
 
-    /// <summary>Whether to clean up orphaned exported files when they are removed from the archive.</summary>
+    /// <summary>Remote FTP server port.</summary>
+    public int FtpPort { get; set; } = 2121;
+
+    /// <summary>FTP authentication username.</summary>
+    public string FtpUser { get; set; } = "anonymous";
+
+    /// <summary>FTP authentication password.</summary>
+    public string FtpPassword { get; set; } = "";
+
+    /// <summary>Target directory on Android remote storage (e.g. "/DCIM/GetAndSee/").</summary>
+    public string RemoteTargetDir { get; set; } = "/DCIM/GetAndSee/";
+
+    /// <summary>Whether to remove files from Android storage that are no longer selected or deleted in archive.</summary>
     public bool EnableMirrorDelete { get; set; } = true;
 
     /// <summary>Restore scope mode (All, DateRange, Subfolder, ManualSelection).</summary>
@@ -39,22 +49,7 @@ public sealed class IPhoneExportConfig
     public HashSet<string>? ManualSelectedPaths { get; set; }
 
     /// <summary>
-    /// Computes the effective export folder path based on <see cref="CustomSyncFolder"/> or the default
-    /// <c>&lt;pcDestinationRoot&gt;/.AppleSync/&lt;DeviceModel&gt;/</c> pattern.
-    /// </summary>
-    public string GetEffectiveExportPath(string pcDestinationRoot)
-    {
-        if (!string.IsNullOrWhiteSpace(CustomSyncFolder))
-        {
-            return CustomSyncFolder;
-        }
-
-        string sanitizedModel = string.IsNullOrWhiteSpace(DeviceModel) ? "iPhone" : DeviceModel;
-        return Path.Combine(pcDestinationRoot, ".AppleSync", sanitizedModel);
-    }
-
-    /// <summary>
-    /// Determines whether the specified manifest entry should be included for export under the current <see cref="ScopeMode"/>.
+    /// Determines whether the specified manifest entry should be included for sync under the current <see cref="ScopeMode"/>.
     /// </summary>
     public bool IsEntryIncluded(ManifestEntry entry)
     {

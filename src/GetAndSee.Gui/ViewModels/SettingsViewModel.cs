@@ -21,6 +21,15 @@ public partial class SettingsViewModel : ObservableObject
     private int readTimeoutSeconds = 30;
 
     [ObservableProperty]
+    private bool autoCompleteLivePhotoPair = true;
+
+    [ObservableProperty]
+    private bool autoCompleteAaeSidecar = true;
+
+    [ObservableProperty]
+    private bool autoCompleteRawJpg = false;
+
+    [ObservableProperty]
     private bool disablePcSleepNotice = true;
 
     [ObservableProperty]
@@ -67,6 +76,9 @@ public partial class SettingsViewModel : ObservableObject
         SyncExifToLastWriteTime = config.SyncExifToLastWriteTime;
         SyncExifToCreationTime = config.SyncExifToCreationTime;
         ReadTimeoutSeconds = config.ReadTimeoutSeconds;
+        AutoCompleteLivePhotoPair = config.AutoCompleteLivePhotoPair;
+        AutoCompleteAaeSidecar = config.AutoCompleteAaeSidecar;
+        AutoCompleteRawJpg = config.AutoCompleteRawJpg;
     }
 
     public void SaveConfig()
@@ -75,12 +87,18 @@ public partial class SettingsViewModel : ObservableObject
         config.SyncExifToLastWriteTime = SyncExifToLastWriteTime;
         config.SyncExifToCreationTime = SyncExifToCreationTime;
         config.ReadTimeoutSeconds = ReadTimeoutSeconds;
+        config.AutoCompleteLivePhotoPair = AutoCompleteLivePhotoPair;
+        config.AutoCompleteAaeSidecar = AutoCompleteAaeSidecar;
+        config.AutoCompleteRawJpg = AutoCompleteRawJpg;
         Config.AppSettings.Save(config);
     }
 
     partial void OnSyncExifToLastWriteTimeChanged(bool value) => SaveConfig();
     partial void OnSyncExifToCreationTimeChanged(bool value) => SaveConfig();
     partial void OnReadTimeoutSecondsChanged(int value) => SaveConfig();
+    partial void OnAutoCompleteLivePhotoPairChanged(bool value) => SaveConfig();
+    partial void OnAutoCompleteAaeSidecarChanged(bool value) => SaveConfig();
+    partial void OnAutoCompleteRawJpgChanged(bool value) => SaveConfig();
 
     [RelayCommand(CanExecute = nameof(CanSync))]
     private async Task SyncNowAsync()

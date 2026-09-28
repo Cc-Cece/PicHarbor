@@ -21,7 +21,7 @@ public sealed class JournalSchemaV5Tests : IDisposable
             journal.EnsurePending(new RemoteFile("/DCIM/IMG_1.HEIC", 100, null));
         }
 
-        ReadUserVersion(dir.Path).ShouldBe(5);
+        ReadUserVersion(dir.Path).ShouldBe(TransferJournal.SchemaVersion);
     }
 
     [Fact]
@@ -97,6 +97,20 @@ public sealed class JournalSchemaV5Tests : IDisposable
         journal.ClearManualSelections("iPhone 15 Pro");
         journal.GetManualSelections("iPhone 15 Pro").ShouldBeEmpty();
     }
+
+    [Fact]
+    public void IsFileArchivedAndDone_returns_true_only_for_completed_transfers()
+    {
+        using TransferJournal journal = TransferJournal.Open(dir.Path);
+
+        journal.EnsurePending(new RemoteFile("/DCIM/IMG_1.HEIC", 100, null));
+        journal.IsFileArchivedAndDone("2024/2024-05/IMG_1.HEIC").ShouldBeFalse();
+
+        journal.MarkDone("/DCIM/IMG_1.HEIC", 100, "2024/2024-05/IMG_1.HEIC", new GetAndSee.Core.Organize.MediaMetadata(null, null, null, null, null), DateTimeOffset.UtcNow);
+        journal.IsFileArchivedAndDone("2024/2024-05/IMG_1.HEIC").ShouldBeTrue();
+        journal.IsFileArchivedAndDone("2024/2024-05/NON_EXISTENT.HEIC").ShouldBeFalse();
+    }
+
 
 
     private static long ReadUserVersion(string destinationRoot)
