@@ -196,6 +196,77 @@ public partial class BackupViewModel : ObservableObject
         }
     }
 
+    public ObservableCollection<SubfolderOptionViewModel> Subfolders { get; } = new();
+
+    [RelayCommand]
+    private void ClearDateRange()
+    {
+        ScopeDateFrom = null;
+        ScopeDateTo = null;
+    }
+
+    [RelayCommand]
+    private void SetDatePresetLast30Days()
+    {
+        ScopeDateTo = DateTime.Today;
+        ScopeDateFrom = DateTime.Today.AddDays(-30);
+    }
+
+    [RelayCommand]
+    private void SetDatePresetLast90Days()
+    {
+        ScopeDateTo = DateTime.Today;
+        ScopeDateFrom = DateTime.Today.AddDays(-90);
+    }
+
+    [RelayCommand]
+    private void SetDatePresetLast1Year()
+    {
+        ScopeDateTo = DateTime.Today;
+        ScopeDateFrom = DateTime.Today.AddYears(-1);
+    }
+
+    [RelayCommand]
+    private void SetDatePresetThisYear()
+    {
+        ScopeDateTo = DateTime.Today;
+        ScopeDateFrom = new DateTime(DateTime.Today.Year, 1, 1);
+    }
+
+    [RelayCommand]
+    private async Task RefreshSubfoldersAsync()
+    {
+        try
+        {
+            using var client = new AfcIPhoneClient(TimeSpan.FromSeconds(10));
+            await client.ConnectAsync().ConfigureAwait(false);
+            var childNames = await client.ListDirectoryAsync("/DCIM/").ConfigureAwait(false);
+
+            var existingChecked = Subfolders.Where(s => s.IsChecked).Select(s => s.FolderName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            bool hadItems = Subfolders.Count > 0;
+
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                Subfolders.Clear();
+                foreach (var name in childNames)
+                {
+                    if (name.StartsWith(".")) continue;
+                    bool isChecked = !hadItems || existingChecked.Contains(name);
+                    Subfolders.Add(new SubfolderOptionViewModel
+                    {
+                        FolderName = name,
+                        RelativePath = name,
+                        IsChecked = isChecked
+                    });
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            AddLog($"[INFO] Subfolder scan info: {ex.Message}");
+        }
+    }
+
     [ObservableProperty]
     private bool enableAndroidSync = false;
 
@@ -361,17 +432,43 @@ public partial class BackupViewModel : ObservableObject
                 DateTime? dateFrom = DateTime.TryParse(ScopeDateFromText, out var df) ? df : null;
                 DateTime? dateTo = DateTime.TryParse(ScopeDateToText, out var dt) ? dt : null;
 
-                if (ScopeMode == ScopeMode.Date)
+                // Discover subfolders from scanned media
+                var discoveredFolders = files.Select(f => IPhoneBackupScopeResolver.GetSubfolderName(f.Path))
+                                             .Where(name => !string.IsNullOrWhiteSpace(name))
+                                             .Distinct(StringComparer.OrdinalIgnoreCase)
+                                             .ToList();
+
+                await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    files = files.Where(f =>
+                    var existingChecked = Subfolders.Where(s => s.IsChecked).Select(s => s.FolderName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    bool hadItems = Subfolders.Count > 0;
+                    foreach (var folder in discoveredFolders)
                     {
-                        if (!f.ModifiedAt.HasValue) return true;
-                        DateTime d = f.ModifiedAt.Value.LocalDateTime.Date;
-                        if (dateFrom.HasValue && d < dateFrom.Value.Date) return false;
-                        if (dateTo.HasValue && d > dateTo.Value.Date) return false;
-                        return true;
-                    }).ToList();
-                }
+                        if (!Subfolders.Any(s => s.FolderName.Equals(folder, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            Subfolders.Add(new SubfolderOptionViewModel
+                            {
+                                FolderName = folder,
+                                RelativePath = folder,
+                                IsChecked = !hadItems || existingChecked.Contains(folder)
+                            });
+                        }
+                    }
+                });
+
+                var selectedSubfolders = ScopeMode == ScopeMode.Folder
+                    ? Subfolders.Where(s => s.IsChecked).Select(s => s.FolderName).ToHashSet(StringComparer.OrdinalIgnoreCase)
+                    : null;
+
+                var criteria = new IPhoneBackupScopeCriteria
+                {
+                    ScopeMode = ScopeMode,
+                    DateFrom = dateFrom,
+                    DateTo = dateTo,
+                    SelectedSubfolders = selectedSubfolders
+                };
+
+                files = IPhoneBackupScopeResolver.Filter(files, criteria);
 
                 totalBytes = files.Sum(f => f.Size);
                 AddLog($"[INFO] Found {files.Count:N0} files matching scope mode ({ByteSize.Humanize(totalBytes)}).");
