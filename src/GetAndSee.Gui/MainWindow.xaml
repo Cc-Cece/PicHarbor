@@ -1348,14 +1348,14 @@
                                                           Command="{Binding PlacementTarget.DataContext.AddToIPhoneSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                           CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                                 <MenuItem Header="{DynamicResource MenuRemoveFromIPhone}" 
-                                                          Command="{Binding PlacementTarget.DataContext.RemoveFromIPhoneSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                          Visibility="Collapsed" Command="{Binding PlacementTarget.DataContext.RemoveFromIPhoneSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                           CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                                 <Separator/>
                                                 <MenuItem Header="{DynamicResource MenuAddToAndroid}" 
                                                           Command="{Binding PlacementTarget.DataContext.AddToAndroidSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                           CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                                 <MenuItem Header="{DynamicResource MenuRemoveFromAndroid}" 
-                                                          Command="{Binding PlacementTarget.DataContext.RemoveFromAndroidSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                          Visibility="Collapsed" Command="{Binding PlacementTarget.DataContext.RemoveFromAndroidSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                           CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
 
                                             </ContextMenu>
@@ -1473,14 +1473,14 @@
                                                                         <MenuItem Header="{DynamicResource MenuAddToIPhone}" 
                                                                                   Command="{Binding PlacementTarget.Tag.AddToIPhoneSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                                                        <MenuItem Header="{DynamicResource MenuRemoveFromIPhone}" 
+                                                                        <MenuItem Header="{DynamicResource MenuRemoveFromIPhone}" Visibility="Collapsed" 
                                                                                   Command="{Binding PlacementTarget.Tag.RemoveFromIPhoneSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                                                         <Separator/>
                                                                         <MenuItem Header="{DynamicResource MenuAddToAndroid}" 
                                                                                   Command="{Binding PlacementTarget.Tag.AddToAndroidSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                                                        <MenuItem Header="{DynamicResource MenuRemoveFromAndroid}" 
+                                                                        <MenuItem Header="{DynamicResource MenuRemoveFromAndroid}" Visibility="Collapsed" 
                                                                                   Command="{Binding PlacementTarget.Tag.RemoveFromAndroidSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
 
