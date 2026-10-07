@@ -350,13 +350,7 @@ public static class ShellServices
                 {
                     try
                     {
-                        var bitmap = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
-                            hBitmap,
-                            IntPtr.Zero,
-                            Int32Rect.Empty,
-                            System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
-                        bitmap.Freeze();
-                        return bitmap;
+                        return BitmapSourceFromShellBitmap(hBitmap);
                     }
                     finally
                     {
@@ -368,6 +362,71 @@ public static class ShellServices
         catch { }
 
         return null;
+    }
+
+    /// <summary>
+    /// Shell video and HEIC thumbnails are often 32-bit bitmaps whose alpha channel is entirely 0.
+    /// WPF treats that as fully transparent, so the gallery shows an empty card. Opaque RGB is kept.
+    /// </summary>
+    private static System.Windows.Media.ImageSource? BitmapSourceFromShellBitmap(IntPtr hBitmap)
+    {
+        var source = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+            hBitmap,
+            IntPtr.Zero,
+            Int32Rect.Empty,
+            System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
+
+        if (source.Format != System.Windows.Media.PixelFormats.Bgra32 &&
+            source.Format != System.Windows.Media.PixelFormats.Pbgra32)
+        {
+            source.Freeze();
+            return source;
+        }
+
+        int width = source.PixelWidth;
+        int height = source.PixelHeight;
+        if (width <= 0 || height <= 0 || height > int.MaxValue / (width * 4))
+        {
+            source.Freeze();
+            return source;
+        }
+
+        int stride = width * 4;
+        byte[] pixels = new byte[stride * height];
+        source.CopyPixels(pixels, stride, 0);
+
+        bool anyVisible = false;
+        for (int i = 3; i < pixels.Length; i += 4)
+        {
+            if (pixels[i] != 0)
+            {
+                anyVisible = true;
+                break;
+            }
+        }
+
+        if (anyVisible)
+        {
+            source.Freeze();
+            return source;
+        }
+
+        for (int i = 3; i < pixels.Length; i += 4)
+        {
+            pixels[i] = 255;
+        }
+
+        var repaired = System.Windows.Media.Imaging.BitmapSource.Create(
+            width,
+            height,
+            source.DpiX > 0 ? source.DpiX : 96,
+            source.DpiY > 0 ? source.DpiY : 96,
+            System.Windows.Media.PixelFormats.Bgra32,
+            null,
+            pixels,
+            stride);
+        repaired.Freeze();
+        return repaired;
     }
 
     #endregion

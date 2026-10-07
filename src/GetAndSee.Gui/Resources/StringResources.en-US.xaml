@@ -147,6 +147,10 @@
     <sys:String x:Key="ClosePreviewBtn">✕ Close (Esc)</sys:String>
     <sys:String x:Key="CopyPathBtn">📋 Copy Path</sys:String>
     <sys:String x:Key="ShowInExplorerBtn">📁 Show in Explorer</sys:String>
+    <sys:String x:Key="PreviewPlay">Play</sys:String>
+    <sys:String x:Key="PreviewPause">Pause</sys:String>
+    <sys:String x:Key="PreviewVideoFailed">Can't play this video. Showing the paired still.</sys:String>
+    <sys:String x:Key="PreviewVideoMissing">The video file is missing.</sys:String>
 
     <!-- Device Probe Messages -->
     <sys:String x:Key="MsgConnected">Connected: {0}{1}</sys:String>
