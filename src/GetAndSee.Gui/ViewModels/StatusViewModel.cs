@@ -67,7 +67,7 @@ public partial class StatusViewModel : ObservableObject
                         Name = dev.Name ?? "Unknown Device",
                         Model = dev.Model ?? "Unknown Model",
                         Udid = dev.Udid,
-                        LastSeen = "Recorded in DB"
+                        LastSeen = dev.LastSeen?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A"
                     });
                 }
             });

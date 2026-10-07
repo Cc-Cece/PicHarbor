@@ -2,6 +2,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
+using Windows.Storage;
+using Windows.Storage.Search;
+using Windows.System;
 
 namespace GetAndSee.Gui.Util;
 
@@ -51,6 +54,71 @@ public static class ShellServices
     private static extern void CoTaskMemFree(IntPtr pv);
 
     #endregion
+
+    private static readonly string[] PictureExtensions =
+    [
+        ".jpg", ".jpeg", ".jfif", ".png", ".bmp", ".gif", ".webp",
+        ".heic", ".heif", ".tif", ".tiff", ".dng"
+    ];
+
+    public static bool IsPicture(string path)
+    {
+        string extension = Path.GetExtension(path);
+        return PictureExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Opens one picture in the default viewer together with the other pictures in its folder,
+    /// so the viewer can move to the previous and next image.
+    /// </summary>
+    public static async Task OpenImageWithNeighborsAsync(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return;
+        }
+
+        bool launched = false;
+        try
+        {
+            StorageFile file = await StorageFile.GetFileFromPathAsync(path);
+            StorageFolder? folder = await file.GetParentAsync();
+            StorageFileQueryResult? neighbors = null;
+            if (folder is not null)
+            {
+                var queryOptions = new QueryOptions
+                {
+                    FolderDepth = FolderDepth.Shallow,
+                    IndexerOption = IndexerOption.DoNotUseIndexer
+                };
+                queryOptions.FileTypeFilter.Clear();
+                foreach (string extension in PictureExtensions)
+                {
+                    queryOptions.FileTypeFilter.Add(extension);
+                }
+
+                neighbors = folder.CreateFileQueryWithOptions(queryOptions);
+                await neighbors.GetFilesAsync(0, 1);
+            }
+
+            var options = new LauncherOptions();
+            if (neighbors is not null)
+            {
+                options.NeighboringFilesQuery = neighbors;
+            }
+
+            launched = await Launcher.LaunchFileAsync(file, options);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"OpenImageWithNeighborsAsync error: {ex.Message}");
+        }
+
+        if (!launched)
+        {
+            OpenFiles(new[] { path });
+        }
+    }
 
     /// <summary>
     /// Opens the specified files using their Windows default associated applications.
@@ -260,7 +328,7 @@ public static class ShellServices
     /// Attempts to retrieve a native Windows Explorer thumbnail image for the specified file.
     /// Supports HEIC, MOV, MP4, RAW and standard images using registered shell thumbnail handlers.
     /// </summary>
-    public static System.Windows.Media.ImageSource? GetShellThumbnail(string filePath, int width = 160, int height = 160)
+    public static System.Windows.Media.ImageSource? GetShellThumbnail(string filePath, int width = 160, int height = 160, bool thumbnailOnly = false)
     {
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
             return null;
@@ -271,7 +339,13 @@ public static class ShellServices
             int hr = SHCreateItemFromParsingName(filePath, IntPtr.Zero, ref uuid, out var factory);
             if (hr == 0 && factory != null)
             {
-                hr = factory.GetImage(new SIZE(width, height), SIIGBF.SIIGBF_RESIZETOFIT, out IntPtr hBitmap);
+                SIIGBF flags = SIIGBF.SIIGBF_RESIZETOFIT;
+                if (thumbnailOnly)
+                {
+                    flags |= SIIGBF.SIIGBF_THUMBNAILONLY;
+                }
+
+                hr = factory.GetImage(new SIZE(width, height), flags, out IntPtr hBitmap);
                 if (hr == 0 && hBitmap != IntPtr.Zero)
                 {
                     try

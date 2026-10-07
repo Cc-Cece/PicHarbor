@@ -26,6 +26,7 @@ public partial class MediaSearchResultItem : ObservableObject
     public string CameraModel { get; set; } = string.Empty;
     public string GpsCoordinates { get; set; } = string.Empty;
     public bool HasThumbnail { get; set; } = false;
+    public bool IsVideo { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsThumbnailLoaded))]
@@ -49,9 +50,31 @@ public partial class GalleryRow : ObservableObject
 public partial class SearchViewModel : ObservableObject
 {
     private CancellationTokenSource? thumbnailCts;
+    private Dictionary<string, (string Camera, string Gps)> displayByPath = new(StringComparer.OrdinalIgnoreCase);
+    private List<string> knownCameraModels = new();
+    private string allCamerasLabel = "";
+    private bool suppressSort;
+    private bool resortRequested;
 
     public IPhoneSyncViewModel? IPhoneSyncVM { get; set; }
     public AndroidSyncViewModel? AndroidSyncVM { get; set; }
+
+    public ObservableCollection<string> CameraModels { get; } = new();
+
+    public ObservableCollection<string> SortModeLabels { get; } = new();
+
+    public SearchViewModel()
+    {
+        RefreshSortLabels();
+        RefreshCameraModelItems(knownCameraModels);
+        _ = LoadCameraModelsAsync();
+    }
+
+    public void OnLanguageChanged()
+    {
+        RefreshSortLabels();
+        RefreshCameraModelItems(knownCameraModels);
+    }
 
     [ObservableProperty]
     private string archivePath = MainViewModel.DefaultArchivePath;
@@ -155,6 +178,106 @@ public partial class SearchViewModel : ObservableObject
     private string cameraFilter = "";
 
     [ObservableProperty]
+    private int cameraInputMode;
+
+    [ObservableProperty]
+    private string selectedCameraModel = "";
+
+    [ObservableProperty]
+    private string cameraKeyword = "";
+
+    public bool IsCameraPickMode
+    {
+        get => CameraInputMode == 0;
+        set
+        {
+            if (value)
+            {
+                CameraInputMode = 0;
+            }
+        }
+    }
+
+    public bool IsCameraKeywordMode
+    {
+        get => CameraInputMode == 1;
+        set
+        {
+            if (value)
+            {
+                CameraInputMode = 1;
+            }
+        }
+    }
+
+    partial void OnCameraInputModeChanged(int value)
+    {
+        if (value is not 0 and not 1)
+        {
+            CameraInputMode = 0;
+            return;
+        }
+
+        OnPropertyChanged(nameof(IsCameraPickMode));
+        OnPropertyChanged(nameof(IsCameraKeywordMode));
+    }
+
+    partial void OnArchivePathChanged(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            knownCameraModels = new List<string>();
+            RefreshCameraModelItems(knownCameraModels);
+            return;
+        }
+
+        _ = LoadCameraModelsAsync();
+    }
+
+    [ObservableProperty]
+    private int sortModeIndex;
+
+    [ObservableProperty]
+    private bool sortDescending;
+
+    public string SortDirectionText => SortDescending
+        ? App.GetString("SortDescending", "降序")
+        : App.GetString("SortAscending", "升序");
+
+    partial void OnSortModeIndexChanged(int value)
+    {
+        if (suppressSort)
+        {
+            return;
+        }
+
+        if (value is < 0 or > 4)
+        {
+            suppressSort = true;
+            SortModeIndex = 0;
+            suppressSort = false;
+            return;
+        }
+
+        RequestResort();
+    }
+
+    partial void OnSortDescendingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(SortDirectionText));
+        if (!suppressSort)
+        {
+            RequestResort();
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleSortDirection()
+    {
+        SortDescending = !SortDescending;
+    }
+
+    [ObservableProperty]
     private string fileNameFilter = "";
 
     [ObservableProperty]
@@ -238,12 +361,13 @@ public partial class SearchViewModel : ObservableObject
         DateTimeOffset? fromDate = DateTimeOffset.TryParse(FilterFrom, CultureInfo.InvariantCulture, out var f) ? f : null;
         DateTimeOffset? toDate = DateTimeOffset.TryParse(FilterTo, CultureInfo.InvariantCulture, out var t) ? t : null;
         MediaType? mediaType = ParseMediaType(SelectedType);
+        string camera = ResolveCameraFilter();
 
         var criteria = new MediaSearchCriteria(
             From: fromDate,
             To: toDate,
             Type: mediaType,
-            Camera: string.IsNullOrWhiteSpace(CameraFilter) ? null : CameraFilter,
+            Camera: string.IsNullOrWhiteSpace(camera) ? null : camera,
             HasGps: HasGpsOnly,
             IncludeHeic: IncludeHeic,
             FileNameKeyword: string.IsNullOrWhiteSpace(FileNameFilter) ? null : FileNameFilter);
@@ -253,16 +377,20 @@ public partial class SearchViewModel : ObservableObject
 
         try
         {
-            var hits = await Task.Run(() =>
+            var (hits, display, models) = await Task.Run(() =>
             {
                 using var journal = TransferJournal.OpenReadOnly(ArchivePath);
                 IReadOnlyList<ManifestSearchRow> rows = journal.ReadSearchRows();
-                return MediaSearch.Find(rows, criteria);
+                return (MediaSearch.Find(rows, criteria).ToList(), BuildDisplay(rows), DistinctCameraModels(rows));
             }, ct).ConfigureAwait(false);
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                currentHits = hits.ToList();
+                displayByPath = display;
+                knownCameraModels = models;
+                RefreshCameraModelItems(models);
+                currentHits = hits;
+                SortCurrentHits();
                 loadedHitIndex = 0;
                 SearchResults = new ObservableCollection<MediaSearchResultItem>();
                 GalleryRows = new ObservableCollection<GalleryRow>();
@@ -318,6 +446,7 @@ public partial class SearchViewModel : ObservableObject
             int countToTake = Math.Min(currentHits.Count - loadedHitIndex, BatchSize);
             int startIndex = loadedHitIndex;
             string archivePathCopy = ArchivePath;
+            var display = displayByPath;
 
             var manualSet = IPhoneSyncVM?.GetManualSelectionPathsSet() ?? new HashSet<string>();
             var androidManualSet = AndroidSyncVM?.GetManualSelectionPathsSet() ?? new HashSet<string>();
@@ -329,7 +458,14 @@ public partial class SearchViewModel : ObservableObject
                 {
                     MediaSearchHit hit = currentHits[startIndex + i];
                     string fullPath = Path.Combine(archivePathCopy, hit.RelativePath);
-                    bool isImage = IsImageFileExtension(hit.RelativePath);
+                    bool isVideo = hit.Type == MediaType.Video;
+                    string cameraName = "";
+                    string gps = "";
+                    if (display.TryGetValue(hit.RelativePath, out var meta))
+                    {
+                        cameraName = meta.Camera ?? "";
+                        gps = meta.Gps ?? "";
+                    }
 
                     list.Add(new MediaSearchResultItem
                     {
@@ -339,9 +475,10 @@ public partial class SearchViewModel : ObservableObject
                         SizeText = ByteSize.Humanize(hit.SizeBytes),
                         MediaType = hit.Type.ToString().ToLowerInvariant(),
                         MediaTypeIcon = GetMediaTypeIcon(hit.Type),
-                        CameraModel = "Manifest",
-                        GpsCoordinates = "Manifest",
-                        HasThumbnail = isImage,
+                        CameraModel = cameraName,
+                        GpsCoordinates = gps,
+                        HasThumbnail = isVideo || hit.Type is MediaType.Photo or MediaType.Screenshot,
+                        IsVideo = isVideo,
                         IsManualSelectedForIPhone = manualSet.Contains(hit.RelativePath),
                         IsManualSelectedForAndroid = androidManualSet.Contains(hit.RelativePath)
                     });
@@ -402,7 +539,112 @@ public partial class SearchViewModel : ObservableObject
         finally
         {
             isLoadingMore = false;
+            if (resortRequested)
+            {
+                resortRequested = false;
+                _ = ResortAndReloadAsync();
+            }
         }
+    }
+
+    private void RequestResort()
+    {
+        if (currentHits.Count == 0)
+        {
+            return;
+        }
+
+        if (isLoadingMore)
+        {
+            resortRequested = true;
+            return;
+        }
+
+        _ = ResortAndReloadAsync();
+    }
+
+    private async Task ResortAndReloadAsync()
+    {
+        thumbnailCts?.Cancel();
+        thumbnailCts = new CancellationTokenSource();
+        SortCurrentHits();
+        loadedHitIndex = 0;
+        SearchResults = new ObservableCollection<MediaSearchResultItem>();
+        GalleryRows = new ObservableCollection<GalleryRow>();
+        HasMoreItems = currentHits.Count > 0;
+        if (HasMoreItems)
+        {
+            await LoadMoreItemsAsync();
+        }
+    }
+
+    private void SortCurrentHits()
+    {
+        int sign = SortDescending ? -1 : 1;
+        currentHits.Sort((left, right) =>
+        {
+            int compared = SortModeIndex switch
+            {
+                1 => string.Compare(
+                    Path.GetFileName(left.RelativePath),
+                    Path.GetFileName(right.RelativePath),
+                    StringComparison.OrdinalIgnoreCase),
+                2 => left.SizeBytes.CompareTo(right.SizeBytes),
+                3 => left.Type.CompareTo(right.Type),
+                4 => string.Compare(CameraOf(left), CameraOf(right), StringComparison.OrdinalIgnoreCase),
+                _ => CompareCaptured(left.CapturedAt, right.CapturedAt, SortDescending)
+            };
+
+            if (SortModeIndex != 0)
+            {
+                compared *= sign;
+            }
+
+            return compared != 0
+                ? compared
+                : string.CompareOrdinal(left.RelativePath, right.RelativePath);
+        });
+    }
+
+    private string CameraOf(MediaSearchHit hit)
+    {
+        return displayByPath.TryGetValue(hit.RelativePath, out var meta) ? meta.Camera ?? "" : "";
+    }
+
+    private static int CompareCaptured(DateTimeOffset? left, DateTimeOffset? right, bool descending)
+    {
+        if (left is null && right is null)
+        {
+            return 0;
+        }
+
+        if (left is null)
+        {
+            return 1;
+        }
+
+        if (right is null)
+        {
+            return -1;
+        }
+
+        int compared = left.Value.CompareTo(right.Value);
+        return descending ? -compared : compared;
+    }
+
+    private void RefreshSortLabels()
+    {
+        suppressSort = true;
+        int selected = SortModeIndex is >= 0 and <= 4 ? SortModeIndex : 0;
+        SortModeLabels.Clear();
+        SortModeLabels.Add(App.GetString("SortByCaptured", "拍摄时间"));
+        SortModeLabels.Add(App.GetString("SortByName", "文件名"));
+        SortModeLabels.Add(App.GetString("SortBySize", "文件大小"));
+        SortModeLabels.Add(App.GetString("SortByType", "媒体类型"));
+        SortModeLabels.Add(App.GetString("SortByCamera", "拍摄型号"));
+        SortModeIndex = selected;
+        suppressSort = false;
+        OnPropertyChanged(nameof(SortDirectionText));
     }
 
     private async Task LoadThumbnailsInBackgroundAsync(List<MediaSearchResultItem> items, CancellationToken ct)
@@ -424,7 +666,7 @@ public partial class SearchViewModel : ObservableObject
 
                 if (!File.Exists(item.FullPath)) return;
 
-                ImageSource? thumb = LoadFrozenThumbnail(item.FullPath, 200);
+                ImageSource? thumb = LoadResultThumbnail(item);
                 if (thumb is not null && !token.IsCancellationRequested)
                 {
                     await Application.Current.Dispatcher.InvokeAsync(() =>
@@ -601,13 +843,21 @@ public partial class SearchViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void Open(object? selectedItems)
+    private async Task Open(object? selectedItems)
     {
         var (existing, _) = FilterSelectedPaths(selectedItems);
-        if (existing.Count > 0)
+        if (existing.Count == 0)
         {
-            ShellServices.OpenFiles(existing);
+            return;
         }
+
+        if (existing.Count == 1 && IsImageFileExtension(existing[0]))
+        {
+            await ShellServices.OpenImageWithNeighborsAsync(existing[0]);
+            return;
+        }
+
+        ShellServices.OpenFiles(existing);
     }
 
     [RelayCommand]
@@ -826,6 +1076,53 @@ public partial class SearchViewModel : ObservableObject
         return window is not null ? new System.Windows.Interop.WindowInteropHelper(window).Handle : IntPtr.Zero;
     }
 
+    private static readonly string[] LiveStillExtensions =
+    [
+        ".heic", ".heif", ".jpg", ".jpeg", ".png", ".webp"
+    ];
+
+    private static string? FindLivePhotoStill(string videoPath)
+    {
+        string? directory = Path.GetDirectoryName(videoPath);
+        if (string.IsNullOrEmpty(directory))
+        {
+            return null;
+        }
+
+        string stem = Path.GetFileNameWithoutExtension(videoPath);
+        if (string.IsNullOrEmpty(stem))
+        {
+            return null;
+        }
+
+        foreach (string extension in LiveStillExtensions)
+        {
+            string candidate = Path.Combine(directory, stem + extension);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static ImageSource? LoadResultThumbnail(MediaSearchResultItem item)
+    {
+        if (item.IsVideo)
+        {
+            string? still = FindLivePhotoStill(item.FullPath);
+            if (still is not null)
+            {
+                return LoadFrozenThumbnail(still, 200) ?? ShellServices.GetShellThumbnail(still, 200, 200, thumbnailOnly: true);
+            }
+
+            return ShellServices.GetShellThumbnail(item.FullPath, 200, 200, thumbnailOnly: true);
+        }
+
+        return LoadFrozenThumbnail(item.FullPath, 200) ?? ShellServices.GetShellThumbnail(item.FullPath, 200, 200, thumbnailOnly: true);
+    }
+
     private static ImageSource? LoadFrozenThumbnail(string filePath, int decodeWidth = 200)
     {
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
@@ -850,10 +1147,119 @@ public partial class SearchViewModel : ObservableObject
         }
     }
 
-    private static bool IsImageFileExtension(string path)
+    private static bool IsImageFileExtension(string path) => ShellServices.IsPicture(path);
+
+    private async Task LoadCameraModelsAsync()
     {
-        string ext = Path.GetExtension(path).ToLowerInvariant();
-        return ext is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".gif" or ".webp" or ".heic" or ".dng";
+        string path = ArchivePath;
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+        {
+            if (Application.Current is not null)
+            {
+                await Application.Current.Dispatcher.InvokeAsync(() => RefreshCameraModelItems(knownCameraModels));
+            }
+
+            return;
+        }
+
+        try
+        {
+            var models = await Task.Run(() =>
+            {
+                using var journal = TransferJournal.OpenReadOnly(path);
+                return DistinctCameraModels(journal.ReadSearchRows());
+            }).ConfigureAwait(false);
+
+            if (!string.Equals(path, ArchivePath, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            knownCameraModels = models;
+            if (Application.Current is not null)
+            {
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    if (string.Equals(path, ArchivePath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        RefreshCameraModelItems(knownCameraModels);
+                    }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"LoadCameraModels error: {ex.Message}");
+        }
+    }
+
+    private string ResolveCameraFilter()
+    {
+        if (CameraInputMode == 0)
+        {
+            if (string.IsNullOrWhiteSpace(SelectedCameraModel) ||
+                string.Equals(SelectedCameraModel, allCamerasLabel, StringComparison.Ordinal))
+            {
+                return "";
+            }
+
+            return SelectedCameraModel.Trim();
+        }
+
+        return CameraKeyword.Trim();
+    }
+
+    private void RefreshCameraModelItems(IReadOnlyList<string> models)
+    {
+        allCamerasLabel = App.GetString("CameraAllModels", "全部型号");
+        string previous = SelectedCameraModel;
+        bool keepSpecific = !string.IsNullOrEmpty(previous)
+            && !string.Equals(previous, allCamerasLabel, StringComparison.Ordinal)
+            && models.Contains(previous, StringComparer.Ordinal);
+
+        CameraModels.Clear();
+        CameraModels.Add(allCamerasLabel);
+        foreach (string model in models)
+        {
+            if (!string.Equals(model, allCamerasLabel, StringComparison.Ordinal))
+            {
+                CameraModels.Add(model);
+            }
+        }
+
+        SelectedCameraModel = keepSpecific ? previous : allCamerasLabel;
+    }
+
+    private static Dictionary<string, (string Camera, string Gps)> BuildDisplay(IReadOnlyList<ManifestSearchRow> rows)
+    {
+        var display = new Dictionary<string, (string Camera, string Gps)>(rows.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (ManifestSearchRow row in rows)
+        {
+            display[row.RelativePath] = (row.CameraModel?.Trim() ?? "", FormatGps(row));
+        }
+
+        return display;
+    }
+
+    private static List<string> DistinctCameraModels(IReadOnlyList<ManifestSearchRow> rows)
+    {
+        return rows
+            .Select(row => row.CameraModel?.Trim())
+            .Where(model => !string.IsNullOrEmpty(model))
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(model => model, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
+
+    private static string FormatGps(ManifestSearchRow row)
+    {
+        if (row.GpsLatitude is not double latitude || row.GpsLongitude is not double longitude)
+        {
+            return "";
+        }
+
+        return string.Create(CultureInfo.InvariantCulture, $"{latitude:0.#####}, {longitude:0.#####}");
     }
 
     private static string GetMediaTypeIcon(MediaType type) => type switch
