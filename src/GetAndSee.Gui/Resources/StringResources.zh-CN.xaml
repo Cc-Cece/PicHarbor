@@ -25,7 +25,7 @@
     <sys:String x:Key="LabelTransferSize">传输容量 / 总容量</sys:String>
     <sys:String x:Key="LabelEta">剩余预计时间</sys:String>
     <sys:String x:Key="CloseBtn">关闭</sys:String>
-    <sys:String x:Key="LoadMoreBtn">⏬ 加载更多 (1,000项)</sys:String>
+    <sys:String x:Key="LoadMoreBtn">⏬ 加载更多</sys:String>
 
     <!-- Backup Tab -->
     <sys:String x:Key="BackupTargetHeader">备份参数设置</sys:String>
@@ -216,8 +216,8 @@
     <!-- Restore Scope & Manual Selection Strings -->
     <sys:String x:Key="IPhoneScopeHeader">🎯 第一步：选择恢复范围 (Restore Scope &amp; Filter)</sys:String>
     <sys:String x:Key="AndroidRestoreModeLabel">恢复模式:</sys:String>
-    <sys:String x:Key="AndroidRestoreModeDefault">默认恢复 (按选择范围恢复，不读取历史记录跳过，防重后记录历史)</sys:String>
-    <sys:String x:Key="AndroidRestoreModeHistorical">历史增量 (根据当前设备历史恢复记录跳过，成功后记录历史)</sys:String>
+    <sys:String x:Key="AndroidRestoreModeDefault">默认恢复 (全量恢复不跳过)</sys:String>
+    <sys:String x:Key="AndroidRestoreModeHistorical">历史增量 (根据历史恢复记录跳过)</sys:String>
     <sys:String x:Key="IPhoneScopeModeLabel">范围筛选:</sys:String>
     <sys:String x:Key="ScopeModeAll">全量恢复 (默认完整镜像)</sys:String>
     <sys:String x:Key="ScopeModeDateRange">按时间段恢复 (适合手机存近期照片)</sys:String>

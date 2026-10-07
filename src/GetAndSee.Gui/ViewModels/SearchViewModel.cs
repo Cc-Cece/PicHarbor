@@ -539,7 +539,7 @@ public partial class SearchViewModel : ObservableObject
                 HasMoreItems = remaining;
                 if (remaining)
                 {
-                    SearchSummaryText = $"检索成功：共匹配 {total:N0} 项 (已加载 {loadedHitIndex:N0} 项，向下滚动自动加载)";
+                    SearchSummaryText = $"检索成功：共匹配 {total:N0} 项";
                 }
                 else
                 {
