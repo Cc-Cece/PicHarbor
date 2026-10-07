@@ -147,6 +147,10 @@
     <sys:String x:Key="ClosePreviewBtn">✕ 关闭 (Esc)</sys:String>
     <sys:String x:Key="CopyPathBtn">📋 复制路径</sys:String>
     <sys:String x:Key="ShowInExplorerBtn">📁 在资源管理器显示</sys:String>
+    <sys:String x:Key="PreviewPlay">播放</sys:String>
+    <sys:String x:Key="PreviewPause">暂停</sys:String>
+    <sys:String x:Key="PreviewVideoFailed">无法播放此视频，已显示配套静图。</sys:String>
+    <sys:String x:Key="PreviewVideoMissing">找不到视频文件。</sys:String>
 
     <!-- Device Probe Messages -->
     <sys:String x:Key="MsgConnected">已连接: {0}{1}</sys:String>

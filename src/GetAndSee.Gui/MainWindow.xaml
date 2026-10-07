@@ -1715,8 +1715,20 @@
 
                     <!-- Center Preview Container -->
                     <Grid Grid.Row="1" Background="#0F172A">
-                        <!-- Preview Image -->
+                        <!-- Preview Image (photos, and the Live Photo still behind a video) -->
                         <Image Source="{Binding SearchVM.PreviewImageSource}" Stretch="Uniform" Margin="12" Cursor="Hand" MouseLeftButtonDown="LightboxImage_MouseLeftButtonDown" ToolTip="{DynamicResource LightboxToolTip}"/>
+
+                        <MediaElement x:Name="PreviewPlayer" Stretch="Uniform" Margin="12"
+                                      LoadedBehavior="Manual" UnloadedBehavior="Manual" ScrubbingEnabled="True"
+                                      Visibility="Collapsed"
+                                      MediaOpened="PreviewPlayer_MediaOpened"
+                                      MediaFailed="PreviewPlayer_MediaFailed"
+                                      MediaEnded="PreviewPlayer_MediaEnded"
+                                      MouseLeftButtonDown="PreviewPlayer_MouseLeftButtonDown"/>
+
+                        <TextBlock Text="{Binding SearchVM.PreviewStatusText}" Foreground="White" FontSize="13"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   TextAlignment="Center" Margin="80,0" IsHitTestVisible="False"/>
 
                         <!-- Left Nav Arrow Button -->
                         <Button Content="◀" Command="{Binding SearchVM.PrevPreviewCommand}" 
@@ -1729,6 +1741,36 @@
                                 IsEnabled="{Binding SearchVM.HasNextItem}"
                                 HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,16,0"
                                 Width="44" Height="44" Style="{StaticResource SecondaryButton}" FontSize="18" Padding="0"/>
+
+                        <Border VerticalAlignment="Bottom" Margin="60,0,60,12" Padding="10,6" Background="#CC0F172A" CornerRadius="8">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SearchVM.IsPreviewVideo}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="PreviewPlayButton" Grid.Column="0"
+                                        Content="{Binding SearchVM.PreviewPlaybackLabel}"
+                                        Click="PreviewPlayPause_Click"
+                                        Style="{StaticResource SecondaryButton}" Padding="12,4" FontSize="12"/>
+                                <Slider x:Name="PreviewSeek" Grid.Column="1" Margin="10,0" VerticalAlignment="Center"
+                                        Minimum="0" PreviewMouseDown="PreviewSeek_PreviewMouseDown"
+                                        PreviewMouseUp="PreviewSeek_PreviewMouseUp"
+                                        ValueChanged="PreviewSeek_ValueChanged"/>
+                                <TextBlock x:Name="PreviewClockText" Grid.Column="2" Text="0:00 / 0:00"
+                                           Foreground="#94A3B8" FontSize="12" FontFamily="Consolas" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
                     </Grid>
 
                     <!-- Bottom Metadata & Actions Bar -->

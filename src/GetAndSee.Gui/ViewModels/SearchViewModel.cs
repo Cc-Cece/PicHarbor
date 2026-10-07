@@ -67,6 +67,7 @@ public partial class SearchViewModel : ObservableObject
     {
         RefreshSortLabels();
         RefreshCameraModelItems(knownCameraModels);
+        RefreshPlaybackLabel();
         _ = LoadCameraModelsAsync();
     }
 
@@ -74,6 +75,7 @@ public partial class SearchViewModel : ObservableObject
     {
         RefreshSortLabels();
         RefreshCameraModelItems(knownCameraModels);
+        RefreshPlaybackLabel();
     }
 
     [ObservableProperty]
@@ -309,6 +311,24 @@ public partial class SearchViewModel : ObservableObject
 
     [ObservableProperty]
     private ImageSource? previewImageSource;
+
+    [ObservableProperty]
+    private bool isPreviewVideo;
+
+    [ObservableProperty]
+    private string previewVideoPath = "";
+
+    [ObservableProperty]
+    private bool isPreviewPlaying;
+
+    [ObservableProperty]
+    private bool isPreviewVideoFailed;
+
+    [ObservableProperty]
+    private string previewStatusText = "";
+
+    [ObservableProperty]
+    private string previewPlaybackLabel = "播放";
 
     [ObservableProperty]
     private string previewDetailsText = "";
@@ -699,6 +719,11 @@ public partial class SearchViewModel : ObservableObject
     private void ClosePreview()
     {
         IsPreviewOpen = false;
+        IsPreviewVideo = false;
+        PreviewVideoPath = "";
+        IsPreviewPlaying = false;
+        IsPreviewVideoFailed = false;
+        PreviewStatusText = "";
         PreviewItem = null;
         PreviewImageSource = null;
     }
@@ -734,6 +759,30 @@ public partial class SearchViewModel : ObservableObject
         HasNextItem = index < SearchResults.Count - 1;
 
         PreviewDetailsText = $"{item.RelativePath} | 拍摄时间: {item.CapturedAt} | 大小: {item.SizeText}";
+        IsPreviewVideoFailed = false;
+        PreviewStatusText = "";
+        IsPreviewPlaying = false;
+
+        if (item.IsVideo)
+        {
+            PreviewImageSource = item.ThumbnailImage;
+            PreviewVideoPath = File.Exists(item.FullPath) ? item.FullPath : "";
+            IsPreviewVideo = true;
+            if (string.IsNullOrEmpty(PreviewVideoPath))
+            {
+                IsPreviewVideoFailed = true;
+                PreviewStatusText = App.GetString("PreviewVideoMissing", "找不到视频文件。");
+            }
+            else
+            {
+                _ = UpgradeVideoPosterAsync(item, index);
+            }
+
+            return;
+        }
+
+        IsPreviewVideo = false;
+        PreviewVideoPath = "";
 
         if (File.Exists(item.FullPath))
         {
@@ -1111,16 +1160,71 @@ public partial class SearchViewModel : ObservableObject
     {
         if (item.IsVideo)
         {
-            string? still = FindLivePhotoStill(item.FullPath);
-            if (still is not null)
-            {
-                return LoadFrozenThumbnail(still, 200) ?? ShellServices.GetShellThumbnail(still, 200, 200, thumbnailOnly: true);
-            }
-
-            return ShellServices.GetShellThumbnail(item.FullPath, 200, 200, thumbnailOnly: true);
+            return LoadVideoStill(item.FullPath, 200);
         }
 
         return LoadFrozenThumbnail(item.FullPath, 200) ?? ShellServices.GetShellThumbnail(item.FullPath, 200, 200, thumbnailOnly: true);
+    }
+
+    private async Task UpgradeVideoPosterAsync(MediaSearchResultItem item, int index)
+    {
+        try
+        {
+            ImageSource? poster = await Task.Run(() => LoadVideoStill(item.FullPath, 960)).ConfigureAwait(false);
+            if (poster is null || Application.Current is null)
+            {
+                return;
+            }
+
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                if (PreviewIndex == index && ReferenceEquals(PreviewItem, item))
+                {
+                    PreviewImageSource = poster;
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"UpgradeVideoPoster error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Live Photo videos share a folder and file stem with a still. HEIC/HEIF stills are decoded by the
+    /// shell so orientation matches Explorer; WPF's bitmap decoder often shows those files blank or rotated.
+    /// </summary>
+    private static ImageSource? LoadVideoStill(string videoPath, int decodeWidth)
+    {
+        string? still = FindLivePhotoStill(videoPath);
+        if (still is not null)
+        {
+            ImageSource? fromStill = IsHeif(still)
+                ? ShellServices.GetShellThumbnail(still, decodeWidth, decodeWidth, thumbnailOnly: true) ?? LoadFrozenThumbnail(still, decodeWidth)
+                : LoadFrozenThumbnail(still, decodeWidth) ?? ShellServices.GetShellThumbnail(still, decodeWidth, decodeWidth, thumbnailOnly: true);
+            if (fromStill is not null)
+            {
+                return fromStill;
+            }
+        }
+
+        return ShellServices.GetShellThumbnail(videoPath, decodeWidth, decodeWidth, thumbnailOnly: true);
+    }
+
+    private static bool IsHeif(string path)
+    {
+        string extension = Path.GetExtension(path);
+        return extension.Equals(".heic", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".heif", StringComparison.OrdinalIgnoreCase);
+    }
+
+    partial void OnIsPreviewPlayingChanged(bool value) => RefreshPlaybackLabel();
+
+    private void RefreshPlaybackLabel()
+    {
+        PreviewPlaybackLabel = IsPreviewPlaying
+            ? App.GetString("PreviewPause", "暂停")
+            : App.GetString("PreviewPlay", "播放");
     }
 
     private static ImageSource? LoadFrozenThumbnail(string filePath, int decodeWidth = 200)
