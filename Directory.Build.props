@@ -43,7 +43,7 @@
     <Copyright>Copyright (c) 2026 get-and-see contributors</Copyright>
     <Description>Read-only iPhone → PC media copier over USB (Apple File Conduit / AFC).</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/denis-a-evdokimov/get-and-see</RepositoryUrl>
+    <RepositoryUrl>https://github.com/Cc-Cece/get-and-see</RepositoryUrl>
     <!-- Version is derived from the latest `v*` git tag by MinVer — no manual bump. A tagged build
          stamps the exact version (v1.2.3 -> 1.2.3); a commit after a tag gets 1.2.4-alpha.0.<height>.
          CI/release builds set actions/checkout fetch-depth: 0 so the tag history is visible. -->

@@ -10,7 +10,6 @@ Ideas deferred from brainstorm. Revisit after v1 ships.
 - [ ] **Live Photo / Burst / Portrait / Cinematic awareness** — detect and tag in manifest (`live_photo_pair_id`, `burst_id`, `is_portrait`, `is_cinematic`)
 - [ ] **Apple Photos export via `house_arrest`** — separate tool, NOT part of get-and-see (different safety profile, would write to a sandboxed area). Recovers albums, keywords, favorites, People.
 - [ ] Album / smart-album organization (requires PhotoDB access via `house_arrest`, harder than AFC/DCIM)
-- [ ] GUI wrapper (WinUI 3 or Avalonia — keep CLI as the engine underneath)
 - [ ] Hash-based dedup across re-organizations (xxHash for speed; integrates with journal)
 - [ ] Thumbnail preview before copy (read-only thumbnail stream)
 - [ ] Selective copy by date range (`--after 2024-01-01 --before 2025-01-01`)
