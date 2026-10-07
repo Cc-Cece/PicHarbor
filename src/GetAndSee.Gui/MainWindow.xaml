@@ -1228,7 +1228,14 @@
                                         <TextBox Grid.Column="1" Text="{Binding FileNameFilter, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}" Margin="0,0,16,0"/>
 
                                         <TextBlock Grid.Column="2" Text="{DynamicResource CameraFilterLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox Grid.Column="3" Text="{Binding CameraFilter, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}"/>
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal">
+                                            <RadioButton GroupName="CameraFilterMode" Content="{DynamicResource CameraPickMode}" IsChecked="{Binding IsCameraPickMode, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,4,0" Padding="10,4" FontSize="12"/>
+                                            <RadioButton GroupName="CameraFilterMode" Content="{DynamicResource CameraKeywordMode}" IsChecked="{Binding IsCameraKeywordMode, Mode=TwoWay}" Style="{StaticResource TabRadioButton}" Margin="0,0,8,0" Padding="10,4" FontSize="12"/>
+                                            <ComboBox ItemsSource="{Binding CameraModels}" SelectedItem="{Binding SelectedCameraModel, Mode=TwoWay}" Height="34" MinWidth="180"
+                                                      Visibility="{Binding IsCameraPickMode, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            <TextBox Text="{Binding CameraKeyword, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}" MinWidth="180"
+                                                     Visibility="{Binding IsCameraKeywordMode, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                        </StackPanel>
                                     </Grid>
 
                                     <!-- Row 2: Date Pickers & Presets -->
@@ -1291,6 +1298,9 @@
                                                     Style="{StaticResource SecondaryButton}" Margin="12,0,0,0" Padding="10,4" FontSize="11"/>
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <TextBlock Text="{DynamicResource SortHeader}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <ComboBox Width="140" Height="34" Margin="0,0,8,0" ItemsSource="{Binding SortModeLabels}" SelectedIndex="{Binding SortModeIndex, Mode=TwoWay}"/>
+                                            <Button Content="{Binding SortDirectionText}" Command="{Binding ToggleSortDirectionCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,12,0" Padding="10,4" FontSize="12"/>
                                             <RadioButton Content="{DynamicResource ViewModeTableView}" IsChecked="{Binding IsTableView}" Style="{StaticResource TabRadioButton}" Margin="0,0,4,0" Padding="12,6" FontSize="12"/>
                                             <RadioButton Content="{DynamicResource ViewModeGalleryView}" IsChecked="{Binding IsGalleryView}" Style="{StaticResource TabRadioButton}" Padding="12,6" FontSize="12"/>
                                         </StackPanel>
@@ -1348,14 +1358,14 @@
                                                           Command="{Binding PlacementTarget.DataContext.AddToIPhoneSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                           CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                                 <MenuItem Header="{DynamicResource MenuRemoveFromIPhone}" 
-                                                          Visibility="Collapsed" Command="{Binding PlacementTarget.DataContext.RemoveFromIPhoneSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                          Visibility="Collapsed" Command="{Binding PlacementTarget.DataContext.RemoveFromIPhoneSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                                           CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                                 <Separator/>
                                                 <MenuItem Header="{DynamicResource MenuAddToAndroid}" 
                                                           Command="{Binding PlacementTarget.DataContext.AddToAndroidSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                           CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                                 <MenuItem Header="{DynamicResource MenuRemoveFromAndroid}" 
-                                                          Visibility="Collapsed" Command="{Binding PlacementTarget.DataContext.RemoveFromAndroidSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                          Visibility="Collapsed" Command="{Binding PlacementTarget.DataContext.RemoveFromAndroidSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                                           CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
 
                                             </ContextMenu>
@@ -1473,14 +1483,14 @@
                                                                         <MenuItem Header="{DynamicResource MenuAddToIPhone}" 
                                                                                   Command="{Binding PlacementTarget.Tag.AddToIPhoneSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                                                        <MenuItem Header="{DynamicResource MenuRemoveFromIPhone}" Visibility="Collapsed" 
+                                                                        <MenuItem Header="{DynamicResource MenuRemoveFromIPhone}" Visibility="Collapsed"
                                                                                   Command="{Binding PlacementTarget.Tag.RemoveFromIPhoneSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                                                         <Separator/>
                                                                         <MenuItem Header="{DynamicResource MenuAddToAndroid}" 
                                                                                   Command="{Binding PlacementTarget.Tag.AddToAndroidSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                                                        <MenuItem Header="{DynamicResource MenuRemoveFromAndroid}" Visibility="Collapsed" 
+                                                                        <MenuItem Header="{DynamicResource MenuRemoveFromAndroid}" Visibility="Collapsed"
                                                                                   Command="{Binding PlacementTarget.Tag.RemoveFromAndroidSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
 

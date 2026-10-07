@@ -153,6 +153,7 @@ public partial class MainViewModel : ObservableObject
         App.SwitchLanguage(culture);
         IPhoneSyncVM.OnLanguageChanged();
         AndroidSyncVM.OnLanguageChanged();
+        SearchVM.OnLanguageChanged();
         SaveConfig();
         _ = ProbeDeviceStatusAsync();
     }

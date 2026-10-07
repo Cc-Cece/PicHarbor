@@ -1192,13 +1192,20 @@ public partial class IPhoneSyncViewModel : ObservableObject
     {
         try
         {
-            Process.Start(new ProcessStartInfo("ms-x-appledevices:") { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo("AppleDevices.exe") { UseShellExecute = true });
             AddLog("[INFO] 正在唤起 Apple Devices 官方应用...");
         }
         catch (Exception ex)
         {
-            AddLog($"[WARN] 无法直接唤起 Apple Devices 协议 ({ex.Message})，已在资源管理器中打开同步文件夹。");
-            OpenSyncFolder();
+            AddLog($"[WARN] 无法启动 Apple Devices ({ex.Message})，改为打开 Microsoft Store 页面。");
+            try
+            {
+                Process.Start(new ProcessStartInfo("ms-windows-store://pdp/?productid=9NP83LWLPZ9U") { UseShellExecute = true });
+            }
+            catch (Exception storeEx)
+            {
+                AddLog($"[ERROR] 无法打开 Apple Devices 的商店页面: {storeEx.Message}");
+            }
         }
     }
 

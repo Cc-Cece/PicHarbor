@@ -825,14 +825,15 @@ public sealed class TransferJournal : IDisposable
         }
 
         using SqliteCommand command = CreateCommand(
-            "SELECT udid, name, model FROM devices ORDER BY last_seen DESC;");
+            "SELECT udid, name, model, last_seen FROM devices ORDER BY last_seen DESC;");
         using SqliteDataReader reader = command.ExecuteReader();
         while (reader.Read())
         {
             rows.Add(new DeviceRecord(
                 reader.GetString(0),
                 reader.IsDBNull(1) ? null : reader.GetString(1),
-                reader.IsDBNull(2) ? null : reader.GetString(2)));
+                reader.IsDBNull(2) ? null : reader.GetString(2),
+                reader.IsDBNull(3) ? null : ParseIsoOrNull(reader.GetString(3))));
         }
 
         return rows;
@@ -1655,7 +1656,8 @@ public sealed record ReorganizeEntry(
 /// <param name="Udid">Device UDID.</param>
 /// <param name="Name">Device name, if known.</param>
 /// <param name="Model">Device product type/model, if known.</param>
-public sealed record DeviceRecord(string Udid, string? Name, string? Model);
+/// <param name="LastSeen">UTC time the device was last seen, or <see langword="null"/> when the column is empty.</param>
+public sealed record DeviceRecord(string Udid, string? Name, string? Model, DateTimeOffset? LastSeen = null);
 
 /// <summary>Summary of the journal's run history, including the latest run's outcome.</summary>
 /// <param name="TotalRuns">Number of recorded runs.</param>
