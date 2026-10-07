@@ -136,8 +136,7 @@ jobs:
         shell: pwsh
         run: |
           if (Test-Path *.sln) {
-            dotnet publish src/GetAndSee.Cli -c Release -r win-x64 --self-contained true `
-              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+            dotnet publish src/GetAndSee.Cli -c Release -r win-x64 --self-contained true
             $exe = "src/GetAndSee.Cli/bin/Release/net10.0/win-x64/publish/get-and-see.exe"
             if (-not (Test-Path $exe)) { throw "published EXE not found at $exe" }
             & $exe --help
@@ -149,9 +148,9 @@ jobs:
 
       # The byte-identical-release GUARD (Sprint 3.6). The opt-in GAS_FAKE_DEVICE seam is gated behind the
       # FAKE_DEVICE compile constant + a `-p:FakeDevice=true`-only project reference, so a NORMAL release
-      # build must carry no trace of the fake. This step PROVES it on the exact single-file artifact
-      # release.yml ships (published just above): it asserts the EXE carries neither the fake assembly nor
-      # the seam type. Without it, "byte-identical default" is only an unverified comment in the csproj.
+      # build must carry no trace of the fake. The shipped exe is compressed, so this step scans the
+      # pre-bundle get-and-see.dll (parent of publish/) for the fake assembly and the seam type.
+      # Without it, "byte-identical default" is only an unverified comment in the csproj.
       - name: Release guard — shipped EXE is fake-free
         shell: pwsh
         run: |
@@ -169,12 +168,13 @@ jobs:
             throw "release guard FAILED: fake-device file(s) in publish output: $($leaked.Name -join ', ')"
           }
 
-          # (2) The shipped single-file EXE must not CONTAIN the fake. Built with -p:FakeDevice=true the
-          #     GetAndSee.FakeDevice assembly is bundled in and get-and-see.dll gains an assembly reference
-          #     to it; both surface the UTF-8 metadata names below. A normal (release) build references
-          #     nothing, so these strings are absent. release.yml does not enable single-file compression,
-          #     so the bundled assemblies are stored verbatim and a byte scan is reliable.
-          $bytes = [System.IO.File]::ReadAllBytes($exe)
+          # (2) The assemblies that go into the compressed exe must not contain the fake.
+          #     The shipped exe is compressed, so a byte scan of the exe itself is blind.
+          #     get-and-see.dll is the pre-bundle assembly: with -p:FakeDevice=true it references
+          #     GetAndSee.FakeDevice. A normal release build references nothing.
+          $dll = Join-Path (Split-Path $publishDir -Parent) "get-and-see.dll"
+          if (-not (Test-Path $dll)) { throw "release guard: pre-bundle assembly not found at $dll" }
+          $bytes = [System.IO.File]::ReadAllBytes($dll)
           $haystack = [System.Text.Encoding]::ASCII.GetString($bytes)
 
           # Positive control (so this absence-only guard can never rot into a vacuous green): the scan must be
@@ -182,15 +182,15 @@ jobs:
           # layout changed (single-file compression/trimming/format) and the marker scan has gone BLIND — fail
           # loudly rather than "pass" by finding nothing. Pairs with the negative checks below.
           if (-not $haystack.Contains('GetAndSee.Core')) {
-            throw "release guard FAILED (blind): the byte scan cannot find even 'GetAndSee.Core' in the EXE — the publish layout changed, so the fake-free check is no longer trustworthy. Re-validate the marker scan before shipping."
+            throw "release guard FAILED (blind): the byte scan cannot find even 'GetAndSee.Core' in get-and-see.dll — the publish layout changed, so the fake-free check is no longer trustworthy. Re-validate the marker scan before shipping."
           }
 
           foreach ($needle in @('GetAndSee.FakeDevice', 'FakeDeviceGate')) {
             if ($haystack.Contains($needle)) {
-              throw "release guard FAILED: shipped EXE contains '$needle' — the FAKE_DEVICE seam leaked into a release build."
+              throw "release guard FAILED: pre-bundle get-and-see.dll contains '$needle' — the FAKE_DEVICE seam leaked into a release build."
             }
           }
-          Write-Host "Release guard PASSED: shipped EXE carries no GetAndSee.FakeDevice assembly and FAKE_DEVICE was not defined."
+          Write-Host "Release guard PASSED: pre-bundle get-and-see.dll carries no GetAndSee.FakeDevice assembly and FAKE_DEVICE was not defined."
 
   exe-e2e:
     name: real-.exe E2E (FakeDevice seam, windows-latest)

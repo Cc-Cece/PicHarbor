@@ -5,6 +5,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>GetAndSee.Cli</RootNamespace>
     <AssemblyName>get-and-see</AssemblyName>
+    <ApplicationIcon>..\GetAndSee.Gui\Assets\GetAndSee.ico</ApplicationIcon>
 
     <!--
       imobiledevice-net ships native DLLs under runtimes/win-x64/native.
@@ -14,6 +15,16 @@
     -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
+    <!--
+      Portable publish (dotnet publish, self-contained): one compressed exe that runs
+      without a preinstalled .NET runtime. Native AFC libraries extract on first start.
+      Debugger support is dropped only for that self-contained publish. A normal build stays
+      framework-dependent and debuggable.
+    -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebuggerSupport Condition="'$(SelfContained)' == 'true'">false</DebuggerSupport>
   </PropertyGroup>
 
   <ItemGroup>

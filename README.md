@@ -101,8 +101,8 @@ That data is in Apple's photo database, which this read-only file protocol canno
 ## Prerequisites
 
 1. **Windows 10 version 2004 (build 19041) or later, x64.** Windows 11 is fine.
-2. **[.NET 10 SDK](https://dotnet.microsoft.com/download)** to build. The published command-line file
-   does not need a separate runtime; see [Install](#install).
+2. **[.NET 10 SDK](https://dotnet.microsoft.com/download)** to build. The published portable exes
+   already include the runtime; see [Install](#install).
 3. **Apple USB drivers**, from **either** iTunes for Windows **or** the **Apple Devices** app in the
    Microsoft Store. One of them provides the `usbmuxd` service.
 4. **iPhone on USB, unlocked**, with **Trust This Computer** accepted at least once.
@@ -126,37 +126,41 @@ This is an Apple storage setting. The tool cannot fetch files that are not on th
 ## Install
 
 The [Releases](https://github.com/Cc-Cece/get-and-see/releases) page is where a tagged build publishes
-`get-and-see.exe`. If that page has no assets yet, build from source. Both builds need the .NET 10 SDK.
+`GetAndSee.Gui.exe` and `get-and-see.exe`. If that page has no assets yet, build from source. Both
+builds need the .NET 10 SDK.
 
 ```pwsh
 git clone https://github.com/Cc-Cece/get-and-see.git
 cd get-and-see
 ```
 
-**Desktop app** (a folder beside the exe, not a single file):
+**Desktop app**, one compressed portable exe (about 77 MB):
 
 ```pwsh
-dotnet build src/GetAndSee.Gui/GetAndSee.Gui.csproj -c Release
-# src/GetAndSee.Gui/bin/Release/net10.0-windows10.0.19041.0/win-x64/GetAndSee.Gui.exe
+dotnet publish src/GetAndSee.Gui -c Release -r win-x64 --self-contained true
+# src/GetAndSee.Gui/bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/GetAndSee.Gui.exe
 ```
 
-**Command line**, single self-contained file:
+**Command line**, one compressed portable exe (about 44 MB):
 
 ```pwsh
-dotnet publish src/GetAndSee.Cli -c Release -r win-x64 --self-contained true `
-    -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+dotnet publish src/GetAndSee.Cli -c Release -r win-x64 --self-contained true
 # src/GetAndSee.Cli/bin/Release/net10.0/win-x64/publish/get-and-see.exe
 ```
+
+Copy the exe by itself. It includes the .NET runtime, so the other computer does not need a separate
+runtime or an installer. The first start extracts the iPhone USB libraries. Files named `.pdb` or
+`.xml` next to the exe are not required.
 
 When a release asset is attached, check it before you run it:
 
 ```pwsh
+(Get-FileHash .\GetAndSee.Gui.exe -Algorithm SHA256).Hash
 (Get-FileHash .\get-and-see.exe -Algorithm SHA256).Hash
-# compare with get-and-see.exe.sha256 from the same release
+# compare with the .sha256 files from the same release
 ```
 
-Pushing a `v*` tag runs `.github/workflows/release.yml`, which publishes that command-line file and its
-SHA-256. The desktop app is not part of that asset.
+Pushing a `v*` tag runs `.github/workflows/release.yml`, which publishes both exes and their SHA-256 files.
 
 ## Command line
 

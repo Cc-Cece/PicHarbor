@@ -24,7 +24,8 @@ jobs:
     runs-on: windows-latest
 
     env:
-      PUBLISH_EXE: src/GetAndSee.Cli/bin/Release/net10.0/win-x64/publish/get-and-see.exe
+      PUBLISH_CLI: src/GetAndSee.Cli/bin/Release/net10.0/win-x64/publish/get-and-see.exe
+      PUBLISH_GUI: src/GetAndSee.Gui/bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/GetAndSee.Gui.exe
 
     steps:
       - name: Checkout
@@ -37,31 +38,38 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Publish single-file self-contained win-x64
+      - name: Publish compressed portable exes (win-x64)
         shell: pwsh
         run: |
           # Version comes from the git tag via MinVer (the checkout uses fetch-depth: 0 so the tag is
           # visible). A tagged build (e.g. v1.0.2) stamps 1.0.2 into the EXE automatically — no -p:Version.
-          dotnet publish src/GetAndSee.Cli -c Release -r win-x64 --self-contained true `
-            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
-          if (-not (Test-Path $env:PUBLISH_EXE)) { throw "published EXE not found at $env:PUBLISH_EXE" }
+          # Single-file, compressed, self-contained. Native AFC libraries extract on first start.
+          # PublishSingleFile / compression / DebuggerSupport come from the app projects.
+          dotnet publish src/GetAndSee.Cli -c Release -r win-x64 --self-contained true
+          dotnet publish src/GetAndSee.Gui -c Release -r win-x64 --self-contained true
+          if (-not (Test-Path $env:PUBLISH_CLI)) { throw "published CLI not found at $env:PUBLISH_CLI" }
+          if (-not (Test-Path $env:PUBLISH_GUI)) { throw "published GUI not found at $env:PUBLISH_GUI" }
 
-      - name: Smoke test the published EXE (--help must run)
+      - name: Smoke test the published CLI (--help must run)
         shell: pwsh
         run: |
           # Proves the native AFC DLLs self-extract and the single file actually runs before we
           # trust it in a release (the RID/native-unpack lesson from Sprint 1).
-          & $env:PUBLISH_EXE --help
-          if ($LASTEXITCODE -ne 0) { throw "published EXE --help failed with exit $LASTEXITCODE" }
+          & $env:PUBLISH_CLI --help
+          if ($LASTEXITCODE -ne 0) { throw "published CLI --help failed with exit $LASTEXITCODE" }
 
       - name: Compute SHA-256
         shell: pwsh
         run: |
-          $hash = (Get-FileHash $env:PUBLISH_EXE -Algorithm SHA256).Hash.ToLower()
-          # sha256sum-compatible line: "<hash>  get-and-see.exe".
-          "$hash  get-and-see.exe" | Out-File -FilePath "$env:PUBLISH_EXE.sha256" -Encoding ascii
-          "SHA256=$hash" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          Write-Host "SHA-256: $hash"
+          $cliHash = (Get-FileHash $env:PUBLISH_CLI -Algorithm SHA256).Hash.ToLower()
+          $guiHash = (Get-FileHash $env:PUBLISH_GUI -Algorithm SHA256).Hash.ToLower()
+          # sha256sum-compatible lines: "<hash>  <filename>".
+          "$cliHash  get-and-see.exe" | Out-File -FilePath "$env:PUBLISH_CLI.sha256" -Encoding ascii
+          "$guiHash  GetAndSee.Gui.exe" | Out-File -FilePath "$env:PUBLISH_GUI.sha256" -Encoding ascii
+          "CLI_SHA256=$cliHash" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "GUI_SHA256=$guiHash" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "CLI SHA-256: $cliHash"
+          Write-Host "GUI SHA-256: $guiHash"
 
       - name: Create GitHub Release and attach assets
         shell: pwsh
@@ -72,11 +80,14 @@ jobs:
           # Build the notes as a string array (one line per element) to avoid PowerShell here-string
           # / backtick fragility inside a YAML block. Plain markdown, no code-span backticks.
           $lines = @(
-            "Single-file, self-contained Windows (win-x64) build of get-and-see $tag.",
+            "Portable, compressed, self-contained Windows (win-x64) builds of get-and-see $tag.",
+            "Copy one exe. No installer and no separate .NET runtime.",
             "",
-            "**Read-only by design** — this tool never writes to or deletes from your iPhone.",
+            "GetAndSee.Gui.exe is the desktop app. get-and-see.exe is the command line.",
+            "Backup never writes to the iPhone.",
             "",
-            "SHA-256 (get-and-see.exe): $env:SHA256",
+            "SHA-256 (get-and-see.exe): $env:CLI_SHA256",
+            "SHA-256 (GetAndSee.Gui.exe): $env:GUI_SHA256",
             "",
             "Verify your download (PowerShell): (Get-FileHash .\get-and-see.exe -Algorithm SHA256).Hash",
             "",
@@ -85,5 +96,6 @@ jobs:
           Set-Content -Path notes.md -Value $lines -Encoding utf8
 
           gh release create "$tag" `
-            "$env:PUBLISH_EXE" "$env:PUBLISH_EXE.sha256" `
+            "$env:PUBLISH_CLI" "$env:PUBLISH_CLI.sha256" `
+            "$env:PUBLISH_GUI" "$env:PUBLISH_GUI.sha256" `
             --title "$tag" --notes-file notes.md --verify-tag

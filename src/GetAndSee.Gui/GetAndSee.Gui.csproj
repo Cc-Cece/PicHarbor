@@ -8,8 +8,18 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>GetAndSee.Gui</RootNamespace>
     <AssemblyName>GetAndSee.Gui</AssemblyName>
+    <ApplicationIcon>Assets\GetAndSee.ico</ApplicationIcon>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <InvariantGlobalization>false</InvariantGlobalization>
+    <!--
+      Same portable publish shape as the CLI: one compressed self-contained exe.
+      Passing self-contained on dotnet publish selects the bundled runtime; a normal build does not.
+      Debugger support is dropped only for that self-contained publish.
+    -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebuggerSupport Condition="'$(SelfContained)' == 'true'">false</DebuggerSupport>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,6 +28,10 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\GetAndSee.png" />
   </ItemGroup>
 
 </Project>
