@@ -307,6 +307,9 @@
     <sys:String x:Key="GoogleLoginWindowLoading">正在加载 Google 登录页面...</sys:String>
     <sys:String x:Key="GoogleLoginWindowWaiting">等待登录...</sys:String>
     <sys:String x:Key="GoogleLoginWindowCaptured">✅ 登录成功！已成功捕获凭据，正在返回...</sys:String>
+    <sys:String x:Key="GoogleLoginWindowCannotConnect">无法连接至 Google 服务，请检查网络或代理配置</sys:String>
+    <sys:String x:Key="GoogleLoginWindowTimeout">连接 Google 超时，请检查代理服务是否正常运行</sys:String>
+    <sys:String x:Key="GoogleLoginWindowProxyError">无法连接至配置的代理服务器，请检查代理端口与服务状态</sys:String>
     <sys:String x:Key="GooglePhotosBundledGpmcNotice">⚡ gpmc 引擎已就绪</sys:String>
     <sys:String x:Key="GooglePhotosAuthDataLabel">Google auth_data 凭据:</sys:String>
     <sys:String x:Key="GooglePhotosEmailLabel">Google 账号:</sys:String>

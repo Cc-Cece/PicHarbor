@@ -747,7 +747,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     {
         try
         {
-            var loginWindow = new GoogleLoginWindow
+            var loginWindow = new GoogleLoginWindow(Proxy)
             {
                 Owner = Application.Current?.MainWindow
             };

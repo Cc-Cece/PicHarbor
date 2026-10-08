@@ -6,6 +6,8 @@ using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
 
+using PicHarbor.Core.GooglePhotos;
+
 namespace PicHarbor.Gui;
 
 /// <summary>
@@ -17,10 +19,12 @@ public partial class GoogleLoginWindow : Window
     private bool _isCompleted = false;
 
     public string? ExtractedToken { get; private set; }
+    public string? Proxy { get; }
 
-    public GoogleLoginWindow()
+    public GoogleLoginWindow(string? proxy = null)
     {
         InitializeComponent();
+        Proxy = proxy;
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -30,10 +34,24 @@ public partial class GoogleLoginWindow : Window
             SetStatus(App.GetString("GoogleLoginWindowLoading", "正在加载 Google 登录页面..."), false);
 
             string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string userDataDir = Path.Combine(localAppData, "PicHarbor", "WebView2");
+            string normalizedProxy = GooglePhotosSyncEngine.NormalizeProxy(Proxy);
+            string proxyFolder = string.IsNullOrWhiteSpace(normalizedProxy)
+                ? "default"
+                : Convert.ToHexString(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(normalizedProxy)))[..8];
+            string userDataDir = Path.Combine(localAppData, "PicHarbor", "WebView2", proxyFolder);
             Directory.CreateDirectory(userDataDir);
 
-            var env = await CoreWebView2Environment.CreateAsync(null, userDataDir);
+            CoreWebView2EnvironmentOptions? options = null;
+            string proxyArgs = GooglePhotosSyncEngine.BuildWebView2ProxyArguments(Proxy);
+            if (!string.IsNullOrWhiteSpace(proxyArgs))
+            {
+                options = new CoreWebView2EnvironmentOptions
+                {
+                    AdditionalBrowserArguments = proxyArgs
+                };
+            }
+
+            var env = await CoreWebView2Environment.CreateAsync(null, userDataDir, options);
             await LoginWebView.EnsureCoreWebView2Async(env);
 
             // Configure User-Agent:
@@ -59,7 +77,12 @@ public partial class GoogleLoginWindow : Window
             _pollTimer.Tick += PollTimer_Tick;
             _pollTimer.Start();
 
-            SetStatus(App.GetString("GoogleLoginWindowWaiting", "等待登录..."), false);
+            string waitingStatus = App.GetString("GoogleLoginWindowWaiting", "等待登录...");
+            if (!string.IsNullOrWhiteSpace(normalizedProxy))
+            {
+                waitingStatus += $" ({normalizedProxy})";
+            }
+            SetStatus(waitingStatus, false);
             LoginWebView.CoreWebView2.Navigate("https://accounts.google.com/EmbeddedSetup");
         }
         catch (Exception ex)
@@ -130,6 +153,22 @@ public partial class GoogleLoginWindow : Window
     {
         LoadingOverlay.Visibility = Visibility.Collapsed;
         if (_isCompleted) return;
+
+        if (!e.IsSuccess && e.WebErrorStatus != CoreWebView2WebErrorStatus.OperationCanceled)
+        {
+            string errorText = e.WebErrorStatus switch
+            {
+                CoreWebView2WebErrorStatus.CannotConnect or CoreWebView2WebErrorStatus.HostNameNotResolved
+                    => App.GetString("GoogleLoginWindowCannotConnect", "无法连接至 Google 服务，请检查网络或代理配置"),
+                CoreWebView2WebErrorStatus.Timeout
+                    => App.GetString("GoogleLoginWindowTimeout", "连接 Google 超时，请检查代理服务是否正常运行"),
+                CoreWebView2WebErrorStatus.ServerUnreachable or CoreWebView2WebErrorStatus.ValidProxyAuthenticationRequired
+                    => App.GetString("GoogleLoginWindowProxyError", "无法连接至配置的代理服务器，请检查代理端口与服务状态"),
+                _ => $"加载失败: {e.WebErrorStatus}"
+            };
+            SetStatus($"⚠️ {errorText}", true);
+        }
+
         await CheckAndCompleteAsync();
     }
 
@@ -285,6 +324,7 @@ public partial class GoogleLoginWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _pollTimer?.Stop();
+        try { LoginWebView.Dispose(); } catch { }
         base.OnClosed(e);
     }
 }
