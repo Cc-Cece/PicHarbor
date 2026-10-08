@@ -2,7 +2,7 @@
 
 > 本项目主要基于[get-and-see](https://github.com/denis-a-evdokimov/get-and-see)并添加了更多功能。
 
-[English](README.md) | [简体中文](README.zh-CN.md) | [项目主页](https://cc-cece.github.io/PicHarbor/)
+[English](README.md) | [简体中文](README.zh-CN.md) | [项目主页](https://picharbor.akihito.dpdns.org/)
 
 一款面向 Windows 的本地化**照片管理与备份工具**。支持通过 USB 快速无损备份移动端媒体文件，提供离线索引与高效检索，并支持跨设备同步与恢复至 iPhone、Android 及 Google 相册。
 

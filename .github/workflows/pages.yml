@@ -2,9 +2,8 @@ name: Deploy Website
 
 # Deploy the static website to GitHub Pages.
 # Triggers:
-#   push tags 'v*'      — automatically refresh and redeploy website when a new version tag is cut.
-#   push main (website) — update the website when website files or this workflow change on main.
-#   workflow_dispatch   — allow manual re-deployment from Actions tab.
+#   push tags 'v*'    - automatically refresh and redeploy website when a new version tag is cut.
+#   workflow_dispatch - allow manual re-deployment from Actions tab.
 on:
   push:
     tags:
@@ -36,15 +35,7 @@ jobs:
           REF_NAME="${{ github.ref_name }}"
           if [[ "$REF_NAME" == v* ]]; then
             echo "Stamping release tag $REF_NAME into website/version.json"
-            python3 -c "
-import json, datetime
-with open('website/version.json', 'r', encoding='utf-8') as f:
-    data = json.load(f)
-data['version'] = '$REF_NAME'
-data['published_at'] = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-with open('website/version.json', 'w', encoding='utf-8') as f:
-    json.dump(data, f, indent=2)
-"
+            python3 -c "import json, datetime; f=open('website/version.json','r+'); d=json.load(f); d['version']='$REF_NAME'; d['published_at']=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'); f.seek(0); json.dump(d, f, indent=2); f.truncate()"
           fi
 
       - name: Setup Pages
