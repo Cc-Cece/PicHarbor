@@ -6,6 +6,8 @@
   --bg-primary: #0a0f1d;
   --bg-secondary: #0f172a;
   --bg-tertiary: #1e293b;
+  --bg-section-alt: rgba(15, 23, 42, 0.6);
+  --border-section-alt: rgba(148, 163, 184, 0.1);
   --bg-card: rgba(30, 41, 59, 0.7);
   --bg-card-hover: rgba(51, 65, 85, 0.8);
   --bg-glass: rgba(15, 23, 42, 0.75);
@@ -47,12 +49,14 @@
   --bg-primary: #f8fafc;
   --bg-secondary: #f1f5f9;
   --bg-tertiary: #e2e8f0;
-  --bg-card: rgba(255, 255, 255, 0.85);
-  --bg-card-hover: rgba(255, 255, 255, 0.98);
+  --bg-section-alt: #f1f5f9;
+  --border-section-alt: rgba(226, 232, 240, 0.9);
+  --bg-card: #ffffff;
+  --bg-card-hover: #ffffff;
   --bg-glass: rgba(248, 250, 252, 0.85);
 
-  --border-color: rgba(203, 213, 225, 0.8);
-  --border-highlight: rgba(59, 130, 246, 0.5);
+  --border-color: rgba(226, 232, 240, 0.9);
+  --border-highlight: rgba(59, 130, 246, 0.4);
 
   --text-primary: #0f172a;
   --text-secondary: #475569;
@@ -65,17 +69,17 @@
   --accent-gradient: linear-gradient(135deg, #0284c7 0%, #2563eb 50%, #4f46e5 100%);
   --accent-glow: rgba(37, 99, 235, 0.15);
 
-  --badge-bg: rgba(2, 132, 199, 0.1);
+  --badge-bg: rgba(2, 132, 199, 0.08);
   --badge-text: #0284c7;
-  --badge-border: rgba(2, 132, 199, 0.25);
+  --badge-border: rgba(2, 132, 199, 0.2);
 
   --code-bg: #1e293b;
   --code-text: #f8fafc;
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.08);
-  --shadow-glow: 0 0 25px rgba(37, 99, 235, 0.15);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 0 25px rgba(37, 99, 235, 0.12);
 }
 
 *, *::before, *::after {
@@ -336,9 +340,9 @@ a {
 }
 
 .quick-cmd-box .btn-copy {
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--code-text);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 6px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -348,13 +352,20 @@ a {
 }
 
 .quick-cmd-box .btn-copy:hover {
-  color: var(--text-primary);
+  color: #ffffff;
   background: var(--accent-primary);
+  border-color: var(--accent-primary);
 }
 
 /* ================= Features Grid ================= */
 .section {
   padding: 80px 0;
+}
+
+.section-alt {
+  background-color: var(--bg-section-alt);
+  border-top: 1px solid var(--border-section-alt);
+  border-bottom: 1px solid var(--border-section-alt);
 }
 
 .section-header {
@@ -404,6 +415,7 @@ a {
   flex-direction: column;
   position: relative;
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
 .feature-card::before {
@@ -609,6 +621,12 @@ a {
   align-items: center;
 }
 
+[data-theme="light"] .safety-banner {
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.95) 0%, rgba(245, 243, 255, 0.8) 100%);
+  border-color: rgba(191, 219, 254, 0.8);
+  box-shadow: var(--shadow-sm);
+}
+
 @media (max-width: 868px) {
   .safety-banner {
     grid-template-columns: 1fr;
@@ -675,11 +693,12 @@ a {
   flex-direction: column;
   transition: var(--transition);
   position: relative;
+  box-shadow: var(--shadow-sm);
 }
 
 .download-card.highlight {
   border-color: var(--accent-primary);
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--shadow-md), var(--shadow-glow);
 }
 
 .download-badge {
@@ -743,10 +762,11 @@ a {
   gap: 12px;
   padding: 10px 20px;
   border-radius: var(--radius-full);
-  background: var(--bg-secondary);
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
   font-size: 0.875rem;
   color: var(--text-secondary);
+  box-shadow: var(--shadow-sm);
 }
 
 .release-notes-banner a {
@@ -772,6 +792,7 @@ a {
   border-radius: var(--radius-lg);
   padding: 32px 24px;
   position: relative;
+  box-shadow: var(--shadow-sm);
 }
 
 .step-number {
