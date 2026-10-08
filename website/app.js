@@ -383,7 +383,7 @@ async function loadLatestRelease() {
         const localData = await localRes.json();
         updateReleaseDom({
           tag_name: localData.version || "v1.0.0",
-          html_url: localData.release_url || "https://github.com/Cc-Cece/get-and-see/releases",
+          html_url: localData.release_url || "https://github.com/Cc-Cece/PicHarbor/releases",
           assets: []
         });
         return;
