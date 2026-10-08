@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>PicHarbor.Gui</RootNamespace>
+    <AssemblyName>PicHarbor.Gui</AssemblyName>
+    <ApplicationIcon>Assets\PicHarbor.ico</ApplicationIcon>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <!--
+      Same portable publish shape as the CLI: one compressed self-contained exe.
+      Passing self-contained on dotnet publish selects the bundled runtime; a normal build does not.
+      Debugger support is dropped only for that self-contained publish.
+    -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebuggerSupport Condition="'$(SelfContained)' == 'true'">false</DebuggerSupport>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PicHarbor.Core\PicHarbor.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\PicHarbor.png" />
+  </ItemGroup>
+
+</Project>

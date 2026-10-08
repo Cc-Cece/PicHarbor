@@ -24,8 +24,8 @@ jobs:
     runs-on: windows-latest
 
     env:
-      PUBLISH_CLI: src/GetAndSee.Cli/bin/Release/net10.0/win-x64/publish/get-and-see.exe
-      PUBLISH_GUI: src/GetAndSee.Gui/bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/GetAndSee.Gui.exe
+      PUBLISH_CLI: src/PicHarbor.Cli/bin/Release/net10.0/win-x64/publish/picharbor.exe
+      PUBLISH_GUI: src/PicHarbor.Gui/bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/PicHarbor.Gui.exe
 
     steps:
       - name: Checkout
@@ -45,8 +45,8 @@ jobs:
           # visible). A tagged build (e.g. v1.0.2) stamps 1.0.2 into the EXE automatically — no -p:Version.
           # Single-file, compressed, self-contained. Native AFC libraries extract on first start.
           # PublishSingleFile / compression / DebuggerSupport come from the app projects.
-          dotnet publish src/GetAndSee.Cli -c Release -r win-x64 --self-contained true
-          dotnet publish src/GetAndSee.Gui -c Release -r win-x64 --self-contained true
+          dotnet publish src/PicHarbor.Cli -c Release -r win-x64 --self-contained true
+          dotnet publish src/PicHarbor.Gui -c Release -r win-x64 --self-contained true
           if (-not (Test-Path $env:PUBLISH_CLI)) { throw "published CLI not found at $env:PUBLISH_CLI" }
           if (-not (Test-Path $env:PUBLISH_GUI)) { throw "published GUI not found at $env:PUBLISH_GUI" }
 
@@ -64,8 +64,8 @@ jobs:
           $cliHash = (Get-FileHash $env:PUBLISH_CLI -Algorithm SHA256).Hash.ToLower()
           $guiHash = (Get-FileHash $env:PUBLISH_GUI -Algorithm SHA256).Hash.ToLower()
           # sha256sum-compatible lines: "<hash>  <filename>".
-          "$cliHash  get-and-see.exe" | Out-File -FilePath "$env:PUBLISH_CLI.sha256" -Encoding ascii
-          "$guiHash  GetAndSee.Gui.exe" | Out-File -FilePath "$env:PUBLISH_GUI.sha256" -Encoding ascii
+          "$cliHash  picharbor.exe" | Out-File -FilePath "$env:PUBLISH_CLI.sha256" -Encoding ascii
+          "$guiHash  PicHarbor.Gui.exe" | Out-File -FilePath "$env:PUBLISH_GUI.sha256" -Encoding ascii
           "CLI_SHA256=$cliHash" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "GUI_SHA256=$guiHash" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "CLI SHA-256: $cliHash"
@@ -80,16 +80,16 @@ jobs:
           # Build the notes as a string array (one line per element) to avoid PowerShell here-string
           # / backtick fragility inside a YAML block. Plain markdown, no code-span backticks.
           $lines = @(
-            "Portable, compressed, self-contained Windows (win-x64) builds of get-and-see $tag.",
+            "Portable, compressed, self-contained Windows (win-x64) builds of PicHarbor $tag.",
             "Copy one exe. No installer and no separate .NET runtime.",
             "",
-            "GetAndSee.Gui.exe is the desktop app. get-and-see.exe is the command line.",
+            "PicHarbor.Gui.exe is the desktop app. picharbor.exe is the command line.",
             "Backup never writes to the iPhone.",
             "",
-            "SHA-256 (get-and-see.exe): $env:CLI_SHA256",
-            "SHA-256 (GetAndSee.Gui.exe): $env:GUI_SHA256",
+            "SHA-256 (picharbor.exe): $env:CLI_SHA256",
+            "SHA-256 (PicHarbor.Gui.exe): $env:GUI_SHA256",
             "",
-            "Verify your download (PowerShell): (Get-FileHash .\get-and-see.exe -Algorithm SHA256).Hash",
+            "Verify your download (PowerShell): (Get-FileHash .\picharbor.exe -Algorithm SHA256).Hash",
             "",
             "See docs/release-notes/ for the full changelog and known limitations."
           )

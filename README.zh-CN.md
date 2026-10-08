@@ -1,4 +1,4 @@
-# GetAndSee
+# PicHarbor
 
 > 本项目主要基于[get-and-see](https://github.com/denis-a-evdokimov/get-and-see)并添加了更多功能。
 
@@ -22,7 +22,7 @@
 - **同步至 Google 相册**：集成 `gpmc` 实现云端备份。支持内置窗口自动捕获 OAuth 凭据或 Android GmsCore 凭据，支持 Pixel 原画质（不计空间配额）或节省空间画质、自动/自定义相册分类、多线程并发及网络异常自动避让重试。
 
 ### 🔍 离线媒体检索与画廊
-- **离线即时检索**：无需连接手机，通过本地 SQLite 数据库（`get-and-see.db`）快速检索。支持按拍摄时间、设备型号、媒体类型、GPS 定位、文件大小等多维度筛选。
+- **离线即时检索**：无需连接手机，通过本地 SQLite 数据库（`picharbor.db`，兼容旧版 `get-and-see.db`）快速检索。支持按拍摄时间、设备型号、媒体类型、GPS 定位、文件大小等多维度筛选。
 - **多模式浏览**：提供表格视图与照片画廊视图，支持大图灯箱预览及内置视频直接播放。
 - **智能关联配对**：自动识别并补全 Live Photo（实况照片 `.MOV`）、修图数据（`.AAE`）以及 RAW 预览（`.DNG` + `.JPG`）。
 
@@ -36,10 +36,10 @@
 
 ## 双端界面
 
-GetAndSee 提供两套共享同一数据库清单与归档目录的交互界面：
+PicHarbor 提供两套共享同一数据库清单与归档目录的交互界面：
 
-1. **桌面图形界面 (`GetAndSee.Gui`)**：功能完备的桌面应用，包含“备份到电脑”、“恢复到 iPhone”、“恢复到 Android”、“Google 相册”、“归档状态”、“媒体检索”、“目录整理”和“设置”八大模块。
-2. **命令行工具 (`get-and-see.exe`)**：轻量级命令行程序，适合脚本化调用与自动化任务，具备实时交互式终端监控面板。（主要是[get-and-see](https://github.com/denis-a-evdokimov/get-and-see)）
+1. **桌面图形界面 (`PicHarbor.Gui`)**：功能完备的桌面应用，包含“备份到电脑”、“恢复到 iPhone”、“恢复到 Android”、“Google 相册”、“归档状态”、“媒体检索”、“目录整理”和“设置”八大模块。
+2. **命令行工具 (`picharbor.exe`)**：轻量级命令行程序，适合脚本化调用与自动化任务，具备实时交互式终端监控面板。（主要是[get-and-see](https://github.com/denis-a-evdokimov/get-and-see)）
 
 ---
 
@@ -60,33 +60,33 @@ GetAndSee 提供两套共享同一数据库清单与归档目录的交互界面�
 
 从源码启动：
 ```pwsh
-dotnet run --project src/GetAndSee.Gui -c Release
+dotnet run --project src/PicHarbor.Gui -c Release
 ```
 或发布单文件独立运行版：
 ```pwsh
-dotnet publish src/GetAndSee.Gui -c Release -r win-x64 --self-contained true
+dotnet publish src/PicHarbor.Gui -c Release -r win-x64 --self-contained true
 ```
 
 ### 命令行 (CLI)
 
 ```pwsh
 # 增量备份到目标目录
-get-and-see copy --dest "D:\Photos"
+picharbor copy --dest "D:\Photos"
 
 # 指定归档目录层级结构 (month, year-month, year, flat)
-get-and-see copy --dest "D:\Photos" --organize-by year-month
+picharbor copy --dest "D:\Photos" --organize-by year-month
 
 # 试运行预览（仅扫描计划，不实际拷贝）
-get-and-see copy --dest "D:\Photos" --dry-run
+picharbor copy --dest "D:\Photos" --dry-run
 
 # 检索归档媒体（无需连接设备）
-get-and-see search --dest "D:\Photos" --type video --from 2024-01-01 --has-gps
+picharbor search --dest "D:\Photos" --type video --from 2024-01-01 --has-gps
 
 # 重整已有归档目录的层级结构
-get-and-see reorganize --dest "D:\Photos" --organize-by year-month
+picharbor reorganize --dest "D:\Photos" --organize-by year-month
 
 # 查看归档状态与统计信息
-get-and-see status --dest "D:\Photos"
+picharbor status --dest "D:\Photos"
 ```
 
 ---
