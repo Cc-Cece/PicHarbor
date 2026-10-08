@@ -1,0 +1,60 @@
+name: Deploy Website
+
+# Deploy the static website to GitHub Pages.
+# Triggers:
+#   push tags 'v*'      — automatically refresh and redeploy website when a new version tag is cut.
+#   push main (website) — update the website when website files or this workflow change on main.
+#   workflow_dispatch   — allow manual re-deployment from Actions tab.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Stamp release tag metadata
+        shell: bash
+        run: |
+          REF_NAME="${{ github.ref_name }}"
+          if [[ "$REF_NAME" == v* ]]; then
+            echo "Stamping release tag $REF_NAME into website/version.json"
+            python3 -c "
+import json, datetime
+with open('website/version.json', 'r', encoding='utf-8') as f:
+    data = json.load(f)
+data['version'] = '$REF_NAME'
+data['published_at'] = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+with open('website/version.json', 'w', encoding='utf-8') as f:
+    json.dump(data, f, indent=2)
+"
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'website'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

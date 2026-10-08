@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PicHarbor — Local-First Photo Management & Backup Tool</title>
+  <meta name="description" content="A local-first photo management and backup tool for Windows. Lossless, strictly read-only iPhone USB archiving via AFC, offline SQLite media indexing, and multi-destination sync to iPhone, Android, and Google Photos.">
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Header / Navigation -->
+  <header class="header">
+    <div class="container nav">
+      <a href="#" class="brand">
+        <img src="assets/PicHarbor.png" alt="PicHarbor Logo">
+        <span class="brand-text">PicHarbor</span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="#features" class="nav-link" data-i18n="nav_features">Features</a></li>
+        <li><a href="#showcase" class="nav-link" data-i18n="nav_showcase">Showcase</a></li>
+        <li><a href="#safety" class="nav-link" data-i18n="nav_safety">Safety</a></li>
+        <li><a href="#download" class="nav-link" data-i18n="nav_download">Download</a></li>
+        <li><a href="https://github.com/Cc-Cece/PicHarbor#readme" target="_blank" rel="noopener" class="nav-link" data-i18n="nav_docs">Docs</a></li>
+      </ul>
+
+      <div class="nav-controls">
+        <button id="langToggle" class="btn-icon lang-switch" title="Switch Language">中文</button>
+        <button id="themeToggle" class="btn-icon" title="Toggle Theme">
+          <span id="themeIcon">
+            <!-- Moon icon by default -->
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+          </span>
+        </button>
+        <a href="https://github.com/Cc-Cece/PicHarbor" target="_blank" rel="noopener" class="btn-icon" title="GitHub Repository">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge">
+        <span class="dot"></span>
+        <span data-i18n="hero_badge">Open Source • Local-First Photo Harbor</span>
+      </div>
+
+      <h1 class="hero-title">
+        <span data-i18n="hero_title_1">Your Safe Harbor for</span><br>
+        <span class="hero-title-gradient" data-i18n="hero_title_2">Mobile Memories.</span>
+      </h1>
+
+      <p class="hero-subtitle" data-i18n="hero_subtitle">
+        Lossless, strictly read-only iPhone USB archiving via Apple File Conduit (AFC), offline SQLite media indexing, and multi-destination synchronization across iPhone, Android, and Google Photos.
+      </p>
+
+      <div class="hero-cta">
+        <a href="#download" class="btn btn-primary btn-lg">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          <span data-i18n="btn_download_gui">Download GUI (App)</span>
+        </a>
+        <a href="#download" class="btn btn-secondary btn-lg">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+          <span data-i18n="btn_download_cli">Download CLI</span>
+        </a>
+        <a href="https://github.com/Cc-Cece/PicHarbor" target="_blank" rel="noopener" class="btn btn-secondary btn-lg">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          <span data-i18n="btn_github">GitHub</span>
+        </a>
+      </div>
+
+      <div class="quick-cmd-box">
+        <code>picharbor copy --dest "D:\Photos"</code>
+        <button class="btn-copy" data-copy="picharbor copy --dest &quot;D:\Photos&quot;" data-i18n="cmd_copy">Copy</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag" data-i18n="sec_features_tag">Core Capabilities</span>
+        <h2 class="section-title" data-i18n="sec_features_title">Engineered for Reliability & Data Safety</h2>
+        <p class="section-subtitle" data-i18n="sec_features_sub">No cloud lock-in, no lossy compression, and no accidental deletion. Built on high-performance .NET 10.</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">📥</div>
+          <h3 data-i18n="feat_1_title">Lossless iPhone USB Archiving</h3>
+          <p data-i18n="feat_1_desc">Direct Apple File Conduit (AFC) protocol over USB. Eliminates Windows MTP explorer crashes and 0-byte corrupt transfers. Live Photos, RAW, and AAE sidecars paired seamlessly.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🛡️</div>
+          <h3 data-i18n="feat_2_title">Strictly Read-Only iPhone Safety</h3>
+          <p data-i18n="feat_2_desc">Hardened by architecture and compile-time Mono.Cecil contract tests. PicHarbor only ever reads from /DCIM/ and cannot write, modify, or delete anything on your device.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🔍</div>
+          <h3 data-i18n="feat_3_title">Offline SQLite Index & Search</h3>
+          <p data-i18n="feat_3_desc">Browse archives and search media instantly without reconnecting devices. Query by date, camera model, media type, file size, or GPS coordinates with gallery lightbox preview.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🍏</div>
+          <h3 data-i18n="feat_4_title">Restore & Sync to iPhone</h3>
+          <p data-i18n="feat_4_desc">Generates structured sync albums (flat or YYYY-MM) for Apple Devices or iTunes to synchronize back into iOS Photos, keeping Live Photo video/photo links completely intact.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🤖</div>
+          <h3 data-i18n="feat_5_title">Restore & Incremental Android Sync</h3>
+          <p data-i18n="feat_5_desc">Direct FTP synchronization to Android or Pixel devices. Supports full restore or incremental skip based on SQLite historical records to avoid repeated transfers.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">☁️</div>
+          <h3 data-i18n="feat_6_title">Google Photos Cloud Backup</h3>
+          <p data-i18n="feat_6_desc">Integrated gpmc cloud bridge with automatic OAuth token capture, Pixel unlimited storage or Storage Saver quality, auto-albums, and retry with jitter backoff.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Showcase Section -->
+  <section id="showcase" class="section" style="background: rgba(15, 23, 42, 0.4);">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag" data-i18n="sec_showcase_tag">Dual Interfaces</span>
+        <h2 class="section-title" data-i18n="sec_showcase_title">Choose the Way You Work</h2>
+        <p class="section-subtitle" data-i18n="sec_showcase_sub">A rich modern desktop application and a powerful scriptable command-line tool, sharing the same archive format.</p>
+      </div>
+
+      <div class="showcase-wrapper">
+        <div class="showcase-tabs">
+          <button class="tab-btn active" data-tab="tab-iphone" data-i18n="tab_btn_iphone">📥 iPhone USB Archiving</button>
+          <button class="tab-btn" data-tab="tab-restore" data-i18n="tab_btn_restore">🔄 Multi-Device Sync</button>
+          <button class="tab-btn" data-tab="tab-gphotos" data-i18n="tab_btn_gphotos">☁️ Google Photos</button>
+          <button class="tab-btn" data-tab="tab-cli" data-i18n="tab_btn_cli">⚡ Terminal CLI</button>
+        </div>
+
+        <!-- Tab 1: iPhone -->
+        <div id="tab-iphone" class="tab-content active">
+          <div class="tab-grid">
+            <div class="tab-info">
+              <h3 data-i18n="tab_iphone_h3">True Native AFC Archiving</h3>
+              <p data-i18n="tab_iphone_p">Bypasses flaky Windows MTP. Employs SQLite journaling and atomic writes (.partial → size verification → atomic rename). Transfers cleanly resume after disconnects.</p>
+              <ul>
+                <li>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span data-i18n="tab_iphone_li1">Direct AFC protocol via usbmuxd service</span>
+                </li>
+                <li>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span data-i18n="tab_iphone_li2">Flexible scope: full roll, date range, or DCIM folder</span>
+                </li>
+                <li>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span data-i18n="tab_iphone_li3">Automatic organization: month, year-month, year, or flat</span>
+                </li>
+              </ul>
+            </div>
+            <div class="terminal-box">
+              <div class="terminal-bar">
+                <span class="terminal-dot dot-red"></span>
+                <span class="terminal-dot dot-yellow"></span>
+                <span class="terminal-dot dot-green"></span>
+                <span class="terminal-title">PicHarbor Copy Engine</span>
+              </div>
+              <div class="terminal-body">
+                <p><span class="terminal-prompt">&gt;</span> picharbor copy --dest "D:\Photos" --organize-by year-month</p>
+                <p style="color:#10b981;">[Preflight] iPhone 15 Pro (iOS 18.2) connected via USB (AFC).</p>
+                <p>[Scan] Enumerating /DCIM/... Found 4,218 items (84.2 GB).</p>
+                <p>[Journal] Loaded picharbor.db — 1,420 items already archived.</p>
+                <p style="color:#38bdf8;">[Copying] 2024-09/IMG_4821.HEIC + IMG_4821.MOV (Live Photo) [OK]</p>
+                <p style="color:#38bdf8;">[Copying] 2024-09/IMG_4822.DNG (ProRAW 48MP) [OK]</p>
+                <p style="color:#10b981;">[Summary] Done: 2,798 copied, 1,420 skipped, 0 failed. Manifest updated.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Restore & Android -->
+        <div id="tab-restore" class="tab-content">
+          <div class="tab-grid">
+            <div class="tab-info">
+              <h3 data-i18n="tab_restore_h3">Multi-Destination Cross-Device Restore</h3>
+              <p data-i18n="tab_restore_p">Effortlessly send archived photos to new phones. Synchronize back into iOS Photos via iTunes, or upload directly to Android via FTP.</p>
+              <ul>
+                <li>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span data-i18n="tab_restore_li1">Retains Live Photo motion pairs and edit sidecars</span>
+                </li>
+                <li>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span data-i18n="tab_restore_li2">Android FTP auto-pairing with .picharbor-device-id</span>
+                </li>
+                <li>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span data-i18n="tab_restore_li3">Smart incremental skip using local journal</span>
+                </li>
+              </ul>
+            </div>
+            <div class="terminal-box">
+              <div class="terminal-bar">
+                <span class="terminal-dot dot-red"></span>
+                <span class="terminal-dot dot-yellow"></span>
+                <span class="terminal-dot dot-green"></span>
+                <span class="terminal-title">Android FTP Restore Pipeline</span>
+              </div>
+              <div class="terminal-body">
+                <p><span class="terminal-prompt">&gt;</span> Android Device: Pixel 8 Pro (192.168.1.108:2121)</p>
+                <p style="color:#10b981;">[Pairing] Verified device identifier: .picharbor-device-id [Matched]</p>
+                <p>[Target] /DCIM/PicHarbor/iPhone Photos/</p>
+                <p>[Transfer] Uploading 1,840 items with SHA-256 verification...</p>
+                <p style="color:#10b981;">[Result] 1,840 files synchronized. Metadata &amp; capture timestamps preserved.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Google Photos -->
+        <div id="tab-gphotos" class="tab-content">
+          <div class="tab-grid">
+            <div class="tab-info">
+              <h3 data-i18n="tab_gphotos_h3">Google Photos Cloud Integration</h3>
+              <p data-i18n="tab_gphotos_p">Integrated gpmc bridge enables cloud synchronization with support for Pixel unlimited storage tier credentials.</p>
+              <ul>
+                <li>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span data-i18n="tab_gphotos_li1">OAuth browser capture or GmsCore credentials</span>
+                </li>
+                <li>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span data-i18n="tab_gphotos_li2">Supports Original Quality or Storage Saver</span>
+                </li>
+                <li>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span data-i18n="tab_gphotos_li3">Multi-threaded upload with automatic rate backoff</span>
+                </li>
+              </ul>
+            </div>
+            <div class="terminal-box">
+              <div class="terminal-bar">
+                <span class="terminal-dot dot-red"></span>
+                <span class="terminal-dot dot-yellow"></span>
+                <span class="terminal-dot dot-green"></span>
+                <span class="terminal-title">Google Photos Cloud Bridge (gpmc)</span>
+              </div>
+              <div class="terminal-body">
+                <p><span class="terminal-prompt">&gt;</span> Auth: OAuth Token authenticated (user@example.com)</p>
+                <p>[Quality] Storage Tier: Original (Pixel unlimited tier)</p>
+                <p>[Albums] Auto-grouping by YYYY-MM albums</p>
+                <p style="color:#38bdf8;">[Uploading] Thread #1: 2024-08/IMG_3901.HEIC (100%)</p>
+                <p style="color:#38bdf8;">[Uploading] Thread #2: 2024-08/IMG_3902.MOV (100%)</p>
+                <p style="color:#10b981;">[Status] Batch complete: 520 uploaded, 0 errors.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 4: CLI -->
+        <div id="tab-cli" class="tab-content">
+          <div class="tab-grid">
+            <div class="tab-info">
+              <h3 data-i18n="tab_cli_h3">Scriptable Command Line with Live Dashboard</h3>
+              <p data-i18n="tab_cli_p">Designed for automation, headless tasks, or power users. Features a real-time interactive terminal status dashboard.</p>
+              <ul>
+                <li>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span data-i18n="tab_cli_li1">Atomic resume on Ctrl+C or unplug</span>
+                </li>
+                <li>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span data-i18n="tab_cli_li2">Dry-run simulation mode (--dry-run)</span>
+                </li>
+                <li>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span data-i18n="tab_cli_li3">Offline lossless archive reorganizer (reorganize)</span>
+                </li>
+              </ul>
+            </div>
+            <div class="terminal-box">
+              <div class="terminal-bar">
+                <span class="terminal-dot dot-red"></span>
+                <span class="terminal-dot dot-yellow"></span>
+                <span class="terminal-dot dot-green"></span>
+                <span class="terminal-title">picharbor.exe Terminal</span>
+              </div>
+              <div class="terminal-body">
+                <p><span class="terminal-prompt">&gt;</span> picharbor search --dest "D:\Photos" --type video --from 2024-01-01 --has-gps</p>
+                <p style="color:#94a3b8;">Searching local manifest 'picharbor.db'...</p>
+                <p>2024/2024-08/IMG_4110.MOV | 2024-08-15 14:22:01 | 184.2 MB | 35.6895, 139.6917</p>
+                <p>2024/2024-07/IMG_3890.MOV | 2024-07-20 09:15:30 |  92.5 MB | 31.2304, 121.4737</p>
+                <p style="color:#10b981;">Matched 2 videos in 14ms (offline, no phone needed).</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Safety Guarantees Section -->
+  <section id="safety" class="section">
+    <div class="container">
+      <div class="safety-banner">
+        <div>
+          <span class="section-tag" data-i18n="sec_safety_tag">Safety by Design</span>
+          <h2 class="section-title" data-i18n="sec_safety_title">Zero Risk of Data Loss</h2>
+          <p class="section-subtitle" style="text-align: left; margin: 0 0 24px;" data-i18n="sec_safety_sub">
+            Your original photos on iPhone are strictly read-only. Every write on PC is atomic and journaled.
+          </p>
+        </div>
+
+        <div class="safety-points">
+          <div class="safety-point">
+            <div class="safety-point-icon">🛡️</div>
+            <div class="safety-point-text">
+              <h4 data-i18n="safety_1_title">Architectural Read-Only Contract</h4>
+              <p data-i18n="safety_1_desc">Enforced at build time via Mono.Cecil byte-scanning unit tests. The core engine does not import or call any device-write API.</p>
+            </div>
+          </div>
+
+          <div class="safety-point">
+            <div class="safety-point-icon">⚡</div>
+            <div class="safety-point-text">
+              <h4 data-i18n="safety_2_title">Atomic Write Pipeline</h4>
+              <p data-i18n="safety_2_desc">Transfers write to .partial temporary files, verify byte lengths, and rename atomically. Interrupted files never leave corrupt zero-byte artifacts.</p>
+            </div>
+          </div>
+
+          <div class="safety-point">
+            <div class="safety-point-icon">⏱️</div>
+            <div class="safety-point-text">
+              <h4 data-i18n="safety_3_title">Forward-Progress Watchdog</h4>
+              <p data-i18n="safety_3_desc">Detects stalled connections and graceful disconnect timeouts. Unplugging mid-copy safely exits and seamlessly resumes on reconnect.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Download Section -->
+  <section id="download" class="section download-section" style="background: rgba(15, 23, 42, 0.4);">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag" data-i18n="sec_download_tag">Get Started</span>
+        <h2 class="section-title" data-i18n="sec_download_title">Download PicHarbor</h2>
+        <p class="section-subtitle" data-i18n="sec_download_sub">Portable single-file executables for Windows 10 (19041+) &amp; Windows 11. No installer required.</p>
+      </div>
+
+      <div class="download-cards">
+        <!-- GUI Card -->
+        <div class="download-card highlight">
+          <span class="download-badge" data-i18n="dl_gui_badge">Recommended</span>
+          <h3 data-i18n="dl_gui_title">PicHarbor GUI</h3>
+          <p class="download-desc" data-i18n="dl_gui_desc">Full-featured desktop application with visual tabs, media gallery, and Google Photos login.</p>
+          <ul class="download-specs">
+            <li><span>Version</span><span class="value release-tag">v1.0.0</span></li>
+            <li><span>OS</span><span class="value" data-i18n="dl_gui_os">Windows 10/11 (x64)</span></li>
+            <li><span>Package</span><span class="value" data-i18n="dl_gui_type">Portable Single-File EXE</span></li>
+            <li><span>Size</span><span id="guiFileSize" class="value">~38 MB</span></li>
+          </ul>
+          <a id="guiDownloadBtn" href="https://github.com/Cc-Cece/PicHarbor/releases/latest" class="btn btn-primary btn-lg">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span data-i18n="dl_gui_btn">Download PicHarbor.Gui.exe</span>
+          </a>
+        </div>
+
+        <!-- CLI Card -->
+        <div class="download-card">
+          <span class="download-badge" data-i18n="dl_cli_badge">Terminal / Scripts</span>
+          <h3 data-i18n="dl_cli_title">PicHarbor CLI</h3>
+          <p class="download-desc" data-i18n="dl_cli_desc">High-speed CLI with interactive dashboard for automated backups and scheduled tasks.</p>
+          <ul class="download-specs">
+            <li><span>Version</span><span class="value release-tag">v1.0.0</span></li>
+            <li><span>OS</span><span class="value" data-i18n="dl_cli_os">Windows 10/11 (x64)</span></li>
+            <li><span>Package</span><span class="value" data-i18n="dl_cli_type">Portable Single-File EXE</span></li>
+            <li><span>Size</span><span id="cliFileSize" class="value">~30 MB</span></li>
+          </ul>
+          <a id="cliDownloadBtn" href="https://github.com/Cc-Cece/PicHarbor/releases/latest" class="btn btn-secondary btn-lg">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span data-i18n="dl_cli_btn">Download picharbor.exe</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="release-notes-banner">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        <span data-i18n="release_notes_label">View changelog and SHA-256 verification on</span>
+        <a id="releaseLink" href="https://github.com/Cc-Cece/PicHarbor/releases/latest" target="_blank" rel="noopener" data-i18n="release_notes_link">GitHub Releases</a>
+      </div>
+
+      <!-- Quick Setup Steps -->
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-number">1</div>
+          <h4 data-i18n="step_1_title">1. Install Apple Drivers</h4>
+          <p data-i18n="step_1_desc">Ensure iTunes or Apple Devices app is installed on Windows to provide the USB driver service (usbmuxd).</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">2</div>
+          <h4 data-i18n="step_2_title">2. Connect &amp; Trust</h4>
+          <p data-i18n="step_2_desc">Connect your iPhone via USB, unlock the screen, and tap 'Trust This Computer'.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">3</div>
+          <h4 data-i18n="step_3_title">3. Run PicHarbor</h4>
+          <p data-i18n="step_3_desc">Launch PicHarbor.Gui.exe or run 'picharbor copy --dest D:\Photos' to begin lossless backup.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <div class="brand">
+            <img src="assets/PicHarbor.png" alt="PicHarbor">
+            <span class="brand-text">PicHarbor</span>
+          </div>
+          <p data-i18n="footer_desc">A local-first, lossless photo management and backup tool for Windows. Protecting your irreplaceable memories with engineering rigor.</p>
+        </div>
+
+        <div class="footer-links">
+          <div class="footer-col">
+            <h5 data-i18n="footer_links_title">Links</h5>
+            <ul>
+              <li><a href="https://github.com/Cc-Cece/PicHarbor" target="_blank" rel="noopener">GitHub</a></li>
+              <li><a href="https://github.com/Cc-Cece/PicHarbor/releases" target="_blank" rel="noopener">Releases</a></li>
+              <li><a href="https://github.com/Cc-Cece/PicHarbor/issues" target="_blank" rel="noopener">Issues</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h5 data-i18n="footer_resources_title">Resources</h5>
+            <ul>
+              <li><a href="https://github.com/Cc-Cece/PicHarbor/blob/main/docs/user/manifest-schema.md" target="_blank" rel="noopener" data-i18n="footer_manifest">Manifest Schema</a></li>
+              <li><a href="https://github.com/Cc-Cece/PicHarbor/blob/main/docs/user/troubleshooting.md" target="_blank" rel="noopener" data-i18n="footer_troubleshoot">Troubleshooting</a></li>
+              <li><a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener" data-i18n="footer_license">GNU GPLv3 License</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p data-i18n="footer_attrib">Acknowledgements: Based on ideas from <a href="https://github.com/denis-a-evdokimov/get-and-see" target="_blank" rel="noopener">get-and-see</a> (MIT) &amp; <a href="https://github.com/xob0t/gpmc" target="_blank" rel="noopener">gpmc</a> (MIT).</p>
+        <p data-i18n="footer_copy">PicHarbor Open Source Project. Released under GNU GPLv3.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
