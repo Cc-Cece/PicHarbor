@@ -42,7 +42,7 @@
     <Authors>get-and-see contributors</Authors>
     <Copyright>Copyright (c) 2026 get-and-see contributors</Copyright>
     <Description>Read-only iPhone → PC media copier over USB (Apple File Conduit / AFC).</Description>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/Cc-Cece/get-and-see</RepositoryUrl>
     <!-- Version is derived from the latest `v*` git tag by MinVer — no manual bump. A tagged build
          stamps the exact version (v1.2.3 -> 1.2.3); a commit after a tag gets 1.2.4-alpha.0.<height>.
