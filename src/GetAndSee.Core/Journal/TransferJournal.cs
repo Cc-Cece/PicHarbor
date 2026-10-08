@@ -242,9 +242,28 @@ public sealed class TransferJournal : IDisposable
                 PRIMARY KEY (device_id, dest_path)
             );
             """);
+        Execute(
+            """
+            CREATE TABLE IF NOT EXISTS google_photos_sync_records (
+                dest_path       TEXT PRIMARY KEY,
+                media_key       TEXT,
+                uploaded_at     TEXT NOT NULL,
+                album_name      TEXT,
+                file_size       INTEGER NOT NULL
+            );
+            """);
+        Execute(
+            """
+            CREATE TABLE IF NOT EXISTS google_photos_manual_selections (
+                dest_path      TEXT PRIMARY KEY,
+                added_at       TEXT NOT NULL,
+                is_autofilled  INTEGER NOT NULL DEFAULT 0
+            );
+            """);
 
         EnsureColumnExists("iphone_manual_selections", "is_autofilled", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumnExists("android_manual_selections", "is_autofilled", "INTEGER NOT NULL DEFAULT 0");
+        EnsureColumnExists("google_photos_manual_selections", "is_autofilled", "INTEGER NOT NULL DEFAULT 0");
 
         Migrate();
     }
@@ -1574,6 +1593,166 @@ public sealed class TransferJournal : IDisposable
         }
 
         return list;
+    }
+
+    /// <summary>Records an uploaded file to Google Photos.</summary>
+    public void RecordGooglePhotosSync(string destPath, string? mediaKey, DateTimeOffset uploadedAt, string? albumName, long fileSize)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destPath);
+        if (!TableExists("google_photos_sync_records")) return;
+
+        using SqliteCommand command = CreateCommand(
+            """
+            INSERT INTO google_photos_sync_records (dest_path, media_key, uploaded_at, album_name, file_size)
+            VALUES ($dest, $media_key, $uploaded_at, $album_name, $file_size)
+            ON CONFLICT(dest_path) DO UPDATE SET
+                media_key = excluded.media_key,
+                uploaded_at = excluded.uploaded_at,
+                album_name = excluded.album_name,
+                file_size = excluded.file_size;
+            """);
+        command.Parameters.AddWithValue("$dest", destPath);
+        command.Parameters.AddWithValue("$media_key", (object?)mediaKey ?? DBNull.Value);
+        command.Parameters.AddWithValue("$uploaded_at", IsoUtc(uploadedAt)!);
+        command.Parameters.AddWithValue("$album_name", (object?)albumName ?? DBNull.Value);
+        command.Parameters.AddWithValue("$file_size", fileSize);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Returns the set of relative destination paths that have been uploaded to Google Photos.</summary>
+    public HashSet<string> GetGooglePhotosSyncedDestPaths()
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!TableExists("google_photos_sync_records")) return set;
+
+        using SqliteCommand command = CreateCommand("SELECT dest_path FROM google_photos_sync_records;");
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            set.Add(reader.GetString(0));
+        }
+        return set;
+    }
+
+    /// <summary>Returns the set of relative destination paths manually selected for Google Photos upload.</summary>
+    public HashSet<string> GetGooglePhotosManualSelections()
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!TableExists("google_photos_manual_selections")) return set;
+
+        using SqliteCommand command = CreateCommand("SELECT dest_path FROM google_photos_manual_selections;");
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            set.Add(reader.GetString(0));
+        }
+        return set;
+    }
+
+    /// <summary>Returns the map of destination paths with their is_autofilled flags for Google Photos.</summary>
+    public Dictionary<string, bool> GetGooglePhotosManualSelectionsWithAutofilled()
+    {
+        var dict = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        if (!TableExists("google_photos_manual_selections")) return dict;
+
+        using SqliteCommand command = CreateCommand("SELECT dest_path, is_autofilled FROM google_photos_manual_selections;");
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            dict[reader.GetString(0)] = reader.GetInt32(1) == 1;
+        }
+        return dict;
+    }
+
+    /// <summary>Adds multiple destination paths to manual selections for Google Photos inside a single transaction.</summary>
+    public void BatchAddGooglePhotosManualSelections(IEnumerable<string> destPaths, bool isAutofilled = false)
+    {
+        ArgumentNullException.ThrowIfNull(destPaths);
+        using var transaction = connection.BeginTransaction();
+        using SqliteCommand command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            """
+            INSERT INTO google_photos_manual_selections (dest_path, added_at, is_autofilled)
+            VALUES ($dest, $at, $is_autofilled)
+            ON CONFLICT(dest_path) DO UPDATE SET is_autofilled = excluded.is_autofilled;
+            """;
+        var destParam = command.Parameters.Add("$dest", SqliteType.Text);
+        var atParam = command.Parameters.Add("$at", SqliteType.Text);
+        var autoParam = command.Parameters.Add("$is_autofilled", SqliteType.Integer);
+        atParam.Value = IsoUtc(DateTimeOffset.UtcNow)!;
+        autoParam.Value = isAutofilled ? 1 : 0;
+
+        foreach (var path in destPaths)
+        {
+            if (string.IsNullOrWhiteSpace(path)) continue;
+            destParam.Value = path;
+            command.ExecuteNonQuery();
+        }
+        transaction.Commit();
+    }
+
+    /// <summary>Removes multiple destination paths from manual selections for Google Photos inside a single transaction.</summary>
+    public void BatchRemoveGooglePhotosManualSelections(IEnumerable<string> destPaths)
+    {
+        ArgumentNullException.ThrowIfNull(destPaths);
+        if (!TableExists("google_photos_manual_selections")) return;
+
+        using var transaction = connection.BeginTransaction();
+        using SqliteCommand command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "DELETE FROM google_photos_manual_selections WHERE dest_path = $dest;";
+        var destParam = command.Parameters.Add("$dest", SqliteType.Text);
+
+        foreach (var path in destPaths)
+        {
+            if (string.IsNullOrWhiteSpace(path)) continue;
+            destParam.Value = path;
+            command.ExecuteNonQuery();
+        }
+        transaction.Commit();
+    }
+
+    /// <summary>Clears all manual selections for Google Photos.</summary>
+    public void ClearGooglePhotosManualSelections()
+    {
+        if (!TableExists("google_photos_manual_selections")) return;
+        using SqliteCommand command = CreateCommand("DELETE FROM google_photos_manual_selections;");
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Removes orphaned auto-filled selections for Google Photos.</summary>
+    public void CascadeRemoveOrphanedGooglePhotosAutofills()
+    {
+        if (!TableExists("google_photos_manual_selections")) return;
+        var dict = GetGooglePhotosManualSelectionsWithAutofilled();
+        var autofilledItems = dict.Where(kv => kv.Value).Select(kv => kv.Key).ToList();
+        var manualItems = dict.Where(kv => !kv.Value).Select(kv => kv.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var toRemove = new List<string>();
+        foreach (var autoItem in autofilledItems)
+        {
+            string dir = Path.GetDirectoryName(autoItem.Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
+            string stem = Path.GetFileNameWithoutExtension(autoItem);
+
+            bool hasManualParent = manualItems.Any(m =>
+            {
+                string mDir = Path.GetDirectoryName(m.Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
+                string mStem = Path.GetFileNameWithoutExtension(m);
+                return string.Equals(mDir, dir, StringComparison.OrdinalIgnoreCase) &&
+                       string.Equals(mStem, stem, StringComparison.OrdinalIgnoreCase);
+            });
+
+            if (!hasManualParent)
+            {
+                toRemove.Add(autoItem);
+            }
+        }
+
+        if (toRemove.Count > 0)
+        {
+            BatchRemoveGooglePhotosManualSelections(toRemove);
+        }
     }
 
     /// <summary>Closes the underlying SQLite connection.</summary>

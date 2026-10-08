@@ -108,6 +108,10 @@ public partial class MainWindow : Window
                     {
                         mainVM.AndroidSyncVM.OpenDetailCommand.Execute(detail);
                     }
+                    else if (mainVM.GooglePhotosVM.IsDetailModalOpen)
+                    {
+                        mainVM.GooglePhotosVM.OpenDetailCommand.Execute(detail);
+                    }
                     e.Handled = true;
                 }
             }
@@ -423,6 +427,11 @@ public partial class MainWindow : Window
         try
         {
             base.OnKeyDown(e);
+            if (Keyboard.FocusedElement is TextBox)
+            {
+                return;
+            }
+
             if (DataContext is MainViewModel mainVM)
             {
                 if (mainVM.SearchVM is { IsPreviewOpen: true } searchVM)
@@ -468,6 +477,14 @@ public partial class MainWindow : Window
                         if (mainVM.AndroidSyncVM.PasteFilesFromClipboardCommand.CanExecute(null))
                         {
                             mainVM.AndroidSyncVM.PasteFilesFromClipboardCommand.Execute(null);
+                            e.Handled = true;
+                        }
+                    }
+                    else if (mainVM.SelectedTabIndex == 3 && mainVM.GooglePhotosVM.IsScopeManualSelection)
+                    {
+                        if (mainVM.GooglePhotosVM.PasteFilesFromClipboardCommand.CanExecute(null))
+                        {
+                            mainVM.GooglePhotosVM.PasteFilesFromClipboardCommand.Execute(null);
                             e.Handled = true;
                         }
                     }
@@ -534,6 +551,28 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"AndroidManualDropZone_Drop error: {ex.Message}");
+        }
+    }
+
+    private void GooglePhotosManualDropZone_Drop(object sender, DragEventArgs e)
+    {
+        try
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
+                {
+                    if (DataContext is MainViewModel { GooglePhotosVM: { } vm })
+                    {
+                        vm.ProcessPickedFiles(files);
+                        e.Handled = true;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"GooglePhotosManualDropZone_Drop error: {ex.Message}");
         }
     }
 

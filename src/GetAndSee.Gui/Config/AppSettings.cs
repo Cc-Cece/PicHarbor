@@ -26,6 +26,25 @@ public sealed class AppConfig
     public bool AutoCompleteLivePhotoPair { get; set; } = true;
     public bool AutoCompleteAaeSidecar { get; set; } = true;
     public bool AutoCompleteRawJpg { get; set; } = false;
+
+    // Google Photos Sync Settings
+    public int GooglePhotosAuthMethod { get; set; } = 0;
+    public string GooglePhotosOAuthCookie { get; set; } = string.Empty;
+    public string GooglePhotosAccountEmail { get; set; } = string.Empty;
+    public string GooglePhotosAuthData { get; set; } = string.Empty;
+    public string GooglePhotosProxy { get; set; } = string.Empty;
+    public int GooglePhotosAlbumMode { get; set; } = 0;
+    public string GooglePhotosCustomAlbumName { get; set; } = string.Empty;
+    public string GooglePhotosAlbumId { get; set; } = string.Empty;
+    public int GooglePhotosThreads { get; set; } = 3;
+    public bool GooglePhotosUnlimitedQuality { get; set; } = true;
+    public bool GooglePhotosStorageSaver { get; set; } = false;
+    public bool GooglePhotosSkipExistingFilenames { get; set; } = true;
+    public string GooglePhotosPythonPath { get; set; } = "python";
+    public string GooglePhotosGpmcPath { get; set; } = string.Empty;
+    public int GooglePhotosTimeoutSeconds { get; set; } = 60;
+    public int GooglePhotosAutoRetryAttempts { get; set; } = 3;
+    public double GooglePhotosRetryDelaySeconds { get; set; } = 2.0;
 }
 
 public static class AppSettings
@@ -51,6 +70,12 @@ public static class AppSettings
                 var config = JsonSerializer.Deserialize<AppConfig>(json, JsonOptions);
                 if (config is not null)
                 {
+                    if (!string.IsNullOrWhiteSpace(config.GooglePhotosGpmcPath) &&
+                        config.GooglePhotosGpmcPath.Contains(@"Code\vscode\gpmc", StringComparison.OrdinalIgnoreCase))
+                    {
+                        config.GooglePhotosGpmcPath = string.Empty;
+                        Save(config);
+                    }
                     return config;
                 }
             }

@@ -39,6 +39,12 @@ public partial class MediaSearchResultItem : ObservableObject
 
     [ObservableProperty]
     private bool isManualSelectedForAndroid = false;
+
+    [ObservableProperty]
+    private bool isManualSelectedForGooglePhotos = false;
+
+    [ObservableProperty]
+    private bool isSyncedToGooglePhotos = false;
 }
 
 
@@ -58,6 +64,7 @@ public partial class SearchViewModel : ObservableObject
 
     public IPhoneSyncViewModel? IPhoneSyncVM { get; set; }
     public AndroidSyncViewModel? AndroidSyncVM { get; set; }
+    public GooglePhotosSyncViewModel? GooglePhotosVM { get; set; }
 
     public ObservableCollection<string> CameraModels { get; } = new();
 
@@ -470,6 +477,17 @@ public partial class SearchViewModel : ObservableObject
 
             var manualSet = IPhoneSyncVM?.GetManualSelectionPathsSet() ?? new HashSet<string>();
             var androidManualSet = AndroidSyncVM?.GetManualSelectionPathsSet() ?? new HashSet<string>();
+            var googleManualSet = GooglePhotosVM?.GetManualSelectionPathsSet() ?? new HashSet<string>();
+            HashSet<string> googleSyncedSet = new(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(archivePathCopy) && Directory.Exists(archivePathCopy))
+            {
+                try
+                {
+                    using var j = TransferJournal.OpenReadOnly(archivePathCopy);
+                    googleSyncedSet = j.GetGooglePhotosSyncedDestPaths();
+                }
+                catch { }
+            }
 
             var (newItems, newGridRows) = await Task.Run(() =>
             {
@@ -500,7 +518,9 @@ public partial class SearchViewModel : ObservableObject
                         HasThumbnail = isVideo || hit.Type is MediaType.Photo or MediaType.Screenshot,
                         IsVideo = isVideo,
                         IsManualSelectedForIPhone = manualSet.Contains(hit.RelativePath),
-                        IsManualSelectedForAndroid = androidManualSet.Contains(hit.RelativePath)
+                        IsManualSelectedForAndroid = androidManualSet.Contains(hit.RelativePath),
+                        IsManualSelectedForGooglePhotos = googleManualSet.Contains(hit.RelativePath),
+                        IsSyncedToGooglePhotos = googleSyncedSet.Contains(hit.RelativePath)
                     });
                 }
 
@@ -1098,6 +1118,70 @@ public partial class SearchViewModel : ObservableObject
 
         AndroidSyncVM?.LoadManualSelectionsFromDb();
         AndroidSyncVM?.RecalculateScopeSummary();
+    }
+
+    [RelayCommand]
+    private void AddToGooglePhotosSelection(object? parameter)
+    {
+        var items = ExtractMediaItems(parameter);
+        if (items.Count == 0) return;
+
+        var destPaths = items.Select(x => x.RelativePath).Where(p => !string.IsNullOrEmpty(p)).ToList();
+        if (destPaths.Count == 0) return;
+
+        string path = ArchivePath;
+        if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
+        {
+            try
+            {
+                using var journal = TransferJournal.Open(path);
+                journal.BatchAddGooglePhotosManualSelections(destPaths);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"BatchAddGooglePhotosManualSelections error: {ex.Message}");
+            }
+        }
+
+        foreach (var item in items)
+        {
+            item.IsManualSelectedForGooglePhotos = true;
+        }
+
+        GooglePhotosVM?.LoadManualSelectionsFromDb();
+        GooglePhotosVM?.RecalculateScopeSummary();
+    }
+
+    [RelayCommand]
+    private void RemoveFromGooglePhotosSelection(object? parameter)
+    {
+        var items = ExtractMediaItems(parameter);
+        if (items.Count == 0) return;
+
+        var destPaths = items.Select(x => x.RelativePath).Where(p => !string.IsNullOrEmpty(p)).ToList();
+        if (destPaths.Count == 0) return;
+
+        string path = ArchivePath;
+        if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
+        {
+            try
+            {
+                using var journal = TransferJournal.Open(path);
+                journal.BatchRemoveGooglePhotosManualSelections(destPaths);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"BatchRemoveGooglePhotosManualSelections error: {ex.Message}");
+            }
+        }
+
+        foreach (var item in items)
+        {
+            item.IsManualSelectedForGooglePhotos = false;
+        }
+
+        GooglePhotosVM?.LoadManualSelectionsFromDb();
+        GooglePhotosVM?.RecalculateScopeSummary();
     }
 
     private static List<MediaSearchResultItem> ExtractMediaItems(object? parameter)

@@ -25,4 +25,8 @@
     <InternalsVisibleTo Include="GetAndSee.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="GooglePhotos\gpmc_bundle.zip" LogicalName="gpmc_bundle.zip" />
+  </ItemGroup>
+
 </Project>

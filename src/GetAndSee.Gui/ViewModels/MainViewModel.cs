@@ -32,6 +32,7 @@ public partial class MainViewModel : ObservableObject
     public BackupViewModel BackupVM { get; }
     public IPhoneSyncViewModel IPhoneSyncVM { get; } = new();
     public AndroidSyncViewModel AndroidSyncVM { get; } = new();
+    public GooglePhotosSyncViewModel GooglePhotosVM { get; } = new();
     public StatusViewModel StatusVM { get; } = new();
     public SearchViewModel SearchVM { get; } = new();
     public ReorganizeViewModel ReorganizeVM { get; } = new();
@@ -52,13 +53,16 @@ public partial class MainViewModel : ObservableObject
             App.SwitchLanguage(config.CurrentLanguage);
         }
 
-        // Link SearchVM to IPhoneSyncVM and AndroidSyncVM for manual selection coordination
+        // Link SearchVM to IPhoneSyncVM, AndroidSyncVM and GooglePhotosVM for manual selection coordination
         SearchVM.IPhoneSyncVM = IPhoneSyncVM;
         SearchVM.AndroidSyncVM = AndroidSyncVM;
+        SearchVM.GooglePhotosVM = GooglePhotosVM;
 
-        // Wire navigation callbacks for Auto-completion Settings
-        IPhoneSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 6;
-        AndroidSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 6;
+        // Wire navigation callbacks
+        IPhoneSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 7;
+        AndroidSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 7;
+        GooglePhotosVM.NavigateToSettingsAction = () => SelectedTabIndex = 7;
+        GooglePhotosVM.NavigateToSearchAction = () => SelectedTabIndex = 5;
 
         // Sync initial destination path across all sub-ViewModels
         SyncDestinationPath(DestinationPath);
@@ -102,6 +106,7 @@ public partial class MainViewModel : ObservableObject
         BackupVM.DestinationPath = path;
         IPhoneSyncVM.ArchivePath = path;
         AndroidSyncVM.ArchivePath = path;
+        GooglePhotosVM.ArchivePath = path;
         StatusVM.DatabasePath = path;
         SearchVM.ArchivePath = path;
         ReorganizeVM.ArchivePath = path;
@@ -153,6 +158,7 @@ public partial class MainViewModel : ObservableObject
         App.SwitchLanguage(culture);
         IPhoneSyncVM.OnLanguageChanged();
         AndroidSyncVM.OnLanguageChanged();
+        GooglePhotosVM.OnLanguageChanged();
         SearchVM.OnLanguageChanged();
         SaveConfig();
         _ = ProbeDeviceStatusAsync();
@@ -161,6 +167,6 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void NavigateToSettings()
     {
-        SelectedTabIndex = 6;
+        SelectedTabIndex = 7;
     }
 }

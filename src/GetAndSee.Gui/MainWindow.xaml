@@ -132,21 +132,34 @@
                                 </Border>
                             </StackPanel>
                         </RadioButton>
-                        <RadioButton Content="{DynamicResource NavStatus}" 
-                                     IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=3}"
+
+                        <RadioButton IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=3}"
                                      Click="NavButton_Click" Tag="3"
-                                     Style="{StaticResource TabRadioButton}" />
-                        <RadioButton Content="{DynamicResource NavSearch}" 
+                                     Style="{StaticResource TabRadioButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{DynamicResource NavGooglePhotos}" VerticalAlignment="Center"/>
+                                <Border Margin="8,0,0,0" Padding="6,2" Background="#E11D48" CornerRadius="8" VerticalAlignment="Center"
+                                        Visibility="{Binding GooglePhotosVM.HasManualSelections, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Text="{Binding GooglePhotosVM.ManualSelectionCount}" Foreground="White" FontSize="10" FontWeight="Bold"/>
+                                </Border>
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton Content="{DynamicResource NavStatus}" 
                                      IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=4}"
                                      Click="NavButton_Click" Tag="4"
                                      Style="{StaticResource TabRadioButton}" />
-                        <RadioButton Content="{DynamicResource NavReorganize}" 
+                        <RadioButton Content="{DynamicResource NavSearch}" 
                                      IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=5}"
                                      Click="NavButton_Click" Tag="5"
                                      Style="{StaticResource TabRadioButton}" />
-                        <RadioButton Content="{DynamicResource NavSettings}" 
+                        <RadioButton Content="{DynamicResource NavReorganize}" 
                                      IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=6}"
                                      Click="NavButton_Click" Tag="6"
+                                     Style="{StaticResource TabRadioButton}" />
+                        <RadioButton Content="{DynamicResource NavSettings}" 
+                                     IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=7}"
+                                     Click="NavButton_Click" Tag="7"
                                      Style="{StaticResource TabRadioButton}" />
                     </StackPanel>
 
@@ -1140,7 +1153,582 @@
                     </Grid>
                 </TabItem>
 
-                <!-- TAB 1: STATUS & OVERVIEW -->
+                <!-- TAB 3: GOOGLE PHOTOS SYNC -->
+                <TabItem>
+                    <Grid DataContext="{Binding GooglePhotosVM}">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
+                            <StackPanel>
+                                <!-- Header Title & Description Card -->
+                                <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource GooglePhotosTitle}" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                                        <TextBlock Text="{DynamicResource GooglePhotosDescription}" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Card 1: Account & Credentials Card -->
+                                <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <TextBlock Text="{DynamicResource GooglePhotosAccountHeader}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,12,0"/>
+                                                <Border CornerRadius="12" Padding="10,3" Background="#0F172A" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                                                    <TextBlock Text="{Binding ConnectionStatusText}" Foreground="#10B981" FontSize="11" FontWeight="SemiBold"/>
+                                                </Border>
+                                            </StackPanel>
+
+                                            <!-- Test Connection Button -->
+                                            <Button Grid.Column="1" Content="{DynamicResource GooglePhotosTestConnBtn}" Command="{Binding TestConnectionCommand}" Style="{StaticResource SecondaryButton}" Padding="12,5" FontSize="12" IsEnabled="{Binding IsNotTestingConnection}"/>
+                                        </Grid>
+
+                                        <!-- Auth Method Selection -->
+                                        <Grid Margin="0,0,0,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="180"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{DynamicResource GooglePhotosAuthMethodLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                            <WrapPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <RadioButton Content="{DynamicResource GooglePhotosAuthMethodOAuthCookie}" IsChecked="{Binding IsAuthOAuthCookie}" Style="{StaticResource TabRadioButton}" Margin="0,0,12,0" Padding="12,6"/>
+                                                <RadioButton Content="{DynamicResource GooglePhotosAuthMethodAndroidData}" IsChecked="{Binding IsAuthAndroidData}" Style="{StaticResource TabRadioButton}" Margin="0,0,0,0" Padding="12,6"/>
+                                            </WrapPanel>
+                                        </Grid>
+
+                                        <!-- OAuth Cookie input (Default / Recommended) -->
+                                        <Grid Margin="0,0,0,8" Visibility="{Binding IsAuthOAuthCookie, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="180"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{DynamicResource GooglePhotosOAuthCookieLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                            <TextBox Grid.Column="1" Text="{Binding OAuthCookie, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}" ToolTip="从 Google Embedded Setup 获取或复制的 oauth_token Cookie 值"/>
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="8,0,0,0">
+                                                <Button Content="{DynamicResource GooglePhotosLoginWebViewBtn}" Command="{Binding LoginViaWebViewCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,6,0" Padding="12,5" ToolTip="打开内置窗口一键登录并自动截获凭据"/>
+                                                <Button Content="{DynamicResource GooglePhotosOpenBrowserManualBtn}" Command="{Binding OpenEmbeddedSetupUrlCommand}" Style="{StaticResource SecondaryButton}" Padding="10,5" ToolTip="在外部默认浏览器中打开登录页面"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- OAuth Cookie Guidance Tip Box -->
+                                        <Border Margin="180,0,0,12" Padding="10,8" Background="#0A1E3B" BorderBrush="#1E3A8A" BorderThickness="1" CornerRadius="6" Visibility="{Binding IsAuthOAuthCookie, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <TextBlock Text="{DynamicResource GooglePhotosOAuthCookieTip}" Foreground="#93C5FD" FontSize="11" TextWrapping="Wrap"/>
+                                        </Border>
+
+                                        <!-- Android auth_data input (Legacy / Mobile ADB mode) -->
+                                        <Grid Margin="0,0,0,10" Visibility="{Binding IsAuthAndroidData, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="180"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{DynamicResource GooglePhotosAuthDataLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                            <TextBox Grid.Column="1" Text="{Binding AuthData, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}" ToolTip="粘贴从 GmsCore / ReVanced 抓取的 auth_data 字符串"/>
+                                        </Grid>
+
+                                        <!-- Google 账号 (邮箱) input -->
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="180"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{DynamicResource GooglePhotosEmailLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                            <TextBox Grid.Column="1" Text="{Binding AccountEmail, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}" ToolTip="Google 账号邮箱，配置有效凭据并验证后可自动提取"/>
+                                        </Grid>
+
+                                        <!-- proxy input -->
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="180"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{DynamicResource GooglePhotosProxyLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                            <TextBox Grid.Column="1" Text="{Binding Proxy, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}" ToolTip="例如 http://127.0.0.1:7890、socks5://127.0.0.1:1080 或 7890"/>
+                                            <Button Grid.Column="2" Content="{DynamicResource GooglePhotosTestProxyBtn}" Command="{Binding TestProxyCommand}" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Padding="12,5" FontSize="12" IsEnabled="{Binding IsNotTestingProxy}" ToolTip="{DynamicResource GooglePhotosTestProxyToolTip}"/>
+                                        </Grid>
+
+                                        <!-- Proxy test status banner -->
+                                        <Border Margin="180,0,0,12" Padding="10,6" Background="#0F172A" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1" CornerRadius="6"
+                                                Visibility="{Binding HasProxyStatusText, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <TextBlock Text="{Binding ProxyStatusText}" Foreground="{Binding ProxyStatusColor}" FontSize="11" TextWrapping="Wrap"/>
+                                        </Border>
+
+                                        <Separator Margin="0,4,0,12" Background="{StaticResource CardBorderBrush}"/>
+
+                                        <!-- Python path input -->
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="180"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{DynamicResource GooglePhotosPythonPathLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                            <TextBox Grid.Column="1" Text="{Binding PythonPath, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}" ToolTip="Python 解释器路径，例如 python 或虚拟环境 python.exe"/>
+                                            <Button Grid.Column="2" Content="{DynamicResource BrowseButton}" Command="{Binding BrowsePythonPathCommand}" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Padding="12,5"/>
+                                        </Grid>
+
+                                        <!-- gpmc built-in engine notice -->
+                                        <Grid Margin="0,2,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="180"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Border Background="#064E3B" BorderBrush="#059669" BorderThickness="1" CornerRadius="4" Padding="8,3">
+                                                    <TextBlock Text="{DynamicResource GooglePhotosBundledGpmcNotice}" Foreground="#34D399" FontSize="11" FontWeight="SemiBold"/>
+                                                </Border>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Card 2: Scope Selection Card -->
+                                <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource GooglePhotosScopeHeader}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,12"/>
+
+                                        <!-- Scope Mode Radio Options -->
+                                        <WrapPanel Margin="0,0,0,12">
+                                            <RadioButton Content="{DynamicResource GooglePhotosScopeAll}" IsChecked="{Binding IsScopeAll}" Style="{StaticResource TabRadioButton}" Margin="0,0,16,8" Padding="12,6"/>
+                                            <RadioButton Content="{DynamicResource GooglePhotosScopeDateRange}" IsChecked="{Binding IsScopeDateRange}" Style="{StaticResource TabRadioButton}" Margin="0,0,16,8" Padding="12,6"/>
+                                            <RadioButton Content="{DynamicResource GooglePhotosScopeSubfolder}" IsChecked="{Binding IsScopeSubfolder}" Style="{StaticResource TabRadioButton}" Margin="0,0,16,8" Padding="12,6"/>
+                                            <RadioButton Content="{DynamicResource GooglePhotosScopeManual}" IsChecked="{Binding IsScopeManualSelection}" Style="{StaticResource TabRadioButton}" Margin="0,0,16,8" Padding="12,6"/>
+                                            <RadioButton Content="{DynamicResource GooglePhotosScopeCustom}" IsChecked="{Binding IsScopeCustomTarget}" Style="{StaticResource TabRadioButton}" Margin="0,0,16,8" Padding="12,6"/>
+                                        </WrapPanel>
+
+                                        <!-- Date Range Picker Panel (visible when IsScopeDateRange) -->
+                                        <Border Background="#131F33" CornerRadius="8" Padding="12" Margin="0,0,0,10"
+                                                Visibility="{Binding IsScopeDateRange, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <StackPanel>
+                                                <WrapPanel VerticalAlignment="Center" Margin="0,0,0,8">
+                                                    <TextBlock Text="{DynamicResource ScopeDateFromLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                    <DatePicker SelectedDate="{Binding ScopeDateFrom, Mode=TwoWay}" Width="130" Margin="0,0,12,0"/>
+                                                    <TextBlock Text="{DynamicResource ScopeDateToLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                    <DatePicker SelectedDate="{Binding ScopeDateTo, Mode=TwoWay}" Width="130" Margin="0,0,12,0"/>
+                                                    <Button Content="{DynamicResource ScopeClearDateBtn}" Command="{Binding ClearDateRangeCommand}" Style="{StaticResource SecondaryButton}" Padding="8,4" FontSize="11"/>
+                                                </WrapPanel>
+                                                <WrapPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{DynamicResource ScopeQuickPresetsLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
+                                                    <Button Content="{DynamicResource PresetLast30Days}" Command="{Binding SetDatePresetLast30DaysCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" FontSize="11" Margin="0,0,6,0"/>
+                                                    <Button Content="{DynamicResource PresetLast90Days}" Command="{Binding SetDatePresetLast90DaysCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" FontSize="11" Margin="0,0,6,0"/>
+                                                    <Button Content="{DynamicResource PresetLast1Year}" Command="{Binding SetDatePresetLast1YearCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" FontSize="11" Margin="0,0,6,0"/>
+                                                    <Button Content="{DynamicResource PresetThisYear}" Command="{Binding SetDatePresetThisYearCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" FontSize="11"/>
+                                                </WrapPanel>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- Subfolder Picker Panel (visible when IsScopeSubfolder) -->
+                                        <Border Background="#131F33" CornerRadius="8" Padding="12" Margin="0,0,0,10"
+                                                Visibility="{Binding IsScopeSubfolder, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <StackPanel>
+                                                <TextBlock Text="{DynamicResource ScopeSubfoldersLabel}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" FontSize="12"/>
+                                                <ItemsControl ItemsSource="{Binding Subfolders}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <WrapPanel/>
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <CheckBox Content="{Binding FolderName}" IsChecked="{Binding IsChecked}" Margin="0,0,16,6" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- Manual Selection Panel (visible when IsScopeManualSelection) -->
+                                        <Border Background="#131F33" CornerRadius="8" Padding="12" Margin="0,0,0,10"
+                                                Visibility="{Binding IsScopeManualSelection, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                AllowDrop="True" Drop="GooglePhotosManualDropZone_Drop" DragOver="ManualDropZone_DragOver">
+                                            <StackPanel>
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding ManualSelectionCountText}" Foreground="{StaticResource PrimaryHoverBrush}" FontWeight="Bold" FontSize="13" Margin="0,0,12,0"/>
+                                                        <Button Content="{Binding ManualSelectionModalBtnText}" Command="{Binding OpenManualModalCommand}" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="11" Margin="0,0,8,0" IsEnabled="{Binding HasManualSelections}"/>
+                                                        <Button Content="{DynamicResource ScopeClearListBtn}" Command="{Binding ClearManualSelectionsCommand}" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="11" IsEnabled="{Binding HasManualSelections}"/>
+                                                    </StackPanel>
+                                                    <Button Grid.Column="1" Content="{DynamicResource GooglePhotosGoToSearchBtn}" Command="{Binding GoToSearchCommand}" Style="{StaticResource SecondaryButton}" Padding="10,4" FontSize="11"/>
+                                                </Grid>
+                                                <TextBlock Text="{DynamicResource DragDropZoneHint}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontStyle="Italic"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- Custom Target Panel (visible when IsScopeCustomTarget) -->
+                                        <Border Background="#131F33" CornerRadius="8" Padding="12" Margin="0,0,0,10"
+                                                Visibility="{Binding IsScopeCustomTarget, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{DynamicResource GooglePhotosCustomPathLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                <TextBox Grid.Column="1" Text="{Binding CustomTargetPath, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}"/>
+                                                <Button Grid.Column="2" Content="{DynamicResource BrowseButton}" Command="{Binding BrowseCustomTargetCommand}" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Padding="12,5"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Scope Summary Text -->
+                                        <Border Background="#0F172A" CornerRadius="6" Padding="10,6">
+                                            <TextBlock Text="{Binding ScopeSummaryText}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Card 3: Album & Advanced Settings Card -->
+                                <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource GooglePhotosAlbumHeader}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,12"/>
+
+                                        <!-- Album Mode RadioButtons -->
+                                        <WrapPanel Margin="0,0,0,10">
+                                            <RadioButton Content="{DynamicResource GooglePhotosAlbumNone}" IsChecked="{Binding IsAlbumNone}" Style="{StaticResource TabRadioButton}" Margin="0,0,16,8" Padding="12,6"/>
+                                            <RadioButton Content="{DynamicResource GooglePhotosAlbumAuto}" IsChecked="{Binding IsAlbumAuto}" Style="{StaticResource TabRadioButton}" Margin="0,0,16,8" Padding="12,6"/>
+                                            <RadioButton Content="{DynamicResource GooglePhotosAlbumCustom}" IsChecked="{Binding IsAlbumCustom}" Style="{StaticResource TabRadioButton}" Margin="0,0,16,8" Padding="12,6"/>
+                                            <RadioButton Content="{DynamicResource GooglePhotosAlbumId}" IsChecked="{Binding IsAlbumId}" Style="{StaticResource TabRadioButton}" Margin="0,0,16,8" Padding="12,6"/>
+                                        </WrapPanel>
+
+                                        <!-- Custom Album Name Input (visible when IsAlbumCustom) -->
+                                        <Grid Margin="0,0,0,10" Visibility="{Binding IsAlbumCustom, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="160"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{DynamicResource GooglePhotosAlbumNameLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                            <TextBox Grid.Column="1" Text="{Binding CustomAlbumName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}"/>
+                                        </Grid>
+
+                                        <!-- Album ID Input (visible when IsAlbumId) -->
+                                        <Grid Margin="0,0,0,10" Visibility="{Binding IsAlbumId, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="160"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{DynamicResource GooglePhotosAlbumIdLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                            <TextBox Grid.Column="1" Text="{Binding AlbumId, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}"/>
+                                        </Grid>
+
+                                        <Separator Margin="0,6,0,12" Background="{StaticResource CardBorderBrush}"/>
+
+                                        <TextBlock Text="{DynamicResource GooglePhotosOptionsHeader}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,10"/>
+                                        <WrapPanel Margin="0,0,0,8">
+                                            <CheckBox Content="{DynamicResource GooglePhotosUnlimitedQualityLabel}" IsChecked="{Binding UnlimitedQuality}" Margin="0,0,20,8" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                            <CheckBox Content="{DynamicResource GooglePhotosSkipFilenamesLabel}" IsChecked="{Binding SkipExistingFilenames}" Margin="0,0,20,8" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                            <CheckBox Content="{DynamicResource GooglePhotosSaverLabel}" IsChecked="{Binding StorageSaver}" Margin="0,0,20,8" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                        </WrapPanel>
+
+                                        <WrapPanel Margin="0,4,0,8">
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,24,8">
+                                                <TextBlock Text="{DynamicResource GooglePhotosThreadsLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox Text="{Binding Threads, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}" Width="60"/>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,24,8">
+                                                <TextBlock Text="{DynamicResource GooglePhotosRetryCountLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox Text="{Binding AutoRetryAttempts, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}" Width="60"/>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,24,8">
+                                                <TextBlock Text="{DynamicResource GooglePhotosRetryDelayLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox Text="{Binding RetryDelaySeconds, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}" Width="60"/>
+                                            </StackPanel>
+                                        </WrapPanel>
+
+                                        <!-- Retry Strategy Tip -->
+                                        <Border Background="#0F172A" CornerRadius="6" Padding="10,6" Margin="0,0,0,4">
+                                            <TextBlock Text="{DynamicResource GooglePhotosRetryTip}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" TextWrapping="Wrap"/>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Card 4: Control & Progress Monitoring Card -->
+                                <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,14">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{DynamicResource GooglePhotosControlHeader}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                <!-- Fresh Idle Button -->
+                                                <Button Content="{DynamicResource StartGooglePhotosSyncBtn}" Command="{Binding StartSyncCommand}" Style="{StaticResource PrimaryButton}" Padding="18,8" FontSize="13" Margin="0,0,10,0" Visibility="{Binding IsFreshIdle, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                                                <!-- Syncing State Pause Button -->
+                                                <Button Content="{DynamicResource PauseGooglePhotosSyncBtn}" Command="{Binding PauseSyncCommand}" Style="{StaticResource SecondaryButton}" Foreground="#FBBF24" BorderBrush="#F59E0B" Padding="16,8" FontSize="13" Margin="0,0,10,0" Visibility="{Binding IsSyncing, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                                                <!-- Paused State Resume Button -->
+                                                <Button Content="{DynamicResource ResumeGooglePhotosSyncBtn}" Command="{Binding ResumeSyncCommand}" Style="{StaticResource PrimaryButton}" Padding="16,8" FontSize="13" Margin="0,0,8,0" Visibility="{Binding CanResume, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                                                <!-- Retry Failed Files Button (visible when failed items exist and not syncing) -->
+                                                <Button Content="{DynamicResource GooglePhotosRetryFailedBtn}" Command="{Binding RetryFailedItemsCommand}" Style="{StaticResource SecondaryButton}" Foreground="#F87171" BorderBrush="#EF4444" Padding="14,8" FontSize="13" Margin="0,0,8,0" Visibility="{Binding CanRetryFailed, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                                                <!-- Paused State: Start New Plan (Triggers secondary confirmation) -->
+                                                <Button Content="{DynamicResource StartNewGooglePhotosSyncBtn}" Command="{Binding StartSyncCommand}" Style="{StaticResource SecondaryButton}" Padding="14,8" FontSize="13" Margin="0,0,8,0" Visibility="{Binding CanResume, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                                                <!-- Paused State: End / Reset Current Plan -->
+                                                <Button Content="{DynamicResource TerminateGooglePhotosSyncBtn}" Command="{Binding TerminateSessionCommand}" Style="{StaticResource SecondaryButton}" Padding="14,8" FontSize="13" Visibility="{Binding CanResume, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- Progress Stat Indicators -->
+                                        <UniformGrid Columns="4" Margin="0,0,0,14">
+                                            <Border Background="#131F33" CornerRadius="8" Padding="12,10" Margin="0,0,8,0" Cursor="Hand" ToolTip="{DynamicResource ToolTipGooglePhotosUploaded}">
+                                                <Border.InputBindings>
+                                                    <MouseBinding MouseAction="LeftClick" Command="{Binding ShowUploadedDetailsCommand}"/>
+                                                </Border.InputBindings>
+                                                <StackPanel>
+                                                    <TextBlock Text="{DynamicResource GooglePhotosUploadedCountLabel}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                                                    <TextBlock Text="{Binding UploadedCount}" Foreground="#10B981" FontSize="20" FontWeight="Bold" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Background="#131F33" CornerRadius="8" Padding="12,10" Margin="0,0,8,0" Cursor="Hand" ToolTip="{DynamicResource ToolTipGooglePhotosSkipped}">
+                                                <Border.InputBindings>
+                                                    <MouseBinding MouseAction="LeftClick" Command="{Binding ShowSkippedDetailsCommand}"/>
+                                                </Border.InputBindings>
+                                                <StackPanel>
+                                                    <TextBlock Text="{DynamicResource GooglePhotosSkippedCountLabel}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                                                    <TextBlock Text="{Binding SkippedCount}" Foreground="#F59E0B" FontSize="20" FontWeight="Bold" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Background="#131F33" CornerRadius="8" Padding="12,10" Margin="0,0,8,0" Cursor="Hand" ToolTip="{DynamicResource ToolTipGooglePhotosFailed}">
+                                                <Border.InputBindings>
+                                                    <MouseBinding MouseAction="LeftClick" Command="{Binding ShowFailedDetailsCommand}"/>
+                                                </Border.InputBindings>
+                                                <StackPanel>
+                                                    <TextBlock Text="{DynamicResource GooglePhotosFailedCountLabel}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                                                    <TextBlock Text="{Binding FailedCount}" Foreground="#EF4444" FontSize="20" FontWeight="Bold" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Background="#131F33" CornerRadius="8" Padding="12,10">
+                                                <StackPanel>
+                                                    <TextBlock Text="{DynamicResource SpeedLabel}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                                                    <TextBlock Text="{Binding SpeedText}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="18" FontWeight="Bold" Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </UniformGrid>
+
+                                        <!-- Paused Status Banner -->
+                                        <Border Visibility="{Binding ShowPauseBanner, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                Background="#1E293B" BorderBrush="#F59E0B" BorderThickness="1" CornerRadius="8"
+                                                Padding="14,10" Margin="0,0,0,12">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="⏸️" FontSize="18" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding PausedBannerTitle}" Foreground="#FBBF24" FontWeight="Bold" FontSize="12"/>
+                                                    <TextBlock Text="{Binding PausedBannerSubtitle}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+                                                    <Button Content="{DynamicResource ResumeGooglePhotosSyncBtn}" Command="{Binding ResumeSyncCommand}" Style="{StaticResource PrimaryButton}" Padding="12,6" FontSize="11" Margin="0,0,8,0"/>
+                                                    <Button Content="{DynamicResource GooglePhotosRetryFailedBtn}" Command="{Binding RetryFailedItemsCommand}" Style="{StaticResource SecondaryButton}" Foreground="#F87171" BorderBrush="#EF4444" Padding="10,6" FontSize="11" Visibility="{Binding CanRetryFailed, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Overall Progress Bar -->
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding ProgressText}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding TransferredSizeText}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                        </Grid>
+                                        <ProgressBar Value="{Binding ProgressValue}" Minimum="0" Maximum="100" Height="10" Margin="0,0,0,12" Foreground="{StaticResource PrimaryBrush}" Background="#0F172A"/>
+
+                                        <!-- Current File Details -->
+                                        <Grid Margin="0,0,0,12" Background="#131F33">
+                                            <Border CornerRadius="6" Padding="10,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{DynamicResource CurrentFileLabel}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,8,0" FontSize="11"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding CurrentFile}" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" FontSize="11"/>
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="8,0,0,0">
+                                                        <TextBlock Text="{DynamicResource GooglePhotosCurrentPhaseLabel}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,4,0" FontSize="11"/>
+                                                        <TextBlock Text="{Binding CurrentPhase}" Foreground="{StaticResource PrimaryHoverBrush}" FontWeight="SemiBold" FontSize="11"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </Grid>
+
+                                        <!-- Log Output Console -->
+                                        <Grid Margin="0,6,0,0">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="140"/>
+                                            </Grid.RowDefinitions>
+                                            <Grid Grid.Row="0" Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{DynamicResource TransferLogHeader}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" FontWeight="SemiBold"/>
+                                                <Button Grid.Column="1" Content="{DynamicResource GooglePhotosClearLogsBtn}" Command="{Binding ClearLogsCommand}" Style="{StaticResource SecondaryButton}" Padding="8,2" FontSize="10"/>
+                                            </Grid>
+                                            <Border Grid.Row="1" Background="#0A0F1D" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8">
+                                                <ListBox ItemsSource="{Binding LogEntries}" Background="Transparent" BorderThickness="0" Foreground="#CBD5E1" FontFamily="Consolas, Cascadia Code, Courier New" FontSize="11" ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                                                    <ListBox.ItemContainerStyle>
+                                                        <Style TargetType="ListBoxItem">
+                                                            <Setter Property="Padding" Value="0,1"/>
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="ListBoxItem">
+                                                                        <ContentPresenter />
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </Style>
+                                                    </ListBox.ItemContainerStyle>
+                                                </ListBox>
+                                            </Border>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- Manual Selection Modal Overlay -->
+                        <Grid Visibility="{Binding IsManualModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
+                              Background="#80000000">
+                            <Border Style="{StaticResource ModernCard}" Width="700" Height="480" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="{DynamicResource GooglePhotosManualSelectionModalTitle}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,12"/>
+                                    <DataGrid Grid.Row="1" ItemsSource="{Binding ManualSelectedItems}" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="{DynamicResource ColFileName}" Binding="{Binding RelativePath}" Width="2*"/>
+                                            <DataGridTextColumn Header="{DynamicResource ColCapturedAt}" Binding="{Binding DisplayCapturedAt}" Width="1.5*"/>
+                                            <DataGridTextColumn Header="{DynamicResource ColSize}" Binding="{Binding SizeText}" Width="*"/>
+                                            <DataGridTemplateColumn Header="{DynamicResource ActionHeader}" Width="80">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Button Content="{DynamicResource RemoveFromListBtn}" Command="{Binding DataContext.RemoveManualItemCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                                        <Button Content="{DynamicResource CloseBtn}" Command="{Binding CloseManualModalCommand}" Style="{StaticResource SecondaryButton}" Padding="16,6"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+
+                        <!-- Detail DataGrid Modal Overlay -->
+                        <Grid Visibility="{Binding IsDetailModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
+                              Background="#C0000000" Panel.ZIndex="999">
+                            <Border Background="#1E293B" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1"
+                                    CornerRadius="12" Width="900" Height="520" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Padding="20">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <Grid Grid.Row="0" Margin="0,0,0,15">
+                                        <TextBlock Text="{Binding DetailModalTitle}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                        <Button Content="✕" Command="{Binding CloseDetailModalCommand}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Width="32" Height="32" Padding="0"/>
+                                    </Grid>
+
+                                    <DataGrid Grid.Row="1" ItemsSource="{Binding DetailItems}" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" SelectionMode="Extended"
+                                              Background="#0F172A" BorderThickness="1" BorderBrush="{StaticResource CardBorderBrush}"
+                                              RowBackground="#0F172A" AlternatingRowBackground="#182238" Foreground="White"
+                                              GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#334155">
+                                        <DataGrid.RowStyle>
+                                            <Style TargetType="DataGridRow">
+                                                <EventSetter Event="PreviewMouseRightButtonDown" Handler="DataGridRow_PreviewMouseRightButtonDown"/>
+                                                <EventSetter Event="PreviewMouseDoubleClick" Handler="DetailDataGridRow_MouseDoubleClick"/>
+                                            </Style>
+                                        </DataGrid.RowStyle>
+                                        <DataGrid.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="{DynamicResource MenuOpen}" 
+                                                          Command="{Binding PlacementTarget.DataContext.OpenDetailCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                          CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                <MenuItem Header="{DynamicResource MenuOpenWith}" 
+                                                          Command="{Binding PlacementTarget.DataContext.OpenWithDetailCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                          CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                <Separator/>
+                                                <MenuItem Header="{DynamicResource MenuCopy}" 
+                                                          Command="{Binding PlacementTarget.DataContext.CopyDetailCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                          CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                <MenuItem Header="{DynamicResource MenuCopyPath}" 
+                                                          Command="{Binding PlacementTarget.DataContext.CopyPathDetailCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                          CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                <MenuItem Header="{DynamicResource MenuShowInExplorer}" 
+                                                          Command="{Binding PlacementTarget.DataContext.ShowInExplorerDetailCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                          CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                <Separator/>
+                                                <MenuItem Header="{DynamicResource MenuProperties}" 
+                                                          Command="{Binding PlacementTarget.DataContext.PropertiesDetailCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                          CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                            </ContextMenu>
+                                        </DataGrid.ContextMenu>
+                                        <DataGrid.Resources>
+                                            <Style TargetType="DataGridColumnHeader">
+                                                <Setter Property="Background" Value="#1E293B"/>
+                                                <Setter Property="Foreground" Value="#94A3B8"/>
+                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                                <Setter Property="Padding" Value="10,8"/>
+                                                <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                                <Setter Property="BorderBrush" Value="#334155"/>
+                                            </Style>
+                                            <Style TargetType="DataGridCell">
+                                                <Setter Property="Padding" Value="10,6"/>
+                                                <Setter Property="BorderThickness" Value="0"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="DataGridCell">
+                                                            <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
+                                                                <ContentPresenter VerticalAlignment="Center"/>
+                                                            </Border>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </DataGrid.Resources>
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="{DynamicResource ColSourcePath}" Binding="{Binding SourcePath}" Width="2*"/>
+                                            <DataGridTextColumn Header="{DynamicResource ColTargetPath}" Binding="{Binding TargetPath}" Width="2*"/>
+                                            <DataGridTextColumn Header="{DynamicResource ColSize}" Binding="{Binding FileSizeText}" Width="80"/>
+                                            <DataGridTextColumn Header="{DynamicResource ColStatus}" Binding="{Binding StatusText}" Width="80"/>
+                                            <DataGridTextColumn Header="{DynamicResource ColDetails}" Binding="{Binding Details}" Width="1.5*"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+
+                                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+                                        <Button Content="{DynamicResource GooglePhotosRetryFailedBtn}" Command="{Binding RetryFailedItemsCommand}" Style="{StaticResource SecondaryButton}" Foreground="#F87171" BorderBrush="#EF4444" Padding="16,8" Margin="0,0,10,0" Visibility="{Binding CanRetryFailed, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                        <Button Content="{DynamicResource CloseBtn}" Command="{Binding CloseDetailModalCommand}" Style="{StaticResource SecondaryButton}" Padding="20,8"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </TabItem>
+
+                <!-- TAB 4: STATUS & OVERVIEW -->
                 <TabItem>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
                         <StackPanel DataContext="{Binding StatusVM}">
@@ -1368,6 +1956,13 @@
                                                 <MenuItem Header="{DynamicResource MenuRemoveFromAndroid}" 
                                                           Visibility="Collapsed" Command="{Binding PlacementTarget.DataContext.RemoveFromAndroidSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                                           CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                <Separator/>
+                                                <MenuItem Header="{DynamicResource MenuAddToGooglePhotos}" 
+                                                          Command="{Binding PlacementTarget.DataContext.AddToGooglePhotosSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                          CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                <MenuItem Header="{DynamicResource MenuRemoveFromGooglePhotos}" 
+                                                          Visibility="Collapsed" Command="{Binding PlacementTarget.DataContext.RemoveFromGooglePhotosSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                          CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
 
                                             </ContextMenu>
                                         </DataGrid.ContextMenu>
@@ -1493,6 +2088,13 @@
                                                                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                                                         <MenuItem Header="{DynamicResource MenuRemoveFromAndroid}" Visibility="Collapsed"
                                                                                   Command="{Binding PlacementTarget.Tag.RemoveFromAndroidSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                                        <Separator/>
+                                                                        <MenuItem Header="{DynamicResource MenuAddToGooglePhotos}" 
+                                                                                  Command="{Binding PlacementTarget.Tag.AddToGooglePhotosSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
+                                                                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                                        <MenuItem Header="{DynamicResource MenuRemoveFromGooglePhotos}" Visibility="Collapsed"
+                                                                                  Command="{Binding PlacementTarget.Tag.RemoveFromGooglePhotosSelectionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" 
                                                                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
 
                                                                     </ContextMenu>
