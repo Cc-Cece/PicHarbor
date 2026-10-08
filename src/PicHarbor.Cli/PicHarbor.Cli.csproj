@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>PicHarbor.Cli</RootNamespace>
+    <AssemblyName>picharbor</AssemblyName>
+    <ApplicationIcon>..\PicHarbor.Gui\Assets\PicHarbor.ico</ApplicationIcon>
+
+    <!--
+      imobiledevice-net ships native DLLs under runtimes/win-x64/native.
+      A RID is required or they are not copied next to the app => DllNotFoundException
+      at run time (decision doc §5.2). The release build is a single-file win-x64
+      publish anyway, so baking the RID in here costs nothing.
+    -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <!--
+      Portable publish (dotnet publish, self-contained): one compressed exe that runs
+      without a preinstalled .NET runtime. Native AFC libraries extract on first start.
+      Debugger support is dropped only for that self-contained publish. A normal build stays
+      framework-dependent and debuggable.
+    -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebuggerSupport Condition="'$(SelfContained)' == 'true'">false</DebuggerSupport>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PicHarbor.Core\PicHarbor.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Spectre.Console" Version="0.56.0" />
+    <PackageReference Include="System.CommandLine" Version="2.0.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The unit-test project exercises the live dashboard against a Spectre test console. -->
+    <InternalsVisibleTo Include="PicHarbor.Tests" />
+  </ItemGroup>
+
+  <!--
+    Opt-in, NON-shipping fake-device build. `dotnet build/publish -p:FakeDevice=true` defines the FAKE_DEVICE
+    compile constant and references the product-free PicHarbor.FakeDevice library, so the real EXE can run
+    end-to-end against the fake selected by the GAS_FAKE_DEVICE env var. A NORMAL build defines nothing and
+    references nothing extra: the #if FAKE_DEVICE code is not emitted and the fake assembly is not in the
+    graph, so the shipped picharbor.exe is byte-identical and never contains the fake. CI asserts the
+    Release output carries no PicHarbor.FakeDevice reference.
+  -->
+  <PropertyGroup Condition="'$(FakeDevice)' == 'true'">
+    <DefineConstants>$(DefineConstants);FAKE_DEVICE</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(FakeDevice)' == 'true'">
+    <ProjectReference Include="..\PicHarbor.FakeDevice\PicHarbor.FakeDevice.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,4 +1,4 @@
-# GetAndSee
+# PicHarbor
 
 > This project is primarily based on [get-and-see](https://github.com/denis-a-evdokimov/get-and-see) with additional features.
 
@@ -22,7 +22,7 @@ A local-first **photo management and backup tool** for Windows. It provides reli
 - **Google Photos Sync**: Integrates cloud backup via `gpmc`. Supports automatic OAuth token capture or Android GmsCore credentials, Pixel original quality (unlimited quota) or Storage Saver, custom/auto albums, multi-threaded uploads, and automatic retry with jitter backoff.
 
 ### 🔍 Offline Media Indexing & Gallery
-- **Offline Search**: Query media using the local SQLite manifest (`get-and-see.db`) without connecting devices. Filter by capture date, camera make/model, media type, GPS coordinates, and file size.
+- **Offline Search**: Query media using the local SQLite manifest (`picharbor.db`, with backward compatibility for legacy `get-and-see.db`) without connecting devices. Filter by capture date, camera make/model, media type, GPS coordinates, and file size.
 - **Visual Browser**: Browse archives in table or gallery view with built-in lightbox preview and direct video playback.
 - **Smart Pairing**: Automatically pairs and manages Live Photos (`.HEIC`/`.JPG` + `.MOV`), `.AAE` sidecar edits, and RAW pairs (`.DNG` + `.JPG`).
 
@@ -36,10 +36,10 @@ A local-first **photo management and backup tool** for Windows. It provides reli
 
 ## Interfaces
 
-GetAndSee provides two interfaces sharing the same SQLite manifest and destination folder:
+PicHarbor provides two interfaces sharing the same SQLite manifest and destination folder:
 
-1. **Desktop GUI (`GetAndSee.Gui`)**: Full-featured graphical interface with tabs for Backup to PC, Restore to iPhone, Restore to Android, Google Photos, Archive Status, Media Search, Layout Reorganize, and Settings.
-2. **Command Line CLI (`get-and-see.exe`)**: Lightweight CLI designed for scriptable calls and automated tasks, featuring a real-time interactive terminal dashboard (primarily [get-and-see](https://github.com/denis-a-evdokimov/get-and-see)).
+1. **Desktop GUI (`PicHarbor.Gui`)**: Full-featured graphical interface with tabs for Backup to PC, Restore to iPhone, Restore to Android, Google Photos, Archive Status, Media Search, Layout Reorganize, and Settings.
+2. **Command Line CLI (`picharbor.exe`)**: Lightweight CLI designed for scriptable calls and automated tasks, featuring a real-time interactive terminal dashboard (primarily [get-and-see](https://github.com/denis-a-evdokimov/get-and-see)).
 
 ---
 
@@ -60,33 +60,33 @@ GetAndSee provides two interfaces sharing the same SQLite manifest and destinati
 
 Run from source:
 ```pwsh
-dotnet run --project src/GetAndSee.Gui -c Release
+dotnet run --project src/PicHarbor.Gui -c Release
 ```
 Or build a self-contained portable executable:
 ```pwsh
-dotnet publish src/GetAndSee.Gui -c Release -r win-x64 --self-contained true
+dotnet publish src/PicHarbor.Gui -c Release -r win-x64 --self-contained true
 ```
 
 ### Command Line (CLI)
 
 ```pwsh
 # Incremental backup to target directory
-get-and-see copy --dest "D:\Photos"
+picharbor copy --dest "D:\Photos"
 
 # Backup with specified folder structure (month, year-month, year, flat)
-get-and-see copy --dest "D:\Photos" --organize-by year-month
+picharbor copy --dest "D:\Photos" --organize-by year-month
 
 # Dry-run preview (scans files without copying)
-get-and-see copy --dest "D:\Photos" --dry-run
+picharbor copy --dest "D:\Photos" --dry-run
 
 # Search archived media (without device connected)
-get-and-see search --dest "D:\Photos" --type video --from 2024-01-01 --has-gps
+picharbor search --dest "D:\Photos" --type video --from 2024-01-01 --has-gps
 
 # Reorganize folder layout of existing archive
-get-and-see reorganize --dest "D:\Photos" --organize-by year-month
+picharbor reorganize --dest "D:\Photos" --organize-by year-month
 
 # View archive summary and stats
-get-and-see status --dest "D:\Photos"
+picharbor status --dest "D:\Photos"
 ```
 
 ---
