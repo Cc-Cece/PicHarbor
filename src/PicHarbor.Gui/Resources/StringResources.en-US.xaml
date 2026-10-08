@@ -307,6 +307,9 @@
     <sys:String x:Key="GoogleLoginWindowLoading">Loading Google sign-in page...</sys:String>
     <sys:String x:Key="GoogleLoginWindowWaiting">Waiting for sign-in...</sys:String>
     <sys:String x:Key="GoogleLoginWindowCaptured">✅ Sign-in successful! Credentials captured, returning...</sys:String>
+    <sys:String x:Key="GoogleLoginWindowCannotConnect">Cannot connect to Google services, please check your network or proxy configuration</sys:String>
+    <sys:String x:Key="GoogleLoginWindowTimeout">Connection timed out, please verify that your proxy server is active</sys:String>
+    <sys:String x:Key="GoogleLoginWindowProxyError">Cannot connect to proxy server, please check the proxy port and service status</sys:String>
     <sys:String x:Key="GooglePhotosBundledGpmcNotice">⚡ gpmc core engine is ready</sys:String>
     <sys:String x:Key="GooglePhotosAuthDataLabel">Google auth_data Token:</sys:String>
     <sys:String x:Key="GooglePhotosEmailLabel">Google Account:</sys:String>

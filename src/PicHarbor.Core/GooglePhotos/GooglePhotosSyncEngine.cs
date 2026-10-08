@@ -169,6 +169,16 @@ public static class GooglePhotosSyncEngine
     }
 
     /// <summary>
+    /// Builds Chromium / WebView2 browser arguments for network proxy (e.g. --proxy-server=http://127.0.0.1:7890).
+    /// Returns string.Empty if proxy is null, empty, or whitespace.
+    /// </summary>
+    public static string BuildWebView2ProxyArguments(string? proxyStr)
+    {
+        string normalized = NormalizeProxy(proxyStr);
+        return string.IsNullOrWhiteSpace(normalized) ? string.Empty : $"--proxy-server={normalized}";
+    }
+
+    /// <summary>
     /// Tests network proxy connectivity by sending a lightweight probe to Google's generate_204 endpoint.
     /// </summary>
     public static async Task<GooglePhotosProxyTestResult> TestProxyAsync(string? proxyStr, CancellationToken cancellationToken = default)

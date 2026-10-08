@@ -81,6 +81,19 @@ public sealed class GooglePhotosConfigTests
         GooglePhotosSyncEngine.NormalizeProxy(input).ShouldBe(expected);
     }
 
+    [Theory]
+    [InlineData("7890", "--proxy-server=http://127.0.0.1:7890")]
+    [InlineData(":7890", "--proxy-server=http://127.0.0.1:7890")]
+    [InlineData("http://127.0.0.1:7890", "--proxy-server=http://127.0.0.1:7890")]
+    [InlineData("socks5://127.0.0.1:1080", "--proxy-server=socks5://127.0.0.1:1080")]
+    [InlineData("", "")]
+    [InlineData("   ", "")]
+    [InlineData(null, "")]
+    public void BuildWebView2ProxyArguments_formats_argument_correctly(string? input, string expected)
+    {
+        GooglePhotosSyncEngine.BuildWebView2ProxyArguments(input).ShouldBe(expected);
+    }
+
     [Fact]
     public async Task TestProxyAsync_returns_error_when_local_proxy_not_running()
     {
