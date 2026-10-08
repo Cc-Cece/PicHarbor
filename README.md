@@ -2,7 +2,7 @@
 
 > This project is primarily based on [get-and-see](https://github.com/denis-a-evdokimov/get-and-see) with additional features.
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+[English](README.md) | [简体中文](README.zh-CN.md) | [Website](https://cc-cece.github.io/get-and-see/)
 
 A local-first **photo management and backup tool** for Windows. It provides reliable, lossless media archiving from mobile devices via USB, offline indexing and search, and multi-destination synchronization across iPhone, Android, and Google Photos.
 
