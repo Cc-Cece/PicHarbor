@@ -12,7 +12,7 @@ public sealed class AppConfig
     public bool SyncExifToCreationTime { get; set; } = false;
     public int ReadTimeoutSeconds { get; set; } = 30;
 
-    // Android FTP Sync Settings
+    // Android FTP Sync Settings (Restore to Android)
     public bool EnableAndroidSync { get; set; } = false;
     public string AndroidDeviceName { get; set; } = "Pixel 8";
     public string AndroidFtpHost { get; set; } = "192.168.1.100";
@@ -21,6 +21,18 @@ public sealed class AppConfig
     public string AndroidFtpPassword { get; set; } = "";
     public string AndroidTargetDir { get; set; } = "/DCIM/PicHarbor/iPhone/";
     public string AndroidDeviceId { get; set; } = "";
+
+    // Android Backup Settings (Backup to PC)
+    public string AndroidBackupDeviceName { get; set; } = "Pixel 8";
+    public string AndroidBackupFtpHost { get; set; } = "192.168.1.100";
+    public int AndroidBackupFtpPort { get; set; } = 2121;
+    public string AndroidBackupFtpUser { get; set; } = "anonymous";
+    public string AndroidBackupFtpPassword { get; set; } = "";
+    public string AndroidBackupDeviceId { get; set; } = "";
+    public int AndroidBackupMinFileSizeKb { get; set; } = 100;
+    public bool AndroidBackupIgnoreSmallImages { get; set; } = true;
+    public bool AndroidBackupIncludePhotos { get; set; } = true;
+    public bool AndroidBackupIncludeVideos { get; set; } = true;
 
     // Auto-Completion Settings
     public bool AutoCompleteLivePhotoPair { get; set; } = true;

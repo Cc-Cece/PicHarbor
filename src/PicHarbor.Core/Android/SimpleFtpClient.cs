@@ -252,6 +252,161 @@ public sealed class SimpleFtpClient : IDisposable
     }
 
     /// <summary>
+    /// Lists entries in a remote directory on the FTP server using LIST.
+    /// </summary>
+    public async Task<IReadOnlyList<FtpFileSystemEntry>> ListEntriesAsync(string remoteDir, CancellationToken cancellationToken = default)
+    {
+        EnsureConnected();
+        string normalized = remoteDir.Replace('\\', '/');
+        if (!normalized.StartsWith('/')) normalized = "/" + normalized;
+
+        using TcpClient dataClient = await OpenPassiveDataConnectionAsync(cancellationToken).ConfigureAwait(false);
+        string listResp = await SendCommandAsync($"LIST {normalized}", cancellationToken).ConfigureAwait(false);
+        if (!listResp.StartsWith("150", StringComparison.Ordinal) && !listResp.StartsWith("125", StringComparison.Ordinal))
+        {
+            // If LIST with path argument is rejected, fall back to CWD then LIST
+            await SendCommandAsync($"CWD {normalized}", cancellationToken).ConfigureAwait(false);
+            using TcpClient dataClient2 = await OpenPassiveDataConnectionAsync(cancellationToken).ConfigureAwait(false);
+            listResp = await SendCommandAsync("LIST", cancellationToken).ConfigureAwait(false);
+            if (!listResp.StartsWith("150", StringComparison.Ordinal) && !listResp.StartsWith("125", StringComparison.Ordinal))
+            {
+                return Array.Empty<FtpFileSystemEntry>();
+            }
+            return await ReadAndParseListEntriesAsync(dataClient2, cancellationToken).ConfigureAwait(false);
+        }
+
+        return await ReadAndParseListEntriesAsync(dataClient, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<FtpFileSystemEntry>> ReadAndParseListEntriesAsync(TcpClient dataClient, CancellationToken cancellationToken)
+    {
+        var entries = new List<FtpFileSystemEntry>();
+        using (dataClient)
+        using (NetworkStream dataStream = dataClient.GetStream())
+        using (StreamReader reader = new StreamReader(dataStream, Encoding.UTF8))
+        {
+            string? line;
+            while ((line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false)) != null)
+            {
+                var entry = FtpEntryParser.ParseLine(line);
+                if (entry is not null)
+                {
+                    entries.Add(entry);
+                }
+            }
+        }
+
+        try
+        {
+            await ReadResponseAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch { }
+        return entries;
+    }
+
+    /// <summary>
+    /// Opens a sequential read stream from a remote file path on the FTP server using RETR.
+    /// The caller is responsible for disposing the returned stream.
+    /// </summary>
+    public async Task<Stream> OpenReadStreamAsync(string remoteFilePath, CancellationToken cancellationToken = default)
+    {
+        EnsureConnected();
+        string remotePath = remoteFilePath.Replace('\\', '/');
+        if (!remotePath.StartsWith('/')) remotePath = "/" + remotePath;
+
+        TcpClient dataClient = await OpenPassiveDataConnectionAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            string retrResp = await SendCommandAsync($"RETR {remotePath}", cancellationToken).ConfigureAwait(false);
+            if (!retrResp.StartsWith("150", StringComparison.Ordinal) && !retrResp.StartsWith("125", StringComparison.Ordinal))
+            {
+                dataClient.Dispose();
+                throw new FileNotFoundException($"FTP RETR rejected: {retrResp}", remotePath);
+            }
+
+            NetworkStream dataStream = dataClient.GetStream();
+            return new FtpReadStream(dataClient, dataStream, async () =>
+            {
+                try
+                {
+                    if (IsConnected)
+                    {
+                        await ReadResponseAsync(CancellationToken.None).ConfigureAwait(false);
+                    }
+                }
+                catch { }
+            });
+        }
+        catch
+        {
+            dataClient.Dispose();
+            throw;
+        }
+    }
+
+    private sealed class FtpReadStream : Stream
+    {
+        private readonly TcpClient dataClient;
+        private readonly NetworkStream networkStream;
+        private readonly Func<Task> onCompleted;
+        private bool disposed;
+
+        public FtpReadStream(TcpClient dataClient, NetworkStream networkStream, Func<Task> onCompleted)
+        {
+            this.dataClient = dataClient;
+            this.networkStream = networkStream;
+            this.onCompleted = onCompleted;
+        }
+
+        public override bool CanRead => !disposed && networkStream.CanRead;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => networkStream.Read(buffer, offset, count);
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+            networkStream.ReadAsync(buffer, offset, count, cancellationToken);
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            networkStream.ReadAsync(buffer, cancellationToken);
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        protected override void Dispose(bool disposing)
+        {
+            if (!disposed)
+            {
+                disposed = true;
+                if (disposing)
+                {
+                    networkStream.Dispose();
+                    dataClient.Dispose();
+                    try { onCompleted().GetAwaiter().GetResult(); } catch { }
+                }
+            }
+            base.Dispose(disposing);
+        }
+
+        public override async ValueTask DisposeAsync()
+        {
+            if (!disposed)
+            {
+                disposed = true;
+                await networkStream.DisposeAsync().ConfigureAwait(false);
+                dataClient.Dispose();
+                try { await onCompleted().ConfigureAwait(false); } catch { }
+            }
+            await base.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
     /// Tests connecting to an FTP server, creating target directory, and reading server response.
     /// </summary>
     public static async Task<bool> TestConnectionAsync(string host, int port, string user, string password, string remoteDir, CancellationToken cancellationToken = default)

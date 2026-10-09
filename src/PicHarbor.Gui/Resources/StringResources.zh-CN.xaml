@@ -10,7 +10,8 @@
     <sys:String x:Key="DeviceBattery">电量: 85% (充电中)</sys:String>
 
     <!-- Sidebar Navigation -->
-    <sys:String x:Key="NavBackup">📥 备份到电脑</sys:String>
+    <sys:String x:Key="NavBackup">📱 备份到电脑 (iPhone)</sys:String>
+    <sys:String x:Key="NavAndroidBackup">🤖 备份到电脑 (Android)</sys:String>
     <sys:String x:Key="NavIPhoneSync">📱 恢复到 iPhone</sys:String>
     <sys:String x:Key="NavAndroidSync">🤖 恢复到 Android</sys:String>
     <sys:String x:Key="NavGooglePhotos">☁️ Google 相册</sys:String>
@@ -47,6 +48,29 @@
     <sys:String x:Key="BackupScopeModeDateRange">按时间段备份 (适合只备份近期照片)</sys:String>
     <sys:String x:Key="BackupScopeModeSubfolder">按相册/目录选择</sys:String>
     <sys:String x:Key="BackupScopeSubfoldersLabel">选择要备份的相册/子目录:</sys:String>
+
+    <!-- Android Backup Tab -->
+    <sys:String x:Key="AndroidBackupHeader">🤖 Android 手机增量备份到电脑</sys:String>
+    <sys:String x:Key="AndroidBackupConnHeader">📶 第一步：局域网连接与配置 (FTP 服务)</sys:String>
+    <sys:String x:Key="AndroidBackupFtpHostLabel">手机 IP 地址:</sys:String>
+    <sys:String x:Key="AndroidBackupFtpPortLabel">端口:</sys:String>
+    <sys:String x:Key="AndroidBackupFtpUserLabel">用户名:</sys:String>
+    <sys:String x:Key="AndroidBackupFtpPassLabel">密码:</sys:String>
+    <sys:String x:Key="AndroidBackupDeviceNameLabel">设备名称:</sys:String>
+    <sys:String x:Key="AndroidBackupTestConnBtn">⚡ 测试连接</sys:String>
+    <sys:String x:Key="AndroidBackupScopeHeader">📂 第二步：相册范围与杂质过滤 (3道智能过滤门槛)</sys:String>
+    <sys:String x:Key="AndroidBackupScanBtn">🔍 深度扫描相册</sys:String>
+    <sys:String x:Key="AndroidBackupIgnoreSmallLabel">忽略小于指定体积的杂图/表情包/缓存图标:</sys:String>
+    <sys:String x:Key="AndroidBackupTypeFilterLabel">媒体类型过滤:</sys:String>
+    <sys:String x:Key="AndroidBackupIncludePhotosLabel">照片</sys:String>
+    <sys:String x:Key="AndroidBackupIncludeVideosLabel">视频</sys:String>
+    <sys:String x:Key="AndroidBackupAdvancedToggle">⚙️ 展开高级相册扫描与自定义多选</sys:String>
+    <sys:String x:Key="AndroidBackupCustomPathLabel">添加自定义路径:</sys:String>
+    <sys:String x:Key="AndroidBackupAddCustomBtn">➕ 添加</sys:String>
+    <sys:String x:Key="AndroidBackupSelectAllBtn">全选</sys:String>
+    <sys:String x:Key="AndroidBackupDeselectAllBtn">取消全选</sys:String>
+    <sys:String x:Key="AndroidBackupStartBtn">🚀 开始 Android 增量备份</sys:String>
+    <sys:String x:Key="AndroidBackupCancelBtn">⏹️ 取消备份</sys:String>
 
     <!-- Android Sync Tab -->
     <sys:String x:Key="AndroidSyncTitle">🤖 恢复到 Android</sys:String>

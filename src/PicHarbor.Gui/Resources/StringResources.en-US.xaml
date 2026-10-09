@@ -10,7 +10,8 @@
     <sys:String x:Key="DeviceBattery">Battery: 85% (Charging)</sys:String>
 
     <!-- Sidebar Navigation -->
-    <sys:String x:Key="NavBackup">📥 Backup to PC</sys:String>
+    <sys:String x:Key="NavBackup">📱 Backup to PC (iPhone)</sys:String>
+    <sys:String x:Key="NavAndroidBackup">🤖 Backup to PC (Android)</sys:String>
     <sys:String x:Key="NavIPhoneSync">📱 Restore to iPhone</sys:String>
     <sys:String x:Key="NavAndroidSync">🤖 Restore to Android</sys:String>
     <sys:String x:Key="NavGooglePhotos">☁️ Google Photos</sys:String>
@@ -47,6 +48,29 @@
     <sys:String x:Key="BackupScopeModeDateRange">By Date Range (For recent media)</sys:String>
     <sys:String x:Key="BackupScopeModeSubfolder">By Folder / Album</sys:String>
     <sys:String x:Key="BackupScopeSubfoldersLabel">Select subfolders/albums to back up:</sys:String>
+
+    <!-- Android Backup Tab -->
+    <sys:String x:Key="AndroidBackupHeader">🤖 Android Backup to PC</sys:String>
+    <sys:String x:Key="AndroidBackupConnHeader">📶 Step 1: Wi-Fi FTP Connection &amp; Settings</sys:String>
+    <sys:String x:Key="AndroidBackupFtpHostLabel">Device IP Address:</sys:String>
+    <sys:String x:Key="AndroidBackupFtpPortLabel">Port:</sys:String>
+    <sys:String x:Key="AndroidBackupFtpUserLabel">Username:</sys:String>
+    <sys:String x:Key="AndroidBackupFtpPassLabel">Password:</sys:String>
+    <sys:String x:Key="AndroidBackupDeviceNameLabel">Device Name:</sys:String>
+    <sys:String x:Key="AndroidBackupTestConnBtn">⚡ Test Connection</sys:String>
+    <sys:String x:Key="AndroidBackupScopeHeader">📂 Step 2: Albums &amp; Filter Rules (3-Gate Intelligent Pruning)</sys:String>
+    <sys:String x:Key="AndroidBackupScanBtn">🔍 Deep Scan Albums</sys:String>
+    <sys:String x:Key="AndroidBackupIgnoreSmallLabel">Ignore small junk images / thumbnails / emojis:</sys:String>
+    <sys:String x:Key="AndroidBackupTypeFilterLabel">Media Types:</sys:String>
+    <sys:String x:Key="AndroidBackupIncludePhotosLabel">Photos</sys:String>
+    <sys:String x:Key="AndroidBackupIncludeVideosLabel">Videos</sys:String>
+    <sys:String x:Key="AndroidBackupAdvancedToggle">⚙️ Advanced Album Scanner &amp; Custom Picker</sys:String>
+    <sys:String x:Key="AndroidBackupCustomPathLabel">Add Custom Path:</sys:String>
+    <sys:String x:Key="AndroidBackupAddCustomBtn">➕ Add</sys:String>
+    <sys:String x:Key="AndroidBackupSelectAllBtn">Select All</sys:String>
+    <sys:String x:Key="AndroidBackupDeselectAllBtn">Deselect All</sys:String>
+    <sys:String x:Key="AndroidBackupStartBtn">🚀 Start Android Incremental Backup</sys:String>
+    <sys:String x:Key="AndroidBackupCancelBtn">⏹️ Cancel Backup</sys:String>
 
     <!-- Android Sync Tab -->
     <sys:String x:Key="AndroidSyncTitle">🤖 Restore to Android</sys:String>

@@ -109,8 +109,12 @@
                                      IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=0}"
                                      Click="NavButton_Click" Tag="0"
                                      Style="{StaticResource TabRadioButton}" />
-                        <RadioButton IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=1}"
+                        <RadioButton Content="{DynamicResource NavAndroidBackup}" 
+                                     IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=1}"
                                      Click="NavButton_Click" Tag="1"
+                                     Style="{StaticResource TabRadioButton}" />
+                        <RadioButton IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=2}"
+                                     Click="NavButton_Click" Tag="2"
                                      Style="{StaticResource TabRadioButton}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="{DynamicResource NavIPhoneSync}" VerticalAlignment="Center"/>
@@ -121,8 +125,8 @@
                             </StackPanel>
                         </RadioButton>
 
-                        <RadioButton IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=2}"
-                                     Click="NavButton_Click" Tag="2"
+                        <RadioButton IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=3}"
+                                     Click="NavButton_Click" Tag="3"
                                      Style="{StaticResource TabRadioButton}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="{DynamicResource NavAndroidSync}" VerticalAlignment="Center"/>
@@ -133,8 +137,8 @@
                             </StackPanel>
                         </RadioButton>
 
-                        <RadioButton IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=3}"
-                                     Click="NavButton_Click" Tag="3"
+                        <RadioButton IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=4}"
+                                     Click="NavButton_Click" Tag="4"
                                      Style="{StaticResource TabRadioButton}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="{DynamicResource NavGooglePhotos}" VerticalAlignment="Center"/>
@@ -146,20 +150,20 @@
                         </RadioButton>
 
                         <RadioButton Content="{DynamicResource NavStatus}" 
-                                     IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=4}"
-                                     Click="NavButton_Click" Tag="4"
-                                     Style="{StaticResource TabRadioButton}" />
-                        <RadioButton Content="{DynamicResource NavSearch}" 
                                      IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=5}"
                                      Click="NavButton_Click" Tag="5"
                                      Style="{StaticResource TabRadioButton}" />
-                        <RadioButton Content="{DynamicResource NavReorganize}" 
+                        <RadioButton Content="{DynamicResource NavSearch}" 
                                      IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=6}"
                                      Click="NavButton_Click" Tag="6"
                                      Style="{StaticResource TabRadioButton}" />
-                        <RadioButton Content="{DynamicResource NavSettings}" 
+                        <RadioButton Content="{DynamicResource NavReorganize}" 
                                      IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=7}"
                                      Click="NavButton_Click" Tag="7"
+                                     Style="{StaticResource TabRadioButton}" />
+                        <RadioButton Content="{DynamicResource NavSettings}" 
+                                     IsChecked="{Binding SelectedTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=8}"
+                                     Click="NavButton_Click" Tag="8"
                                      Style="{StaticResource TabRadioButton}" />
                     </StackPanel>
 
@@ -455,7 +459,311 @@
                     </Grid>
                 </TabItem>
 
-                <!-- TAB 1: IPHONE RESTORE (Apple Devices Sync) -->
+                <!-- TAB 1: ANDROID BACKUP -->
+                <TabItem>
+                    <Grid DataContext="{Binding AndroidBackupVM}">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
+                            <StackPanel>
+                                <!-- Header Banner Card -->
+                                <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource AndroidBackupHeader}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6"/>
+                                        <TextBlock Text="通过局域网 Wi-Fi (FTP) 将 Android 设备的媒体文件增量无损备份至电脑。支持 3 道智能过滤门槛（.nomedia 过滤、黑名单排除、纯小图/表情包剪枝），自动根据拍摄 EXIF 年月归档并记录增量账本。" 
+                                                   TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" LineHeight="18"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Step 1: FTP Connection Card -->
+                                <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource AndroidBackupConnHeader}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,12"/>
+                                        
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="20"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="100"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{DynamicResource AndroidBackupFtpHostLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <TextBox Grid.Column="1" Text="{Binding AndroidFtpHost, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}"/>
+                                            
+                                            <TextBlock Grid.Column="3" Text="{DynamicResource AndroidBackupFtpPortLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <TextBox Grid.Column="4" Text="{Binding AndroidFtpPort, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}"/>
+                                        </Grid>
+
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="20"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="20"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{DynamicResource AndroidBackupFtpUserLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <TextBox Grid.Column="1" Text="{Binding AndroidFtpUser, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}"/>
+
+                                            <TextBlock Grid.Column="3" Text="{DynamicResource AndroidBackupFtpPassLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <TextBox Grid.Column="4" Text="{Binding AndroidFtpPassword, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}"/>
+
+                                            <TextBlock Grid.Column="6" Text="{DynamicResource AndroidBackupDeviceNameLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <TextBox Grid.Column="7" Text="{Binding AndroidDeviceName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}"/>
+                                        </Grid>
+
+                                        <!-- Test Connection Action -->
+                                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                            <Button Content="{DynamicResource AndroidBackupTestConnBtn}" Command="{Binding TestConnectionCommand}" Style="{StaticResource SecondaryButton}" Padding="14,6" Margin="0,0,14,0"/>
+                                            <TextBlock Text="{Binding ConnectionStatusText}" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Step 2: Destination Settings Card -->
+                                <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource BackupTargetHeader}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,12"/>
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{DynamicResource DestPathLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <TextBox Grid.Column="1" Text="{Binding DestinationPath, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}"/>
+                                            <Button Grid.Column="2" Content="{DynamicResource BrowseButton}" Command="{Binding BrowseDestinationCommand}" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"/>
+                                        </Grid>
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{DynamicResource OrganizeSchemeLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <ComboBox Grid.Column="1" ItemsSource="{Binding OrganizeSchemes}" SelectedItem="{Binding SelectedScheme}" Height="34" VerticalContentAlignment="Center"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Step 3: Albums & Intelligent Filter Card -->
+                                <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource AndroidBackupScopeHeader}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,12"/>
+
+                                        <!-- Quick Albums Selection -->
+                                        <TextBlock Text="📱 常用备份相册 (勾选参与备份):" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,0,8"/>
+                                        <Border Background="#0F172A" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                                            <ItemsControl ItemsSource="{Binding Albums}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,4,16,4">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding DisplayName}" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="SemiBold" FontSize="13"/>
+                                                                <TextBlock Text="{Binding DetailText}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,2,0,0"/>
+                                                            </StackPanel>
+                                                            <Button Grid.Column="2" Content="✕" Command="{Binding DataContext.RemoveAlbumCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" 
+                                                                    CommandParameter="{Binding}" Style="{StaticResource SecondaryButton}" Padding="6,2" FontSize="10"
+                                                                    Visibility="{Binding IsCustom, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="8,0,0,0"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                            </ItemsControl>
+                                        </Border>
+
+                                        <!-- Quick Filters (100KB Junk Pruning & Media Type) -->
+                                        <Border Background="#0F172A" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+                                                    <CheckBox IsChecked="{Binding IgnoreSmallImages, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBlock Text="{DynamicResource AndroidBackupIgnoreSmallLabel}" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" FontSize="12"/>
+                                                    <TextBox Text="{Binding MinFileSizeKb, UpdateSourceTrigger=PropertyChanged}" Width="55" Style="{StaticResource ModernTextBox}" Margin="8,0,4,0" TextAlignment="Center"/>
+                                                    <TextBlock Text="KB (杜绝小图标与表情包污染归档)" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="12"/>
+                                                </StackPanel>
+
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <TextBlock Text="{DynamicResource AndroidBackupTypeFilterLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontSize="12" Margin="0,0,12,0"/>
+                                                    <CheckBox Content="{DynamicResource AndroidBackupIncludePhotosLabel}" IsChecked="{Binding IncludePhotos, Mode=TwoWay}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                                                    <CheckBox Content="{DynamicResource AndroidBackupIncludeVideosLabel}" IsChecked="{Binding IncludeVideos, Mode=TwoWay}" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- Date Scope Filters -->
+                                        <Border Background="#0F172A" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,8">
+                                                    <TextBlock Text="{DynamicResource ScopeDateFromLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12"/>
+                                                    <DatePicker SelectedDate="{Binding ScopeDateFrom, Mode=TwoWay}" Width="140" Height="30" Margin="0,0,16,0"/>
+                                                    <TextBlock Text="{DynamicResource ScopeDateToLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12"/>
+                                                    <DatePicker SelectedDate="{Binding ScopeDateTo, Mode=TwoWay}" Width="140" Height="30" Margin="0,0,16,0"/>
+                                                    <Button Content="{DynamicResource ScopeClearDateBtn}" Command="{Binding ClearDateRangeCommand}" Style="{StaticResource SecondaryButton}" Padding="8,4" FontSize="11"/>
+                                                </StackPanel>
+
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <TextBlock Text="{DynamicResource ScopeQuickPresetsLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
+                                                    <Button Content="{DynamicResource PresetLast30Days}" Command="{Binding SetDatePresetLast30DaysCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,0" FontSize="11"/>
+                                                    <Button Content="{DynamicResource PresetLast90Days}" Command="{Binding SetDatePresetLast90DaysCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,0" FontSize="11"/>
+                                                    <Button Content="{DynamicResource PresetThisYear}" Command="{Binding SetDatePresetThisYearCommand}" Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,0" FontSize="11"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- Advanced Collapsible Album Scanner Panel -->
+                                        <Expander Header="{DynamicResource AndroidBackupAdvancedToggle}" IsExpanded="{Binding IsAdvancedPanelOpen, Mode=TwoWay}" 
+                                                  Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" Margin="0,4,0,0">
+                                            <Border Background="#0B132B" CornerRadius="8" Padding="14" Margin="0,8,0,0" BorderBrush="#1E293B" BorderThickness="1">
+                                                <StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                                        <Button Content="{DynamicResource AndroidBackupScanBtn}" Command="{Binding ScanAlbumsCommand}" Style="{StaticResource SecondaryButton}" Padding="12,5" Margin="0,0,12,0"/>
+                                                        <Button Content="{DynamicResource AndroidBackupSelectAllBtn}" Command="{Binding SelectAllAlbumsCommand}" Style="{StaticResource SecondaryButton}" Padding="10,5" Margin="0,0,6,0"/>
+                                                        <Button Content="{DynamicResource AndroidBackupDeselectAllBtn}" Command="{Binding DeselectAllAlbumsCommand}" Style="{StaticResource SecondaryButton}" Padding="10,5" Margin="0,0,12,0"/>
+                                                        <TextBlock Text="{Binding ScanStatusText}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+
+                                                    <Grid Margin="0,4,0,0">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{DynamicResource AndroidBackupCustomPathLabel}" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="12"/>
+                                                        <TextBox Grid.Column="1" Text="{Binding CustomAlbumPath, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ModernTextBox}"/>
+                                                        <Button Grid.Column="2" Content="{DynamicResource AndroidBackupAddCustomBtn}" Command="{Binding AddCustomAlbumCommand}" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Padding="14,5"/>
+                                                    </Grid>
+                                                    <TextBlock Text="💡 说明：深度扫描会自动探查 DCIM、Pictures、Download 目录，根据 .nomedia 标记、排除名单与纯小图门槛自动净化，仅呈现真实有效的相册。" 
+                                                               Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,8,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Expander>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Step 4: Execution Actions & Progress Dashboard -->
+                                <Border Style="{StaticResource ModernCard}" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <!-- Actions Row -->
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                            <Button Content="{DynamicResource AndroidBackupStartBtn}" Command="{Binding StartBackupCommand}" 
+                                                    Style="{StaticResource PrimaryButton}" Padding="20,10" FontSize="14" Margin="0,0,12,0"/>
+                                            <Button Content="{DynamicResource AndroidBackupCancelBtn}" Command="{Binding CancelBackupCommand}" 
+                                                    Style="{StaticResource SecondaryButton}" Foreground="#F87171" BorderBrush="#EF4444" Padding="16,10" FontSize="14"/>
+                                        </StackPanel>
+
+                                        <!-- Progress Bar & Status Text -->
+                                        <TextBlock Text="{Binding ProgressText}" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,6"/>
+                                        <ProgressBar Value="{Binding ProgressPercentage}" Maximum="100" Height="10" Margin="0,0,0,14"/>
+
+                                        <!-- Metric Stats Cards -->
+                                        <UniformGrid Columns="5" Margin="0,0,0,14">
+                                            <Border Style="{StaticResource ModernCard}" Padding="10" Margin="4,0" Background="#0F172A">
+                                                <StackPanel>
+                                                    <TextBlock Text="传输速度" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding SpeedText}" Foreground="{StaticResource PrimaryBrush}" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource ModernCard}" Padding="10" Margin="4,0" Background="#0F172A">
+                                                <StackPanel>
+                                                    <TextBlock Text="{DynamicResource LabelTransferSize}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding TransferredSizeText}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource ModernCard}" Padding="10" Margin="4,0" Background="#0F172A" Cursor="Hand">
+                                                <Border.InputBindings>
+                                                    <MouseBinding Gesture="LeftClick" Command="{Binding ShowCopiedDetailsCommand}"/>
+                                                </Border.InputBindings>
+                                                <StackPanel>
+                                                    <TextBlock Text="已传输 (查看)" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding CopiedCount}" Foreground="{StaticResource AccentGreenBrush}" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource ModernCard}" Padding="10" Margin="4,0" Background="#0F172A" Cursor="Hand">
+                                                <Border.InputBindings>
+                                                    <MouseBinding Gesture="LeftClick" Command="{Binding ShowSkippedDetailsCommand}"/>
+                                                </Border.InputBindings>
+                                                <StackPanel>
+                                                    <TextBlock Text="增量已跳过 (查看)" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding SkippedCount}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource ModernCard}" Padding="10" Margin="4,0" Background="#0F172A" Cursor="Hand">
+                                                <Border.InputBindings>
+                                                    <MouseBinding Gesture="LeftClick" Command="{Binding ShowFailedDetailsCommand}"/>
+                                                </Border.InputBindings>
+                                                <StackPanel>
+                                                    <TextBlock Text="失败数 (查看)" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding FailedCount}" Foreground="{StaticResource AccentRedBrush}" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </UniformGrid>
+
+                                        <!-- Current File Pill -->
+                                        <Border Background="#0F172A" CornerRadius="6" Padding="10,6" Margin="0,0,0,12">
+                                            <TextBlock Text="{Binding CurrentFileName}" Foreground="{StaticResource TextPrimaryBrush}" FontFamily="Consolas" FontSize="12"/>
+                                        </Border>
+
+                                        <!-- Log Console Box -->
+                                        <ListBox ItemsSource="{Binding LogEntries}" Height="160" Background="#0F172A" Foreground="#A7F3D0" 
+                                                 FontFamily="Consolas" FontSize="11" BorderThickness="0" Padding="8"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- Detail DataGrid Modal Overlay -->
+                        <Grid Visibility="{Binding IsDetailModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
+                              Background="#C0000000" Panel.ZIndex="999">
+                            <Border Background="#1E293B" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1"
+                                    CornerRadius="12" Width="900" Height="520" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Padding="20">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <Grid Grid.Row="0" Margin="0,0,0,15">
+                                        <TextBlock Text="{Binding DetailModalTitle}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                        <Button Content="✕" Command="{Binding CloseDetailModalCommand}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" Width="32" Height="32" Padding="0"/>
+                                    </Grid>
+
+                                    <DataGrid Grid.Row="1" ItemsSource="{Binding DetailItems}" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" SelectionMode="Extended"
+                                              Background="#0F172A" BorderThickness="1" BorderBrush="{StaticResource CardBorderBrush}"
+                                              RowBackground="#0F172A" AlternatingRowBackground="#182238" Foreground="White"
+                                              GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#334155">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="手机源路径" Binding="{Binding SourcePath}" Width="2*"/>
+                                            <DataGridTextColumn Header="电脑目标路径" Binding="{Binding TargetPath}" Width="2*"/>
+                                            <DataGridTextColumn Header="文件大小" Binding="{Binding FileSizeText}" Width="80"/>
+                                            <DataGridTextColumn Header="状态" Binding="{Binding StatusText}" Width="80"/>
+                                            <DataGridTextColumn Header="详细信息" Binding="{Binding Details}" Width="1.5*"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+
+                                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+                                        <Button Content="{DynamicResource CloseBtn}" Command="{Binding CloseDetailModalCommand}" Style="{StaticResource SecondaryButton}" Padding="20,8"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </TabItem>
+
+                <!-- TAB 2: IPHONE RESTORE (Apple Devices Sync) -->
                 <TabItem>
                     <Grid DataContext="{Binding IPhoneSyncVM}">
                         <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">

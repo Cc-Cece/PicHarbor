@@ -59,7 +59,7 @@ public sealed class FileCopier : IDisposable
     /// </summary>
     private const int DefaultConsecutiveFailureLimit = 10;
 
-    private readonly IPhoneClient client;
+    private readonly IMediaSourceClient client;
     private readonly TransferJournal journal;
     private readonly DateFolderOrganizer organizer;
     private readonly OrganizeScheme organizeScheme;
@@ -89,7 +89,7 @@ public sealed class FileCopier : IDisposable
     /// <param name="readTimeout">
     /// Forward-progress timeout for the run-level liveness watchdog (#11 / #25 / #38 / #42 / R2): if the
     /// device delivers no bytes (and completes no file) for this long while a copy is in flight, the run
-    /// stops cleanly and resumably. <see langword="null"/> or non-positive disables the watchdog (reads
+    /// stops cleanly and resurably. <see langword="null"/> or non-positive disables the watchdog (reads
     /// can block indefinitely, as in Sprint 1).
     /// </param>
     /// <param name="onBytesStreamed">
@@ -116,7 +116,7 @@ public sealed class FileCopier : IDisposable
     /// Sprint 3.3 cancel-and-unwind behaviour.
     /// </param>
     public FileCopier(
-        IPhoneClient client,
+        IMediaSourceClient client,
         TransferJournal journal,
         DateFolderOrganizer organizer,
         IMediaMetadataExtractor metadataExtractor,

@@ -30,6 +30,7 @@ public partial class MainViewModel : ObservableObject
     private string currentLanguage = "zh-CN";
 
     public BackupViewModel BackupVM { get; }
+    public AndroidBackupViewModel AndroidBackupVM { get; }
     public IPhoneSyncViewModel IPhoneSyncVM { get; } = new();
     public AndroidSyncViewModel AndroidSyncVM { get; } = new();
     public GooglePhotosSyncViewModel GooglePhotosVM { get; } = new();
@@ -41,6 +42,7 @@ public partial class MainViewModel : ObservableObject
     public MainViewModel()
     {
         BackupVM = new BackupViewModel(OnDestinationPathUpdatedFromBackup);
+        AndroidBackupVM = new AndroidBackupViewModel(OnDestinationPathUpdatedFromBackup);
 
         var config = AppSettings.Load();
         if (!string.IsNullOrWhiteSpace(config.DestinationPath))
@@ -59,10 +61,10 @@ public partial class MainViewModel : ObservableObject
         SearchVM.GooglePhotosVM = GooglePhotosVM;
 
         // Wire navigation callbacks
-        IPhoneSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 7;
-        AndroidSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 7;
-        GooglePhotosVM.NavigateToSettingsAction = () => SelectedTabIndex = 7;
-        GooglePhotosVM.NavigateToSearchAction = () => SelectedTabIndex = 5;
+        IPhoneSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 8;
+        AndroidSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 8;
+        GooglePhotosVM.NavigateToSettingsAction = () => SelectedTabIndex = 8;
+        GooglePhotosVM.NavigateToSearchAction = () => SelectedTabIndex = 6;
 
         // Sync initial destination path across all sub-ViewModels
         SyncDestinationPath(DestinationPath);
@@ -104,6 +106,7 @@ public partial class MainViewModel : ObservableObject
     private void SyncDestinationPath(string path)
     {
         BackupVM.DestinationPath = path;
+        AndroidBackupVM.DestinationPath = path;
         IPhoneSyncVM.ArchivePath = path;
         AndroidSyncVM.ArchivePath = path;
         GooglePhotosVM.ArchivePath = path;
