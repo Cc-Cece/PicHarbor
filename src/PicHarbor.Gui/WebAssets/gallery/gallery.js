@@ -51,9 +51,10 @@ function initAlbum(photos) {
     locale: 'zh-CN',
     theme: 'light',
     gap: 6,
-    targetRowHeight: 180,
+    targetRowHeight: 200,
     headerHeight: 40,
     groupSpacing: 18,
+    favorite: false,
 
     // Custom Badges on Corners
     badges: (item) => {
@@ -84,24 +85,29 @@ function initAlbum(photos) {
         });
       }
 
-      // Bottom Right: Media Type Badges
+      // Bottom Left: Clean Format & Media Type Badge
+      const fmt = (item.format || 'IMG').toUpperCase();
+      let typeIcon = '';
+      let typeLabel = fmt;
+
       if (item.isLivePhoto) {
-        list.push({
-          id: 'badge-live',
-          corner: 'bottomRight',
-          className: 'badge-pill badge-live',
-          content: '<svg class="badge-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>实况',
-          title: '实况照片 (Live Photo)'
-        });
+        typeIcon = '<svg class="badge-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>';
+        typeLabel = '实况';
       } else if (item.isVideo) {
-        list.push({
-          id: 'badge-video',
-          corner: 'bottomRight',
-          className: 'badge-pill badge-video',
-          content: '<svg class="badge-icon" viewBox="0 0 24 24"><polygon points="7 5 19 12 7 19 7 5" fill="currentColor"/></svg>视频',
-          title: '视频'
-        });
+        typeIcon = '<svg class="badge-icon" viewBox="0 0 24 24"><polygon points="7 5 19 12 7 19 7 5" fill="currentColor"/></svg>';
+        typeLabel = fmt;
+      } else if (item.mediaType === 'screenshot') {
+        typeIcon = '<svg class="badge-icon" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><line x1="11" y1="18" x2="13" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+        typeLabel = fmt;
       }
+
+      list.push({
+        id: 'badge-meta-format',
+        corner: 'bottomLeft',
+        className: `badge-pill badge-meta badge-fmt-${fmt.toLowerCase()}`,
+        content: `<span class="badge-inner">${typeIcon}<span>${typeLabel}</span></span>`,
+        title: `${fmt} 格式 · ${item.mediaType || '媒体'}`
+      });
 
       return list;
     },
@@ -254,41 +260,6 @@ function initAlbum(photos) {
     }
   });
 
-  let relayoutDebounceTimer = null;
-  function scheduleAdaptiveRelayout() {
-    if (relayoutDebounceTimer) clearTimeout(relayoutDebounceTimer);
-    relayoutDebounceTimer = setTimeout(() => {
-      if (albumInstance) {
-        albumInstance.setData(currentPhotos);
-      }
-    }, 150);
-  }
-
-  // Auto-adapt aspect ratio when image loads if natural dimensions differ from initial estimate
-  container.addEventListener('load', (e) => {
-    if (e.target && e.target.classList.contains('sp-tile__img')) {
-      const img = e.target;
-      const tile = img.closest('.sp-tile');
-      if (!tile) return;
-      const key = tile.dataset.key;
-      if (!key) return;
-
-      const photo = currentPhotos.find(p => p.id === key || String(p.id) === String(key));
-      if (!photo) return;
-
-      const nw = img.naturalWidth;
-      const nh = img.naturalHeight;
-      if (nw > 0 && nh > 0) {
-        const actualRatio = nw / nh;
-        const currentRatio = (photo.width || 1) / (photo.height || 1);
-        if (Math.abs(actualRatio - currentRatio) > 0.05) {
-          photo.width = nw;
-          photo.height = nh;
-          scheduleAdaptiveRelayout();
-        }
-      }
-    }
-  }, true);
 
   // Attach infinite scroll loader
   setTimeout(() => {

@@ -3,8 +3,10 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Threading;
 using System.Web;
 using System.Windows;
 using System.Windows.Controls;
@@ -28,6 +30,9 @@ public partial class PclGalleryWebControl : UserControl
     private bool isWebReady = false;
     private readonly DispatcherTimer pushDebounceTimer;
     private static readonly ConcurrentDictionary<string, byte[]> ThumbnailCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly string DiskCacheFolder = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "PicHarbor", "Cache", "Thumbnails");
     private static CoreWebView2Environment? sharedEnvironment;
     private static readonly SemaphoreSlim envLock = new(1, 1);
     private SearchViewModel? currentSearchVM;
@@ -229,8 +234,20 @@ public partial class PclGalleryWebControl : UserControl
         core.Navigate("https://gallery.local/index.html");
     }
 
+    private static string GetThumbnailCacheKey(string filePath)
+    {
+        long ticks = 0;
+        try { ticks = File.GetLastWriteTimeUtc(filePath).Ticks; } catch { }
+        using var md5 = MD5.Create();
+        byte[] hash = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes($"{filePath.ToLowerInvariant()}_{ticks}"));
+        return Convert.ToHexString(hash);
+    }
+
     private void CoreWebView2_WebResourceRequested(object? sender, CoreWebView2WebResourceRequestedEventArgs e)
     {
+        var env = sharedEnvironment ?? AlbumWebView.CoreWebView2?.Environment;
+        if (env == null) return;
+
         try
         {
             var uri = new Uri(e.Request.Uri);
@@ -244,7 +261,7 @@ public partial class PclGalleryWebControl : UserControl
             if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
             {
                 byte[] placeholder = GetPlaceholderTileBytes(Path.GetFileName(filePath ?? "Media"), isVideo);
-                e.Response = AlbumWebView.CoreWebView2.Environment.CreateWebResourceResponse(
+                e.Response = env.CreateWebResourceResponse(
                     new MemoryStream(placeholder),
                     200,
                     "OK",
@@ -252,77 +269,146 @@ public partial class PclGalleryWebControl : UserControl
                 return;
             }
 
-            if (uri.AbsolutePath.Equals("/thumb", StringComparison.OrdinalIgnoreCase))
+            var deferral = e.GetDeferral();
+            var dispatcher = Dispatcher;
+
+            ThreadPool.QueueUserWorkItem(async _ =>
             {
-                byte[]? thumbBytes = GetOrCreateThumbnailBytes(filePath);
-                if (thumbBytes != null)
+                byte[]? thumbBytes = null;
+                byte[]? placeholderBytes = null;
+                byte[]? highResBytes = null;
+                Stream? fileStream = null;
+                string? fileMime = null;
+                bool isThumb = uri.AbsolutePath.Equals("/thumb", StringComparison.OrdinalIgnoreCase);
+
+                try
                 {
-                    var ms = new MemoryStream(thumbBytes);
-                    e.Response = AlbumWebView.CoreWebView2.Environment.CreateWebResourceResponse(
-                        ms,
-                        200,
-                        "OK",
-                        "Content-Type: image/jpeg\r\nAccess-Control-Allow-Origin: *\r\nCache-Control: public, max-age=86400");
-                }
-                else
-                {
-                    byte[] placeholder = GetPlaceholderTileBytes(Path.GetFileName(filePath), isVideo);
-                    e.Response = AlbumWebView.CoreWebView2.Environment.CreateWebResourceResponse(
-                        new MemoryStream(placeholder),
-                        200,
-                        "OK",
-                        "Content-Type: image/svg+xml\r\nAccess-Control-Allow-Origin: *\r\nCache-Control: public, max-age=3600");
-                }
-            }
-            else if (uri.AbsolutePath.Equals("/image", StringComparison.OrdinalIgnoreCase))
-            {
-                if (ext is ".jpg" or ".jpeg" or ".png" or ".webp" or ".gif" or ".bmp")
-                {
-                    var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                    string mime = ext switch
+                    if (isThumb)
                     {
-                        ".jpg" or ".jpeg" => "image/jpeg",
-                        ".png" => "image/png",
-                        ".webp" => "image/webp",
-                        ".gif" => "image/gif",
-                        ".bmp" => "image/bmp",
-                        _ => "application/octet-stream"
-                    };
-                    e.Response = AlbumWebView.CoreWebView2.Environment.CreateWebResourceResponse(
-                        fs,
-                        200,
-                        "OK",
-                        $"Content-Type: {mime}\r\nAccess-Control-Allow-Origin: *");
-                }
-                else
-                {
-                    // HEIC / Video stills: decode high-res preview via ShellServices
-                    byte[]? highResBytes = GetHighResPreviewBytes(filePath);
-                    if (highResBytes != null)
+                        thumbBytes = await GetOrCreateThumbnailBytesAsync(filePath).ConfigureAwait(false);
+                        if (thumbBytes == null)
+                        {
+                            placeholderBytes = GetPlaceholderTileBytes(Path.GetFileName(filePath), isVideo);
+                        }
+                    }
+                    else if (uri.AbsolutePath.Equals("/image", StringComparison.OrdinalIgnoreCase))
                     {
-                        var ms = new MemoryStream(highResBytes);
-                        e.Response = AlbumWebView.CoreWebView2.Environment.CreateWebResourceResponse(
-                            ms,
-                            200,
-                            "OK",
-                            "Content-Type: image/jpeg\r\nAccess-Control-Allow-Origin: *");
+                        if (ext is ".jpg" or ".jpeg" or ".png" or ".webp" or ".gif" or ".bmp")
+                        {
+                            fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                            fileMime = ext switch
+                            {
+                                ".jpg" or ".jpeg" => "image/jpeg",
+                                ".png" => "image/png",
+                                ".webp" => "image/webp",
+                                ".gif" => "image/gif",
+                                ".bmp" => "image/bmp",
+                                _ => "application/octet-stream"
+                            };
+                        }
+                        else
+                        {
+                            highResBytes = GetHighResPreviewBytes(filePath);
+                        }
                     }
                 }
-            }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WebResourceRequested bg worker error] {ex.Message}");
+                }
+
+                await dispatcher.InvokeAsync(() =>
+                {
+                    try
+                    {
+                        if (isThumb)
+                        {
+                            if (thumbBytes != null)
+                            {
+                                var ms = new MemoryStream(thumbBytes);
+                                e.Response = env.CreateWebResourceResponse(
+                                    ms,
+                                    200,
+                                    "OK",
+                                    "Content-Type: image/jpeg\r\nAccess-Control-Allow-Origin: *\r\nCache-Control: public, max-age=86400");
+                            }
+                            else if (placeholderBytes != null)
+                            {
+                                var ms = new MemoryStream(placeholderBytes);
+                                e.Response = env.CreateWebResourceResponse(
+                                    ms,
+                                    200,
+                                    "OK",
+                                    "Content-Type: image/svg+xml\r\nAccess-Control-Allow-Origin: *\r\nCache-Control: public, max-age=3600");
+                            }
+                        }
+                        else
+                        {
+                            if (fileStream != null && fileMime != null)
+                            {
+                                e.Response = env.CreateWebResourceResponse(
+                                    fileStream,
+                                    200,
+                                    "OK",
+                                    $"Content-Type: {fileMime}\r\nAccess-Control-Allow-Origin: *");
+                            }
+                            else if (highResBytes != null)
+                            {
+                                var ms = new MemoryStream(highResBytes);
+                                e.Response = env.CreateWebResourceResponse(
+                                    ms,
+                                    200,
+                                    "OK",
+                                    "Content-Type: image/jpeg\r\nAccess-Control-Allow-Origin: *");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[WebResourceRequested dispatcher error] {ex.Message}");
+                    }
+                    finally
+                    {
+                        deferral.Complete();
+                    }
+                });
+            });
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[WebResourceRequested error] {ex.Message}");
+            Debug.WriteLine($"[WebResourceRequested sync error] {ex.Message}");
         }
     }
 
-    private byte[]? GetOrCreateThumbnailBytes(string filePath)
+    private static async Task<byte[]?> GetOrCreateThumbnailBytesAsync(string filePath)
     {
         if (ThumbnailCache.TryGetValue(filePath, out var cached))
         {
             return cached;
         }
 
+        string cacheKey = GetThumbnailCacheKey(filePath);
+        string diskCacheFile = Path.Combine(DiskCacheFolder, cacheKey + ".jpg");
+
+        // Tier 2: Check persistent disk cache
+        try
+        {
+            if (File.Exists(diskCacheFile))
+            {
+                byte[] diskBytes = await File.ReadAllBytesAsync(diskCacheFile).ConfigureAwait(false);
+                if (diskBytes.Length > 0)
+                {
+                    if (ThumbnailCache.Count < 3000)
+                    {
+                        ThumbnailCache[filePath] = diskBytes;
+                    }
+                    return diskBytes;
+                }
+            }
+        }
+        catch { }
+
+        // Tier 3: Extract & Generate thumbnail
         try
         {
             ImageSource? img = null;
@@ -331,7 +417,6 @@ public partial class PclGalleryWebControl : UserControl
 
             if (isVideo)
             {
-                // First: Check if this video is a Live Photo companion video (e.g. IMG_1234.MOV with IMG_1234.HEIC/JPG)
                 string? pairedStill = ImageDimensionHelper.FindLivePhotoStill(filePath);
                 if (pairedStill != null)
                 {
@@ -353,15 +438,26 @@ public partial class PclGalleryWebControl : UserControl
             if (img is BitmapSource bs)
             {
                 using var ms = new MemoryStream();
-                var encoder = new JpegBitmapEncoder { QualityLevel = 80 };
+                var encoder = new JpegBitmapEncoder { QualityLevel = 75 };
                 encoder.Frames.Add(BitmapFrame.Create(bs));
                 encoder.Save(ms);
                 byte[] bytes = ms.ToArray();
 
-                if (ThumbnailCache.Count < 2000)
+                if (ThumbnailCache.Count < 3000)
                 {
                     ThumbnailCache[filePath] = bytes;
                 }
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(DiskCacheFolder);
+                        await File.WriteAllBytesAsync(diskCacheFile, bytes).ConfigureAwait(false);
+                    }
+                    catch { }
+                });
+
                 return bytes;
             }
         }
@@ -631,18 +727,23 @@ public partial class PclGalleryWebControl : UserControl
             int w = item.PixelWidth > 0 ? item.PixelWidth : (item.MediaType == "screenshot" ? 1179 : (item.IsVideo ? 1920 : 4032));
             int h = item.PixelHeight > 0 ? item.PixelHeight : (item.MediaType == "screenshot" ? 2556 : (item.IsVideo ? 1080 : 3024));
 
+            string ext = Path.GetExtension(item.FullPath ?? "").TrimStart('.').ToUpperInvariant();
+            if (string.IsNullOrWhiteSpace(ext)) ext = item.IsVideo ? "MP4" : "JPG";
+
             photosList.Add(new
             {
                 id = item.RelativePath,
                 width = w,
                 height = h,
                 takenAt = dateStr,
-                thumbUrl = $"https://media.gallery.local/thumb?path={Uri.EscapeDataString(item.FullPath)}",
-                url = $"https://media.gallery.local/image?path={Uri.EscapeDataString(item.FullPath)}",
+                thumbUrl = $"https://media.gallery.local/thumb?path={Uri.EscapeDataString(item.FullPath ?? "")}",
+                url = $"https://media.gallery.local/image?path={Uri.EscapeDataString(item.FullPath ?? "")}",
                 fullPath = item.FullPath,
                 relativePath = item.RelativePath,
                 isVideo = item.IsVideo,
                 isLivePhoto = item.IsLivePhoto,
+                format = ext,
+                mediaType = item.MediaType,
                 isPendingIPhone = item.IsManualSelectedForIPhone,
                 isPendingAndroid = item.IsManualSelectedForAndroid,
                 isGooglePhotos = item.IsManualSelectedForGooglePhotos,

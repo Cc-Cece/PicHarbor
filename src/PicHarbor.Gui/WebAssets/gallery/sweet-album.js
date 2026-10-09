@@ -6,7 +6,7 @@ function G(h) {
   if (!h) return null;
   if (typeof h != "string") return h;
   const t = h.trim();
-  if (t.startsWith("<svg")) {
+  if (t.startsWith("<svg") && t.endsWith("</svg>")) {
     const i = new DOMParser().parseFromString(t, "image/svg+xml").documentElement;
     if (i && i.nodeName.toLowerCase() === "svg")
       return document.importNode(i, !0);
@@ -671,14 +671,25 @@ function dt(h, t, e = lt) {
 }
 class ut {
   constructor(t, e, s) {
-    this.messages = e, this.onSeek = s, this.ticks = [], this.layout = null, this.disposers = [], this.dragging = !1, this.renderedAt = -1, this.observer = null, this.remeasureHandle = 0, this.remeasureTries = 0, this.onPointerDown = (i) => {
+    this.messages = e, this.onSeek = s, this.ticks = [], this.layout = null, this.disposers = [], this.dragging = !1, this.renderedAt = -1, this.observer = null, this.remeasureHandle = 0, this.remeasureTries = 0, this.seekRaf = 0, this.onPointerDown = (i) => {
       i.preventDefault(), this.dragging = !0, this.root.setPointerCapture(i.pointerId), this.root.classList.add("is-dragging");
       const o = this.fractionAt(i.clientY);
       this.showBubble(i.clientY, o), this.onSeek(o);
     }, this.onPointerMove = (i) => {
       const o = this.fractionAt(i.clientY);
-      this.showBubble(i.clientY, o), this.dragging && this.onSeek(o);
+      this.showBubble(i.clientY, o);
+      if (this.dragging) {
+        if (this.seekRaf) cancelAnimationFrame(this.seekRaf);
+        this.seekRaf = requestAnimationFrame(() => {
+          this.seekRaf = 0;
+          this.onSeek(o);
+        });
+      }
     }, this.onPointerUp = (i) => {
+      if (this.seekRaf) {
+        cancelAnimationFrame(this.seekRaf);
+        this.seekRaf = 0;
+      }
       this.dragging && (this.dragging = !1, this.root.hasPointerCapture(i.pointerId) && this.root.releasePointerCapture(i.pointerId), this.root.classList.remove("is-dragging"));
     }, this.onPointerLeave = () => {
       this.dragging || (this.bubble.hidden = !0);
