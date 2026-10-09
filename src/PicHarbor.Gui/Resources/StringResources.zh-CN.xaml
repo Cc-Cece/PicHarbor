@@ -416,6 +416,10 @@
     <sys:String x:Key="GroupMediaByDeviceOption">按设备型号建立分类子文件夹 (推荐，如 iPhone 15 Pro, Pixel 8)</sys:String>
     <sys:String x:Key="MsgDiscoveredOtherArchives">已自动识别归档卷: {0} (跨盘增量防重已自动生效)</sys:String>
     <sys:String x:Key="MsgNoOtherArchives">未检测到其他盘符的归档卷</sys:String>
+    <sys:String x:Key="ColFileName">文件名</sys:String>
+    <sys:String x:Key="ColCapturedAt">拍摄时间</sys:String>
+    <sys:String x:Key="ActionHeader">操作</sys:String>
+    <sys:String x:Key="LightboxToolTip">单击查看大图预览</sys:String>
 
 </ResourceDictionary>
 
