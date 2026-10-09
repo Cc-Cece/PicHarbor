@@ -4,15 +4,28 @@ using System.Windows.Media;
 
 namespace PicHarbor.Gui.Controls;
 
+public enum PclEntranceDirection
+{
+    Vertical,   // Canvas cards: Top-to-bottom (-16px -> 0px)
+    Horizontal  // Sidebar items: Left-to-right (-25px -> 0px)
+}
+
 /// <summary>
-/// 1:1 port of PCL2 MyPageRight cascading pop-in entry animation:
-/// Automatically staggers child cards with:
-/// - Opacity 0 -> 1 in 100ms
-/// - TranslateY -16 -> 0 in 350ms with BackEase
-/// - Staggered delay: +25ms per card
+/// 1:1 port of PCL2 MyPageRight & MyPageLeft cascading pop-in entry animations:
+/// - Staggers children with authentic PCL2 BackEase curves and timings
 /// </summary>
 public class PclPageHost : ContentControl
 {
+    public static readonly DependencyProperty DirectionProperty =
+        DependencyProperty.Register(nameof(Direction), typeof(PclEntranceDirection), typeof(PclPageHost),
+            new PropertyMetadata(PclEntranceDirection.Vertical));
+
+    public PclEntranceDirection Direction
+    {
+        get => (PclEntranceDirection)GetValue(DirectionProperty);
+        set => SetValue(DirectionProperty, value);
+    }
+
     public PclPageHost()
     {
         Loaded += PclPageHost_Loaded;
@@ -43,13 +56,29 @@ public class PclPageHost : ContentControl
         foreach (var control in animControls)
         {
             control.Opacity = 0.0;
-            var translate = new TranslateTransform(0, -16);
-            control.RenderTransform = translate;
 
-            PclAnimation.AnimateDouble(control, OpacityProperty, 1.0, 120, PclAnimation.EaseOutFluentWeak, delayMs: delay);
-            PclAnimation.AnimateDouble(translate, TranslateTransform.YProperty, 0.0, 350, PclAnimation.EaseOutBack, delayMs: delay);
+            if (Direction == PclEntranceDirection.Horizontal)
+            {
+                // PCL2 MyPageLeft exact physics: -25px slide in from left in 300ms
+                var translate = new TranslateTransform(-25, 0);
+                control.RenderTransform = translate;
 
-            delay += 25; // PCL2 exact 25ms staggered delay
+                PclAnimation.AnimateDouble(control, OpacityProperty, 1.0, 100, PclAnimation.EaseOutFluentWeak, delayMs: delay);
+                PclAnimation.AnimateDouble(translate, TranslateTransform.XProperty, 0.0, 300, PclAnimation.EaseOutBack, delayMs: delay);
+
+                delay += 15; // PCL2 sidebar staggered delay
+            }
+            else
+            {
+                // PCL2 MyPageRight exact physics: -16px slide in from top in 350ms
+                var translate = new TranslateTransform(0, -16);
+                control.RenderTransform = translate;
+
+                PclAnimation.AnimateDouble(control, OpacityProperty, 1.0, 120, PclAnimation.EaseOutFluentWeak, delayMs: delay);
+                PclAnimation.AnimateDouble(translate, TranslateTransform.YProperty, 0.0, 350, PclAnimation.EaseOutBack, delayMs: delay);
+
+                delay += 25; // PCL2 card staggered delay
+            }
         }
     }
 
@@ -59,13 +88,27 @@ public class PclPageHost : ContentControl
         for (int i = 0; i < count; i++)
         {
             var child = VisualTreeHelper.GetChild(parent, i);
-            if (child is PclCard card)
+            if (Direction == PclEntranceDirection.Horizontal)
             {
-                list.Add(card);
+                if (child is PclListItem or TextBlock)
+                {
+                    list.Add((FrameworkElement)child);
+                }
+                else if (child is DependencyObject dep)
+                {
+                    FindAnimatableElements(dep, list);
+                }
             }
-            else if (child is DependencyObject dep)
+            else
             {
-                FindAnimatableElements(dep, list);
+                if (child is PclCard card)
+                {
+                    list.Add(card);
+                }
+                else if (child is DependencyObject dep)
+                {
+                    FindAnimatableElements(dep, list);
+                }
             }
         }
     }

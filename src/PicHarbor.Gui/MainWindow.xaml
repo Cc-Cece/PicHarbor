@@ -32,7 +32,7 @@
         </Grid.RowDefinitions>
 
         <!-- ======================================================== -->
-        <!--  TOP BAR (PCL2 PanTitle Gradient + Capsule Tabs)         -->
+        <!--  TOP BAR (PCL2 PanTitle Gradient + Logo + Capsule Tabs)  -->
         <!-- ======================================================== -->
         <Border Grid.Row="0" Background="{DynamicResource ColorBrushTitleGradient}" 
                 MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
@@ -46,9 +46,13 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Brand / Logo -->
+                <!-- Brand / Logo (PCL2 Style Vector + Typography) -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="PicHarbor" FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
+                    <Path Data="{StaticResource PclLogoTitle}"
+                          Stroke="White" StrokeThickness="2.2"
+                          Width="28" Height="20" Stretch="Uniform"
+                          VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBlock Text="PicHarbor" FontSize="17" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
                 </StackPanel>
 
                 <!-- Center Capsule Nav Tabs (1:1 PclRadioButton with PCL2 Vector Icons) -->
@@ -189,73 +193,80 @@
                 </Border>
 
                 <!-- RIGHT CANVAS (PCL2 Light Blue Canvas with Cascading Entrance & Smooth Scroll) -->
-                <controls:PclScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="24,20">
-                    <controls:PclPageHost>
-                        <StackPanel>
-                            <!-- Card 1: 存储主盘与图库健康度 -->
-                            <controls:PclCard Title="📦 图库存储主盘概览" CanSwap="False">
-                                <StackPanel>
-                                    <TextBlock Text="极简统一存储架构，随盘即插即用 · E:\Pictures\PicHarbor" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,12" />
+                <Grid Grid.Column="1">
+                    <controls:PclScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="24,20">
+                        <controls:PclPageHost Direction="Vertical">
+                            <StackPanel>
+                                <!-- Card 1: 存储主盘与图库健康度 -->
+                                <controls:PclCard Title="📦 图库存储主盘概览" CanSwap="False">
+                                    <StackPanel>
+                                        <TextBlock Text="极简统一存储架构，随盘即插即用 · E:\Pictures\PicHarbor" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,12" />
 
-                                    <!-- Three Metrics Pills -->
-                                    <Grid Margin="0,0,0,10">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
+                                        <!-- Three Metrics Pills -->
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
 
-                                        <!-- Col 1 -->
-                                        <Border Grid.Column="0" Background="#F8FAFC" CornerRadius="6" Padding="12,10" Margin="0,0,6,0" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
-                                            <StackPanel>
-                                                <TextBlock Text="已归档媒体" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" />
-                                                <TextBlock Text="5,809 张" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" Margin="0,4,0,0" />
-                                            </StackPanel>
-                                        </Border>
+                                            <!-- Col 1 -->
+                                            <Border Grid.Column="0" Background="#F8FAFC" CornerRadius="6" Padding="12,10" Margin="0,0,6,0" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
+                                                <StackPanel>
+                                                    <TextBlock Text="已归档媒体" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" />
+                                                    <TextBlock Text="5,809 张" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" Margin="0,4,0,0" />
+                                                </StackPanel>
+                                            </Border>
 
-                                        <!-- Col 2 -->
-                                        <Border Grid.Column="1" Background="#F8FAFC" CornerRadius="6" Padding="12,10" Margin="3,0,3,0" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
-                                            <StackPanel>
-                                                <TextBlock Text="图库总大小" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" />
-                                                <TextBlock Text="20.2 GB" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" Margin="0,4,0,0" />
-                                            </StackPanel>
-                                        </Border>
+                                            <!-- Col 2 -->
+                                            <Border Grid.Column="1" Background="#F8FAFC" CornerRadius="6" Padding="12,10" Margin="3,0,3,0" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
+                                                <StackPanel>
+                                                    <TextBlock Text="图库总大小" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" />
+                                                    <TextBlock Text="20.2 GB" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" Margin="0,4,0,0" />
+                                                </StackPanel>
+                                            </Border>
 
-                                        <!-- Col 3 -->
-                                        <Border Grid.Column="2" Background="#F8FAFC" CornerRadius="6" Padding="12,10" Margin="6,0,0,0" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
-                                            <StackPanel>
-                                                <TextBlock Text="磁盘可用空间" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" />
-                                                <TextBlock Text="380 GB 充足" FontSize="18" FontWeight="Bold" Foreground="#10B981" Margin="0,4,0,0" />
-                                            </StackPanel>
-                                        </Border>
-                                    </Grid>
+                                            <!-- Col 3 -->
+                                            <Border Grid.Column="2" Background="#F8FAFC" CornerRadius="6" Padding="12,10" Margin="6,0,0,0" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
+                                                <StackPanel>
+                                                    <TextBlock Text="磁盘可用空间" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" />
+                                                    <TextBlock Text="380 GB 充足" FontSize="18" FontWeight="Bold" Foreground="#10B981" Margin="0,4,0,0" />
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
 
-                                    <!-- Cross-volume deduplication banner -->
-                                    <Border Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,4,0,0">
-                                        <TextBlock Text="✔ 跨驱动器指纹防重库已就绪，移动硬盘与本机换盘插拔均能极速秒传去重。" FontSize="12" Foreground="#15803D" />
-                                    </Border>
-                                </StackPanel>
-                            </controls:PclCard>
+                                        <!-- PclHint Banner (PCL2 MyHint Style) -->
+                                        <controls:PclHint HintType="Success">
+                                            <TextBlock Text="✔ 跨驱动器指纹防重库已就绪，移动硬盘与本机换盘插拔均能极速秒传去重。" FontSize="12" Foreground="#047857" />
+                                        </controls:PclHint>
+                                    </StackPanel>
+                                </controls:PclCard>
 
-                            <!-- Card 2: 备份范围与分类规则 (可折叠手风琴) -->
-                            <controls:PclCard Title="⚡ 增量备份与传输策略" CanSwap="True" IsSwapped="False">
-                                <StackPanel>
-                                    <controls:PclCheckBox Content="自动跳过电脑主盘库中已归档的完全相同文件 (智能秒传)" IsChecked="True" />
-                                    <controls:PclCheckBox Content="保留手机原始 Live Photo 配套 MOV 视频成对组织" IsChecked="True" />
-                                    <controls:PclCheckBox Content="按拍摄年份与月份自动分类归档 (YYYY-MM)" IsChecked="True" />
-                                    <controls:PclCheckBox Content="写入安全校验日志与 SQLite 索引库" IsChecked="True" />
-                                </StackPanel>
-                            </controls:PclCard>
+                                <!-- Card 2: 备份范围与分类规则 (可折叠手风琴) -->
+                                <controls:PclCard Title="⚡ 增量备份与传输策略" CanSwap="True" IsSwapped="False">
+                                    <StackPanel>
+                                        <controls:PclCheckBox Content="自动跳过电脑主盘库中已归档的完全相同文件 (智能秒传)" IsChecked="True" />
+                                        <controls:PclCheckBox Content="保留手机原始 Live Photo 配套 MOV 视频成对组织" IsChecked="True" />
+                                        <controls:PclCheckBox Content="按拍摄年份与月份自动分类归档 (YYYY-MM)" IsChecked="True" />
+                                        <controls:PclCheckBox Content="写入安全校验日志与 SQLite 索引库" IsChecked="True" />
+                                    </StackPanel>
+                                </controls:PclCard>
 
-                            <!-- Card 3: 实时传输状态与历史 (可折叠手风琴) -->
-                            <controls:PclCard Title="📋 最近一次传输队列与记录" CanSwap="True" IsSwapped="True">
-                                <StackPanel>
-                                    <TextBlock Text="上次备份时间: 2026/10/09 14:32 · 新增传输 48 项，跳过已存在 5,761 项，耗时 12 秒。" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" />
-                                </StackPanel>
-                            </controls:PclCard>
-                        </StackPanel>
-                    </controls:PclPageHost>
-                </controls:PclScrollViewer>
+                                <!-- Card 3: 实时传输状态与历史 (可折叠手风琴) -->
+                                <controls:PclCard Title="📋 最近一次传输队列与记录" CanSwap="True" IsSwapped="True">
+                                    <StackPanel>
+                                        <TextBlock Text="上次备份时间: 2026/10/09 14:32 · 新增传输 48 项，跳过已存在 5,761 项，耗时 12 秒。" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" />
+                                    </StackPanel>
+                                </controls:PclCard>
+                            </StackPanel>
+                        </controls:PclPageHost>
+                    </controls:PclScrollViewer>
+
+                    <!-- PCL2 Floating Extra Button (Bottom Right) -->
+                    <controls:PclExtraButton Logo="{StaticResource PclIconTop}"
+                                             HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                             Margin="0,0,24,20" ToolTip="返回顶部" />
+                </Grid>
             </Grid>
 
             <!-- ==================================================== -->
@@ -280,24 +291,29 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- LEFT SUB-NAV PANE -->
+                <!-- LEFT SUB-NAV PANE (With PclPageHost Horizontal Stagger Slide-In) -->
                 <Border Grid.Column="0" Background="{DynamicResource ColorBrushBackgroundTransparentSidebar}" 
                         BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="0,0,1,0">
-                    <StackPanel Margin="0,12,0,0">
-                        <TextBlock Text="图库视图" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource ColorBrushGray3}" Margin="18,8,0,6" />
-                        <controls:PclListItem Content="全部照片与视频" Icon="🖼️" IsChecked="True" />
-                        <controls:PclListItem Content="视频与实况" Icon="🎬" />
-                        <controls:PclListItem Content="相机与设备" Icon="📸" />
-                        <controls:PclListItem Content="iPhone (15Plus)" Icon="📱" />
-                        <controls:PclListItem Content="Android (K40)" Icon="🤖" />
-                        <controls:PclListItem Content="自选导出清单" Icon="⭐" />
-                    </StackPanel>
+                    <controls:PclPageHost Direction="Horizontal">
+                        <StackPanel Margin="0,12,0,0">
+                            <TextBlock Text="图库视图" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource ColorBrushGray3}" Margin="18,8,0,6" />
+                            <controls:PclListItem Content="全部照片与视频" Icon="🖼️" IsChecked="True" />
+                            <controls:PclListItem Content="视频与实况" Icon="🎬" />
+                            <controls:PclListItem Content="相机与设备" Icon="📸" />
+                            <controls:PclListItem Content="iPhone (15Plus)" Icon="📱" />
+                            <controls:PclListItem Content="Android (K40)" Icon="🤖" />
+                            <controls:PclListItem Content="自选导出清单" Icon="⭐" />
+                        </StackPanel>
+                    </controls:PclPageHost>
                 </Border>
 
                 <!-- RIGHT CONTENT CANVAS -->
                 <controls:PclScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="24,20">
-                    <controls:PclPageHost>
+                    <controls:PclPageHost Direction="Vertical">
                         <StackPanel>
+                            <!-- Search Box (1:1 PCL2 MySearchBox) -->
+                            <controls:PclSearchBox HintText="搜索图库中的照片、拍摄设备或日期..." Margin="0,0,0,14" />
+
                             <!-- Top Card: 最新归档 (对应图 2 的“最新版本”卡片) -->
                             <controls:PclCard Title="最新归档媒体" CanSwap="False">
                                 <Grid Margin="0,2,0,0">
@@ -361,17 +377,19 @@
                 <!-- Left Sub-Nav -->
                 <Border Grid.Column="0" Background="{DynamicResource ColorBrushBackgroundTransparentSidebar}" 
                         BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="0,0,1,0">
-                    <StackPanel Margin="0,12,0,0">
-                        <TextBlock Text="云端服务" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource ColorBrushGray3}" Margin="18,8,0,6" />
-                        <controls:PclListItem Content="Google 相册" Icon="☁️" IsChecked="True" />
-                        <controls:PclListItem Content="同步规则" Icon="⚙️" />
-                        <controls:PclListItem Content="上传记录" Icon="📋" />
-                    </StackPanel>
+                    <controls:PclPageHost Direction="Horizontal">
+                        <StackPanel Margin="0,12,0,0">
+                            <TextBlock Text="云端服务" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource ColorBrushGray3}" Margin="18,8,0,6" />
+                            <controls:PclListItem Content="Google 相册" Icon="☁️" IsChecked="True" />
+                            <controls:PclListItem Content="同步规则" Icon="⚙️" />
+                            <controls:PclListItem Content="上传记录" Icon="📋" />
+                        </StackPanel>
+                    </controls:PclPageHost>
                 </Border>
 
                 <!-- Right Canvas -->
                 <controls:PclScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="24,20">
-                    <controls:PclPageHost>
+                    <controls:PclPageHost Direction="Vertical">
                         <StackPanel>
                             <!-- Card 1: 账号与代理 -->
                             <controls:PclCard Title="Google 相册授权与连接" CanSwap="False">
@@ -398,8 +416,8 @@
                             <!-- Card 2: 上传策略 -->
                             <controls:PclCard Title="上传归档范围与相册策略" CanSwap="False">
                                 <StackPanel>
-                                    <RadioButton Content="全量同步 (将本地 5,809 张照片增量上传至 Google 相册)" IsChecked="True" Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,8" />
-                                    <RadioButton Content="自选清单同步 (仅上传在图库中挑选标记的照片)" Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,8" />
+                                    <controls:PclRadioBox Content="全量同步 (将本地 5,809 张照片增量上传至 Google 相册)" IsChecked="True" Margin="0,0,0,6" />
+                                    <controls:PclRadioBox Content="自选清单同步 (仅上传在图库中挑选标记的照片)" Margin="0,0,0,10" />
                                     <controls:PclCheckBox Content="自动根据年月建立 Google 相册 (如 2026-10)" IsChecked="True" Margin="0,4,0,0" />
                                 </StackPanel>
                             </controls:PclCard>
@@ -436,17 +454,19 @@
                 <!-- LEFT SUB-NAV PANE -->
                 <Border Grid.Column="0" Background="{DynamicResource ColorBrushBackgroundTransparentSidebar}" 
                         BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="0,0,1,0">
-                    <StackPanel Margin="0,12,0,0">
-                        <TextBlock Text="设置分栏" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource ColorBrushGray3}" Margin="18,8,0,6" />
-                        <controls:PclListItem Content="存储与主盘符" Icon="📦" IsChecked="True" />
-                        <controls:PclListItem Content="备份偏好与规则" Icon="📲" />
-                        <controls:PclListItem Content="界面与语言" Icon="🌐" />
-                    </StackPanel>
+                    <controls:PclPageHost Direction="Horizontal">
+                        <StackPanel Margin="0,12,0,0">
+                            <TextBlock Text="设置分栏" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource ColorBrushGray3}" Margin="18,8,0,6" />
+                            <controls:PclListItem Content="存储与主盘符" Icon="📦" IsChecked="True" />
+                            <controls:PclListItem Content="备份偏好与规则" Icon="📲" />
+                            <controls:PclListItem Content="界面与语言" Icon="🌐" />
+                        </StackPanel>
+                    </controls:PclPageHost>
                 </Border>
 
                 <!-- RIGHT CONTENT CANVAS (纯白大圆角卡片，复刻图 3 启动选项与内存分配) -->
                 <controls:PclScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="24,20">
-                    <controls:PclPageHost>
+                    <controls:PclPageHost Direction="Vertical">
                         <StackPanel>
                             <!-- Card 1: 存储与主盘符 (对应图 3 的“启动选项”大卡片) -->
                             <controls:PclCard Title="存储主盘与架构规范" CanSwap="False">
@@ -458,10 +478,10 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="当前主备份盘" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" />
-                                        <ComboBox Grid.Column="1" Style="{StaticResource PclComboBox}" SelectedIndex="0">
+                                        <controls:PclComboBox Grid.Column="1" SelectedIndex="0">
                                             <ComboBoxItem Content="E: 盘 (Pictures\PicHarbor · 剩余 380 GB)" />
                                             <ComboBoxItem Content="C: 盘 (Users\Pictures\PicHarbor)" />
-                                        </ComboBox>
+                                        </controls:PclComboBox>
                                     </Grid>
 
                                     <!-- Row 2: 手机分类目录规则 -->
@@ -471,10 +491,10 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="设备子目录规则" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" />
-                                        <ComboBox Grid.Column="1" Style="{StaticResource PclComboBox}" SelectedIndex="0">
+                                        <controls:PclComboBox Grid.Column="1" SelectedIndex="0">
                                             <ComboBoxItem Content="按手机型号自动分类 (如 15Plus, K40)" />
                                             <ComboBoxItem Content="平铺直接归档至主根目录" />
-                                        </ComboBox>
+                                        </controls:PclComboBox>
                                     </Grid>
 
                                     <!-- Row 3: 时间组织方案 -->
@@ -484,37 +504,32 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="照片时间分类格式" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" />
-                                        <ComboBox Grid.Column="1" Style="{StaticResource PclComboBox}" SelectedIndex="0">
+                                        <controls:PclComboBox Grid.Column="1" SelectedIndex="0">
                                             <ComboBoxItem Content="按月份 (YYYY-MM，如 2026-10)" />
                                             <ComboBoxItem Content="按年月 (YYYY\YYYY-MM)" />
                                             <ComboBoxItem Content="按年份 (YYYY)" />
-                                        </ComboBox>
+                                        </controls:PclComboBox>
                                     </Grid>
 
-                                    <!-- Row 4: 跨盘防重提示 -->
-                                    <Grid Margin="0,4,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="150" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="跨驱动器查重" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="1" Text="已检测到驱动器历史库，跨盘防重自动生效" Foreground="#10B981" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                    </Grid>
+                                    <!-- Row 4: 跨盘防重提示 (PCL2 MyHint Style) -->
+                                    <controls:PclHint HintType="Success">
+                                        <TextBlock Text="已检测到驱动器历史库，跨盘防重自动生效。" Foreground="#047857" FontSize="12" />
+                                    </controls:PclHint>
                                 </StackPanel>
                             </controls:PclCard>
 
                             <!-- Card 2: 备份优化与高级参数 (对应图 3 的“内存分配”大卡片) -->
                             <controls:PclCard Title="高级传输与属性校准" CanSwap="False">
                                 <StackPanel>
-                                    <!-- RadioButtons: 过滤策略 -->
-                                    <RadioButton Content="全量备份所有媒体文件" IsChecked="True" Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,8" />
-                                    <RadioButton Content="自动过滤小于 100KB 的小缩略图与表情包" Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,12" />
+                                    <!-- RadioBoxes: 过滤策略 -->
+                                    <controls:PclRadioBox Content="全量备份所有媒体文件" IsChecked="True" Margin="0,0,0,6" />
+                                    <controls:PclRadioBox Content="自动过滤小于 100KB 的小缩略图与表情包" Margin="0,0,0,12" />
 
                                     <!-- CheckBoxes -->
                                     <controls:PclCheckBox Content="EXIF 拍摄时间自动校准至文件创建时间" IsChecked="True" Margin="0,0,0,8" />
                                     <controls:PclCheckBox Content="实况照片 (HEIC + MOV) 自动绑定成对传输" IsChecked="True" Margin="0,0,0,12" />
 
-                                    <!-- Slider: 超时阈值 (对应图 3 的滑块) -->
+                                    <!-- Slider: 超时阈值 (1:1 PCL2 MySlider) -->
                                     <Grid Margin="0,4,0,0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="150" />
@@ -522,7 +537,7 @@
                                             <ColumnDefinition Width="60" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="设备读取超时阈值" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" />
-                                        <Slider Grid.Column="1" Style="{StaticResource PclSlider}" Minimum="10" Maximum="120" Value="30" VerticalAlignment="Center" />
+                                        <controls:PclSlider Grid.Column="1" Minimum="10" Maximum="120" Value="30" VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="2" Text="30 秒" Foreground="{DynamicResource ColorBrushGray2}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                     </Grid>
                                 </StackPanel>
