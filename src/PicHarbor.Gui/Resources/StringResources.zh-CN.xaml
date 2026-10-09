@@ -402,8 +402,20 @@
     <sys:String x:Key="StatusUploaded">已上传</sys:String>
     <sys:String x:Key="StatusSkipped">已跳过</sys:String>
     <sys:String x:Key="StatusFailed">失败</sys:String>
-    <sys:String x:Key="GooglePhotosDetailUploadedSuccess">成功上传至 Google 相册</sys:String>
-    <sys:String x:Key="GooglePhotosDetailSkippedExists">云端已存在相同文件 (跳过)</sys:String>
+    <!-- Storage & Device Subdir Architecture -->
+    <sys:String x:Key="TargetDriveLabel">目标存储主盘:</sys:String>
+    <sys:String x:Key="ChangePrimaryDriveButton">⚙ 前往设置更改</sys:String>
+    <sys:String x:Key="DeviceSubdirLabel">设备分类目录:</sys:String>
+    <sys:String x:Key="ResetDeviceNameButton">🔄 恢复默认型号</sys:String>
+    <sys:String x:Key="OpenFolderButton">📁 打开文件夹</sys:String>
+    <sys:String x:Key="StorageArchitectureHeader">📦 照片库存储与主盘符规范</sys:String>
+    <sys:String x:Key="StorageArchitectureDesc">PicHarbor 采用极简两级存储规范（系统盘位于「用户图片\PicHarbor」，其他数据盘位于「盘符:\Pictures\PicHarbor」）。换盘或迁移新电脑零配置即插即用，各驱动器历史归档卷自动全盘查重。</sys:String>
+    <sys:String x:Key="PrimaryDriveLabel">当前主备份盘:</sys:String>
+    <sys:String x:Key="RefreshDrivesButton">🔄 刷新磁盘</sys:String>
+    <sys:String x:Key="ResolvedArchivePathLabel">实际存储根目录:</sys:String>
+    <sys:String x:Key="GroupMediaByDeviceOption">按设备型号建立分类子文件夹 (推荐，如 iPhone 15 Pro, Pixel 8)</sys:String>
+    <sys:String x:Key="MsgDiscoveredOtherArchives">已自动识别归档卷: {0} (跨盘增量防重已自动生效)</sys:String>
+    <sys:String x:Key="MsgNoOtherArchives">未检测到其他盘符的归档卷</sys:String>
 
 </ResourceDictionary>
 

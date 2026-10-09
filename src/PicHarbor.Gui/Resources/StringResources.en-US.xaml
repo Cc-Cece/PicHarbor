@@ -402,8 +402,20 @@
     <sys:String x:Key="StatusUploaded">Uploaded</sys:String>
     <sys:String x:Key="StatusSkipped">Skipped</sys:String>
     <sys:String x:Key="StatusFailed">Failed</sys:String>
-    <sys:String x:Key="GooglePhotosDetailUploadedSuccess">Successfully uploaded to Google Photos</sys:String>
-    <sys:String x:Key="GooglePhotosDetailSkippedExists">File already exists in cloud (Skipped)</sys:String>
+    <!-- Storage & Device Subdir Architecture -->
+    <sys:String x:Key="TargetDriveLabel">Primary Target Drive:</sys:String>
+    <sys:String x:Key="ChangePrimaryDriveButton">⚙ Change in Settings</sys:String>
+    <sys:String x:Key="DeviceSubdirLabel">Device Subfolder:</sys:String>
+    <sys:String x:Key="ResetDeviceNameButton">🔄 Reset Model</sys:String>
+    <sys:String x:Key="OpenFolderButton">📁 Open Folder</sys:String>
+    <sys:String x:Key="StorageArchitectureHeader">📦 Photo Library Storage &amp; Target Drive Architecture</sys:String>
+    <sys:String x:Key="StorageArchitectureDesc">PicHarbor standardizes archive paths across drives (&lt;Drive&gt;:\Pictures\PicHarbor or Pictures\PicHarbor). Plug-and-play migration across drives with automatic cross-volume deduplication.</sys:String>
+    <sys:String x:Key="PrimaryDriveLabel">Current Target Drive:</sys:String>
+    <sys:String x:Key="RefreshDrivesButton">🔄 Refresh Drives</sys:String>
+    <sys:String x:Key="ResolvedArchivePathLabel">Effective Archive Root:</sys:String>
+    <sys:String x:Key="GroupMediaByDeviceOption">Group media by device subfolders (Recommended, e.g. iPhone 15 Pro, Pixel 8)</sys:String>
+    <sys:String x:Key="MsgDiscoveredOtherArchives">Discovered archive volumes: {0} (Cross-volume deduplication active)</sys:String>
+    <sys:String x:Key="MsgNoOtherArchives">No other archive volumes detected on other drives</sys:String>
 
 </ResourceDictionary>
 

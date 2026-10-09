@@ -115,7 +115,7 @@ public sealed class JournalSchemaV5Tests : IDisposable
 
     private static long ReadUserVersion(string destinationRoot)
     {
-        string dbPath = Path.Combine(destinationRoot, TransferJournal.DatabaseFileName);
+        string dbPath = TransferJournal.ResolveDatabasePath(destinationRoot);
         using var connection = new SqliteConnection($"Data Source={dbPath}");
         connection.Open();
         using var command = connection.CreateCommand();

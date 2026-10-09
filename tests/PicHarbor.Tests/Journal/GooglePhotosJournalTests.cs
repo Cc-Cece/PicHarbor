@@ -21,7 +21,7 @@ public sealed class GooglePhotosJournalTests : IDisposable
             journal.EnsurePending(new RemoteFile("/DCIM/IMG_1.HEIC", 100, null));
         }
 
-        using var conn = new SqliteConnection($"Data Source={System.IO.Path.Combine(dir.Path, TransferJournal.DatabaseFileName)}");
+        using var conn = new SqliteConnection($"Data Source={TransferJournal.ResolveDatabasePath(dir.Path)}");
         conn.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "PRAGMA user_version;";

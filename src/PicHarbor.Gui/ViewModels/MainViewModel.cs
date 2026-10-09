@@ -5,6 +5,8 @@ using CommunityToolkit.Mvvm.Input;
 using PicHarbor.Core.Device;
 using PicHarbor.Gui.Config;
 
+using PicHarbor.Core.Storage;
+
 namespace PicHarbor.Gui.ViewModels;
 
 public partial class MainViewModel : ObservableObject
@@ -21,7 +23,7 @@ public partial class MainViewModel : ObservableObject
     private string deviceStatusText = "未检测到 iPhone (USB/AFC)";
 
     public static string DefaultArchivePath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "PicHarborArchive");
+        LibraryStorageService.GetLibraryRootForDrive(LibraryStorageService.GetDefaultDriveLetter());
 
     [ObservableProperty]
     private string destinationPath = DefaultArchivePath;
@@ -37,12 +39,13 @@ public partial class MainViewModel : ObservableObject
     public StatusViewModel StatusVM { get; } = new();
     public SearchViewModel SearchVM { get; } = new();
     public ReorganizeViewModel ReorganizeVM { get; } = new();
-    public SettingsViewModel SettingsVM { get; } = new();
+    public SettingsViewModel SettingsVM { get; }
 
     public MainViewModel()
     {
         BackupVM = new BackupViewModel(OnDestinationPathUpdatedFromBackup);
         AndroidBackupVM = new AndroidBackupViewModel(OnDestinationPathUpdatedFromBackup);
+        SettingsVM = new SettingsViewModel(OnDestinationPathUpdatedFromBackup);
 
         var config = AppSettings.Load();
         if (!string.IsNullOrWhiteSpace(config.DestinationPath))
@@ -61,6 +64,8 @@ public partial class MainViewModel : ObservableObject
         SearchVM.GooglePhotosVM = GooglePhotosVM;
 
         // Wire navigation callbacks
+        BackupVM.NavigateToSettingsAction = () => SelectedTabIndex = 8;
+        AndroidBackupVM.NavigateToSettingsAction = () => SelectedTabIndex = 8;
         IPhoneSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 8;
         AndroidSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 8;
         GooglePhotosVM.NavigateToSettingsAction = () => SelectedTabIndex = 8;
@@ -135,6 +140,7 @@ public partial class MainViewModel : ObservableObject
             if (!string.IsNullOrWhiteSpace(device.Name))
             {
                 IPhoneSyncVM.DeviceModel = device.Name;
+                BackupVM.SetDetectedDevice(device.Name);
             }
         }
         else if (result.Status == DeviceProbeStatus.TrustRequired)

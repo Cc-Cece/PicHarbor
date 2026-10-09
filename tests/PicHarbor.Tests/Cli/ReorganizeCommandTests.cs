@@ -73,7 +73,7 @@ public sealed class ReorganizeCommandTests
         int exit = ReorganizeCommand.Run(dir.Path, OrganizeScheme.Month, dryRun: false, NewConsole(), Token);
 
         exit.ShouldBe(2);
-        File.Exists(Path.Combine(dir.Path, TransferJournal.DatabaseFileName)).ShouldBeFalse();
+        File.Exists(TransferJournal.ResolveDatabasePath(dir.Path)).ShouldBeFalse();
     }
 
     [Fact]
@@ -128,7 +128,8 @@ public sealed class ReorganizeCommandTests
         string root = Path.GetFullPath(dest);
         return Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
             .Select(path => Path.GetRelativePath(root, path))
-            .Where(relative => !relative.StartsWith(TransferJournal.DatabaseFileName, StringComparison.OrdinalIgnoreCase))
+            .Where(relative => !relative.StartsWith(TransferJournal.MetadataFolderName, StringComparison.OrdinalIgnoreCase)
+                               && !relative.StartsWith(TransferJournal.DatabaseFileName, StringComparison.OrdinalIgnoreCase))
             .OrderBy(relative => relative, StringComparer.Ordinal)
             .ToList();
     }

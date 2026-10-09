@@ -74,7 +74,7 @@ internal static class ReorganizeCommand
     internal static int Run(string destination, OrganizeScheme target, bool dryRun, IAnsiConsole console, CancellationToken cancellationToken)
     {
         destination = Path.GetFullPath(destination);
-        string databasePath = Path.Combine(destination, TransferJournal.DatabaseFileName);
+        string databasePath = TransferJournal.ResolveDatabasePath(destination);
         // Probe via the \\?\ long-path prefix so a deep archive root is detected before the open (R6 / #39).
         if (!File.Exists(LongPath.ToExtended(databasePath)))
         {

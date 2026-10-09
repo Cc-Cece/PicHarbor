@@ -21,9 +21,36 @@ public sealed class TransferJournalTests : IDisposable
     }
 
     [Fact]
-    public void Creates_visible_database_at_destination_root()
+    public void Creates_database_in_picharbor_metadata_folder()
     {
-        File.Exists(Path.Combine(directory.Path, TransferJournal.DatabaseFileName)).ShouldBeTrue();
+        File.Exists(Path.Combine(directory.Path, TransferJournal.MetadataFolderName, TransferJournal.DatabaseFileName)).ShouldBeTrue();
+        File.Exists(journal.DatabasePath).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Automatically_migrates_root_database_to_picharbor_folder()
+    {
+        using var legacyDir = new TempDirectory();
+        string rootDb = Path.Combine(legacyDir.Path, TransferJournal.DatabaseFileName);
+        using (var initial = TransferJournal.Open(legacyDir.Path))
+        {
+        }
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+        // Simulate a legacy setup by moving DB to root and removing .picharbor
+        string modernDb = Path.Combine(legacyDir.Path, TransferJournal.MetadataFolderName, TransferJournal.DatabaseFileName);
+        File.Move(modernDb, rootDb);
+        Directory.Delete(Path.Combine(legacyDir.Path, TransferJournal.MetadataFolderName));
+
+        File.Exists(rootDb).ShouldBeTrue();
+        File.Exists(modernDb).ShouldBeFalse();
+
+        // Re-opening in write mode should automatically migrate it into .picharbor/
+        using (var reopened = TransferJournal.Open(legacyDir.Path))
+        {
+            File.Exists(modernDb).ShouldBeTrue();
+            File.Exists(rootDb).ShouldBeFalse();
+        }
     }
 
     [Fact]

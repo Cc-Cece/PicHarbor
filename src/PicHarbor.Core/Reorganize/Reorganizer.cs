@@ -307,6 +307,12 @@ public sealed class Reorganizer
 
             foreach (string child in children)
             {
+                string name = Path.GetFileName(child);
+                if (name.Equals(TransferJournal.MetadataFolderName, StringComparison.OrdinalIgnoreCase)
+                    || name.Equals(".picharbor-tmp", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
                 into.Add(child);
                 Collect(child, into);
             }

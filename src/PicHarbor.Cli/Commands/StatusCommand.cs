@@ -41,7 +41,7 @@ internal static class StatusCommand
     internal static int Run(string destination)
     {
         destination = Path.GetFullPath(destination);
-        string databasePath = Path.Combine(destination, TransferJournal.DatabaseFileName);
+        string databasePath = TransferJournal.ResolveDatabasePath(destination);
         // Probe via the \\?\ long-path prefix so a deep archive root is detected (a non-prefixed
         // File.Exists silently fails past MAX_PATH) and we fall through to the read-only open (#39).
         if (!File.Exists(LongPath.ToExtended(databasePath)))

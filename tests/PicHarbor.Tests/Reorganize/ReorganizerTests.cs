@@ -346,7 +346,7 @@ public sealed class ReorganizerTests
         // …and everything that must survive does.
         Directory.Exists(Path.Combine(dest.Path, "unsorted")).ShouldBeTrue();
         Directory.Exists(Path.Combine(dest.Path, "2024-08")).ShouldBeTrue();
-        File.Exists(Path.Combine(dest.Path, TransferJournal.DatabaseFileName)).ShouldBeTrue();
+        File.Exists(TransferJournal.ResolveDatabasePath(dest.Path)).ShouldBeTrue();
         File.Exists(Path.Combine(dest.Path, SummaryWriter.FileName)).ShouldBeTrue();
     }
 
@@ -501,6 +501,7 @@ public sealed class ReorganizerTests
         string name = Path.GetFileName(path);
         return name.StartsWith(TransferJournal.DatabaseFileName, StringComparison.OrdinalIgnoreCase)
             || name.Equals(SummaryWriter.FileName, StringComparison.OrdinalIgnoreCase)
+            || path.Contains(TransferJournal.MetadataFolderName, StringComparison.OrdinalIgnoreCase)
             || path.Contains(".picharbor-tmp", StringComparison.OrdinalIgnoreCase);
     }
 }
