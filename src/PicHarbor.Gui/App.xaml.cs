@@ -1,4 +1,9 @@
+using System.IO;
 using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using PicHarbor.Gui.ViewModels;
 
 namespace PicHarbor.Gui;
 
@@ -15,6 +20,64 @@ public partial class App : Application
             MessageBox.Show($"程序运行遇到异常:\n{args.Exception.Message}", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
             args.Handled = true;
         };
+
+        if (e.Args.Length > 0 && e.Args[0] == "--render-preview")
+        {
+            string outDir = e.Args.Length > 1 ? e.Args[1] : ".";
+            ExportPreviews(outDir);
+            Shutdown();
+            return;
+        }
+
+        var mainWindow = new MainWindow();
+        mainWindow.Show();
+    }
+
+    private static void ExportPreviews(string outDir)
+    {
+        try
+        {
+            Directory.CreateDirectory(outDir);
+            var window = new MainWindow();
+            window.Width = 1000;
+            window.Height = 640;
+            window.Show();
+
+            if (window.DataContext is MainViewModel vm)
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    vm.SelectedTabIndex = i;
+                    window.UpdateLayout();
+
+                    // Wait 500ms for PCL2 cascading entrance animations to finish
+                    var frame = new DispatcherFrame();
+                    var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+                    timer.Tick += (s, a) => { frame.Continue = false; timer.Stop(); };
+                    timer.Start();
+                    Dispatcher.PushFrame(frame);
+
+                    int width = (int)window.ActualWidth;
+                    int height = (int)window.ActualHeight;
+                    if (width <= 0) width = 1000;
+                    if (height <= 0) height = 640;
+
+                    var rtb = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+                    rtb.Render(window);
+
+                    var encoder = new PngBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(rtb));
+                    string file = Path.Combine(outDir, $"pcl2_ui_preview_tab{i}.png");
+                    using var stream = File.Create(file);
+                    encoder.Save(stream);
+                }
+            }
+            window.Close();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Preview export failed: {ex}");
+        }
     }
 
     public static string GetString(string key, string fallback = "")

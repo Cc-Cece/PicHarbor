@@ -46,12 +46,12 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Brand / Logo (PCL2 Style Vector + Typography) -->
+                <!-- Brand / Logo (PicHarbor with PCL-style Vector Icon) -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Path Data="{StaticResource PclLogoTitle}"
-                          Stroke="White" StrokeThickness="2.2"
-                          Width="28" Height="20" Stretch="Uniform"
-                          VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <Path Data="{StaticResource PclIconGallery}"
+                          Fill="White"
+                          Width="20" Height="20" Stretch="Uniform"
+                          VerticalAlignment="Center" Margin="0,0,9,0" />
                     <TextBlock Text="PicHarbor" FontSize="17" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
                 </StackPanel>
 

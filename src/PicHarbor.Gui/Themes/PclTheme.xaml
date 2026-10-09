@@ -519,15 +519,21 @@
     <Style TargetType="{x:Type controls:PclSearchBox}">
         <Setter Property="OverridesDefaultStyle" Value="True" />
         <Setter Property="Height" Value="40" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type controls:PclSearchBox}">
-                    <controls:PclCard CornerRadius="5" Margin="0">
-                        <Grid Margin="-16,-13,-16,-16" Height="40">
+                    <Border x:Name="PART_Border"
+                            Background="#F8FFFFFF"
+                            CornerRadius="5"
+                            BorderBrush="{DynamicResource ColorBrush6}"
+                            BorderThickness="1"
+                            Height="{TemplateBinding Height}">
+                        <Grid>
                             <!-- Search Icon -->
                             <Path Width="14" Height="14" Margin="14,0,0,0"
                                   IsHitTestVisible="False"
-                                  Fill="{DynamicResource ColorBrush1}"
+                                  Fill="{DynamicResource ColorBrushGray3}"
                                   Stretch="Uniform"
                                   Data="{StaticResource PclIconSearch}"
                                   HorizontalAlignment="Left" VerticalAlignment="Center" />
@@ -537,6 +543,7 @@
                                      Text="{Binding Text, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      BorderThickness="0"
                                      Background="Transparent"
+                                     Foreground="{DynamicResource ColorBrush1}"
                                      FontSize="13"
                                      VerticalContentAlignment="Center"
                                      Padding="38,0,38,0" />
@@ -544,7 +551,8 @@
                             <!-- Hint Text -->
                             <TextBlock Text="{TemplateBinding HintText}"
                                        Foreground="{DynamicResource ColorBrushGray4}"
-                                       Margin="40,0,0,0"
+                                       Margin="38,0,0,0"
+                                       FontSize="13"
                                        VerticalAlignment="Center"
                                        IsHitTestVisible="False">
                                 <TextBlock.Style>
@@ -569,7 +577,7 @@
                                                     Margin="0,0,10,0"
                                                     Opacity="0" />
                         </Grid>
-                    </controls:PclCard>
+                    </Border>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
