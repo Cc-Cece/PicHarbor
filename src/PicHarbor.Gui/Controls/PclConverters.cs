@@ -40,3 +40,34 @@ public class BoolToHandCursorConverter : IValueConverter
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();
 }
+
+public class InverseBooleanConverter : IValueConverter
+{
+    public static readonly InverseBooleanConverter Instance = new();
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return value is bool b ? !b : true;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return value is bool b ? !b : true;
+    }
+}
+
+public class InverseBooleanToVisibilityConverter : IValueConverter
+{
+    public static readonly InverseBooleanToVisibilityConverter Instance = new();
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return value is bool b && b ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return value is Visibility v && v == Visibility.Visible ? false : true;
+    }
+}
+

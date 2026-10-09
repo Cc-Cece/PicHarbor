@@ -17,6 +17,12 @@ public partial class MainViewModel : ObservableObject
     private int selectedTabIndex = 0;
 
     [ObservableProperty]
+    private int selectedDeviceIndex = 0; // 0 for iPhone, 1 for Android
+
+    [ObservableProperty]
+    private bool isScopeModalOpen = false;
+
+    [ObservableProperty]
     private bool isDeviceConnected = false;
 
     [ObservableProperty]
@@ -174,8 +180,14 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenScopeModal() => IsScopeModalOpen = true;
+
+    [RelayCommand]
+    private void CloseScopeModal() => IsScopeModalOpen = false;
+
+    [RelayCommand]
     private void NavigateToSettings()
     {
-        SelectedTabIndex = 7;
+        SelectedTabIndex = 3;
     }
 }

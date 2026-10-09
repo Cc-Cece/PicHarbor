@@ -11,6 +11,8 @@
     <controls:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
     <controls:StringNotEmptyToVisibilityConverter x:Key="StringNotEmptyToVisibilityConverter" />
     <controls:BoolToHandCursorConverter x:Key="BoolToHandCursorConverter" />
+    <controls:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+    <controls:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
 
     <!-- Vector Icon Geometries from PCL2 -->
     <Geometry x:Key="PclIconLaunch">M52.1,164.5c-1.4,0-3.1-0.5-4.2-1.3c-2.6-1.7-4-4.2-4-7V43.8c0-2.9,1.6-5.8,4.1-7c1.2-0.8,2.7-1.2,4.1-1.2c1.5,0,2.9,0.4,4.2,1.2L153.1,93c0,0,0.1,0,0.1,0.1c2.6,1.7,4,4.2,4,7c0,3-1.7,5.8-4.2,7.1l-96.8,56.2C55.1,164,53.5,164.5,52.1,164.5z M60.4,142.1l72.1-42.1L60.4,58.2V142.1z</Geometry>
@@ -44,11 +46,11 @@
         <Setter Property="OverridesDefaultStyle" Value="True" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FontFamily" Value="Microsoft YaHei UI, Segoe UI, sans-serif" />
-        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontSize" Value="12.5" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource ColorBrush1}" />
         <Setter Property="SnapsToDevicePixels" Value="True" />
-        <Setter Property="Padding" Value="16,8" />
+        <Setter Property="Padding" Value="10,0" />
         <Setter Property="CornerRadius" Value="4" />
         <Setter Property="Template">
             <Setter.Value>
@@ -57,18 +59,22 @@
                             BorderThickness="1"
                             CornerRadius="{TemplateBinding CornerRadius}"
                             Background="{DynamicResource ColorBrushHalfWhite}"
-                            BorderBrush="{DynamicResource ColorBrush1}"
+                            BorderBrush="{DynamicResource ColorBrush6}"
                             Padding="{TemplateBinding Padding}">
-                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            <TextBlock x:Name="PART_Subtitle"
+                        <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <ContentPresenter Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <TextBlock Grid.Row="1" x:Name="PART_Subtitle"
                                        Text="{TemplateBinding Subtitle}"
                                        FontSize="11" FontWeight="Normal"
                                        Foreground="{DynamicResource ColorBrushGray2}"
                                        HorizontalAlignment="Center"
                                        Margin="0,3,0,0"
                                        Visibility="{Binding Subtitle, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource StringNotEmptyToVisibilityConverter}}" />
-                        </StackPanel>
+                        </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
                         <!-- PCL2 Vibrant Launch Hero Button -->
@@ -727,6 +733,82 @@
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ======================================================== -->
+    <!--  15. PclDataGrid Style (PCL2 Clean Table)                 -->
+    <!-- ======================================================== -->
+    <Style x:Key="PclDataGrid" TargetType="DataGrid">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="RowHeaderWidth" Value="0" />
+        <Setter Property="GridLinesVisibility" Value="None" />
+        <Setter Property="AutoGenerateColumns" Value="False" />
+        <Setter Property="IsReadOnly" Value="True" />
+        <Setter Property="SelectionMode" Value="Extended" />
+        <Setter Property="ColumnHeaderStyle">
+            <Setter.Value>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="Background" Value="#F1F5F9" />
+                    <Setter Property="Foreground" Value="{DynamicResource ColorBrushGray2}" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                    <Setter Property="FontSize" Value="12" />
+                    <Setter Property="Padding" Value="12,8" />
+                    <Setter Property="BorderThickness" Value="0,0,0,1" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource ColorBrush6}" />
+                </Style>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="RowStyle">
+            <Setter.Value>
+                <Style TargetType="DataGridRow">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="Height" Value="34" />
+                    <Setter Property="Cursor" Value="Hand" />
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource ColorBrush8}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="#E0EDFE" />
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="CellStyle">
+            <Setter.Value>
+                <Style TargetType="DataGridCell">
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="Padding" Value="12,0" />
+                    <Setter Property="VerticalAlignment" Value="Center" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="DataGridCell">
+                                <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter VerticalAlignment="Center" />
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ======================================================== -->
+    <!--  16. PclDialogContainer Style (PCL2 MyMsg Box Window)      -->
+    <!-- ======================================================== -->
+    <Style x:Key="PclDialogContainer" TargetType="Border">
+        <Setter Property="Background" Value="#FAFCFF" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ColorBrush6}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect Color="#000000" BlurRadius="24" ShadowDepth="6" Direction="270" Opacity="0.25" />
             </Setter.Value>
         </Setter>
     </Style>

@@ -137,7 +137,8 @@
                             <!-- Top Segmented Tabs (对应 PCL2 [正版] [离线] 胶囊切换) -->
                             <Border Grid.Row="0" Background="#EAF2FE" CornerRadius="16" Padding="3" HorizontalAlignment="Center" Margin="0,18,0,0">
                                 <StackPanel Orientation="Horizontal">
-                                    <RadioButton Style="{StaticResource PclSegmentedTab}" Margin="0,0,4,0" IsChecked="True">
+                                    <RadioButton Style="{StaticResource PclSegmentedTab}" Margin="0,0,4,0"
+                                                 IsChecked="{Binding SelectedDeviceIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=0}">
                                         <StackPanel Orientation="Horizontal">
                                             <Path Data="{StaticResource PclIconPhone}" Width="12" Height="12" Stretch="Uniform"
                                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
@@ -145,7 +146,8 @@
                                             <TextBlock Text="iPhone" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </RadioButton>
-                                    <RadioButton Style="{StaticResource PclSegmentedTab}">
+                                    <RadioButton Style="{StaticResource PclSegmentedTab}"
+                                                 IsChecked="{Binding SelectedDeviceIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=1}">
                                         <StackPanel Orientation="Horizontal">
                                             <Path Data="{StaticResource PclIconAndroid}" Width="12" Height="12" Stretch="Uniform"
                                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
@@ -156,9 +158,20 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- Center Hero Illustration & Status (对应 PCL2 像素头像与昵称) -->
+                            <!-- Center Hero Illustration & Status: iPhone View -->
                             <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="16,0">
-                                <!-- Clean Device Illustration Frame -->
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDeviceIndex}" Value="1">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+
+                                <!-- Clean iPhone Illustration Frame -->
                                 <Border Width="78" Height="110" CornerRadius="16" Background="White" BorderBrush="{DynamicResource ColorBrush3}" BorderThickness="2" Margin="0,0,0,14">
                                     <Border.Effect>
                                         <DropShadowEffect BlurRadius="12" ShadowDepth="2" Direction="270" Color="#0B5BCB" Opacity="0.12" />
@@ -166,7 +179,7 @@
                                     <Grid>
                                         <!-- Dynamic Island Pill -->
                                         <Border Width="24" Height="6" CornerRadius="3" Background="#1E293B" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,6,0,0" />
-                                        <!-- Screen Content / Modern Vector Screen Graphic -->
+                                        <!-- Screen Content -->
                                         <Grid Margin="6,16,6,14">
                                             <Border CornerRadius="8" Background="{DynamicResource ColorBrush8}">
                                                 <Path Data="{StaticResource PclIconGallery}" Width="28" Height="28" Stretch="Uniform"
@@ -179,34 +192,156 @@
                                 </Border>
 
                                 <!-- Device Model Text -->
-                                <TextBlock Text="iPhone 15 Plus" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding BackupVM.DetectedDeviceModel}" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" HorizontalAlignment="Center" />
 
-                                <!-- Status Pill (● 手机已就绪) -->
+                                <!-- Status Pill -->
                                 <Border Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1" CornerRadius="12" Padding="12,3" Margin="0,8,0,0" HorizontalAlignment="Center">
                                     <StackPanel Orientation="Horizontal">
-                                        <Ellipse Width="6" Height="6" Fill="#10B981" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                        <TextBlock Text="手机已就绪 · 保持解锁" FontSize="11" FontWeight="Medium" Foreground="#065F46" VerticalAlignment="Center" />
+                                        <Ellipse Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,6,0">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse">
+                                                    <Setter Property="Fill" Value="#94A3B8" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsDeviceConnected}" Value="True">
+                                                            <Setter Property="Fill" Value="#10B981" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                        <TextBlock Text="{Binding DeviceStatusText}" FontSize="11" FontWeight="Medium" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
 
-                            <!-- Bottom: PCL2 Hero Action Button (对应 PCL2 启动大按钮) -->
+                            <!-- Center Hero Illustration & Status: Android View -->
+                            <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="16,0">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDeviceIndex}" Value="1">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+
+                                <!-- Clean Android Illustration Frame -->
+                                <Border Width="78" Height="110" CornerRadius="16" Background="White" BorderBrush="{DynamicResource ColorBrush3}" BorderThickness="2" Margin="0,0,0,14">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="12" ShadowDepth="2" Direction="270" Color="#0B5BCB" Opacity="0.12" />
+                                    </Border.Effect>
+                                    <Grid>
+                                        <!-- Front Camera Dot -->
+                                        <Ellipse Width="6" Height="6" Fill="#1E293B" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,6,0,0" />
+                                        <!-- Screen Content -->
+                                        <Grid Margin="6,16,6,14">
+                                            <Border CornerRadius="8" Background="{DynamicResource ColorBrush8}">
+                                                <Path Data="{StaticResource PclIconAndroid}" Width="28" Height="28" Stretch="Uniform"
+                                                      Fill="{DynamicResource ColorBrush3}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                        </Grid>
+                                        <!-- Home Indicator -->
+                                        <Border Width="30" Height="3" CornerRadius="1.5" Background="#94A3B8" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,5" />
+                                    </Grid>
+                                </Border>
+
+                                <!-- Device Model Text -->
+                                <TextBlock Text="{Binding AndroidBackupVM.DetectedDeviceModel}" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" HorizontalAlignment="Center" />
+
+                                <!-- Status Pill -->
+                                <Border Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1" CornerRadius="12" Padding="12,3" Margin="0,8,0,0" HorizontalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse Width="6" Height="6" Fill="#10B981" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                        <TextBlock Text="{Binding AndroidBackupVM.ProgressText}" FontSize="11" FontWeight="Medium" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
+                            <!-- Bottom: Hero Action Buttons & Operations: iPhone -->
                             <StackPanel Grid.Row="2" Margin="18,0,18,20">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDeviceIndex}" Value="1">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+
+                                <!-- Hero Action Button (Idle) -->
                                 <controls:PclButton Content="开始增量备份"
-                                                    Subtitle="目标: E:\Pictures\PicHarbor\15Plus"
+                                                    Subtitle="{Binding BackupVM.FullDestinationPreview, StringFormat='目标: {0}'}"
+                                                    Command="{Binding BackupVM.StartBackupCommand}"
                                                     ButtonType="Hero"
                                                     Height="56"
-                                                    Margin="0,0,0,10" />
+                                                    Margin="0,0,0,10"
+                                                    Visibility="{Binding BackupVM.IsTransferring, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
 
-                                <!-- Two Secondary Buttons (对应 PCL2 [版本选择] [版本设置]) -->
+                                <!-- Hero Action Button (Transferring -> Stop) -->
+                                <controls:PclButton Content="停止备份"
+                                                    Subtitle="{Binding BackupVM.SpeedText, StringFormat='正在传输 · {0}'}"
+                                                    Command="{Binding BackupVM.CancelBackupCommand}"
+                                                    ButtonType="Hero"
+                                                    Height="56"
+                                                    Margin="0,0,0,10"
+                                                    Visibility="{Binding BackupVM.IsTransferring, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                                <!-- Two Secondary Buttons -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="10" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <controls:PclButton Grid.Column="0" Content="备份范围" Height="35" />
-                                    <controls:PclButton Grid.Column="2" Content="传输日志" Height="35" />
+                                    <controls:PclButton Grid.Column="0" Content="备份范围" Height="35" Command="{Binding OpenScopeModalCommand}" />
+                                    <controls:PclButton Grid.Column="2" Content="传输日志" Height="35" Command="{Binding BackupVM.ShowCopiedDetailsCommand}" />
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- Bottom: Hero Action Buttons & Operations: Android -->
+                            <StackPanel Grid.Row="2" Margin="18,0,18,20">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedDeviceIndex}" Value="1">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+
+                                <!-- Hero Action Button (Idle) -->
+                                <controls:PclButton Content="开始增量备份"
+                                                    Subtitle="{Binding AndroidBackupVM.FullDestinationPreview, StringFormat='目标: {0}'}"
+                                                    Command="{Binding AndroidBackupVM.StartBackupCommand}"
+                                                    ButtonType="Hero"
+                                                    Height="56"
+                                                    Margin="0,0,0,10"
+                                                    Visibility="{Binding AndroidBackupVM.IsTransferring, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+
+                                <!-- Hero Action Button (Transferring -> Stop) -->
+                                <controls:PclButton Content="停止备份"
+                                                    Subtitle="{Binding AndroidBackupVM.SpeedText, StringFormat='正在传输 · {0}'}"
+                                                    Command="{Binding AndroidBackupVM.CancelBackupCommand}"
+                                                    ButtonType="Hero"
+                                                    Height="56"
+                                                    Margin="0,0,0,10"
+                                                    Visibility="{Binding AndroidBackupVM.IsTransferring, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                                <!-- Two Secondary Buttons -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="10" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <controls:PclButton Grid.Column="0" Content="备份范围" Height="35" Command="{Binding OpenScopeModalCommand}" />
+                                    <controls:PclButton Grid.Column="2" Content="传输日志" Height="35" Command="{Binding AndroidBackupVM.ShowCopiedDetailsCommand}" />
                                 </Grid>
                             </StackPanel>
                         </Grid>
@@ -231,7 +366,8 @@
                                 <!-- Card 1: 存储主盘与图库健康度 -->
                                 <controls:PclCard Title="图库存储主盘概览" CanSwap="False">
                                     <StackPanel>
-                                        <TextBlock Text="极简统一存储架构，随盘即插即用 · E:\Pictures\PicHarbor" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,12" />
+                                        <TextBlock Text="{Binding DestinationPath, StringFormat='极简统一存储架构，随盘即插即用 · {0}'}"
+                                                   FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,12" />
 
                                         <!-- Three Metrics Pills -->
                                         <Grid Margin="0,0,0,10">
@@ -245,7 +381,7 @@
                                             <Border Grid.Column="0" Background="#F8FAFC" CornerRadius="6" Padding="12,10" Margin="0,0,6,0" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
                                                 <StackPanel>
                                                     <TextBlock Text="已归档媒体" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" />
-                                                    <TextBlock Text="5,809 张" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" Margin="0,4,0,0" />
+                                                    <TextBlock Text="{Binding StatusVM.TotalFiles, StringFormat='{}{0:N0} 张'}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" Margin="0,4,0,0" />
                                                 </StackPanel>
                                             </Border>
 
@@ -253,7 +389,7 @@
                                             <Border Grid.Column="1" Background="#F8FAFC" CornerRadius="6" Padding="12,10" Margin="3,0,3,0" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
                                                 <StackPanel>
                                                     <TextBlock Text="图库总大小" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" />
-                                                    <TextBlock Text="20.2 GB" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" Margin="0,4,0,0" />
+                                                    <TextBlock Text="{Binding StatusVM.TotalSizeText}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" Margin="0,4,0,0" />
                                                 </StackPanel>
                                             </Border>
 
@@ -261,7 +397,7 @@
                                             <Border Grid.Column="2" Background="#F8FAFC" CornerRadius="6" Padding="12,10" Margin="6,0,0,0" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
                                                 <StackPanel>
                                                     <TextBlock Text="磁盘可用空间" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" />
-                                                    <TextBlock Text="380 GB 充足" FontSize="18" FontWeight="Bold" Foreground="#10B981" Margin="0,4,0,0" />
+                                                    <TextBlock Text="{Binding BackupVM.TargetDriveSummary}" TextTrimming="CharacterEllipsis" FontSize="14" FontWeight="Bold" Foreground="#10B981" Margin="0,6,0,0" />
                                                 </StackPanel>
                                             </Border>
                                         </Grid>
@@ -273,20 +409,46 @@
                                     </StackPanel>
                                 </controls:PclCard>
 
-                                <!-- Card 2: 备份范围与分类规则 (可折叠手风琴) -->
+                                <!-- Card 2: 增量备份与传输策略 (可折叠手风琴) -->
                                 <controls:PclCard Title="增量备份与传输策略" CanSwap="True" IsSwapped="False">
                                     <StackPanel>
                                         <controls:PclCheckBox Content="自动跳过电脑主盘库中已归档的完全相同文件 (智能秒传)" IsChecked="True" />
-                                        <controls:PclCheckBox Content="保留手机原始 Live Photo 配套 MOV 视频成对组织" IsChecked="True" />
-                                        <controls:PclCheckBox Content="按拍摄年份与月份自动分类归档 (YYYY-MM)" IsChecked="True" />
-                                        <controls:PclCheckBox Content="写入安全校验日志与 SQLite 索引库" IsChecked="True" />
+                                        <controls:PclCheckBox Content="保留手机原始 Live Photo 配套 MOV 视频成对组织" IsChecked="{Binding SettingsVM.AutoCompleteLivePhotoPair, Mode=TwoWay}" />
+                                        <controls:PclCheckBox Content="按拍摄年份与月份自动分类归档 (YYYY-MM)" IsChecked="{Binding SettingsVM.GroupMediaByDevice, Mode=TwoWay}" />
+                                        <controls:PclCheckBox Content="EXIF 拍摄时间自动校准至文件创建时间" IsChecked="{Binding SettingsVM.SyncExifToLastWriteTime, Mode=TwoWay}" />
                                     </StackPanel>
                                 </controls:PclCard>
 
                                 <!-- Card 3: 实时传输状态与历史 (可折叠手风琴) -->
-                                <controls:PclCard Title="最近一次传输队列与记录" CanSwap="True" IsSwapped="True">
+                                <controls:PclCard Title="实时传输状态与记录" CanSwap="True" IsSwapped="False">
                                     <StackPanel>
-                                        <TextBlock Text="上次备份时间: 2026/10/09 14:32 · 新增传输 48 项，跳过已存在 5,761 项，耗时 12 秒。" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" />
+                                        <!-- Transferring View -->
+                                        <StackPanel Visibility="{Binding BackupVM.IsTransferring, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <TextBlock Text="{Binding BackupVM.CurrentFileName, StringFormat='正在传输: {0}'}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush1}" TextTrimming="CharacterEllipsis" Margin="0,0,0,6" />
+                                            <ProgressBar Value="{Binding BackupVM.ProgressPercentage}" Maximum="100" Height="6" Margin="0,0,0,8" Foreground="{DynamicResource ColorBrush3}" Background="#E2E8F0" BorderThickness="0" />
+                                            <Grid Margin="0,0,0,10">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding BackupVM.SpeedText}" FontSize="11" Foreground="{DynamicResource ColorBrush2}" FontWeight="Bold" Margin="0,0,12,0" />
+                                                    <TextBlock Text="{Binding BackupVM.EtaText, StringFormat='预计剩余: {0}'}" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,12,0" />
+                                                    <TextBlock Text="{Binding BackupVM.TransferredSizeText}" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                    <TextBlock Text="{Binding BackupVM.CopiedCount, StringFormat='已复制: {0}'}" FontSize="11" Foreground="{DynamicResource ColorBrush2}" Margin="0,0,8,0" />
+                                                    <TextBlock Text="{Binding BackupVM.SkippedCount, StringFormat='已跳过: {0}'}" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,8,0" />
+                                                    <TextBlock Text="{Binding BackupVM.FailedCount, StringFormat='失败: {0}'}" FontSize="11" Foreground="#EF4444" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+
+                                        <!-- Idle View -->
+                                        <StackPanel Visibility="{Binding BackupVM.IsTransferring, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                            <TextBlock Text="{Binding StatusVM.LastBackupTime, StringFormat='上次备份时间: {0} · 媒体库与 SQLite 索引库就绪。'}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,10" />
+                                            <StackPanel Orientation="Horizontal">
+                                                <controls:PclButton Content="查看已复制明细" Command="{Binding BackupVM.ShowCopiedDetailsCommand}" Height="28" Margin="0,0,8,0" />
+                                                <controls:PclButton Content="查看已跳过明细" Command="{Binding BackupVM.ShowSkippedDetailsCommand}" Height="28" Margin="0,0,8,0" />
+                                                <controls:PclButton Content="查看失败明细" Command="{Binding BackupVM.ShowFailedDetailsCommand}" Height="28" />
+                                            </StackPanel>
+                                        </StackPanel>
                                     </StackPanel>
                                 </controls:PclCard>
                             </StackPanel>
@@ -316,13 +478,13 @@
                 </Grid.Style>
 
                 <Grid.ColumnDefinitions>
-                    <!-- Left Sub-Nav Pane (220px, 对应图 2 左侧的原版游戏/Mod) -->
+                    <!-- Left Sub-Nav Pane (220px) -->
                     <ColumnDefinition Width="220" />
                     <!-- Right Content Canvas -->
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- LEFT SUB-NAV PANE (With PclPageHost Horizontal Stagger Slide-In) -->
+                <!-- LEFT SUB-NAV PANE -->
                 <Grid Grid.Column="0">
                     <Border Background="{DynamicResource ColorBrushBackgroundTransparentSidebar}" 
                             BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="0,0,1,0">
@@ -354,45 +516,113 @@
                     <controls:PclPageHost Direction="Vertical">
                         <StackPanel>
                             <!-- Search Box (1:1 PCL2 MySearchBox) -->
-                            <controls:PclSearchBox HintText="搜索图库中的照片、拍摄设备或日期..." Margin="0,0,0,14" />
+                            <controls:PclSearchBox Text="{Binding SearchVM.SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                   HintText="搜索图库中的照片、拍摄设备或日期..." Margin="0,0,0,14" />
 
-                            <!-- Top Card: 最新归档 (对应图 2 的“最新版本”卡片) -->
-                            <controls:PclCard Title="最新归档媒体" CanSwap="False">
-                                <Grid Margin="0,2,0,0">
+                            <!-- Toolbar Card -->
+                            <controls:PclCard Title="图库检视与排序" CanSwap="False">
+                                <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Grid.Column="0" Data="{StaticResource PclIconCalendar}" Width="24" Height="24"
-                                          Fill="{DynamicResource ColorBrush3}" Stretch="Uniform"
-                                          VerticalAlignment="Center" Margin="0,0,14,0" />
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="2026年10月 (最近一次备份)" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" />
-                                        <TextBlock Text="最新归档于 2026/10/09 · 48 张照片与视频 (包含胶片与实况 HEIC)" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,2,0,0" />
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding SearchVM.SearchSummaryText}" Foreground="{DynamicResource ColorBrush2}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                        <controls:PclButton Content="加载更多" Command="{Binding SearchVM.LoadMoreItemsCommand}"
+                                                            Visibility="{Binding SearchVM.HasMoreItems, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                            Height="26" Margin="12,0,0,0" Padding="8,2" />
                                     </StackPanel>
-                                    <controls:PclButton Grid.Column="2" Content="浏览此月份" Height="34" />
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="排序:" Foreground="{DynamicResource ColorBrushGray2}" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                        <controls:PclComboBox Width="130" Height="28" ItemsSource="{Binding SearchVM.SortModeLabels}" SelectedIndex="{Binding SearchVM.SortModeIndex, Mode=TwoWay}" Margin="0,0,8,0" />
+                                        <controls:PclButton Content="{Binding SearchVM.SortDirectionText}" Command="{Binding SearchVM.ToggleSortDirectionCommand}" Height="28" Margin="0,0,10,0" />
+                                        <RadioButton Content="画廊" IsChecked="{Binding SearchVM.IsGalleryView}" Style="{StaticResource PclSegmentedTab}" Margin="0,0,4,0" />
+                                        <RadioButton Content="列表" IsChecked="{Binding SearchVM.IsTableView}" Style="{StaticResource PclSegmentedTab}" />
+                                    </StackPanel>
                                 </Grid>
                             </controls:PclCard>
 
-                            <!-- Accordion Cards (对应图 2 的 正式版/预览版/远古版 手风琴卡片) -->
-                            <controls:PclCard Title="2026 年度归档 (1,240 张照片 · 4.8 GB)" CanSwap="True" IsSwapped="False">
-                                <StackPanel>
-                                    <TextBlock Text="↳ 包含 2026-10、2026-09、2026-08 等月份子目录，可随时在画廊中检视与原画质预览。" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" />
-                                </StackPanel>
-                            </controls:PclCard>
+                            <!-- Gallery Grid View -->
+                            <Border Background="White" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1" Padding="12" Margin="0,0,0,14"
+                                    Visibility="{Binding SearchVM.IsGalleryView, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <ListBox ItemsSource="{Binding SearchVM.GalleryRows}"
+                                         MaxHeight="520"
+                                         SelectionMode="Single"
+                                         Background="Transparent" BorderThickness="0"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                         ScrollViewer.CanContentScroll="True"
+                                         ScrollViewer.ScrollChanged="Gallery_ScrollChanged"
+                                         VirtualizingPanel.IsVirtualizing="True"
+                                         VirtualizingPanel.VirtualizationMode="Recycling">
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem">
+                                            <Setter Property="Padding" Value="0" />
+                                            <Setter Property="Margin" Value="0,0,0,8" />
+                                            <Setter Property="Background" Value="Transparent" />
+                                            <Setter Property="BorderThickness" Value="0" />
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ListBoxItem">
+                                                        <ContentPresenter />
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <ItemsControl ItemsSource="{Binding Items}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel Orientation="Horizontal" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Width="165" Height="165" CornerRadius="8" ClipToBounds="True" Background="#F1F5F9"
+                                                                BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1" Margin="0,0,10,10"
+                                                                Cursor="Hand" MouseLeftButtonDown="GalleryCard_MouseLeftButtonDown">
+                                                            <Grid>
+                                                                <Image Source="{Binding ThumbnailImage}" Stretch="UniformToFill" />
+                                                                <Border Background="#90000000" VerticalAlignment="Bottom" Padding="8,4">
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="{Binding RelativePath}" Foreground="White" FontSize="11" TextTrimming="CharacterEllipsis" />
+                                                                        <TextBlock Text="{Binding CapturedAt}" Foreground="#CBD5E1" FontSize="10" />
+                                                                    </StackPanel>
+                                                                </Border>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Border>
 
-                            <controls:PclCard Title="2025 年度归档 (3,120 张照片 · 10.6 GB)" CanSwap="True" IsSwapped="True">
-                                <StackPanel>
-                                    <TextBlock Text="↳ 包含 2025-12 至 2025-01 完整媒体记录。" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" />
-                                </StackPanel>
-                            </controls:PclCard>
-
-                            <controls:PclCard Title="2024 年度归档 (1,449 张照片 · 4.8 GB)" CanSwap="True" IsSwapped="True">
-                                <StackPanel>
-                                    <TextBlock Text="↳ 包含 2024 年度历史备份归档。" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" />
-                                </StackPanel>
-                            </controls:PclCard>
+                            <!-- Table View -->
+                            <Border Background="White" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1" Padding="8" Margin="0,0,0,14"
+                                    Visibility="{Binding SearchVM.IsTableView, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <DataGrid ItemsSource="{Binding SearchVM.SearchResults}"
+                                          Style="{StaticResource PclDataGrid}"
+                                          MaxHeight="520"
+                                          ScrollViewer.ScrollChanged="SearchResults_ScrollChanged">
+                                    <DataGrid.RowStyle>
+                                        <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                            <EventSetter Event="MouseDoubleClick" Handler="DataGridRow_MouseDoubleClick" />
+                                            <EventSetter Event="PreviewMouseRightButtonDown" Handler="DataGridRow_PreviewMouseRightButtonDown" />
+                                        </Style>
+                                    </DataGrid.RowStyle>
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="文件名" Binding="{Binding RelativePath}" Width="2*" />
+                                        <DataGridTextColumn Header="类型" Binding="{Binding MediaType}" Width="70" />
+                                        <DataGridTextColumn Header="拍摄时间" Binding="{Binding CapturedAt}" Width="140" />
+                                        <DataGridTextColumn Header="大小" Binding="{Binding SizeText}" Width="80" />
+                                        <DataGridTextColumn Header="设备型号" Binding="{Binding CameraModel}" Width="120" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Border>
                         </StackPanel>
                     </controls:PclPageHost>
                 </controls:PclScrollViewer>
@@ -453,39 +683,70 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="CloudLabel" />
                                         <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
-                                        <RowDefinition Height="28" />
+                                        <RowDefinition Height="30" />
                                         <RowDefinition Height="9" />
-                                        <RowDefinition Height="28" />
+                                        <RowDefinition Height="30" />
                                     </Grid.RowDefinitions>
 
                                     <TextBlock Grid.Row="0" Text="已授权账号" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,25,0" />
-                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="suyu041219@gmail.com (已登录)" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding GooglePhotosVM.AccountEmail, TargetNullValue='未登录', FallbackValue='suyu041219@gmail.com (已登录)'}" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center" />
+                                    <controls:PclButton Grid.Row="0" Grid.Column="2" Content="登录 / 切换账号" Command="{Binding GooglePhotosVM.LoginCommand}" Height="28" />
 
                                     <TextBlock Grid.Row="2" Text="网络代理通道" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,25,0" />
-                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="127.0.0.1:7890 · 延迟 120ms (连通就绪)" FontWeight="SemiBold" Foreground="#10B981" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding GooglePhotosVM.ProxyAddress, TargetNullValue='127.0.0.1:7890 · 连通就绪', FallbackValue='127.0.0.1:7890 · 连通就绪'}" FontWeight="SemiBold" Foreground="#10B981" VerticalAlignment="Center" />
+                                    <controls:PclButton Grid.Row="2" Grid.Column="2" Content="测试连接" Command="{Binding GooglePhotosVM.TestConnectionCommand}" Height="28" />
                                 </Grid>
                             </controls:PclCard>
 
                             <!-- Card 2: 上传策略 -->
                             <controls:PclCard Title="上传归档范围与相册策略" CanSwap="False">
                                 <StackPanel>
-                                    <controls:PclRadioBox Content="全量同步 (将本地 5,809 张照片增量上传至 Google 相册)" IsChecked="True" Margin="0,0,0,6" />
-                                    <controls:PclRadioBox Content="自选清单同步 (仅上传在图库中挑选标记的照片)" Margin="0,0,0,10" />
-                                    <controls:PclCheckBox Content="自动根据年月建立 Google 相册 (如 2026-10)" IsChecked="True" Margin="0,4,0,0" />
+                                    <controls:PclRadioBox Content="全量同步 (将本地所有照片增量上传至 Google 相册)" IsChecked="{Binding GooglePhotosVM.IsScopeAll, Mode=TwoWay}" Margin="0,0,0,6" />
+                                    <controls:PclRadioBox Content="自选清单同步 (仅上传在图库中挑选标记的照片)" IsChecked="{Binding GooglePhotosVM.IsScopeManualSelection, Mode=TwoWay}" Margin="0,0,0,10" />
+                                    <controls:PclCheckBox Content="自动根据年月建立 Google 相册 (如 2026-10)" IsChecked="{Binding GooglePhotosVM.AutoCreateAlbums, Mode=TwoWay}" Margin="0,4,0,0" />
                                 </StackPanel>
                             </controls:PclCard>
 
-                            <!-- Action Button -->
-                            <controls:PclButton Content="开始同步到 Google 相册" ButtonType="Hero" Height="56" />
+                            <!-- Hero Action Button -->
+                            <controls:PclButton Content="开始同步到 Google 相册"
+                                                Command="{Binding GooglePhotosVM.StartSyncCommand}"
+                                                ButtonType="Hero"
+                                                Height="48"
+                                                Margin="0,0,0,14"
+                                                Visibility="{Binding GooglePhotosVM.IsSyncing, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+
+                            <controls:PclButton Content="停止同步"
+                                                Command="{Binding GooglePhotosVM.CancelSyncCommand}"
+                                                ButtonType="Hero"
+                                                Height="48"
+                                                Margin="0,0,0,14"
+                                                Visibility="{Binding GooglePhotosVM.IsSyncing, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                            <!-- Card 3: 实时同步状态 -->
+                            <controls:PclCard Title="实时同步进度与上传记录" CanSwap="True" IsSwapped="False">
+                                <StackPanel>
+                                    <StackPanel Visibility="{Binding GooglePhotosVM.IsSyncing, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <TextBlock Text="{Binding GooglePhotosVM.CurrentFileName, StringFormat='正在上传: {0}'}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush1}" TextTrimming="CharacterEllipsis" Margin="0,0,0,6" />
+                                        <ProgressBar Value="{Binding GooglePhotosVM.ProgressValue}" Maximum="100" Height="6" Margin="0,0,0,8" Foreground="{DynamicResource ColorBrush3}" Background="#E2E8F0" BorderThickness="0" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding GooglePhotosVM.StatusText}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,10" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <controls:PclButton Content="查看已上传明细" Command="{Binding GooglePhotosVM.ShowUploadedDetailsCommand}" Height="28" Margin="0,0,8,0" />
+                                        <controls:PclButton Content="查看已跳过明细" Command="{Binding GooglePhotosVM.ShowSkippedDetailsCommand}" Height="28" Margin="0,0,8,0" />
+                                        <controls:PclButton Content="查看失败明细" Command="{Binding GooglePhotosVM.ShowFailedDetailsCommand}" Height="28" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </controls:PclCard>
                         </StackPanel>
                     </controls:PclPageHost>
                 </controls:PclScrollViewer>
             </Grid>
 
             <!-- ==================================================== -->
-            <!--  PAGE 3: 【⚙ 设置 (Settings)】(复刻图 3 选项页)        -->
+            <!--  PAGE 3: 【⚙ 设置 (Settings)】                       -->
             <!-- ==================================================== -->
             <Grid>
                 <Grid.Style>
@@ -500,9 +761,7 @@
                 </Grid.Style>
 
                 <Grid.ColumnDefinitions>
-                    <!-- Left Sub-Nav Pane (220px, 对应图 3 左侧的启动/个性化/其他) -->
                     <ColumnDefinition Width="220" />
-                    <!-- Right Content Canvas -->
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
@@ -531,68 +790,68 @@
                     </Rectangle>
                 </Grid>
 
-                <!-- RIGHT CONTENT CANVAS (纯白大圆角卡片，复刻图 3 启动选项与内存分配) -->
+                <!-- RIGHT CONTENT CANVAS -->
                 <controls:PclScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="25,20,25,15">
                     <controls:PclPageHost Direction="Vertical">
                         <StackPanel>
-                            <!-- Card 1: 存储与主盘符 (对应图 3 的“启动选项”大卡片) -->
+                            <!-- Card 1: 存储与主盘符 -->
                             <controls:PclCard Title="存储主盘与架构规范" CanSwap="False">
                                 <Grid Grid.IsSharedSizeScope="True">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" />
                                         <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
-                                        <RowDefinition Height="28" />
+                                        <RowDefinition Height="30" />
                                         <RowDefinition Height="9" />
-                                        <RowDefinition Height="28" />
+                                        <RowDefinition Height="30" />
                                         <RowDefinition Height="9" />
-                                        <RowDefinition Height="28" />
+                                        <RowDefinition Height="30" />
                                         <RowDefinition Height="9" />
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
 
                                     <!-- Row 1: 主盘符 -->
                                     <TextBlock Grid.Row="0" Text="当前主备份盘" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,25,0" />
-                                    <controls:PclComboBox Grid.Row="0" Grid.Column="1" SelectedIndex="0">
-                                        <ComboBoxItem Content="E: 盘 (Pictures\PicHarbor · 剩余 380 GB)" />
-                                        <ComboBoxItem Content="C: 盘 (Users\Pictures\PicHarbor)" />
+                                    <controls:PclComboBox Grid.Row="0" Grid.Column="1"
+                                                          ItemsSource="{Binding SettingsVM.AvailableVolumes}"
+                                                          SelectedItem="{Binding SettingsVM.SelectedVolume}">
+                                        <controls:PclComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding DisplayText}" />
+                                            </DataTemplate>
+                                        </controls:PclComboBox.ItemTemplate>
                                     </controls:PclComboBox>
+                                    <controls:PclButton Grid.Row="0" Grid.Column="2" Content="打开目录" Command="{Binding BackupVM.OpenDestinationFolderCommand}" Height="28" Margin="8,0,0,0" />
 
                                     <!-- Row 2: 手机分类目录规则 -->
-                                    <TextBlock Grid.Row="2" Text="设备子目录规则" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,25,0" />
-                                    <controls:PclComboBox Grid.Row="2" Grid.Column="1" SelectedIndex="0">
-                                        <ComboBoxItem Content="按手机型号自动分类 (如 15Plus, K40)" />
-                                        <ComboBoxItem Content="平铺直接归档至主根目录" />
-                                    </controls:PclComboBox>
+                                    <TextBlock Grid.Row="2" Text="设备子目录名称" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,25,0" />
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding BackupVM.DeviceSubdir, UpdateSourceTrigger=PropertyChanged}"
+                                             Height="28" VerticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" />
+                                    <controls:PclButton Grid.Row="2" Grid.Column="2" Content="恢复默认" Command="{Binding BackupVM.ResetDeviceSubdirCommand}" Height="28" Margin="8,0,0,0" />
 
                                     <!-- Row 3: 时间组织方案 -->
                                     <TextBlock Grid.Row="4" Text="照片时间分类格式" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,25,0" />
-                                    <controls:PclComboBox Grid.Row="4" Grid.Column="1" SelectedIndex="0">
-                                        <ComboBoxItem Content="按月份 (YYYY-MM，如 2026-10)" />
-                                        <ComboBoxItem Content="按年月 (YYYY\YYYY-MM)" />
-                                        <ComboBoxItem Content="按年份 (YYYY)" />
-                                    </controls:PclComboBox>
+                                    <controls:PclComboBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2"
+                                                          ItemsSource="{Binding BackupVM.OrganizeSchemes}"
+                                                          SelectedItem="{Binding BackupVM.SelectedScheme}" />
 
-                                    <!-- Row 4: 跨盘防重提示 (PCL2 MyHint Style) -->
-                                    <controls:PclHint Grid.Row="6" Grid.ColumnSpan="2" HintType="Success" Margin="0,6,0,0">
+                                    <!-- Row 4: 跨盘防重提示 -->
+                                    <controls:PclHint Grid.Row="6" Grid.ColumnSpan="3" HintType="Success" Margin="0,6,0,0">
                                         <TextBlock Text="已检测到驱动器历史库，跨盘防重自动生效。" Foreground="#047857" FontSize="12" />
                                     </controls:PclHint>
                                 </Grid>
                             </controls:PclCard>
 
-                            <!-- Card 2: 备份优化与高级参数 (对应图 3 的“内存分配”大卡片) -->
+                            <!-- Card 2: 备份优化与高级参数 -->
                             <controls:PclCard Title="高级传输与属性校准" CanSwap="False">
                                 <StackPanel>
-                                    <!-- RadioBoxes: 过滤策略 -->
-                                    <controls:PclRadioBox Content="全量备份所有媒体文件" IsChecked="True" Margin="0,0,0,6" />
-                                    <controls:PclRadioBox Content="自动过滤小于 100KB 的小缩略图与表情包" Margin="0,0,0,12" />
+                                    <controls:PclCheckBox Content="EXIF 拍摄时间自动校准至文件创建时间" IsChecked="{Binding SettingsVM.SyncExifToLastWriteTime, Mode=TwoWay}" Margin="0,0,0,8" />
+                                    <controls:PclCheckBox Content="实况照片 (HEIC + MOV) 自动绑定成对传输" IsChecked="{Binding SettingsVM.AutoCompleteLivePhotoPair, Mode=TwoWay}" Margin="0,0,0,8" />
+                                    <controls:PclCheckBox Content="自动关联 AAE 调色编辑副文件" IsChecked="{Binding SettingsVM.AutoCompleteAaeSidecar, Mode=TwoWay}" Margin="0,0,0,12" />
 
-                                    <!-- CheckBoxes -->
-                                    <controls:PclCheckBox Content="EXIF 拍摄时间自动校准至文件创建时间" IsChecked="True" Margin="0,0,0,8" />
-                                    <controls:PclCheckBox Content="实况照片 (HEIC + MOV) 自动绑定成对传输" IsChecked="True" Margin="0,0,0,12" />
-
-                                    <!-- Slider: 超时阈值 (1:1 PCL2 MySlider) -->
+                                    <!-- Slider: 超时阈值 -->
                                     <Grid Margin="0,4,0,0" Grid.IsSharedSizeScope="True">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" />
@@ -600,10 +859,25 @@
                                             <ColumnDefinition Width="55" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="设备读取超时阈值" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" Margin="0,0,25,0" />
-                                        <controls:PclSlider Grid.Column="1" Minimum="10" Maximum="120" Value="30" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="2" Text="30 秒" Foreground="{DynamicResource ColorBrushGray2}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                        <controls:PclSlider Grid.Column="1" Minimum="10" Maximum="120" Value="{Binding SettingsVM.ReadTimeoutSeconds, Mode=TwoWay}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="2" Text="{Binding SettingsVM.ReadTimeoutSeconds, StringFormat='{}{0} 秒'}" Foreground="{DynamicResource ColorBrushGray2}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                     </Grid>
                                 </StackPanel>
+                            </controls:PclCard>
+
+                            <!-- Card 3: 界面语言与外观 -->
+                            <controls:PclCard Title="语言与界面外观" CanSwap="False">
+                                <Grid Grid.IsSharedSizeScope="True">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="软件显示语言" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" Margin="0,0,25,0" />
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                        <controls:PclButton Content="🇨🇳 简体中文" Command="{Binding SwitchLanguageCommand}" CommandParameter="zh-CN" Height="28" Margin="0,0,10,0" />
+                                        <controls:PclButton Content="🇺🇸 English" Command="{Binding SwitchLanguageCommand}" CommandParameter="en-US" Height="28" />
+                                    </StackPanel>
+                                </Grid>
                             </controls:PclCard>
                         </StackPanel>
                     </controls:PclPageHost>
@@ -611,20 +885,167 @@
             </Grid>
         </Grid>
 
-        <!-- Hidden legacy preview player elements to preserve code-behind during UI shell phase -->
-        <Grid Visibility="Collapsed">
-            <MediaElement x:Name="PreviewPlayer"
-                          LoadedBehavior="Manual"
-                          UnloadedBehavior="Stop"
-                          MediaOpened="PreviewPlayer_MediaOpened"
-                          MediaFailed="PreviewPlayer_MediaFailed"
-                          MediaEnded="PreviewPlayer_MediaEnded"
-                          MouseLeftButtonDown="PreviewPlayer_MouseLeftButtonDown" />
-            <Slider x:Name="PreviewSeek"
-                    PreviewMouseDown="PreviewSeek_PreviewMouseDown"
-                    PreviewMouseUp="PreviewSeek_PreviewMouseUp"
-                    ValueChanged="PreviewSeek_ValueChanged" />
-            <TextBlock x:Name="PreviewClockText" />
+        <!-- ======================================================== -->
+        <!--  MODAL 1: 传输文件明细弹窗 (PCL2 MyMsg 风格弹窗)           -->
+        <!-- ======================================================== -->
+        <Grid Grid.RowSpan="2" Background="#80000000" Panel.ZIndex="1000">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding BackupVM.IsDetailModalOpen}" Value="True">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding AndroidBackupVM.IsDetailModalOpen}" Value="True">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding GooglePhotosVM.IsDetailModalOpen}" Value="True">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+
+            <Border Style="{StaticResource PclDialogContainer}" Width="820" Height="500" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="2" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="{Binding BackupVM.DetailModalTitle, FallbackValue='传输文件明细清单'}"
+                               FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" Margin="0,0,0,8" />
+                    <Rectangle Grid.Row="1" Height="2" Fill="{DynamicResource ColorBrush2}" />
+
+                    <DataGrid Grid.Row="3" ItemsSource="{Binding BackupVM.DetailItems}"
+                              Style="{StaticResource PclDataGrid}"
+                              HeadersVisibility="Column">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                <EventSetter Event="MouseDoubleClick" Handler="DetailDataGridRow_MouseDoubleClick" />
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="状态" Binding="{Binding StatusText}" Width="80" />
+                            <DataGridTextColumn Header="文件名" Binding="{Binding TargetPath}" Width="2*" />
+                            <DataGridTextColumn Header="大小" Binding="{Binding FileSizeText}" Width="80" />
+                            <DataGridTextColumn Header="详情说明" Binding="{Binding Details}" Width="2*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                        <controls:PclButton Content="关闭" Command="{Binding BackupVM.CloseDetailModalCommand}" Width="90" Height="32" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ======================================================== -->
+        <!--  MODAL 2: 备份范围选择弹窗 (PCL2 选项弹窗)                  -->
+        <!-- ======================================================== -->
+        <Grid Grid.RowSpan="2" Background="#80000000" Panel.ZIndex="1000"
+              Visibility="{Binding IsScopeModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Style="{StaticResource PclDialogContainer}" Width="520" Height="340" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="2" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="配置备份文件范围" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" Margin="0,0,0,8" />
+                    <Rectangle Grid.Row="1" Height="2" Fill="{DynamicResource ColorBrush2}" />
+
+                    <StackPanel Grid.Row="3">
+                        <controls:PclRadioBox Content="全量备份 (传输设备中全部照片与视频)" IsChecked="{Binding BackupVM.IsScopeAll, Mode=TwoWay}" Margin="0,0,0,10" />
+                        <controls:PclRadioBox Content="按日期范围备份" IsChecked="{Binding BackupVM.IsScopeDateRange, Mode=TwoWay}" Margin="0,0,0,10" />
+                        <Grid Margin="24,0,0,12" Visibility="{Binding BackupVM.IsScopeDateRange, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="从:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{DynamicResource ColorBrushGray2}" />
+                            <TextBox Grid.Column="1" Text="{Binding BackupVM.ScopeDateFromText, UpdateSourceTrigger=PropertyChanged}" Height="28" VerticalContentAlignment="Center" Margin="0,0,10,0" />
+                            <TextBlock Grid.Column="2" Text="到:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{DynamicResource ColorBrushGray2}" />
+                            <TextBox Grid.Column="3" Text="{Binding BackupVM.ScopeDateToText, UpdateSourceTrigger=PropertyChanged}" Height="28" VerticalContentAlignment="Center" />
+                        </Grid>
+                        <controls:PclRadioBox Content="仅备份在图库中勾选自选的照片" IsChecked="{Binding BackupVM.IsScopeManualSelection, Mode=TwoWay}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                        <controls:PclButton Content="确定" Command="{Binding CloseScopeModalCommand}" Width="90" Height="32" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ======================================================== -->
+        <!--  MODAL 3: 全屏媒体预览 LIGHTBOX MODAL                     -->
+        <!-- ======================================================== -->
+        <Grid Grid.RowSpan="2" Background="#D8000000" Panel.ZIndex="1050"
+              Visibility="{Binding SearchVM.IsPreviewOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="#1E293B" CornerRadius="12" Width="920" Height="600" Padding="16">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Top Bar of Lightbox -->
+                    <Grid Grid.Row="0" Margin="0,0,0,8">
+                        <TextBlock Text="{Binding SearchVM.PreviewDetailsText}" Foreground="White" FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <controls:PclIconButton Logo="{StaticResource PclIconClose}" IconTheme="White" Command="{Binding SearchVM.ClosePreviewCommand}" HorizontalAlignment="Right" />
+                    </Grid>
+
+                    <!-- Media Display Area -->
+                    <Grid Grid.Row="1" Background="#0F172A">
+                        <Image Source="{Binding SearchVM.PreviewImageSource}" Stretch="Uniform" Margin="8"
+                               Cursor="Hand" MouseLeftButtonDown="LightboxImage_MouseLeftButtonDown" />
+
+                        <!-- Video Player MediaElement -->
+                        <MediaElement x:Name="PreviewPlayer" Stretch="Uniform" Margin="8"
+                                      LoadedBehavior="Manual" UnloadedBehavior="Manual" ScrubbingEnabled="True"
+                                      Visibility="Collapsed"
+                                      MediaOpened="PreviewPlayer_MediaOpened"
+                                      MediaFailed="PreviewPlayer_MediaFailed"
+                                      MediaEnded="PreviewPlayer_MediaEnded"
+                                      MouseLeftButtonDown="PreviewPlayer_MouseLeftButtonDown" />
+                    </Grid>
+
+                    <!-- Bottom Controls: Video scrubber or Prev/Next buttons -->
+                    <Grid Grid.Row="2" Margin="0,10,0,0">
+                        <!-- Video Controls -->
+                        <Grid Visibility="{Binding SearchVM.IsPreviewVideo, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <controls:PclButton Content="▶ / ⏸" Click="PreviewPlayPause_Click" Width="50" Height="28" Margin="0,0,10,0" />
+                            <Slider Grid.Column="1" x:Name="PreviewSeek" VerticalAlignment="Center"
+                                    PreviewMouseDown="PreviewSeek_PreviewMouseDown"
+                                    PreviewMouseUp="PreviewSeek_PreviewMouseUp"
+                                    ValueChanged="PreviewSeek_ValueChanged" />
+                            <TextBlock Grid.Column="2" x:Name="PreviewClockText" Text="0:00 / 0:00" Foreground="White" FontSize="12" VerticalAlignment="Center" Margin="10,0,0,0" />
+                        </Grid>
+
+                        <!-- Prev / Next Navigation -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <controls:PclButton Content="上一张 (←)" Command="{Binding SearchVM.PrevPreviewCommand}" Height="28" Margin="0,0,8,0" />
+                            <controls:PclButton Content="下一张 (→)" Command="{Binding SearchVM.NextPreviewCommand}" Height="28" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
         </Grid>
     </Grid>
 </Window>
