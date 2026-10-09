@@ -20,10 +20,30 @@ public class PclListItem : RadioButton
         DependencyProperty.Register(nameof(Icon), typeof(string), typeof(PclListItem),
             new PropertyMetadata(string.Empty));
 
+    public static readonly DependencyProperty LogoProperty =
+        DependencyProperty.Register(nameof(Logo), typeof(Geometry), typeof(PclListItem),
+            new PropertyMetadata(null));
+
+    public static readonly DependencyProperty LogoScaleProperty =
+        DependencyProperty.Register(nameof(LogoScale), typeof(double), typeof(PclListItem),
+            new PropertyMetadata(1.0));
+
     public string Icon
     {
         get => (string)GetValue(IconProperty);
         set => SetValue(IconProperty, value);
+    }
+
+    public Geometry Logo
+    {
+        get => (Geometry)GetValue(LogoProperty);
+        set => SetValue(LogoProperty, value);
+    }
+
+    public double LogoScale
+    {
+        get => (double)GetValue(LogoScaleProperty);
+        set => SetValue(LogoScaleProperty, value);
     }
 
     static PclListItem()
