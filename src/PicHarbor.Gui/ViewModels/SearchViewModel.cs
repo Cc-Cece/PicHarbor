@@ -711,31 +711,25 @@ public partial class SearchViewModel : ObservableObject
                 }
 
                 return (found, BuildDisplay(rows), DistinctCameraModels(rows));
-            }, ct).ConfigureAwait(false);
+            }, ct);
 
-            await Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                displayByPath = display;
-                knownCameraModels = models;
-                RefreshCameraModelItems(models);
-                currentHits = hits;
-                SortCurrentHits();
-                loadedHitIndex = 0;
-                SearchResults = new ObservableCollection<MediaSearchResultItem>();
-                GalleryRows = new ObservableCollection<GalleryRow>();
-                HasMoreItems = currentHits.Count > 0;
-                SearchSummaryText = $"检索成功：共匹配 {currentHits.Count:N0} 项";
-                HitsUpdated?.Invoke(this, EventArgs.Empty);
-            });
+            displayByPath = display;
+            knownCameraModels = models;
+            RefreshCameraModelItems(models);
+            currentHits = hits;
+            SortCurrentHits();
+            loadedHitIndex = 0;
+            SearchResults = new ObservableCollection<MediaSearchResultItem>();
+            GalleryRows = new ObservableCollection<GalleryRow>();
+            HasMoreItems = currentHits.Count > 0;
+            SearchSummaryText = $"检索成功：共匹配 {currentHits.Count:N0} 项";
+            HitsUpdated?.Invoke(this, EventArgs.Empty);
 
             if (currentHits.Count == 0)
             {
-                await Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    SearchSummaryText = "检索成功：共匹配 0 项";
-                    HasMoreItems = false;
-                    HitsUpdated?.Invoke(this, EventArgs.Empty);
-                });
+                SearchSummaryText = "检索成功：共匹配 0 项";
+                HasMoreItems = false;
+                HitsUpdated?.Invoke(this, EventArgs.Empty);
             }
             else
             {
@@ -757,7 +751,14 @@ public partial class SearchViewModel : ObservableObject
         }
         finally
         {
-            IsSearching = false;
+            if (Application.Current?.Dispatcher != null && !Application.Current.Dispatcher.CheckAccess())
+            {
+                Application.Current.Dispatcher.Invoke(() => IsSearching = false);
+            }
+            else
+            {
+                IsSearching = false;
+            }
         }
     }
 
@@ -908,33 +909,29 @@ public partial class SearchViewModel : ObservableObject
                 }
 
                 return (list, gridRows);
-            }, ct).ConfigureAwait(false);
+            }, ct);
 
             loadedHitIndex += countToTake;
             bool remaining = loadedHitIndex < currentHits.Count;
             int total = currentHits.Count;
 
-            await Application.Current.Dispatcher.InvokeAsync(() =>
+            if (Application.Current?.Dispatcher != null && !Application.Current.Dispatcher.CheckAccess())
             {
-                foreach (var item in newItems)
+                await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    SearchResults.Add(item);
-                }
-                foreach (var gRow in newGridRows)
-                {
-                    GalleryRows.Add(gRow);
-                }
-
+                    foreach (var item in newItems) SearchResults.Add(item);
+                    foreach (var gRow in newGridRows) GalleryRows.Add(gRow);
+                    HasMoreItems = remaining;
+                    SearchSummaryText = remaining ? $"检索成功：共匹配 {total:N0} 项" : $"检索成功：共匹配 {total:N0} 项 (已全加载)";
+                });
+            }
+            else
+            {
+                foreach (var item in newItems) SearchResults.Add(item);
+                foreach (var gRow in newGridRows) GalleryRows.Add(gRow);
                 HasMoreItems = remaining;
-                if (remaining)
-                {
-                    SearchSummaryText = $"检索成功：共匹配 {total:N0} 项";
-                }
-                else
-                {
-                    SearchSummaryText = $"检索成功：共匹配 {total:N0} 项 (已全加载)";
-                }
-            });
+                SearchSummaryText = remaining ? $"检索成功：共匹配 {total:N0} 项" : $"检索成功：共匹配 {total:N0} 项 (已全加载)";
+            }
 
             _ = LoadThumbnailsInBackgroundAsync(newItems, ct);
         }

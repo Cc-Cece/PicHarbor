@@ -107,11 +107,22 @@ public partial class PclGalleryWebControl : UserControl
 
     private void CurrentSearchVM_HitsUpdated(object? sender, EventArgs e)
     {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.InvokeAsync(() => CurrentSearchVM_HitsUpdated(sender, e));
+            return;
+        }
         TriggerPush();
     }
 
     private void CurrentSearchVM_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.InvokeAsync(() => CurrentSearchVM_PropertyChanged(sender, e));
+            return;
+        }
+
         if (e.PropertyName == nameof(SearchViewModel.IsGalleryView) && currentSearchVM?.IsGalleryView == true)
         {
             TriggerPush();
