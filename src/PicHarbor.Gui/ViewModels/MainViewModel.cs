@@ -64,12 +64,12 @@ public partial class MainViewModel : ObservableObject
         SearchVM.GooglePhotosVM = GooglePhotosVM;
 
         // Wire navigation callbacks
-        BackupVM.NavigateToSettingsAction = () => SelectedTabIndex = 8;
-        AndroidBackupVM.NavigateToSettingsAction = () => SelectedTabIndex = 8;
-        IPhoneSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 8;
-        AndroidSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 8;
-        GooglePhotosVM.NavigateToSettingsAction = () => SelectedTabIndex = 8;
-        GooglePhotosVM.NavigateToSearchAction = () => SelectedTabIndex = 6;
+        BackupVM.NavigateToSettingsAction = () => SelectedTabIndex = 3;
+        AndroidBackupVM.NavigateToSettingsAction = () => SelectedTabIndex = 3;
+        IPhoneSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 3;
+        AndroidSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 3;
+        GooglePhotosVM.NavigateToSettingsAction = () => SelectedTabIndex = 3;
+        GooglePhotosVM.NavigateToSearchAction = () => SelectedTabIndex = 1;
 
         // Sync initial destination path across all sub-ViewModels
         SyncDestinationPath(DestinationPath);

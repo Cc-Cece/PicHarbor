@@ -1,0 +1,410 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ======================================================== -->
+    <!--  PCL2 Color Palette                                      -->
+    <!-- ======================================================== -->
+    <Color x:Key="PclTopBarColor">#1976D2</Color>
+    <Color x:Key="PclPrimaryColor">#1E88E5</Color>
+    <Color x:Key="PclPrimaryHoverColor">#42A5F5</Color>
+    <Color x:Key="PclPrimaryLightColor">#E3F2FD</Color>
+    <Color x:Key="PclCanvasBgStartColor">#EAF2FA</Color>
+    <Color x:Key="PclCanvasBgEndColor">#F4F8FD</Color>
+    <Color x:Key="PclSidebarBgColor">#FFFFFF</Color>
+    <Color x:Key="PclCardBgColor">#FFFFFF</Color>
+    <Color x:Key="PclCardBorderColor">#E2E8F0</Color>
+    <Color x:Key="PclTextPrimaryColor">#1E293B</Color>
+    <Color x:Key="PclTextSecondaryColor">#64748B</Color>
+    <Color x:Key="PclTextMutedColor">#94A3B8</Color>
+    <Color x:Key="PclControlBorderColor">#CBD5E1</Color>
+    <Color x:Key="PclAccentGreenColor">#10B981</Color>
+    <Color x:Key="PclAccentRedColor">#EF4444</Color>
+
+    <!-- Solid Brushes -->
+    <SolidColorBrush x:Key="PclTopBarBrush" Color="{StaticResource PclTopBarColor}" />
+    <SolidColorBrush x:Key="PclPrimaryBrush" Color="{StaticResource PclPrimaryColor}" />
+    <SolidColorBrush x:Key="PclPrimaryHoverBrush" Color="{StaticResource PclPrimaryHoverColor}" />
+    <SolidColorBrush x:Key="PclPrimaryLightBrush" Color="{StaticResource PclPrimaryLightColor}" />
+    <SolidColorBrush x:Key="PclSidebarBgBrush" Color="{StaticResource PclSidebarBgColor}" />
+    <SolidColorBrush x:Key="PclCardBgBrush" Color="{StaticResource PclCardBgColor}" />
+    <SolidColorBrush x:Key="PclCardBorderBrush" Color="{StaticResource PclCardBorderColor}" />
+    <SolidColorBrush x:Key="PclTextPrimaryBrush" Color="{StaticResource PclTextPrimaryColor}" />
+    <SolidColorBrush x:Key="PclTextSecondaryBrush" Color="{StaticResource PclTextSecondaryColor}" />
+    <SolidColorBrush x:Key="PclTextMutedBrush" Color="{StaticResource PclTextMutedColor}" />
+    <SolidColorBrush x:Key="PclControlBorderBrush" Color="{StaticResource PclControlBorderColor}" />
+    <SolidColorBrush x:Key="PclAccentGreenBrush" Color="{StaticResource PclAccentGreenColor}" />
+    <SolidColorBrush x:Key="PclAccentRedBrush" Color="{StaticResource PclAccentRedColor}" />
+
+    <!-- Canvas Gradient Brush -->
+    <LinearGradientBrush x:Key="PclCanvasGradientBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="{StaticResource PclCanvasBgStartColor}" Offset="0.0" />
+        <GradientStop Color="{StaticResource PclCanvasBgEndColor}" Offset="1.0" />
+    </LinearGradientBrush>
+
+    <!-- Top Bar Gradient Brush -->
+    <LinearGradientBrush x:Key="PclTopBarGradientBrush" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#1E88E5" Offset="0.0" />
+        <GradientStop Color="#1565C0" Offset="1.0" />
+    </LinearGradientBrush>
+
+    <!-- Card Soft Elevation Effect -->
+    <DropShadowEffect x:Key="PclCardShadow" BlurRadius="8" ShadowDepth="1" Direction="270" Color="#000000" Opacity="0.04" />
+    <DropShadowEffect x:Key="PclButtonShadow" BlurRadius="6" ShadowDepth="1" Direction="270" Color="#1E88E5" Opacity="0.15" />
+
+    <!-- ======================================================== -->
+    <!--  1. Top Nav Capsule Tab Button (PCL2 Pill Style)         -->
+    <!-- ======================================================== -->
+    <Style x:Key="PclTopCapsuleTab" TargetType="RadioButton">
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Margin" Value="4,0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="TabBorder" 
+                            Background="Transparent" 
+                            CornerRadius="16" 
+                            Padding="16,6">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="TabBorder" Property="Background" Value="White" />
+                            <Setter Property="Foreground" Value="{StaticResource PclPrimaryBrush}" />
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsMouseOver" Value="True" />
+                                <Condition Property="IsChecked" Value="False" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="TabBorder" Property="Background" Value="#25FFFFFF" />
+                        </MultiTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ======================================================== -->
+    <!--  2. Left Sub-Nav Item (PCL2 Sub-Navigation RadioButton)   -->
+    <!-- ======================================================== -->
+    <Style x:Key="PclSubNavItem" TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{StaticResource PclTextSecondaryBrush}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Margin" Value="10,2" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="SubBorder" 
+                            Background="Transparent" 
+                            CornerRadius="6" 
+                            Padding="14,10">
+                        <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="SubBorder" Property="Background" Value="{StaticResource PclPrimaryLightBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource PclPrimaryBrush}" />
+                            <Setter Property="FontWeight" Value="Bold" />
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsMouseOver" Value="True" />
+                                <Condition Property="IsChecked" Value="False" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="SubBorder" Property="Background" Value="#F1F5F9" />
+                        </MultiTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ======================================================== -->
+    <!--  3. Segmented Pill Tab (PCL2 [✔ 正版] [🔗 离线] 风格)      -->
+    <!-- ======================================================== -->
+    <Style x:Key="PclSegmentedTab" TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{StaticResource PclTextSecondaryBrush}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="SegBorder" 
+                            Background="Transparent" 
+                            CornerRadius="14" 
+                            Padding="12,5">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="SegBorder" Property="Background" Value="{StaticResource PclPrimaryBrush}" />
+                            <Setter Property="Foreground" Value="White" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsMouseOver" Value="True" />
+                                <Condition Property="IsChecked" Value="False" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="SegBorder" Property="Background" Value="#F1F5F9" />
+                        </MultiTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ======================================================== -->
+    <!--  4. Primary Hero Action Button (PCL2 启动大按钮)          -->
+    <!-- ======================================================== -->
+    <Style x:Key="PclHeroButton" TargetType="Button">
+        <Setter Property="Background" Value="White" />
+        <Setter Property="BorderBrush" Value="{StaticResource PclPrimaryBrush}" />
+        <Setter Property="BorderThickness" Value="1.5" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Effect" Value="{StaticResource PclButtonShadow}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="HeroBorder" 
+                            Background="{TemplateBinding Background}" 
+                            BorderBrush="{TemplateBinding BorderBrush}" 
+                            BorderThickness="{TemplateBinding BorderThickness}" 
+                            CornerRadius="6" 
+                            Padding="14,10">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="HeroBorder" Property="Background" Value="#F0F7FF" />
+                            <Setter TargetName="HeroBorder" Property="BorderBrush" Value="{StaticResource PclPrimaryHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="HeroBorder" Property="Background" Value="#E3F2FD" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="HeroBorder" Property="Opacity" Value="0.6" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ======================================================== -->
+    <!--  5. Secondary Button (PCL2 [版本选择] [版本设置] 风格)    -->
+    <!-- ======================================================== -->
+    <Style x:Key="PclSecondaryButton" TargetType="Button">
+        <Setter Property="Background" Value="White" />
+        <Setter Property="Foreground" Value="{StaticResource PclTextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource PclCardBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="BtnBorder" 
+                            Background="{TemplateBinding Background}" 
+                            BorderBrush="{TemplateBinding BorderBrush}" 
+                            BorderThickness="{TemplateBinding BorderThickness}" 
+                            CornerRadius="6" 
+                            Padding="12,7">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="BtnBorder" Property="Background" Value="#F8FAFC" />
+                            <Setter TargetName="BtnBorder" Property="BorderBrush" Value="{StaticResource PclPrimaryBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource PclPrimaryBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="BtnBorder" Property="Background" Value="#F1F5F9" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ======================================================== -->
+    <!--  6. PCL2 White Rounded Card (纯白大圆角卡片)             -->
+    <!-- ======================================================== -->
+    <Style x:Key="PclCard" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource PclCardBgBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource PclCardBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="18,14" />
+        <Setter Property="Margin" Value="0,0,0,12" />
+        <Setter Property="Effect" Value="{StaticResource PclCardShadow}" />
+    </Style>
+
+    <!-- ======================================================== -->
+    <!--  7. PCL2 Accordion Expander (手风琴折叠卡片，图 2 风格)   -->
+    <!-- ======================================================== -->
+    <Style x:Key="PclAccordionCard" TargetType="Expander">
+        <Setter Property="Background" Value="White" />
+        <Setter Property="BorderBrush" Value="{StaticResource PclCardBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Margin" Value="0,0,0,10" />
+        <Setter Property="Effect" Value="{StaticResource PclCardShadow}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Expander">
+                    <Border Background="{TemplateBinding Background}" 
+                            BorderBrush="{TemplateBinding BorderBrush}" 
+                            BorderThickness="{TemplateBinding BorderThickness}" 
+                            CornerRadius="8">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Header Click Bar -->
+                            <ToggleButton x:Name="HeaderSite" 
+                                          Grid.Row="0" 
+                                          IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" 
+                                          Cursor="Hand">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="Transparent" Padding="18,14" CornerRadius="8,8,0,0">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <ContentPresenter Grid.Column="0" 
+                                                                  Content="{Binding Header, RelativeSource={RelativeSource AncestorType=Expander}}" 
+                                                                  VerticalAlignment="Center" />
+                                                <!-- Chevron Arrow -->
+                                                <TextBlock x:Name="Arrow" 
+                                                           Grid.Column="1" 
+                                                           Text="∨" 
+                                                           FontWeight="Bold" 
+                                                           FontSize="12" 
+                                                           Foreground="{StaticResource PclTextSecondaryBrush}" 
+                                                           VerticalAlignment="Center" 
+                                                           RenderTransformOrigin="0.5,0.5">
+                                                    <TextBlock.RenderTransform>
+                                                        <RotateTransform Angle="0" />
+                                                    </TextBlock.RenderTransform>
+                                                </TextBlock>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="Arrow" Property="RenderTransform">
+                                                    <Setter.Value>
+                                                        <RotateTransform Angle="180" />
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+
+                            <!-- Content -->
+                            <Border x:Name="ContentSite" 
+                                    Grid.Row="1" 
+                                    Visibility="Collapsed" 
+                                    Padding="18,0,18,16" 
+                                    BorderThickness="0,1,0,0" 
+                                    BorderBrush="#F1F5F9">
+                                <ContentPresenter Content="{TemplateBinding Content}" />
+                            </Border>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsExpanded" Value="True">
+                            <Setter TargetName="ContentSite" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ======================================================== -->
+    <!--  8. PCL2 Clean Flat ComboBox (极简下拉框，图 3 风格)      -->
+    <!-- ======================================================== -->
+    <Style x:Key="PclComboBox" TargetType="ComboBox">
+        <Setter Property="Height" Value="34" />
+        <Setter Property="Foreground" Value="{StaticResource PclTextPrimaryBrush}" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="BorderBrush" Value="{StaticResource PclControlBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <!-- ======================================================== -->
+    <!--  9. PCL2 Clean Flat TextBox (输入框)                     -->
+    <!-- ======================================================== -->
+    <Style x:Key="PclTextBox" TargetType="TextBox">
+        <Setter Property="Height" Value="34" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="Foreground" Value="{StaticResource PclTextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource PclControlBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <!-- ======================================================== -->
+    <!--  10. PCL2 Window Control Button (最小化 / 关闭)           -->
+    <!-- ======================================================== -->
+    <Style x:Key="PclWindowControlBtn" TargetType="Button">
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Width" Value="38" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="BtnBg" Background="{TemplateBinding Background}" CornerRadius="4">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="BtnBg" Property="Background" Value="#30FFFFFF" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="BtnBg" Property="Background" Value="#50FFFFFF" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="PclCloseControlBtn" TargetType="Button" BasedOn="{StaticResource PclWindowControlBtn}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="BtnBg" Background="{TemplateBinding Background}" CornerRadius="4">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="BtnBg" Property="Background" Value="#E53935" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

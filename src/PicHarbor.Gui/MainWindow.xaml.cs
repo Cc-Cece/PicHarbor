@@ -34,6 +34,24 @@ public partial class MainWindow : Window
         Closed += (_, _) => StopPreviewPlayback();
     }
 
+    private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == MouseButton.Left)
+        {
+            DragMove();
+        }
+    }
+
+    private void MinimizeButton_Click(object sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
+    }
+
+    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        Close();
+    }
+
     private void NavButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is RadioButton btn && btn.Tag is string tagStr && int.TryParse(tagStr, out int index))
