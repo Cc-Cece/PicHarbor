@@ -23,6 +23,36 @@
         <vm:MainViewModel />
     </Window.DataContext>
 
+    <Window.Resources>
+        <Style x:Key="PclHeroMiniBtn" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource ColorBrush2}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="Padding" Value="7,3" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#FFFFFF" />
+                                <Setter Property="Foreground" Value="{DynamicResource ColorBrush3}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#E2E8F0" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <!-- Top Navigation Bar (PCL2 PanTitle, Height="48") -->
@@ -159,7 +189,8 @@
                             </Border>
 
                             <!-- Center Hero Illustration & Status: iPhone View -->
-                            <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="16,0">
+                            <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="16,0"
+                                        MouseEnter="IPhoneHero_MouseEnter" MouseLeave="IPhoneHero_MouseLeave">
                                 <StackPanel.Style>
                                     <Style TargetType="StackPanel">
                                         <Setter Property="Visibility" Value="Visible" />
@@ -212,10 +243,25 @@
                                         <TextBlock Text="{Binding DeviceStatusText}" FontSize="11" FontWeight="Medium" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Border>
+
+                                <!-- PCL2 Signature Hero Hover Mini-Menu (Hover near device card to reveal) -->
+                                <Border x:Name="IPhoneHeroHoverMenu" Height="0" Opacity="0" ClipToBounds="True" Margin="0,8,0,0" HorizontalAlignment="Center">
+                                    <Border Background="#F1F5F9" CornerRadius="14" Padding="4,2" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="✏️ 重命名" Command="{Binding OpenRenameModalCommand}"
+                                                    Style="{StaticResource PclHeroMiniBtn}" Margin="0,0,3,0" ToolTip="自定义设备别名" />
+                                            <Button Content="⚙️ 偏好" Command="{Binding NavigateToSettingsCommand}"
+                                                    Style="{StaticResource PclHeroMiniBtn}" Margin="0,0,3,0" ToolTip="前往备份偏好设置" />
+                                            <Button Content="🔄 刷新" Command="{Binding RefreshDeviceCommand}"
+                                                    Style="{StaticResource PclHeroMiniBtn}" ToolTip="重新检测连接状态" />
+                                        </StackPanel>
+                                    </Border>
+                                </Border>
                             </StackPanel>
 
                             <!-- Center Hero Illustration & Status: Android View -->
-                            <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="16,0">
+                            <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="16,0"
+                                        MouseEnter="AndroidHero_MouseEnter" MouseLeave="AndroidHero_MouseLeave">
                                 <StackPanel.Style>
                                     <Style TargetType="StackPanel">
                                         <Setter Property="Visibility" Value="Collapsed" />
@@ -256,6 +302,20 @@
                                         <Ellipse Width="6" Height="6" Fill="#10B981" VerticalAlignment="Center" Margin="0,0,6,0" />
                                         <TextBlock Text="{Binding AndroidBackupVM.ProgressText}" FontSize="11" FontWeight="Medium" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" />
                                     </StackPanel>
+                                </Border>
+
+                                <!-- PCL2 Signature Hero Hover Mini-Menu (Android) -->
+                                <Border x:Name="AndroidHeroHoverMenu" Height="0" Opacity="0" ClipToBounds="True" Margin="0,8,0,0" HorizontalAlignment="Center">
+                                    <Border Background="#F1F5F9" CornerRadius="14" Padding="4,2" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="✏️ 重命名" Command="{Binding OpenRenameModalCommand}"
+                                                    Style="{StaticResource PclHeroMiniBtn}" Margin="0,0,3,0" ToolTip="自定义设备别名" />
+                                            <Button Content="📡 FTP 直连" Command="{Binding NavigateToAndroidSyncCommand}"
+                                                    Style="{StaticResource PclHeroMiniBtn}" Margin="0,0,3,0" ToolTip="快速跳转 Wi-Fi/FTP 同步" />
+                                            <Button Content="🔄 重扫" Command="{Binding RefreshDeviceCommand}"
+                                                    Style="{StaticResource PclHeroMiniBtn}" ToolTip="重新扫描局域网与设备" />
+                                        </StackPanel>
+                                    </Border>
                                 </Border>
                             </StackPanel>
 
@@ -361,56 +421,56 @@
                 <!-- RIGHT CANVAS -->
                 <Grid Grid.Column="1">
                     <controls:PclScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="25,20,25,15">
-                        <controls:PclPageHost Direction="Vertical">
-                            <StackPanel>
-                                <!-- Top Sub-Tab Capsule Switcher -->
-                                <Border Background="#EAF2FE" CornerRadius="16" Padding="3" HorizontalAlignment="Left" Margin="0,0,0,16">
-                                    <StackPanel Orientation="Horizontal">
-                                        <RadioButton Style="{StaticResource PclSegmentedTab}" Margin="0,0,4,0"
-                                                     IsChecked="{Binding BackupSubTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=0}">
-                                            <StackPanel Orientation="Horizontal">
-                                                <Path Data="{StaticResource PclIconLaunch}" Width="12" Height="12" Stretch="Uniform"
-                                                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
-                                                      VerticalAlignment="Center" Margin="0,0,6,0" />
-                                                <TextBlock Text="增量备份与执行" VerticalAlignment="Center" />
-                                            </StackPanel>
-                                        </RadioButton>
-                                        <RadioButton Style="{StaticResource PclSegmentedTab}" Margin="0,0,4,0"
-                                                     IsChecked="{Binding BackupSubTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=1}">
-                                            <StackPanel Orientation="Horizontal">
-                                                <Path Data="{StaticResource PclIconFolder}" Width="12" Height="12" Stretch="Uniform"
-                                                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
-                                                      VerticalAlignment="Center" Margin="0,0,6,0" />
-                                                <TextBlock Text="归档目录重组" VerticalAlignment="Center" />
-                                            </StackPanel>
-                                        </RadioButton>
-                                        <RadioButton Style="{StaticResource PclSegmentedTab}"
-                                                     IsChecked="{Binding BackupSubTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=2}">
-                                            <StackPanel Orientation="Horizontal">
-                                                <Path Data="{StaticResource PclIconList}" Width="12" Height="12" Stretch="Uniform"
-                                                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
-                                                      VerticalAlignment="Center" Margin="0,0,6,0" />
-                                                <TextBlock Text="运行状态与历史" VerticalAlignment="Center" />
-                                            </StackPanel>
-                                        </RadioButton>
-                                    </StackPanel>
-                                </Border>
+                        <StackPanel>
+                            <!-- Top Sub-Tab Capsule Switcher -->
+                            <Border Background="#EAF2FE" CornerRadius="16" Padding="3" HorizontalAlignment="Left" Margin="0,0,0,16">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource PclSegmentedTab}" Margin="0,0,4,0"
+                                                 IsChecked="{Binding BackupSubTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=0}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Data="{StaticResource PclIconLaunch}" Width="12" Height="12" Stretch="Uniform"
+                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                                                  VerticalAlignment="Center" Margin="0,0,6,0" />
+                                            <TextBlock Text="增量备份与执行" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </RadioButton>
+                                    <RadioButton Style="{StaticResource PclSegmentedTab}" Margin="0,0,4,0"
+                                                 IsChecked="{Binding BackupSubTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=1}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Data="{StaticResource PclIconFolder}" Width="12" Height="12" Stretch="Uniform"
+                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                                                  VerticalAlignment="Center" Margin="0,0,6,0" />
+                                            <TextBlock Text="归档目录重组" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </RadioButton>
+                                    <RadioButton Style="{StaticResource PclSegmentedTab}"
+                                                 IsChecked="{Binding BackupSubTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=2}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Data="{StaticResource PclIconList}" Width="12" Height="12" Stretch="Uniform"
+                                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
+                                                  VerticalAlignment="Center" Margin="0,0,6,0" />
+                                            <TextBlock Text="运行状态与历史" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </RadioButton>
+                                </StackPanel>
+                            </Border>
 
-                                <!-- SUB-VIEW 0: 增量备份与执行 -->
+                            <!-- SUB-VIEW 0: 增量备份与执行 -->
+                            <controls:PclPageHost Direction="Vertical">
+                                <controls:PclPageHost.Style>
+                                    <Style TargetType="controls:PclPageHost">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding BackupSubTabIndex}" Value="1">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding BackupSubTabIndex}" Value="2">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </controls:PclPageHost.Style>
                                 <StackPanel>
-                                    <StackPanel.Style>
-                                        <Style TargetType="StackPanel">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding BackupSubTabIndex}" Value="1">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding BackupSubTabIndex}" Value="2">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </StackPanel.Style>
 
                                     <!-- Card 1: 存储主盘与图库概览 -->
                                     <controls:PclCard Title="图库存储主盘概览" CanSwap="False">
@@ -501,19 +561,21 @@
                                         </StackPanel>
                                     </controls:PclCard>
                                 </StackPanel>
+                            </controls:PclPageHost>
 
-                                <!-- SUB-VIEW 1: 🗂 归档目录结构智能重组 (ReorganizeVM) -->
-                                <StackPanel DataContext="{Binding ReorganizeVM}">
-                                    <StackPanel.Style>
-                                        <Style TargetType="StackPanel">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding DataContext.BackupSubTabIndex, RelativeSource={RelativeSource AncestorType=Window}}" Value="1">
-                                                    <Setter Property="Visibility" Value="Visible" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </StackPanel.Style>
+                            <!-- SUB-VIEW 1: 🗂 归档目录结构智能重组 (ReorganizeVM) -->
+                            <controls:PclPageHost Direction="Vertical" DataContext="{Binding ReorganizeVM}">
+                                <controls:PclPageHost.Style>
+                                    <Style TargetType="controls:PclPageHost">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DataContext.BackupSubTabIndex, RelativeSource={RelativeSource AncestorType=Window}}" Value="1">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </controls:PclPageHost.Style>
+                                <StackPanel>
 
                                     <!-- Card: 重组方案配置 -->
                                     <controls:PclCard Title="存储目录结构智能重组" CanSwap="False">
@@ -564,19 +626,21 @@
                                         </StackPanel>
                                     </controls:PclCard>
                                 </StackPanel>
+                            </controls:PclPageHost>
 
-                                <!-- SUB-VIEW 2: 📊 运行状态与历史 (StatusVM) -->
-                                <StackPanel DataContext="{Binding StatusVM}">
-                                    <StackPanel.Style>
-                                        <Style TargetType="StackPanel">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding DataContext.BackupSubTabIndex, RelativeSource={RelativeSource AncestorType=Window}}" Value="2">
-                                                    <Setter Property="Visibility" Value="Visible" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </StackPanel.Style>
+                            <!-- SUB-VIEW 2: 📊 运行状态与历史 (StatusVM) -->
+                            <controls:PclPageHost Direction="Vertical" DataContext="{Binding StatusVM}">
+                                <controls:PclPageHost.Style>
+                                    <Style TargetType="controls:PclPageHost">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DataContext.BackupSubTabIndex, RelativeSource={RelativeSource AncestorType=Window}}" Value="2">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </controls:PclPageHost.Style>
+                                <StackPanel>
 
                                     <!-- Card 1: 4 指标卡片 -->
                                     <controls:PclCard Title="媒体库统计概览" CanSwap="False">
@@ -666,8 +730,8 @@
                                         </DataGrid>
                                     </controls:PclCard>
                                 </StackPanel>
-                            </StackPanel>
-                        </controls:PclPageHost>
+                            </controls:PclPageHost>
+                        </StackPanel>
                     </controls:PclScrollViewer>
 
                     <!-- PCL2 Floating Extra Button (Bottom Right) -->
@@ -1043,23 +1107,23 @@
 
                 <!-- Right Canvas -->
                 <controls:PclScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="25,20,25,15">
-                    <controls:PclPageHost Direction="Vertical">
-                        <StackPanel>
-                            <!-- SUB-VIEW 0: Google 相册 (GooglePhotosVM) -->
+                    <StackPanel>
+                        <!-- SUB-VIEW 0: Google 相册 (GooglePhotosVM) -->
+                        <controls:PclPageHost Direction="Vertical">
+                            <controls:PclPageHost.Style>
+                                <Style TargetType="controls:PclPageHost">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SyncSubTabIndex}" Value="1">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding SyncSubTabIndex}" Value="2">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </controls:PclPageHost.Style>
                             <StackPanel DataContext="{Binding GooglePhotosVM}">
-                                <StackPanel.Style>
-                                    <Style TargetType="StackPanel">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DataContext.SyncSubTabIndex, RelativeSource={RelativeSource AncestorType=Window}}" Value="1">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding DataContext.SyncSubTabIndex, RelativeSource={RelativeSource AncestorType=Window}}" Value="2">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </StackPanel.Style>
 
                                 <!-- Card 1: 账号与代理 -->
                                 <controls:PclCard Title="Google 相册授权与连接" CanSwap="False">
@@ -1125,19 +1189,21 @@
                                     </StackPanel>
                                 </controls:PclCard>
                             </StackPanel>
+                        </controls:PclPageHost>
 
-                            <!-- SUB-VIEW 1: 同步到 iPhone (IPhoneSyncVM) -->
+                        <!-- SUB-VIEW 1: 同步到 iPhone (IPhoneSyncVM) -->
+                        <controls:PclPageHost Direction="Vertical">
+                            <controls:PclPageHost.Style>
+                                <Style TargetType="controls:PclPageHost">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SyncSubTabIndex}" Value="1">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </controls:PclPageHost.Style>
                             <StackPanel DataContext="{Binding IPhoneSyncVM}">
-                                <StackPanel.Style>
-                                    <Style TargetType="StackPanel">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DataContext.SyncSubTabIndex, RelativeSource={RelativeSource AncestorType=Window}}" Value="1">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </StackPanel.Style>
 
                                 <!-- Hint Banner -->
                                 <controls:PclHint HintType="Success" Margin="0,0,0,14">
@@ -1252,19 +1318,21 @@
                                     </StackPanel>
                                 </controls:PclCard>
                             </StackPanel>
+                        </controls:PclPageHost>
 
-                            <!-- SUB-VIEW 2: 同步到 Android (AndroidSyncVM) -->
+                        <!-- SUB-VIEW 2: 同步到 Android (AndroidSyncVM) -->
+                        <controls:PclPageHost Direction="Vertical">
+                            <controls:PclPageHost.Style>
+                                <Style TargetType="controls:PclPageHost">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SyncSubTabIndex}" Value="2">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </controls:PclPageHost.Style>
                             <StackPanel DataContext="{Binding AndroidSyncVM}">
-                                <StackPanel.Style>
-                                    <Style TargetType="StackPanel">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DataContext.SyncSubTabIndex, RelativeSource={RelativeSource AncestorType=Window}}" Value="2">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </StackPanel.Style>
 
                                 <!-- Hint Banner -->
                                 <controls:PclHint HintType="Success" Margin="0,0,0,14">
@@ -1389,8 +1457,8 @@
                                     </StackPanel>
                                 </controls:PclCard>
                             </StackPanel>
-                        </StackPanel>
-                    </controls:PclPageHost>
+                        </controls:PclPageHost>
+                    </StackPanel>
                 </controls:PclScrollViewer>
             </Grid>
 
@@ -1446,26 +1514,26 @@
 
                 <!-- RIGHT CONTENT CANVAS -->
                 <controls:PclScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="25,20,25,15">
-                    <controls:PclPageHost Direction="Vertical">
-                        <StackPanel>
-                            <!-- SUB-VIEW 0: 存储主盘与架构 -->
+                    <StackPanel>
+                        <!-- SUB-VIEW 0: 存储主盘与架构 -->
+                        <controls:PclPageHost Direction="Vertical">
+                            <controls:PclPageHost.Style>
+                                <Style TargetType="controls:PclPageHost">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SettingsSubTabIndex}" Value="1">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding SettingsSubTabIndex}" Value="2">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding SettingsSubTabIndex}" Value="3">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </controls:PclPageHost.Style>
                             <StackPanel DataContext="{Binding SettingsVM}">
-                                <StackPanel.Style>
-                                    <Style TargetType="StackPanel">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DataContext.SettingsSubTabIndex, RelativeSource={RelativeSource AncestorType=Window}}" Value="1">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding DataContext.SettingsSubTabIndex, RelativeSource={RelativeSource AncestorType=Window}}" Value="2">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding DataContext.SettingsSubTabIndex, RelativeSource={RelativeSource AncestorType=Window}}" Value="3">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </StackPanel.Style>
 
                                 <!-- Card 1: 存储主盘与架构规范 -->
                                 <controls:PclCard Title="存储主盘与架构规范" CanSwap="False">
@@ -1517,19 +1585,21 @@
                                     </Grid>
                                 </controls:PclCard>
                             </StackPanel>
+                        </controls:PclPageHost>
 
-                            <!-- SUB-VIEW 1: 备份偏好与规则 -->
+                        <!-- SUB-VIEW 1: 备份偏好与规则 -->
+                        <controls:PclPageHost Direction="Vertical">
+                            <controls:PclPageHost.Style>
+                                <Style TargetType="controls:PclPageHost">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SettingsSubTabIndex}" Value="1">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </controls:PclPageHost.Style>
                             <StackPanel DataContext="{Binding SettingsVM}">
-                                <StackPanel.Style>
-                                    <Style TargetType="StackPanel">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DataContext.SettingsSubTabIndex, RelativeSource={RelativeSource AncestorType=Window}}" Value="1">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </StackPanel.Style>
 
                                 <!-- Card 1: 智能绑定与媒体关联 -->
                                 <controls:PclCard Title="媒体智能绑定与组织" CanSwap="False">
@@ -1557,19 +1627,21 @@
                                     </StackPanel>
                                 </controls:PclCard>
                             </StackPanel>
+                        </controls:PclPageHost>
 
-                            <!-- SUB-VIEW 2: 拍摄时间系统校准 (SettingsVM) -->
+                        <!-- SUB-VIEW 2: 拍摄时间系统校准 (SettingsVM) -->
+                        <controls:PclPageHost Direction="Vertical">
+                            <controls:PclPageHost.Style>
+                                <Style TargetType="controls:PclPageHost">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SettingsSubTabIndex}" Value="2">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </controls:PclPageHost.Style>
                             <StackPanel DataContext="{Binding SettingsVM}">
-                                <StackPanel.Style>
-                                    <Style TargetType="StackPanel">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DataContext.SettingsSubTabIndex, RelativeSource={RelativeSource AncestorType=Window}}" Value="2">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </StackPanel.Style>
 
                                 <controls:PclCard Title="EXIF 拍摄时间批量系统校准" CanSwap="False">
                                     <StackPanel>
@@ -1603,20 +1675,21 @@
                                     </StackPanel>
                                 </controls:PclCard>
                             </StackPanel>
+                        </controls:PclPageHost>
 
-                            <!-- SUB-VIEW 3: 界面语言与关于 -->
+                        <!-- SUB-VIEW 3: 界面语言与关于 -->
+                        <controls:PclPageHost Direction="Vertical">
+                            <controls:PclPageHost.Style>
+                                <Style TargetType="controls:PclPageHost">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SettingsSubTabIndex}" Value="3">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </controls:PclPageHost.Style>
                             <StackPanel>
-                                <StackPanel.Style>
-                                    <Style TargetType="StackPanel">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding SettingsSubTabIndex}" Value="3">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </StackPanel.Style>
-
                                 <!-- Card 1: 界面语言 -->
                                 <controls:PclCard Title="语言与界面外观" CanSwap="False">
                                     <Grid Grid.IsSharedSizeScope="True">
@@ -1643,8 +1716,8 @@
                                     </StackPanel>
                                 </controls:PclCard>
                             </StackPanel>
-                        </StackPanel>
-                    </controls:PclPageHost>
+                        </controls:PclPageHost>
+                    </StackPanel>
                 </controls:PclScrollViewer>
             </Grid>
         </Grid>
@@ -1652,27 +1725,9 @@
         <!-- ======================================================== -->
         <!--  MODAL 1: 传输文件明细弹窗 (PCL2 风格弹窗)                -->
         <!-- ======================================================== -->
-        <Grid Grid.RowSpan="2" Background="#80000000" Panel.ZIndex="1000">
-            <Grid.Style>
-                <Style TargetType="Grid">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding BackupVM.IsDetailModalOpen}" Value="True">
-                            <Setter Property="Visibility" Value="Visible" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding AndroidBackupVM.IsDetailModalOpen}" Value="True">
-                            <Setter Property="Visibility" Value="Visible" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding GooglePhotosVM.IsDetailModalOpen}" Value="True">
-                            <Setter Property="Visibility" Value="Visible" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding AndroidSyncVM.IsDetailModalOpen}" Value="True">
-                            <Setter Property="Visibility" Value="Visible" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Grid.Style>
-
+        <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1000"
+                               IsOpen="{Binding IsDetailModalOpen}"
+                               CloseCommand="{Binding CloseActiveDetailModalCommand}">
             <Border Style="{StaticResource PclDialogContainer}" Width="840" Height="520" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -1683,11 +1738,14 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="{Binding BackupVM.DetailModalTitle, FallbackValue='传输文件明细清单'}"
-                               FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" Margin="0,0,0,8" />
+                    <Grid Grid.Row="0" Margin="0,0,0,8">
+                        <TextBlock Text="{Binding ActiveDetailModalTitle, FallbackValue='传输文件明细清单'}"
+                                   FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center" />
+                        <controls:PclIconButton Logo="{StaticResource PclIconClose}" IconTheme="Close" Command="{Binding CloseActiveDetailModalCommand}" HorizontalAlignment="Right" />
+                    </Grid>
                     <Rectangle Grid.Row="1" Height="2" Fill="{DynamicResource ColorBrush2}" />
 
-                    <DataGrid Grid.Row="3" ItemsSource="{Binding BackupVM.DetailItems}"
+                    <DataGrid Grid.Row="3" ItemsSource="{Binding ActiveDetailItems}"
                               Style="{StaticResource PclDataGrid}"
                               HeadersVisibility="Column">
                         <DataGrid.RowStyle>
@@ -1704,17 +1762,18 @@
                     </DataGrid>
 
                     <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-                        <controls:PclButton Content="关闭" Command="{Binding BackupVM.CloseDetailModalCommand}" Width="90" Height="32" />
+                        <controls:PclButton Content="关闭" Command="{Binding CloseActiveDetailModalCommand}" Width="90" Height="32" />
                     </StackPanel>
                 </Grid>
             </Border>
-        </Grid>
+        </controls:PclModalHost>
 
         <!-- ======================================================== -->
         <!--  MODAL 2: 备份范围选择弹窗 (PCL2 选项弹窗)                 -->
         <!-- ======================================================== -->
-        <Grid Grid.RowSpan="2" Background="#80000000" Panel.ZIndex="1000"
-              Visibility="{Binding IsScopeModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+        <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1000"
+                               IsOpen="{Binding IsScopeModalOpen}"
+                               CloseCommand="{Binding CloseScopeModalCommand}">
             <Border Style="{StaticResource PclDialogContainer}" Width="520" Height="340" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -1725,7 +1784,10 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="配置备份文件范围" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" Margin="0,0,0,8" />
+                    <Grid Grid.Row="0" Margin="0,0,0,8">
+                        <TextBlock Text="配置备份文件范围" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center" />
+                        <controls:PclIconButton Logo="{StaticResource PclIconClose}" IconTheme="Close" Command="{Binding CloseScopeModalCommand}" HorizontalAlignment="Right" />
+                    </Grid>
                     <Rectangle Grid.Row="1" Height="2" Fill="{DynamicResource ColorBrush2}" />
 
                     <StackPanel Grid.Row="3">
@@ -1751,16 +1813,20 @@
                     </StackPanel>
                 </Grid>
             </Border>
-        </Grid>
+        </controls:PclModalHost>
 
         <!-- ======================================================== -->
         <!--  MODAL 3: iPhone 前置安全拦截弹窗                          -->
         <!-- ======================================================== -->
-        <Grid Grid.RowSpan="2" Background="#80000000" Panel.ZIndex="1010" DataContext="{Binding IPhoneSyncVM}"
-              Visibility="{Binding IsPreflightModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+        <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1010" DataContext="{Binding IPhoneSyncVM}"
+                               IsOpen="{Binding IsPreflightModalOpen}"
+                               CloseCommand="{Binding CancelPreflightModalCommand}">
             <Border Style="{StaticResource PclDialogContainer}" Width="640" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24">
                 <StackPanel>
-                    <TextBlock Text="{Binding PreflightTitle}" FontSize="17" FontWeight="Bold" Foreground="#DC2626" Margin="0,0,0,12" />
+                    <Grid Margin="0,0,0,12">
+                        <TextBlock Text="{Binding PreflightTitle}" FontSize="17" FontWeight="Bold" Foreground="#DC2626" VerticalAlignment="Center" />
+                        <controls:PclIconButton Logo="{StaticResource PclIconClose}" IconTheme="Close" Command="{Binding CancelPreflightModalCommand}" HorizontalAlignment="Right" />
+                    </Grid>
                     <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto" Margin="0,0,0,18" Background="#F8FAFC" Padding="12">
                         <TextBlock Text="{Binding PreflightMessage}" Foreground="{DynamicResource ColorBrush1}" FontSize="12" TextWrapping="Wrap" FontFamily="Consolas" />
                     </ScrollViewer>
@@ -1772,16 +1838,20 @@
                     </StackPanel>
                 </StackPanel>
             </Border>
-        </Grid>
+        </controls:PclModalHost>
 
         <!-- ======================================================== -->
         <!--  MODAL 4: Android 前置安全拦截弹窗                         -->
         <!-- ======================================================== -->
-        <Grid Grid.RowSpan="2" Background="#80000000" Panel.ZIndex="1010" DataContext="{Binding AndroidSyncVM}"
-              Visibility="{Binding IsPreflightModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+        <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1010" DataContext="{Binding AndroidSyncVM}"
+                               IsOpen="{Binding IsPreflightModalOpen}"
+                               CloseCommand="{Binding CancelPreflightModalCommand}">
             <Border Style="{StaticResource PclDialogContainer}" Width="640" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24">
                 <StackPanel>
-                    <TextBlock Text="{Binding PreflightTitle}" FontSize="17" FontWeight="Bold" Foreground="#DC2626" Margin="0,0,0,12" />
+                    <Grid Margin="0,0,0,12">
+                        <TextBlock Text="{Binding PreflightTitle}" FontSize="17" FontWeight="Bold" Foreground="#DC2626" VerticalAlignment="Center" />
+                        <controls:PclIconButton Logo="{StaticResource PclIconClose}" IconTheme="Close" Command="{Binding CancelPreflightModalCommand}" HorizontalAlignment="Right" />
+                    </Grid>
                     <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto" Margin="0,0,0,18" Background="#F8FAFC" Padding="12">
                         <TextBlock Text="{Binding PreflightMessage}" Foreground="{DynamicResource ColorBrush1}" FontSize="12" TextWrapping="Wrap" FontFamily="Consolas" />
                     </ScrollViewer>
@@ -1793,13 +1863,14 @@
                     </StackPanel>
                 </StackPanel>
             </Border>
-        </Grid>
+        </controls:PclModalHost>
 
         <!-- ======================================================== -->
         <!--  MODAL 5: iPhone 自选待传清单编辑弹窗                     -->
         <!-- ======================================================== -->
-        <Grid Grid.RowSpan="2" Background="#80000000" Panel.ZIndex="1005" DataContext="{Binding IPhoneSyncVM}"
-              Visibility="{Binding IsManualModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+        <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1005" DataContext="{Binding IPhoneSyncVM}"
+                               IsOpen="{Binding IsManualModalOpen}"
+                               CloseCommand="{Binding CloseManualModalCommand}">
             <Border Style="{StaticResource PclDialogContainer}" Width="860" Height="560" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="22">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -1850,13 +1921,14 @@
                     </Grid>
                 </Grid>
             </Border>
-        </Grid>
+        </controls:PclModalHost>
 
         <!-- ======================================================== -->
         <!--  MODAL 6: Android 自选待传清单编辑弹窗                    -->
         <!-- ======================================================== -->
-        <Grid Grid.RowSpan="2" Background="#80000000" Panel.ZIndex="1005" DataContext="{Binding AndroidSyncVM}"
-              Visibility="{Binding IsManualModalOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+        <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1005" DataContext="{Binding AndroidSyncVM}"
+                               IsOpen="{Binding IsManualModalOpen}"
+                               CloseCommand="{Binding CloseManualModalCommand}">
             <Border Style="{StaticResource PclDialogContainer}" Width="860" Height="560" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="22">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -1907,6 +1979,28 @@
                     </Grid>
                 </Grid>
             </Border>
-        </Grid>
+        </controls:PclModalHost>
+
+        <!-- ======================================================== -->
+        <!--  MODAL 7: 设备名称自定义修改弹窗 (PCL2 风格轻量弹窗)       -->
+        <!-- ======================================================== -->
+        <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1020"
+                               IsOpen="{Binding IsRenameModalOpen}"
+                               CloseCommand="{Binding CloseRenameModalCommand}">
+            <Border Style="{StaticResource PclDialogContainer}" Width="440" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="22">
+                <StackPanel>
+                    <Grid Margin="0,0,0,12">
+                        <TextBlock Text="修改设备别名" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center" />
+                        <controls:PclIconButton Logo="{StaticResource PclIconClose}" IconTheme="Close" Command="{Binding CloseRenameModalCommand}" HorizontalAlignment="Right" />
+                    </Grid>
+                    <TextBlock Text="设置后，备份文件将在目标主盘对应子目录中归档保存：" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,10" />
+                    <TextBox Text="{Binding DeviceCustomName, UpdateSourceTrigger=PropertyChanged}" Height="32" VerticalContentAlignment="Center" Padding="8,0" BorderBrush="{DynamicResource ColorBrush6}" FontSize="13" Margin="0,0,0,18" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <controls:PclButton Content="取消" Command="{Binding CloseRenameModalCommand}" Width="80" Height="30" Margin="0,0,8,0" />
+                        <controls:PclButton Content="保存并应用" Command="{Binding SaveRenameModalCommand}" Width="100" Height="30" ButtonType="Hero" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </controls:PclModalHost>
     </Grid>
 </Window>

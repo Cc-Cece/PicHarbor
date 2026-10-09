@@ -39,6 +39,7 @@ public partial class PclGalleryWebControl : UserControl
     private static CoreWebView2Environment? sharedEnvironment;
     private static readonly SemaphoreSlim envLock = new(1, 1);
     private SearchViewModel? currentSearchVM;
+    private string? lastPushedFingerprint;
 
     public PclGalleryWebControl()
     {
@@ -46,9 +47,17 @@ public partial class PclGalleryWebControl : UserControl
 
         pushDebounceTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(60)
+            Interval = TimeSpan.FromMilliseconds(100)
         };
         pushDebounceTimer.Tick += PushDebounceTimer_Tick;
+
+        PclModalHost.HasAnyModalOpenChanged += (s, hasAny) =>
+        {
+            Dispatcher.Invoke(() =>
+            {
+                AlbumWebView.Visibility = hasAny ? Visibility.Hidden : Visibility.Visible;
+            });
+        };
 
         DataContextChanged += PclGalleryWebControl_DataContextChanged;
     }
@@ -64,6 +73,10 @@ public partial class PclGalleryWebControl : UserControl
         if (DataContext is MainViewModel main)
         {
             vm = main.SearchVM;
+            if (main.IsAnyModalOpen)
+            {
+                AlbumWebView.Visibility = Visibility.Hidden;
+            }
         }
         else if (DataContext is SearchViewModel directVM)
         {
@@ -75,7 +88,6 @@ public partial class PclGalleryWebControl : UserControl
         if (currentSearchVM != null)
         {
             currentSearchVM.HitsUpdated -= CurrentSearchVM_HitsUpdated;
-            currentSearchVM.SearchResults.CollectionChanged -= SearchResults_CollectionChanged;
             currentSearchVM.PropertyChanged -= CurrentSearchVM_PropertyChanged;
         }
 
@@ -84,7 +96,6 @@ public partial class PclGalleryWebControl : UserControl
         if (currentSearchVM != null)
         {
             currentSearchVM.HitsUpdated += CurrentSearchVM_HitsUpdated;
-            currentSearchVM.SearchResults.CollectionChanged += SearchResults_CollectionChanged;
             currentSearchVM.PropertyChanged += CurrentSearchVM_PropertyChanged;
 
             if (isWebReady)
@@ -99,23 +110,9 @@ public partial class PclGalleryWebControl : UserControl
         TriggerPush();
     }
 
-    private void SearchResults_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        TriggerPush();
-    }
-
     private void CurrentSearchVM_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(SearchViewModel.SearchResults))
-        {
-            if (currentSearchVM?.SearchResults != null)
-            {
-                currentSearchVM.SearchResults.CollectionChanged -= SearchResults_CollectionChanged;
-                currentSearchVM.SearchResults.CollectionChanged += SearchResults_CollectionChanged;
-            }
-            TriggerPush();
-        }
-        else if (e.PropertyName == nameof(SearchViewModel.IsGalleryView) && currentSearchVM?.IsGalleryView == true)
+        if (e.PropertyName == nameof(SearchViewModel.IsGalleryView) && currentSearchVM?.IsGalleryView == true)
         {
             TriggerPush();
         }
@@ -805,8 +802,22 @@ public partial class PclGalleryWebControl : UserControl
         if (!isWebReady || AlbumWebView.CoreWebView2 == null || currentSearchVM == null) return;
 
         var hits = currentSearchVM.GetCurrentHits();
-        var photosList = new List<object>(hits.Count > 0 ? hits.Count : currentSearchVM.SearchResults.Count);
+        string firstId = hits.Count > 0 ? hits[0].RelativePath : (currentSearchVM.SearchResults.Count > 0 ? currentSearchVM.SearchResults[0].RelativePath : "");
+        string lastId = hits.Count > 0 ? hits[^1].RelativePath : (currentSearchVM.SearchResults.Count > 0 ? currentSearchVM.SearchResults[^1].RelativePath : "");
+        int totalCount = hits.Count > 0 ? hits.Count : currentSearchVM.SearchResults.Count;
+        int selCount = (currentSearchVM.IPhoneSyncVM?.GetManualSelectionPathsSet().Count ?? 0)
+                     + (currentSearchVM.AndroidSyncVM?.GetManualSelectionPathsSet().Count ?? 0)
+                     + (currentSearchVM.GooglePhotosVM?.GetManualSelectionPathsSet().Count ?? 0);
         string archivePath = currentSearchVM.ArchivePath;
+        string fingerprint = $"{totalCount}:{firstId}:{lastId}:{selCount}:{archivePath}";
+
+        if (fingerprint == lastPushedFingerprint)
+        {
+            return;
+        }
+        lastPushedFingerprint = fingerprint;
+
+        var photosList = new List<object>(totalCount);
 
         if (hits.Count > 0)
         {

@@ -52,6 +52,24 @@ public class PclPageHost : ContentControl
         var animControls = new List<FrameworkElement>();
         FindAnimatableElements(root, animControls);
 
+        if (animControls.Count == 0)
+        {
+            if (root is Panel p)
+            {
+                foreach (UIElement child in p.Children)
+                {
+                    if (child is FrameworkElement fe && fe.Visibility != Visibility.Collapsed)
+                    {
+                        animControls.Add(fe);
+                    }
+                }
+            }
+            else
+            {
+                animControls.Add(root);
+            }
+        }
+
         int delay = 0;
         foreach (var control in animControls)
         {

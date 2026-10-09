@@ -29,7 +29,15 @@ public partial class MainViewModel : ObservableObject
     private int selectedDeviceIndex = 0; // 0 for iPhone, 1 for Android
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsAnyModalOpen))]
     private bool isScopeModalOpen = false;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsAnyModalOpen))]
+    private bool isRenameModalOpen = false;
+
+    [ObservableProperty]
+    private string deviceCustomName = "";
 
     [ObservableProperty]
     private bool isDeviceConnected = false;
@@ -85,6 +93,21 @@ public partial class MainViewModel : ObservableObject
         AndroidSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 3;
         GooglePhotosVM.NavigateToSettingsAction = () => SelectedTabIndex = 3;
         GooglePhotosVM.NavigateToSearchAction = () => SelectedTabIndex = 1;
+
+        // Wire modal notification updates
+        void NotifyModalChanged()
+        {
+            OnPropertyChanged(nameof(IsDetailModalOpen));
+            OnPropertyChanged(nameof(ActiveDetailModalTitle));
+            OnPropertyChanged(nameof(ActiveDetailItems));
+            OnPropertyChanged(nameof(IsAnyModalOpen));
+        }
+
+        BackupVM.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(BackupViewModel.IsDetailModalOpen)) NotifyModalChanged(); };
+        AndroidBackupVM.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(AndroidBackupViewModel.IsDetailModalOpen)) NotifyModalChanged(); };
+        GooglePhotosVM.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(GooglePhotosSyncViewModel.IsDetailModalOpen)) NotifyModalChanged(); };
+        AndroidSyncVM.PropertyChanged += (s, e) => { if (e.PropertyName is nameof(AndroidSyncViewModel.IsDetailModalOpen) or nameof(AndroidSyncViewModel.IsPreflightModalOpen) or nameof(AndroidSyncViewModel.IsManualModalOpen)) NotifyModalChanged(); };
+        IPhoneSyncVM.PropertyChanged += (s, e) => { if (e.PropertyName is nameof(IPhoneSyncViewModel.IsPreflightModalOpen) or nameof(IPhoneSyncViewModel.IsManualModalOpen)) NotifyModalChanged(); };
 
         // Sync initial destination path across all sub-ViewModels
         SyncDestinationPath(DestinationPath);
@@ -188,11 +211,111 @@ public partial class MainViewModel : ObservableObject
         _ = ProbeDeviceStatusAsync();
     }
 
+    public bool IsDetailModalOpen =>
+        BackupVM.IsDetailModalOpen ||
+        AndroidBackupVM.IsDetailModalOpen ||
+        GooglePhotosVM.IsDetailModalOpen ||
+        AndroidSyncVM.IsDetailModalOpen;
+
+    public string ActiveDetailModalTitle
+    {
+        get
+        {
+            if (AndroidBackupVM.IsDetailModalOpen) return AndroidBackupVM.DetailModalTitle;
+            if (GooglePhotosVM.IsDetailModalOpen) return GooglePhotosVM.DetailModalTitle;
+            if (AndroidSyncVM.IsDetailModalOpen) return AndroidSyncVM.DetailModalTitle;
+            return BackupVM.DetailModalTitle;
+        }
+    }
+
+    public System.Collections.ObjectModel.ObservableCollection<TransferItemDetail> ActiveDetailItems
+    {
+        get
+        {
+            if (AndroidBackupVM.IsDetailModalOpen) return AndroidBackupVM.DetailItems;
+            if (GooglePhotosVM.IsDetailModalOpen) return GooglePhotosVM.DetailItems;
+            if (AndroidSyncVM.IsDetailModalOpen) return AndroidSyncVM.DetailItems;
+            return BackupVM.DetailItems;
+        }
+    }
+
+    public bool IsAnyModalOpen =>
+        IsDetailModalOpen ||
+        IsScopeModalOpen ||
+        IsRenameModalOpen ||
+        IPhoneSyncVM.IsPreflightModalOpen ||
+        AndroidSyncVM.IsPreflightModalOpen ||
+        IPhoneSyncVM.IsManualModalOpen ||
+        AndroidSyncVM.IsManualModalOpen;
+
+    [RelayCommand]
+    public void CloseActiveDetailModal()
+    {
+        BackupVM.CloseDetailModalCommand.Execute(null);
+        AndroidBackupVM.CloseDetailModalCommand.Execute(null);
+        GooglePhotosVM.CloseDetailModalCommand.Execute(null);
+        AndroidSyncVM.CloseDetailModalCommand.Execute(null);
+        OnPropertyChanged(nameof(IsDetailModalOpen));
+        OnPropertyChanged(nameof(ActiveDetailModalTitle));
+        OnPropertyChanged(nameof(ActiveDetailItems));
+        OnPropertyChanged(nameof(IsAnyModalOpen));
+    }
+
     [RelayCommand]
     private void OpenScopeModal() => IsScopeModalOpen = true;
 
     [RelayCommand]
     private void CloseScopeModal() => IsScopeModalOpen = false;
+
+    [RelayCommand]
+    public void OpenRenameModal()
+    {
+        DeviceCustomName = SelectedDeviceIndex == 0 ? BackupVM.DeviceSubdir : AndroidBackupVM.DetectedDeviceModel;
+        IsRenameModalOpen = true;
+    }
+
+    [RelayCommand]
+    public void SaveRenameModal()
+    {
+        if (!string.IsNullOrWhiteSpace(DeviceCustomName))
+        {
+            string clean = DeviceCustomName.Trim();
+            if (SelectedDeviceIndex == 0)
+            {
+                BackupVM.DeviceSubdir = clean;
+                BackupVM.SetDetectedDevice(clean);
+                IPhoneSyncVM.DeviceModel = clean;
+            }
+            else
+            {
+                AndroidBackupVM.DetectedDeviceModel = clean;
+            }
+        }
+        IsRenameModalOpen = false;
+    }
+
+    [RelayCommand]
+    public void CloseRenameModal() => IsRenameModalOpen = false;
+
+    [RelayCommand]
+    public async Task RefreshDeviceAsync()
+    {
+        if (SelectedDeviceIndex == 0)
+        {
+            await ProbeDeviceStatusAsync();
+        }
+        else
+        {
+            await AndroidBackupVM.TestConnectionCommand.ExecuteAsync(null);
+        }
+    }
+
+    [RelayCommand]
+    public void NavigateToAndroidSync()
+    {
+        SelectedTabIndex = 2;
+        SyncSubTabIndex = 1;
+    }
 
     [RelayCommand]
     private void NavigateToSettings()

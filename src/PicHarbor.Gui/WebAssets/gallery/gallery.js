@@ -67,26 +67,39 @@ function closeVideoModal() {
   currentPlayingItem = null;
 }
 
+function arePhotosIdentical(a, b) {
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  if (a.length === 0) return true;
+  if (a[0].id !== b[0].id || a[a.length - 1].id !== b[b.length - 1].id) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].id !== b[i].id ||
+        a[i].isPendingIPhone !== b[i].isPendingIPhone ||
+        a[i].isPendingAndroid !== b[i].isPendingAndroid ||
+        a[i].isGooglePhotos !== b[i].isGooglePhotos) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function initAlbum(photos) {
-  currentPhotos = photos || [];
+  const newPhotos = photos || [];
+  if (albumInstance && arePhotosIdentical(newPhotos, currentPhotos)) {
+    return;
+  }
+
+  const isDifferentQuery = currentPhotos.length === 0 || 
+    (newPhotos.length > 0 && newPhotos[0].id !== currentPhotos[0]?.id);
+
+  currentPhotos = newPhotos;
   updateEmptyState(currentPhotos.length);
 
   if (albumInstance) {
-    if (albumInstance.scroller) {
+    if (isDifferentQuery && albumInstance.scroller) {
       albumInstance.scroller.scrollTop = 0;
     }
-    const res = albumInstance.setData(currentPhotos);
-    if (res && typeof res.then === 'function') {
-      res.then(() => {
-        if (albumInstance.scroller) albumInstance.scroller.scrollTop = 0;
-        albumInstance.relayout(true);
-        albumInstance.paint();
-      });
-    } else {
-      if (albumInstance.scroller) albumInstance.scroller.scrollTop = 0;
-      albumInstance.relayout(true);
-      albumInstance.paint();
-    }
+    albumInstance.setData(currentPhotos);
     return;
   }
 
