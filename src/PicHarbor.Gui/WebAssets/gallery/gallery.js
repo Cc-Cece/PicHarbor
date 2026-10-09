@@ -35,6 +35,19 @@ function updateEmptyState(photosCount) {
 
 let currentPlayingItem = null;
 
+window.setGalleryLoading = function(loading) {
+  const scroller = document.querySelector('.sp-scroller') || document.getElementById('album-container');
+  const loadingPill = document.getElementById('gallery-loading-pill');
+  if (scroller) {
+    scroller.style.transition = 'opacity 0.2s ease';
+    scroller.style.opacity = loading ? '0.45' : '1.0';
+    scroller.style.pointerEvents = loading ? 'none' : 'auto';
+  }
+  if (loadingPill) {
+    loadingPill.style.display = loading ? 'flex' : 'none';
+  }
+};
+
 function openVideoModal(item) {
   if (!item) return;
   currentPlayingItem = item;
@@ -42,13 +55,24 @@ function openVideoModal(item) {
   const video = document.getElementById('html5-video-player');
   const title = document.getElementById('video-title');
   const meta = document.getElementById('video-meta-info');
+  const errorBox = document.getElementById('video-error-state');
   if (!modal || !video) return;
+
+  if (errorBox) errorBox.style.display = 'none';
+  video.style.display = 'block';
 
   title.textContent = item.relativePath || item.id || '视频播放';
   meta.textContent = `${(item.format || 'MP4').toUpperCase()} · ${item.takenAt || ''} · ${item.sizeText || ''}`;
 
   const videoUrl = item.url || `https://media.gallery.local/image?path=${encodeURIComponent(item.fullPath)}`;
   video.src = videoUrl;
+
+  video.onerror = () => {
+    console.warn('HTML5 video failed to decode or play, displaying fallback prompt');
+    video.style.display = 'none';
+    if (errorBox) errorBox.style.display = 'flex';
+  };
+
   modal.style.display = 'flex';
   video.play().catch(e => console.log('Autoplay prevented or paused:', e));
 }
@@ -56,10 +80,14 @@ function openVideoModal(item) {
 function closeVideoModal() {
   const modal = document.getElementById('video-modal');
   const video = document.getElementById('html5-video-player');
+  const errorBox = document.getElementById('video-error-state');
+  if (errorBox) errorBox.style.display = 'none';
   if (video) {
     video.pause();
+    video.onerror = null;
     video.removeAttribute('src');
     video.load();
+    video.style.display = 'block';
   }
   if (modal) {
     modal.style.display = 'none';
@@ -386,6 +414,15 @@ window.addEventListener('DOMContentLoaded', () => {
 
   if (openSystemBtn) {
     openSystemBtn.addEventListener('click', () => {
+      if (currentPlayingItem && currentPlayingItem.fullPath) {
+        postToHost({ action: 'openWith', path: currentPlayingItem.fullPath });
+      }
+    });
+  }
+
+  const errorOpenBtn = document.getElementById('video-error-open-btn');
+  if (errorOpenBtn) {
+    errorOpenBtn.addEventListener('click', () => {
       if (currentPlayingItem && currentPlayingItem.fullPath) {
         postToHost({ action: 'openWith', path: currentPlayingItem.fullPath });
       }

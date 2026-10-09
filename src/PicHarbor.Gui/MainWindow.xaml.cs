@@ -365,26 +365,13 @@ public partial class MainWindow : Window
         }
     }
 
-    private void IPhoneHero_MouseEnter(object sender, MouseEventArgs e)
+    private void DeviceHeroArea_MouseEnter(object sender, MouseEventArgs e)
     {
         if (IPhoneHeroHoverMenu != null)
         {
             Controls.PclAnimation.AnimateDouble(IPhoneHeroHoverMenu, HeightProperty, 30.0, 160, Controls.PclAnimation.EaseOutFluentWeak);
             Controls.PclAnimation.AnimateDouble(IPhoneHeroHoverMenu, OpacityProperty, 1.0, 160, Controls.PclAnimation.EaseOutFluentWeak);
         }
-    }
-
-    private void IPhoneHero_MouseLeave(object sender, MouseEventArgs e)
-    {
-        if (IPhoneHeroHoverMenu != null)
-        {
-            Controls.PclAnimation.AnimateDouble(IPhoneHeroHoverMenu, HeightProperty, 0.0, 140, Controls.PclAnimation.EaseOutFluentMiddle);
-            Controls.PclAnimation.AnimateDouble(IPhoneHeroHoverMenu, OpacityProperty, 0.0, 140, Controls.PclAnimation.EaseOutFluentMiddle);
-        }
-    }
-
-    private void AndroidHero_MouseEnter(object sender, MouseEventArgs e)
-    {
         if (AndroidHeroHoverMenu != null)
         {
             Controls.PclAnimation.AnimateDouble(AndroidHeroHoverMenu, HeightProperty, 30.0, 160, Controls.PclAnimation.EaseOutFluentWeak);
@@ -392,14 +379,24 @@ public partial class MainWindow : Window
         }
     }
 
-    private void AndroidHero_MouseLeave(object sender, MouseEventArgs e)
+    private void DeviceHeroArea_MouseLeave(object sender, MouseEventArgs e)
     {
+        if (IPhoneHeroHoverMenu != null)
+        {
+            Controls.PclAnimation.AnimateDouble(IPhoneHeroHoverMenu, HeightProperty, 0.0, 140, Controls.PclAnimation.EaseOutFluentMiddle);
+            Controls.PclAnimation.AnimateDouble(IPhoneHeroHoverMenu, OpacityProperty, 0.0, 140, Controls.PclAnimation.EaseOutFluentMiddle);
+        }
         if (AndroidHeroHoverMenu != null)
         {
             Controls.PclAnimation.AnimateDouble(AndroidHeroHoverMenu, HeightProperty, 0.0, 140, Controls.PclAnimation.EaseOutFluentMiddle);
             Controls.PclAnimation.AnimateDouble(AndroidHeroHoverMenu, OpacityProperty, 0.0, 140, Controls.PclAnimation.EaseOutFluentMiddle);
         }
     }
+
+    private void IPhoneHero_MouseEnter(object sender, MouseEventArgs e) => DeviceHeroArea_MouseEnter(sender, e);
+    private void IPhoneHero_MouseLeave(object sender, MouseEventArgs e) => DeviceHeroArea_MouseLeave(sender, e);
+    private void AndroidHero_MouseEnter(object sender, MouseEventArgs e) => DeviceHeroArea_MouseEnter(sender, e);
+    private void AndroidHero_MouseLeave(object sender, MouseEventArgs e) => DeviceHeroArea_MouseLeave(sender, e);
 
     private static T? FindParent<T>(DependencyObject child) where T : DependencyObject
     {

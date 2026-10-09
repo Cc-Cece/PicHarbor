@@ -116,9 +116,17 @@ public partial class PclGalleryWebControl : UserControl
         {
             TriggerPush();
         }
-        else if (e.PropertyName == nameof(SearchViewModel.IsSearching) && currentSearchVM?.IsSearching == false)
+        else if (e.PropertyName == nameof(SearchViewModel.IsSearching))
         {
-            TriggerPush();
+            if (currentSearchVM?.IsSearching == true)
+            {
+                _ = AlbumWebView.CoreWebView2?.ExecuteScriptAsync("if (window.setGalleryLoading) window.setGalleryLoading(true);");
+            }
+            else
+            {
+                _ = AlbumWebView.CoreWebView2?.ExecuteScriptAsync("if (window.setGalleryLoading) window.setGalleryLoading(false);");
+                TriggerPush();
+            }
         }
     }
 
@@ -289,6 +297,13 @@ public partial class PclGalleryWebControl : UserControl
                 return;
             }
 
+            string? rangeHeader = null;
+            try
+            {
+                rangeHeader = e.Request.Headers.GetHeader("Range");
+            }
+            catch { }
+
             var deferral = e.GetDeferral();
             var dispatcher = Dispatcher;
 
@@ -331,9 +346,9 @@ public partial class PclGalleryWebControl : UserControl
                             fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                             fileMime = ext switch
                             {
-                                ".mov" => "video/quicktime",
                                 ".webm" => "video/webm",
-                                _ => "video/mp4"
+                                ".ogv" or ".ogg" => "video/ogg",
+                                _ => "video/mp4" // MP4, MOV, M4V all use ISO-BMFF container; Chromium decodes MOV when served as video/mp4
                             };
                         }
                         else
@@ -376,14 +391,53 @@ public partial class PclGalleryWebControl : UserControl
                         {
                             if (fileStream != null && fileMime != null)
                             {
-                                string headers = isVideo
-                                    ? $"Content-Type: {fileMime}\r\nAccept-Ranges: bytes\r\nAccess-Control-Allow-Origin: *\r\nCache-Control: public, max-age=86400"
-                                    : $"Content-Type: {fileMime}\r\nAccess-Control-Allow-Origin: *\r\nCache-Control: public, max-age=86400";
-                                e.Response = env.CreateWebResourceResponse(
-                                    fileStream,
-                                    200,
-                                    "OK",
-                                    headers);
+                                if (isVideo && !string.IsNullOrWhiteSpace(rangeHeader) && rangeHeader.StartsWith("bytes="))
+                                {
+                                    long totalLength = fileStream.Length;
+                                    long start = 0;
+                                    long end = totalLength - 1;
+                                    string rangeSpec = rangeHeader.Substring("bytes=".Length).Trim();
+                                    int dash = rangeSpec.IndexOf('-');
+                                    if (dash >= 0)
+                                    {
+                                        string sStr = rangeSpec.Substring(0, dash);
+                                        string eStr = rangeSpec.Substring(dash + 1);
+                                        if (!string.IsNullOrEmpty(sStr) && long.TryParse(sStr, out var sVal))
+                                        {
+                                            start = Math.Clamp(sVal, 0, totalLength - 1);
+                                            if (!string.IsNullOrEmpty(eStr) && long.TryParse(eStr, out var eVal))
+                                            {
+                                                end = Math.Clamp(eVal, start, totalLength - 1);
+                                            }
+                                        }
+                                        else if (!string.IsNullOrEmpty(eStr) && long.TryParse(eStr, out var suffixVal))
+                                        {
+                                            start = Math.Max(0, totalLength - suffixVal);
+                                            end = totalLength - 1;
+                                        }
+                                    }
+
+                                    long chunkLength = end - start + 1;
+                                    fileStream.Seek(start, SeekOrigin.Begin);
+                                    var sliceStream = new BoundedStream(fileStream, chunkLength);
+                                    string headers = $"Content-Type: {fileMime}\r\nContent-Range: bytes {start}-{end}/{totalLength}\r\nContent-Length: {chunkLength}\r\nAccept-Ranges: bytes\r\nAccess-Control-Allow-Origin: *\r\nCache-Control: public, max-age=86400";
+                                    e.Response = env.CreateWebResourceResponse(
+                                        sliceStream,
+                                        206,
+                                        "Partial Content",
+                                        headers);
+                                }
+                                else
+                                {
+                                    string headers = isVideo
+                                        ? $"Content-Type: {fileMime}\r\nAccept-Ranges: bytes\r\nContent-Length: {fileStream.Length}\r\nAccess-Control-Allow-Origin: *\r\nCache-Control: public, max-age=86400"
+                                        : $"Content-Type: {fileMime}\r\nAccess-Control-Allow-Origin: *\r\nCache-Control: public, max-age=86400";
+                                    e.Response = env.CreateWebResourceResponse(
+                                        fileStream,
+                                        200,
+                                        "OK",
+                                        headers);
+                                }
                             }
                             else if (highResBytes != null)
                             {
@@ -995,5 +1049,42 @@ public partial class PclGalleryWebControl : UserControl
     {
         var window = Application.Current?.MainWindow;
         return window is not null ? new System.Windows.Interop.WindowInteropHelper(window).Handle : IntPtr.Zero;
+    }
+
+    private sealed class BoundedStream : Stream
+    {
+        private readonly Stream _inner;
+        private long _remaining;
+
+        public BoundedStream(Stream inner, long length)
+        {
+            _inner = inner;
+            _remaining = length;
+        }
+
+        public override bool CanRead => _inner.CanRead;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => _remaining;
+        public override long Position { get => 0; set => throw new NotSupportedException(); }
+        public override void Flush() => _inner.Flush();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            if (_remaining <= 0) return 0;
+            int toRead = (int)Math.Min(count, _remaining);
+            int read = _inner.Read(buffer, offset, toRead);
+            _remaining -= read;
+            return read;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) _inner.Dispose();
+            base.Dispose(disposing);
+        }
     }
 }

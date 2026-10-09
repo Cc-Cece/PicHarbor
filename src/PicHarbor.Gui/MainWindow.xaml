@@ -188,136 +188,138 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- Center Hero Illustration & Status: iPhone View -->
-                            <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="16,0"
-                                        MouseEnter="IPhoneHero_MouseEnter" MouseLeave="IPhoneHero_MouseLeave">
-                                <StackPanel.Style>
-                                    <Style TargetType="StackPanel">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding SelectedDeviceIndex}" Value="1">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </StackPanel.Style>
+                            <!-- Center Device Area (Full region hover to reveal mini buttons) -->
+                            <Grid Grid.Row="1" Background="Transparent"
+                                  MouseEnter="DeviceHeroArea_MouseEnter" MouseLeave="DeviceHeroArea_MouseLeave">
+                                <!-- Center Hero Illustration & Status: iPhone View -->
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="16,0">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedDeviceIndex}" Value="1">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
 
-                                <!-- Clean iPhone Illustration Frame -->
-                                <Border Width="78" Height="110" CornerRadius="16" Background="White" BorderBrush="{DynamicResource ColorBrush3}" BorderThickness="2" Margin="0,0,0,14">
-                                    <Border.Effect>
-                                        <DropShadowEffect BlurRadius="12" ShadowDepth="2" Direction="270" Color="#0B5BCB" Opacity="0.12" />
-                                    </Border.Effect>
-                                    <Grid>
-                                        <!-- Dynamic Island Pill -->
-                                        <Border Width="24" Height="6" CornerRadius="3" Background="#1E293B" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,6,0,0" />
-                                        <!-- Screen Content -->
-                                        <Grid Margin="6,16,6,14">
-                                            <Border CornerRadius="8" Background="{DynamicResource ColorBrush8}">
-                                                <Path Data="{StaticResource PclIconGallery}" Width="28" Height="28" Stretch="Uniform"
-                                                      Fill="{DynamicResource ColorBrush3}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            </Border>
+                                    <!-- Clean iPhone Illustration Frame -->
+                                    <Border Width="78" Height="110" CornerRadius="16" Background="White" BorderBrush="{DynamicResource ColorBrush3}" BorderThickness="2" Margin="0,0,0,14">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="12" ShadowDepth="2" Direction="270" Color="#0B5BCB" Opacity="0.12" />
+                                        </Border.Effect>
+                                        <Grid>
+                                            <!-- Dynamic Island Pill -->
+                                            <Border Width="24" Height="6" CornerRadius="3" Background="#1E293B" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,6,0,0" />
+                                            <!-- Screen Content -->
+                                            <Grid Margin="6,16,6,14">
+                                                <Border CornerRadius="8" Background="{DynamicResource ColorBrush8}">
+                                                    <Path Data="{StaticResource PclIconGallery}" Width="28" Height="28" Stretch="Uniform"
+                                                          Fill="{DynamicResource ColorBrush3}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Border>
+                                            </Grid>
+                                            <!-- Home Indicator Bar -->
+                                            <Border Width="30" Height="3" CornerRadius="1.5" Background="#94A3B8" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,5" />
                                         </Grid>
-                                        <!-- Home Indicator Bar -->
-                                        <Border Width="30" Height="3" CornerRadius="1.5" Background="#94A3B8" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,5" />
-                                    </Grid>
-                                </Border>
+                                    </Border>
 
-                                <!-- Device Model Text -->
-                                <TextBlock Text="{Binding BackupVM.DetectedDeviceModel}" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" HorizontalAlignment="Center" />
+                                    <!-- Device Model Text -->
+                                    <TextBlock Text="{Binding BackupVM.DetectedDeviceModel}" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" HorizontalAlignment="Center" />
 
-                                <!-- Status Pill -->
-                                <Border Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1" CornerRadius="12" Padding="12,3" Margin="0,8,0,0" HorizontalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Ellipse Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,6,0">
-                                            <Ellipse.Style>
-                                                <Style TargetType="Ellipse">
-                                                    <Setter Property="Fill" Value="#94A3B8" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsDeviceConnected}" Value="True">
-                                                            <Setter Property="Fill" Value="#10B981" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Ellipse.Style>
-                                        </Ellipse>
-                                        <TextBlock Text="{Binding DeviceStatusText}" FontSize="11" FontWeight="Medium" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Border>
-
-                                <!-- PCL2 Signature Hero Hover Mini-Menu (Hover near device card to reveal) -->
-                                <Border x:Name="IPhoneHeroHoverMenu" Height="0" Opacity="0" ClipToBounds="True" Margin="0,8,0,0" HorizontalAlignment="Center">
-                                    <Border Background="#F1F5F9" CornerRadius="14" Padding="4,2" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
+                                    <!-- Status Pill -->
+                                    <Border Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1" CornerRadius="12" Padding="12,3" Margin="0,8,0,0" HorizontalAlignment="Center">
                                         <StackPanel Orientation="Horizontal">
-                                            <Button Content="✏️ 重命名" Command="{Binding OpenRenameModalCommand}"
-                                                    Style="{StaticResource PclHeroMiniBtn}" Margin="0,0,3,0" ToolTip="自定义设备别名" />
-                                            <Button Content="⚙️ 偏好" Command="{Binding NavigateToSettingsCommand}"
-                                                    Style="{StaticResource PclHeroMiniBtn}" Margin="0,0,3,0" ToolTip="前往备份偏好设置" />
-                                            <Button Content="🔄 刷新" Command="{Binding RefreshDeviceCommand}"
-                                                    Style="{StaticResource PclHeroMiniBtn}" ToolTip="重新检测连接状态" />
+                                            <Ellipse Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,6,0">
+                                                <Ellipse.Style>
+                                                    <Style TargetType="Ellipse">
+                                                        <Setter Property="Fill" Value="#94A3B8" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsDeviceConnected}" Value="True">
+                                                                <Setter Property="Fill" Value="#10B981" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Ellipse.Style>
+                                            </Ellipse>
+                                            <TextBlock Text="{Binding DeviceStatusText}" FontSize="11" FontWeight="Medium" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Border>
-                                </Border>
-                            </StackPanel>
 
-                            <!-- Center Hero Illustration & Status: Android View -->
-                            <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="16,0"
-                                        MouseEnter="AndroidHero_MouseEnter" MouseLeave="AndroidHero_MouseLeave">
-                                <StackPanel.Style>
-                                    <Style TargetType="StackPanel">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding SelectedDeviceIndex}" Value="1">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </StackPanel.Style>
+                                    <!-- PCL2 Signature Hero Hover Mini-Menu (Hover anywhere in device region to reveal) -->
+                                    <Border x:Name="IPhoneHeroHoverMenu" Height="0" Opacity="0" ClipToBounds="True" Margin="0,8,0,0" HorizontalAlignment="Center">
+                                        <Border Background="#F1F5F9" CornerRadius="14" Padding="4,2" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Content="✏️ 重命名" Command="{Binding OpenRenameModalCommand}"
+                                                        Style="{StaticResource PclHeroMiniBtn}" Margin="0,0,3,0" ToolTip="自定义设备别名" />
+                                                <Button Content="⚙️ 偏好" Command="{Binding NavigateToSettingsCommand}"
+                                                        Style="{StaticResource PclHeroMiniBtn}" Margin="0,0,3,0" ToolTip="前往备份偏好设置" />
+                                                <Button Content="🔄 刷新" Command="{Binding RefreshDeviceCommand}"
+                                                        Style="{StaticResource PclHeroMiniBtn}" ToolTip="重新检测连接状态" />
+                                            </StackPanel>
+                                        </Border>
+                                    </Border>
+                                </StackPanel>
 
-                                <!-- Clean Android Illustration Frame -->
-                                <Border Width="78" Height="110" CornerRadius="16" Background="White" BorderBrush="{DynamicResource ColorBrush3}" BorderThickness="2" Margin="0,0,0,14">
-                                    <Border.Effect>
-                                        <DropShadowEffect BlurRadius="12" ShadowDepth="2" Direction="270" Color="#0B5BCB" Opacity="0.12" />
-                                    </Border.Effect>
-                                    <Grid>
-                                        <!-- Front Camera Dot -->
-                                        <Ellipse Width="6" Height="6" Fill="#1E293B" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,6,0,0" />
-                                        <!-- Screen Content -->
-                                        <Grid Margin="6,16,6,14">
-                                            <Border CornerRadius="8" Background="{DynamicResource ColorBrush8}">
-                                                <Path Data="{StaticResource PclIconAndroid}" Width="28" Height="28" Stretch="Uniform"
-                                                      Fill="{DynamicResource ColorBrush3}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            </Border>
+                                <!-- Center Hero Illustration & Status: Android View -->
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="16,0">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedDeviceIndex}" Value="1">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+
+                                    <!-- Clean Android Illustration Frame -->
+                                    <Border Width="78" Height="110" CornerRadius="16" Background="White" BorderBrush="{DynamicResource ColorBrush3}" BorderThickness="2" Margin="0,0,0,14">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="12" ShadowDepth="2" Direction="270" Color="#0B5BCB" Opacity="0.12" />
+                                        </Border.Effect>
+                                        <Grid>
+                                            <!-- Front Camera Dot -->
+                                            <Ellipse Width="6" Height="6" Fill="#1E293B" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,6,0,0" />
+                                            <!-- Screen Content -->
+                                            <Grid Margin="6,16,6,14">
+                                                <Border CornerRadius="8" Background="{DynamicResource ColorBrush8}">
+                                                    <Path Data="{StaticResource PclIconAndroid}" Width="28" Height="28" Stretch="Uniform"
+                                                          Fill="{DynamicResource ColorBrush3}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Border>
+                                            </Grid>
+                                            <!-- Home Indicator -->
+                                            <Border Width="30" Height="3" CornerRadius="1.5" Background="#94A3B8" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,5" />
                                         </Grid>
-                                        <!-- Home Indicator -->
-                                        <Border Width="30" Height="3" CornerRadius="1.5" Background="#94A3B8" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,5" />
-                                    </Grid>
-                                </Border>
+                                    </Border>
 
-                                <!-- Device Model Text -->
-                                <TextBlock Text="{Binding AndroidBackupVM.DetectedDeviceModel}" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" HorizontalAlignment="Center" />
+                                    <!-- Device Model Text -->
+                                    <TextBlock Text="{Binding AndroidBackupVM.DetectedDeviceModel}" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" HorizontalAlignment="Center" />
 
-                                <!-- Status Pill -->
-                                <Border Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1" CornerRadius="12" Padding="12,3" Margin="0,8,0,0" HorizontalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Ellipse Width="6" Height="6" Fill="#10B981" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                        <TextBlock Text="{Binding AndroidBackupVM.ProgressText}" FontSize="11" FontWeight="Medium" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Border>
-
-                                <!-- PCL2 Signature Hero Hover Mini-Menu (Android) -->
-                                <Border x:Name="AndroidHeroHoverMenu" Height="0" Opacity="0" ClipToBounds="True" Margin="0,8,0,0" HorizontalAlignment="Center">
-                                    <Border Background="#F1F5F9" CornerRadius="14" Padding="4,2" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
+                                    <!-- Status Pill -->
+                                    <Border Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1" CornerRadius="12" Padding="12,3" Margin="0,8,0,0" HorizontalAlignment="Center">
                                         <StackPanel Orientation="Horizontal">
-                                            <Button Content="✏️ 重命名" Command="{Binding OpenRenameModalCommand}"
-                                                    Style="{StaticResource PclHeroMiniBtn}" Margin="0,0,3,0" ToolTip="自定义设备别名" />
-                                            <Button Content="📡 FTP 直连" Command="{Binding NavigateToAndroidSyncCommand}"
-                                                    Style="{StaticResource PclHeroMiniBtn}" Margin="0,0,3,0" ToolTip="快速跳转 Wi-Fi/FTP 同步" />
-                                            <Button Content="🔄 重扫" Command="{Binding RefreshDeviceCommand}"
-                                                    Style="{StaticResource PclHeroMiniBtn}" ToolTip="重新扫描局域网与设备" />
+                                            <Ellipse Width="6" Height="6" Fill="#10B981" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                            <TextBlock Text="{Binding AndroidBackupVM.ProgressText}" FontSize="11" FontWeight="Medium" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Border>
-                                </Border>
-                            </StackPanel>
+
+                                    <!-- PCL2 Signature Hero Hover Mini-Menu (Android) -->
+                                    <Border x:Name="AndroidHeroHoverMenu" Height="0" Opacity="0" ClipToBounds="True" Margin="0,8,0,0" HorizontalAlignment="Center">
+                                        <Border Background="#F1F5F9" CornerRadius="14" Padding="4,2" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Content="✏️ 重命名" Command="{Binding OpenRenameModalCommand}"
+                                                        Style="{StaticResource PclHeroMiniBtn}" Margin="0,0,3,0" ToolTip="自定义设备别名" />
+                                                <Button Content="📡 FTP 直连" Command="{Binding NavigateToAndroidSyncCommand}"
+                                                        Style="{StaticResource PclHeroMiniBtn}" Margin="0,0,3,0" ToolTip="快速跳转 Wi-Fi/FTP 同步" />
+                                                <Button Content="🔄 重扫" Command="{Binding RefreshDeviceCommand}"
+                                                        Style="{StaticResource PclHeroMiniBtn}" ToolTip="重新扫描局域网与设备" />
+                                            </StackPanel>
+                                        </Border>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
 
                             <!-- Bottom: Hero Action Buttons & Operations: iPhone -->
                             <StackPanel Grid.Row="2" Margin="18,0,18,20">
@@ -851,6 +853,12 @@
                                                 <controls:PclComboBox Width="140" Height="28" ItemsSource="{Binding SearchVM.CameraModels}" SelectedItem="{Binding SearchVM.SelectedCameraModel, Mode=TwoWay}" />
                                             </StackPanel>
 
+                                            <!-- Apply Filters Button (PCL2 Hero style) -->
+                                            <controls:PclButton Content="{Binding SearchVM.ApplyFilterButtonText}"
+                                                                Command="{Binding SearchVM.ApplyFiltersCommand}"
+                                                                IsEnabled="{Binding SearchVM.IsSearching, Converter={StaticResource InverseBooleanConverter}}"
+                                                                Height="28" Margin="0,0,8,6" Padding="14,0" ButtonType="Hero" />
+
                                             <!-- Reset Filters Button -->
                                             <controls:PclButton Content="重置筛选" Command="{Binding SearchVM.ClearAllFiltersCommand}" Height="28" Margin="0,0,0,6" Padding="10,2" />
                                         </WrapPanel>
@@ -858,12 +866,14 @@
                                 </StackPanel>
                             </controls:PclCard>
 
-                            <!-- Gallery Grid View (Sweet-Album Justified Timeline Gallery) -->
-                            <Border Background="White" CornerRadius="8" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1" Margin="0,0,0,14"
-                                    ClipToBounds="True" Height="580"
-                                    Visibility="{Binding SearchVM.IsGalleryView, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                <controls:PclGalleryWebControl DataContext="{Binding}" />
-                            </Border>
+                            <!-- Gallery & List View Container with Loading Animation -->
+                            <Grid Margin="0,0,0,14">
+                                <!-- Gallery Grid View (Sweet-Album Justified Timeline Gallery) -->
+                                <Border Background="White" CornerRadius="8" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1"
+                                        ClipToBounds="True" Height="580"
+                                        Visibility="{Binding SearchVM.IsGalleryView, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <controls:PclGalleryWebControl DataContext="{Binding}" />
+                                </Border>
 
                             <!-- Modern Reconstructed PCL2 List View -->
                             <Border Background="White" CornerRadius="8" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1" Margin="0,0,0,14"
@@ -1050,6 +1060,12 @@
                                     </ListView.ItemTemplate>
                                 </ListView>
                             </Border>
+
+                            <!-- PCL2 Top Loading Bar (Smooth animated indeterminate line) -->
+                            <ProgressBar IsIndeterminate="True" Height="3" VerticalAlignment="Top" Margin="1,1,1,0"
+                                         Foreground="{DynamicResource ColorBrush3}" Background="Transparent" BorderThickness="0"
+                                         Visibility="{Binding SearchVM.IsSearching, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        </Grid>
                         </StackPanel>
                     </controls:PclPageHost>
                 </controls:PclScrollViewer>

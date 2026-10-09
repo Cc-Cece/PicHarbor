@@ -90,7 +90,6 @@ public partial class SearchViewModel : ObservableObject
     private bool suppressSort;
     private bool resortRequested;
     private bool suppressFilterSearch;
-    private System.Threading.Timer? searchDebounceTimer;
 
     public event EventHandler? HitsUpdated;
     public IReadOnlyList<MediaSearchHit> GetCurrentHits() => currentHits;
@@ -142,10 +141,6 @@ public partial class SearchViewModel : ObservableObject
         {
             FilterFrom = formatted;
         }
-        if (!suppressFilterSearch && SelectedDatePresetIndex == 5)
-        {
-            _ = SearchAsync();
-        }
     }
 
     partial void OnFilterToDateChanged(DateTime? value)
@@ -154,10 +149,6 @@ public partial class SearchViewModel : ObservableObject
         if (filterTo != formatted)
         {
             FilterTo = formatted;
-        }
-        if (!suppressFilterSearch && SelectedDatePresetIndex == 5)
-        {
-            _ = SearchAsync();
         }
     }
 
@@ -290,11 +281,6 @@ public partial class SearchViewModel : ObservableObject
                 break;
         }
         suppressFilterSearch = false;
-
-        if (value != 5)
-        {
-            _ = SearchAsync();
-        }
     }
 
     [ObservableProperty]
@@ -302,10 +288,6 @@ public partial class SearchViewModel : ObservableObject
 
     partial void OnSelectedTypeChanged(string value)
     {
-        if (!suppressFilterSearch)
-        {
-            _ = SearchAsync();
-        }
     }
 
     [ObservableProperty]
@@ -391,10 +373,6 @@ public partial class SearchViewModel : ObservableObject
 
     partial void OnSelectedCameraModelChanged(string value)
     {
-        if (!suppressFilterSearch)
-        {
-            _ = SearchAsync();
-        }
     }
 
     [ObservableProperty]
@@ -500,14 +478,12 @@ public partial class SearchViewModel : ObservableObject
         {
             FileNameFilter = value;
         }
-        searchDebounceTimer?.Dispose();
-        searchDebounceTimer = new System.Threading.Timer(_ =>
-        {
-            Application.Current?.Dispatcher.InvokeAsync(() =>
-            {
-                _ = SearchAsync();
-            });
-        }, null, 250, Timeout.Infinite);
+    }
+
+    [RelayCommand]
+    public async Task ApplyFiltersAsync()
+    {
+        await SearchAsync();
     }
 
     [ObservableProperty]
@@ -560,6 +536,13 @@ public partial class SearchViewModel : ObservableObject
 
     [ObservableProperty]
     private bool isSearching = false;
+
+    partial void OnIsSearchingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ApplyFilterButtonText));
+    }
+
+    public string ApplyFilterButtonText => IsSearching ? "正在筛选..." : "应用筛选";
 
     [ObservableProperty]
     private bool isPreviewOpen = false;

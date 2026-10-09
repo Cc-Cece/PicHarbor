@@ -80,14 +80,15 @@
                     <ControlTemplate.Triggers>
                         <!-- PCL2 Launch Hero Action Button -->
                         <Trigger Property="ButtonType" Value="Hero">
-                            <Setter Property="FontSize" Value="15" />
+                            <Setter Property="FontSize" Value="13.5" />
                             <Setter Property="FontWeight" Value="Bold" />
                             <Setter Property="CornerRadius" Value="4" />
-                            <Setter Property="Padding" Value="20,10,20,12" />
+                            <Setter Property="Padding" Value="14,0" />
                             <Setter TargetName="PART_Border" Property="BorderThickness" Value="1.5" />
                         </Trigger>
                         <Trigger Property="ButtonType" Value="Highlight">
                             <Setter Property="FontWeight" Value="Bold" />
+                            <Setter Property="Padding" Value="12,0" />
                             <Setter TargetName="PART_Border" Property="BorderThickness" Value="1.2" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
