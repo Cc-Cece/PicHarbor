@@ -48,6 +48,31 @@ public partial class MediaSearchResultItem : ObservableObject
 
     [ObservableProperty]
     private bool isSyncedToGooglePhotos = false;
+
+    public string FileName => System.IO.Path.GetFileName(RelativePath);
+
+    public string FormatUpper
+    {
+        get
+        {
+            if (IsLivePhoto) return "LIVE";
+            string ext = System.IO.Path.GetExtension(RelativePath).TrimStart('.').ToUpperInvariant();
+            return string.IsNullOrEmpty(ext) ? (IsVideo ? "MP4" : "JPG") : ext;
+        }
+    }
+
+    public string DisplayCapturedAt
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(CapturedAt)) return "—";
+            if (DateTime.TryParse(CapturedAt, out var dt))
+            {
+                return dt.ToString("yyyy-MM-dd HH:mm");
+            }
+            return CapturedAt.Replace('T', ' ');
+        }
+    }
 }
 
 
@@ -324,6 +349,22 @@ public partial class SearchViewModel : ObservableObject
         OnPropertyChanged(nameof(IsCategoryManual));
         OnPropertyChanged(nameof(IsCategoryExport));
 
+        if (value == 4)
+        {
+            if (IPhoneSyncVM != null && IPhoneSyncVM.HasManualSelections)
+            {
+                IPhoneSyncVM.IsManualModalOpen = true;
+            }
+            else if (AndroidSyncVM != null && AndroidSyncVM.HasManualSelections)
+            {
+                AndroidSyncVM.IsManualModalOpen = true;
+            }
+            else if (IPhoneSyncVM != null)
+            {
+                IPhoneSyncVM.IsManualModalOpen = true;
+            }
+        }
+
         if (value == 1)
         {
             SelectedType = "video (视频)";
@@ -331,6 +372,11 @@ public partial class SearchViewModel : ObservableObject
         else
         {
             SelectedType = "All (全部)";
+        }
+
+        if (!suppressFilterSearch)
+        {
+            _ = SearchAsync();
         }
     }
 
@@ -496,7 +542,7 @@ public partial class SearchViewModel : ObservableObject
     private bool hasGpsOnly = false;
 
     [ObservableProperty]
-    private bool includeHeic = false;
+    private bool includeHeic = true;
 
     [ObservableProperty]
     private bool isTableView = false;
@@ -620,24 +666,67 @@ public partial class SearchViewModel : ObservableObject
 
         try
         {
+            string archivePathCopy = ArchivePath;
+            int category = SelectedViewCategory;
+            var manualSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (category == 3)
+            {
+                var s1 = IPhoneSyncVM?.GetManualSelectionPathsSet();
+                var s2 = AndroidSyncVM?.GetManualSelectionPathsSet();
+                var s3 = GooglePhotosVM?.GetManualSelectionPathsSet();
+                if (s1 != null) foreach (var p in s1) manualSet.Add(p);
+                if (s2 != null) foreach (var p in s2) manualSet.Add(p);
+                if (s3 != null) foreach (var p in s3) manualSet.Add(p);
+            }
+
             var (hits, display, models) = await Task.Run(() =>
             {
-                using var journal = TransferJournal.OpenReadOnly(ArchivePath);
+                using var journal = TransferJournal.OpenReadOnly(archivePathCopy);
                 IReadOnlyList<ManifestSearchRow> rows = journal.ReadSearchRows();
                 var found = MediaSearch.Find(rows, criteria).ToList();
+
+                // 1. Purge deleted or 0-byte ghost files on disk (prevents missing placeholders)
+                if (!string.IsNullOrWhiteSpace(archivePathCopy) && Directory.Exists(archivePathCopy))
+                {
+                    found = found.Where(h =>
+                    {
+                        string p = Path.Combine(archivePathCopy, h.RelativePath);
+                        if (!File.Exists(p)) return false;
+                        try
+                        {
+                            return new FileInfo(p).Length > 0;
+                        }
+                        catch
+                        {
+                            return false;
+                        }
+                    }).ToList();
+                }
+
+                // 2. Filter Live Photos (must have both still and motion video)
                 if (filterLiveOnly)
                 {
-                    var liveStems = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    var stillStems = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    var videoStems = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     foreach (var r in rows)
                     {
                         string ext = Path.GetExtension(r.RelativePath).ToLowerInvariant();
-                        if (ext is ".mov" or ".mp4")
-                        {
-                            liveStems.Add(Path.ChangeExtension(r.RelativePath, null));
-                        }
+                        string stem = Path.ChangeExtension(r.RelativePath, null);
+                        if (ext is ".mov" or ".mp4") videoStems.Add(stem);
+                        else if (ext is ".heic" or ".jpg" or ".jpeg") stillStems.Add(stem);
                     }
+                    var liveStems = stillStems.Intersect(videoStems).ToHashSet(StringComparer.OrdinalIgnoreCase);
                     found = found.Where(h => liveStems.Contains(Path.ChangeExtension(h.RelativePath, null))).ToList();
                 }
+
+                // 3. Category: Manual Selection
+                if (category == 3)
+                {
+                    found = manualSet.Count > 0
+                        ? found.Where(h => manualSet.Contains(h.RelativePath)).ToList()
+                        : new List<MediaSearchHit>();
+                }
+
                 return (found, BuildDisplay(rows), DistinctCameraModels(rows));
             }, ct).ConfigureAwait(false);
 
@@ -1577,6 +1666,20 @@ public partial class SearchViewModel : ObservableObject
             else
                 RemoveFromAndroidSelection(targets);
         }
+    }
+
+    [RelayCommand]
+    public void ToggleIPhoneManualSelection(MediaSearchResultItem item)
+    {
+        if (item == null) return;
+        ToggleItemsManualSelection("iPhone", new[] { item.RelativePath });
+    }
+
+    [RelayCommand]
+    public void ToggleAndroidManualSelection(MediaSearchResultItem item)
+    {
+        if (item == null) return;
+        ToggleItemsManualSelection("Android", new[] { item.RelativePath });
     }
 
     private static IntPtr GetMainWindowHandle()

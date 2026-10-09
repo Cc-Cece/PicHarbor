@@ -20,6 +20,28 @@
     <div class="empty-title">当前筛选下没有归档照片</div>
     <div class="empty-desc">请尝试调整搜索关键词、选择全部日期或连接手机备份归档</div>
   </div>
+
+  <!-- Modern Frosted HTML5 Video Lightbox Modal -->
+  <div id="video-modal" class="video-modal" style="display: none;">
+    <div class="video-backdrop" id="video-backdrop"></div>
+    <div class="video-dialog">
+      <div class="video-header">
+        <div class="video-title" id="video-title">视频播放</div>
+        <button class="video-close-btn" id="video-close-btn" title="关闭 (Esc)">✕</button>
+      </div>
+      <div class="video-body">
+        <video id="html5-video-player" controls autoplay playsinline></video>
+      </div>
+      <div class="video-footer">
+        <div class="video-meta-info" id="video-meta-info"></div>
+        <div class="video-actions">
+          <button class="video-btn" id="video-btn-open-system" title="使用系统播放器打开">↗ 系统默认打开</button>
+          <button class="video-btn" id="video-btn-reveal" title="在文件夹中显示">📂 在资源管理器中显示</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="./gallery.js"></script>
 </body>
 </html>

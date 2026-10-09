@@ -17,6 +17,15 @@ public partial class MainViewModel : ObservableObject
     private int selectedTabIndex = 0;
 
     [ObservableProperty]
+    private int backupSubTabIndex = 0;
+
+    [ObservableProperty]
+    private int syncSubTabIndex = 0;
+
+    [ObservableProperty]
+    private int settingsSubTabIndex = 0;
+
+    [ObservableProperty]
     private int selectedDeviceIndex = 0; // 0 for iPhone, 1 for Android
 
     [ObservableProperty]

@@ -106,7 +106,20 @@ public partial class PclGalleryWebControl : UserControl
 
     private void CurrentSearchVM_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(SearchViewModel.IsGalleryView) && currentSearchVM?.IsGalleryView == true)
+        if (e.PropertyName == nameof(SearchViewModel.SearchResults))
+        {
+            if (currentSearchVM?.SearchResults != null)
+            {
+                currentSearchVM.SearchResults.CollectionChanged -= SearchResults_CollectionChanged;
+                currentSearchVM.SearchResults.CollectionChanged += SearchResults_CollectionChanged;
+            }
+            TriggerPush();
+        }
+        else if (e.PropertyName == nameof(SearchViewModel.IsGalleryView) && currentSearchVM?.IsGalleryView == true)
+        {
+            TriggerPush();
+        }
+        else if (e.PropertyName == nameof(SearchViewModel.IsSearching) && currentSearchVM?.IsSearching == false)
         {
             TriggerPush();
         }
@@ -316,6 +329,16 @@ public partial class PclGalleryWebControl : UserControl
                                 _ => "application/octet-stream"
                             };
                         }
+                        else if (isVideo)
+                        {
+                            fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                            fileMime = ext switch
+                            {
+                                ".mov" => "video/quicktime",
+                                ".webm" => "video/webm",
+                                _ => "video/mp4"
+                            };
+                        }
                         else
                         {
                             highResBytes = GetHighResPreviewBytes(filePath);
@@ -356,11 +379,14 @@ public partial class PclGalleryWebControl : UserControl
                         {
                             if (fileStream != null && fileMime != null)
                             {
+                                string headers = isVideo
+                                    ? $"Content-Type: {fileMime}\r\nAccept-Ranges: bytes\r\nAccess-Control-Allow-Origin: *\r\nCache-Control: public, max-age=86400"
+                                    : $"Content-Type: {fileMime}\r\nAccess-Control-Allow-Origin: *\r\nCache-Control: public, max-age=86400";
                                 e.Response = env.CreateWebResourceResponse(
                                     fileStream,
                                     200,
                                     "OK",
-                                    $"Content-Type: {fileMime}\r\nAccess-Control-Allow-Origin: *");
+                                    headers);
                             }
                             else if (highResBytes != null)
                             {
@@ -369,7 +395,7 @@ public partial class PclGalleryWebControl : UserControl
                                     ms,
                                     200,
                                     "OK",
-                                    "Content-Type: image/jpeg\r\nAccess-Control-Allow-Origin: *");
+                                    "Content-Type: image/jpeg\r\nAccess-Control-Allow-Origin: *\r\nCache-Control: public, max-age=86400");
                             }
                         }
                     }
@@ -433,7 +459,38 @@ public partial class PclGalleryWebControl : UserControl
                     img = LoadFrozenBitmap(pairedStill, 240) ?? ShellServices.GetShellThumbnail(pairedStill, 240, 240, thumbnailOnly: false);
                 }
 
-                img ??= ShellServices.GetShellThumbnail(filePath, 240, 240, thumbnailOnly: false);
+                if (img == null)
+                {
+                    try
+                    {
+                        var storageFile = await Windows.Storage.StorageFile.GetFileFromPathAsync(filePath);
+                        using var thumb = await storageFile.GetThumbnailAsync(Windows.Storage.FileProperties.ThumbnailMode.VideosView, 240, Windows.Storage.FileProperties.ThumbnailOptions.UseCurrentScale);
+                        if (thumb != null && thumb.Size > 0)
+                        {
+                            using var winrtStream = thumb.AsStreamForRead();
+                            using var ms = new MemoryStream();
+                            await winrtStream.CopyToAsync(ms).ConfigureAwait(false);
+                            byte[] rawBytes = ms.ToArray();
+                            if (rawBytes.Length > 0)
+                            {
+                                if (ThumbnailCache.Count < 3000) ThumbnailCache[filePath] = rawBytes;
+                                _ = Task.Run(async () =>
+                                {
+                                    try
+                                    {
+                                        Directory.CreateDirectory(DiskCacheFolder);
+                                        await File.WriteAllBytesAsync(diskCacheFile, rawBytes).ConfigureAwait(false);
+                                    }
+                                    catch { }
+                                });
+                                return rawBytes;
+                            }
+                        }
+                    }
+                    catch { }
+
+                    img = ShellServices.GetShellThumbnail(filePath, 240, 240, thumbnailOnly: false);
+                }
             }
             else if (ext is ".heic" or ".heif")
             {

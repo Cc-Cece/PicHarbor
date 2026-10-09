@@ -33,12 +33,60 @@ function updateEmptyState(photosCount) {
   }
 }
 
+let currentPlayingItem = null;
+
+function openVideoModal(item) {
+  if (!item) return;
+  currentPlayingItem = item;
+  const modal = document.getElementById('video-modal');
+  const video = document.getElementById('html5-video-player');
+  const title = document.getElementById('video-title');
+  const meta = document.getElementById('video-meta-info');
+  if (!modal || !video) return;
+
+  title.textContent = item.relativePath || item.id || '视频播放';
+  meta.textContent = `${(item.format || 'MP4').toUpperCase()} · ${item.takenAt || ''} · ${item.sizeText || ''}`;
+
+  const videoUrl = item.url || `https://media.gallery.local/image?path=${encodeURIComponent(item.fullPath)}`;
+  video.src = videoUrl;
+  modal.style.display = 'flex';
+  video.play().catch(e => console.log('Autoplay prevented or paused:', e));
+}
+
+function closeVideoModal() {
+  const modal = document.getElementById('video-modal');
+  const video = document.getElementById('html5-video-player');
+  if (video) {
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+  }
+  if (modal) {
+    modal.style.display = 'none';
+  }
+  currentPlayingItem = null;
+}
+
 function initAlbum(photos) {
   currentPhotos = photos || [];
   updateEmptyState(currentPhotos.length);
 
   if (albumInstance) {
-    albumInstance.setData(currentPhotos);
+    if (albumInstance.scroller) {
+      albumInstance.scroller.scrollTop = 0;
+    }
+    const res = albumInstance.setData(currentPhotos);
+    if (res && typeof res.then === 'function') {
+      res.then(() => {
+        if (albumInstance.scroller) albumInstance.scroller.scrollTop = 0;
+        albumInstance.relayout(true);
+        albumInstance.paint();
+      });
+    } else {
+      if (albumInstance.scroller) albumInstance.scroller.scrollTop = 0;
+      albumInstance.relayout(true);
+      albumInstance.paint();
+    }
     return;
   }
 
@@ -218,7 +266,7 @@ function initAlbum(photos) {
           icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/></svg>',
           onClick: ({ state }) => {
             if (state && state.item) {
-              postToHost({ action: 'openPreview', id: state.item.id, path: state.item.fullPath, forceVideo: true });
+              openVideoModal(state.item);
             }
           }
         },
@@ -250,7 +298,7 @@ function initAlbum(photos) {
         if (ev) {
           ev.preventDefault();
         }
-        postToHost({ action: 'openPreview', id: rawItem.id, path: rawItem.fullPath });
+        openVideoModal(rawItem);
         return;
       }
     },
@@ -311,7 +359,37 @@ if (window.chrome && window.chrome.webview) {
   window.chrome.webview.addEventListener('message', onHostMessage);
 }
 
-// Inform C# that web gallery is ready to receive data
+// Inform C# that web gallery is ready to receive data and bind modal buttons
 window.addEventListener('DOMContentLoaded', () => {
   postToHost({ action: 'ready' });
+
+  const closeBtn = document.getElementById('video-close-btn');
+  const backdrop = document.getElementById('video-backdrop');
+  const openSystemBtn = document.getElementById('video-btn-open-system');
+  const revealBtn = document.getElementById('video-btn-reveal');
+
+  if (closeBtn) closeBtn.addEventListener('click', closeVideoModal);
+  if (backdrop) backdrop.addEventListener('click', closeVideoModal);
+
+  if (openSystemBtn) {
+    openSystemBtn.addEventListener('click', () => {
+      if (currentPlayingItem && currentPlayingItem.fullPath) {
+        postToHost({ action: 'openWith', path: currentPlayingItem.fullPath });
+      }
+    });
+  }
+
+  if (revealBtn) {
+    revealBtn.addEventListener('click', () => {
+      if (currentPlayingItem && currentPlayingItem.fullPath) {
+        postToHost({ action: 'revealInExplorer', path: currentPlayingItem.fullPath });
+      }
+    });
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeVideoModal();
+    }
+  });
 });
