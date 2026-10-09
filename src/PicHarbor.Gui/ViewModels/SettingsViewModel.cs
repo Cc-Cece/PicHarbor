@@ -31,6 +31,17 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string discoveredArchivesSummary = "";
 
+    public ObservableCollection<string> OrganizeSchemes { get; } = new()
+    {
+        "month (YYYY-MM)",
+        "year (YYYY)",
+        "day (YYYY-MM-DD)",
+        "flat (单一目录)"
+    };
+
+    [ObservableProperty]
+    private string selectedScheme = "month (YYYY-MM)";
+
     [ObservableProperty]
     private bool syncExifToLastWriteTime = true;
 
@@ -51,6 +62,31 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private bool disablePcSleepNotice = true;
+
+    // Performance & Network Properties
+    [ObservableProperty]
+    private string googlePhotosProxy = "";
+
+    [ObservableProperty]
+    private string proxyStatusText = "";
+
+    [ObservableProperty]
+    private string proxyStatusColor = "#10B981";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(TestProxyCommand))]
+    private bool isTestingProxy = false;
+
+    public bool CanTestProxy => !IsTestingProxy;
+
+    [ObservableProperty]
+    private int googlePhotosThreads = 3;
+
+    [ObservableProperty]
+    private int googlePhotosTimeoutSeconds = 60;
+
+    [ObservableProperty]
+    private int googlePhotosAutoRetryAttempts = 3;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SyncNowCommand))]
@@ -163,12 +199,18 @@ public partial class SettingsViewModel : ObservableObject
             : config.PrimaryDriveLetter;
         ArchivePath = LibraryStorageService.GetLibraryRootForDrive(PrimaryDriveLetter);
         GroupMediaByDevice = config.GroupMediaByDevice;
+        SelectedScheme = string.IsNullOrWhiteSpace(config.SelectedScheme) ? "month (YYYY-MM)" : config.SelectedScheme;
         SyncExifToLastWriteTime = config.SyncExifToLastWriteTime;
         SyncExifToCreationTime = config.SyncExifToCreationTime;
         ReadTimeoutSeconds = config.ReadTimeoutSeconds;
         AutoCompleteLivePhotoPair = config.AutoCompleteLivePhotoPair;
         AutoCompleteAaeSidecar = config.AutoCompleteAaeSidecar;
         AutoCompleteRawJpg = config.AutoCompleteRawJpg;
+        GooglePhotosProxy = config.GooglePhotosProxy;
+        GooglePhotosThreads = config.GooglePhotosThreads > 0 ? config.GooglePhotosThreads : 3;
+        GooglePhotosTimeoutSeconds = config.GooglePhotosTimeoutSeconds > 0 ? config.GooglePhotosTimeoutSeconds : 60;
+        GooglePhotosAutoRetryAttempts = config.GooglePhotosAutoRetryAttempts > 0 ? config.GooglePhotosAutoRetryAttempts : 3;
+        ProxyStatusText = !string.IsNullOrWhiteSpace(GooglePhotosProxy) ? $"{GooglePhotosProxy} (已配置)" : "直连 (未配置代理)";
     }
 
     public void SaveConfig()
@@ -177,12 +219,17 @@ public partial class SettingsViewModel : ObservableObject
         config.PrimaryDriveLetter = PrimaryDriveLetter;
         config.DestinationPath = ArchivePath;
         config.GroupMediaByDevice = GroupMediaByDevice;
+        config.SelectedScheme = SelectedScheme;
         config.SyncExifToLastWriteTime = SyncExifToLastWriteTime;
         config.SyncExifToCreationTime = SyncExifToCreationTime;
         config.ReadTimeoutSeconds = ReadTimeoutSeconds;
         config.AutoCompleteLivePhotoPair = AutoCompleteLivePhotoPair;
         config.AutoCompleteAaeSidecar = AutoCompleteAaeSidecar;
         config.AutoCompleteRawJpg = AutoCompleteRawJpg;
+        config.GooglePhotosProxy = GooglePhotosProxy;
+        config.GooglePhotosThreads = GooglePhotosThreads;
+        config.GooglePhotosTimeoutSeconds = GooglePhotosTimeoutSeconds;
+        config.GooglePhotosAutoRetryAttempts = GooglePhotosAutoRetryAttempts;
         Config.AppSettings.Save(config);
     }
 
@@ -200,12 +247,68 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     partial void OnGroupMediaByDeviceChanged(bool value) => SaveConfig();
+    partial void OnSelectedSchemeChanged(string value) => SaveConfig();
     partial void OnSyncExifToLastWriteTimeChanged(bool value) => SaveConfig();
     partial void OnSyncExifToCreationTimeChanged(bool value) => SaveConfig();
     partial void OnReadTimeoutSecondsChanged(int value) => SaveConfig();
     partial void OnAutoCompleteLivePhotoPairChanged(bool value) => SaveConfig();
     partial void OnAutoCompleteAaeSidecarChanged(bool value) => SaveConfig();
     partial void OnAutoCompleteRawJpgChanged(bool value) => SaveConfig();
+    partial void OnGooglePhotosProxyChanged(string value) => SaveConfig();
+    partial void OnGooglePhotosThreadsChanged(int value) => SaveConfig();
+    partial void OnGooglePhotosTimeoutSecondsChanged(int value) => SaveConfig();
+    partial void OnGooglePhotosAutoRetryAttemptsChanged(int value) => SaveConfig();
+
+    [RelayCommand(CanExecute = nameof(CanTestProxy))]
+    private async Task TestProxyAsync()
+    {
+        if (IsTestingProxy) return;
+        IsTestingProxy = true;
+        ProxyStatusColor = "#3B82F6";
+        ProxyStatusText = "⏳ 正在检测网络通道...";
+
+        try
+        {
+            var sw = Stopwatch.StartNew();
+            var handler = new System.Net.Http.SocketsHttpHandler();
+            if (!string.IsNullOrWhiteSpace(GooglePhotosProxy))
+            {
+                handler.Proxy = new System.Net.WebProxy(GooglePhotosProxy);
+                handler.UseProxy = true;
+            }
+            else
+            {
+                handler.UseProxy = false;
+            }
+
+            using var client = new System.Net.Http.HttpClient(handler)
+            {
+                Timeout = TimeSpan.FromSeconds(8)
+            };
+
+            var response = await client.GetAsync("https://www.google.com/generate_204").ConfigureAwait(false);
+            sw.Stop();
+            if (response.IsSuccessStatusCode)
+            {
+                ProxyStatusColor = "#10B981";
+                ProxyStatusText = $"✅ 代理通道畅通 (延迟 {sw.ElapsedMilliseconds} ms)";
+            }
+            else
+            {
+                ProxyStatusColor = "#EF4444";
+                ProxyStatusText = $"⚠️ 响应状态: {(int)response.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            ProxyStatusColor = "#EF4444";
+            ProxyStatusText = $"❌ 连接失败: {ex.Message}";
+        }
+        finally
+        {
+            IsTestingProxy = false;
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanSync))]
     private async Task SyncNowAsync()

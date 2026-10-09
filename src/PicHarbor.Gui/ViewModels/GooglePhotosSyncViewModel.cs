@@ -67,7 +67,10 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     private string authData = "";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProxyDisplayText))]
     private string proxy = "";
+
+    public string ProxyDisplayText => !string.IsNullOrWhiteSpace(Proxy) ? $"{Proxy} (已配置)" : "直连 (未配置代理)";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotTestingProxy))]
@@ -900,6 +903,31 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void Logout()
+    {
+        OAuthCookie = string.Empty;
+        AuthData = string.Empty;
+        AccountEmail = "未登录 / 未设置凭据";
+        IsConnected = false;
+        ConnectionStatusText = "未配置凭据";
+        TestStatusText = string.Empty;
+
+        var config = AppSettings.Load();
+        config.GooglePhotosOAuthCookie = string.Empty;
+        config.GooglePhotosAuthData = string.Empty;
+        config.GooglePhotosAccountEmail = string.Empty;
+        AppSettings.Save(config);
+
+        LogEntries.Add("[INFO] 已成功注销 Google 账号凭据。");
+    }
+
+    [RelayCommand]
+    private void NavigateToSettings()
+    {
+        NavigateToSettingsAction?.Invoke();
+    }
+
+    [RelayCommand]
     private void BrowseCustomTarget()
     {
         var dialog = new OpenFolderDialog
@@ -1124,6 +1152,30 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         catch (Exception ex)
         {
             Debug.WriteLine($"Failed to clear manual selections: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private void ClearAllManualSelections() => ClearManualSelections();
+
+    [RelayCommand]
+    private void PickFilesFromExplorer()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Multiselect = true,
+            Title = App.GetString("TitlePickFilesFromExplorer", "从资源管理器挑选照片..."),
+            Filter = App.GetString("FilterMediaFiles", "媒体文件|*.jpg;*.jpeg;*.heic;*.png;*.webp;*.mov;*.mp4;*.dng;*.cr2;*.nef;*.arw|所有文件|*.*")
+        };
+
+        if (!string.IsNullOrWhiteSpace(ArchivePath) && Directory.Exists(ArchivePath))
+        {
+            dialog.InitialDirectory = ArchivePath;
+        }
+
+        if (dialog.ShowDialog() == true)
+        {
+            ProcessPickedFiles(dialog.FileNames);
         }
     }
 

@@ -290,6 +290,7 @@ function initAlbum(photos) {
       maxScale: 8,
       zoomStep: 1.25,
       arrows: true,
+      closeOnBackdrop: true,
       actions: [
         'rotateLeft',
         'rotateRight',
@@ -303,11 +304,16 @@ function initAlbum(photos) {
         'divider',
         {
           id: 'viewer-play-video',
-          title: '播放实况视频 / 视频',
+          title: '播放视频',
           icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/></svg>',
           onClick: ({ state }) => {
             if (state && state.item) {
-              openVideoModal(state.item);
+              const fmt = (state.item.format || '').toLowerCase();
+              if (fmt === 'mp4') {
+                openVideoModal(state.item);
+              } else {
+                postToHost({ action: 'openWith', path: state.item.fullPath });
+              }
             }
           }
         },
@@ -339,7 +345,13 @@ function initAlbum(photos) {
         if (ev) {
           ev.preventDefault();
         }
-        openVideoModal(rawItem);
+        const fmt = (rawItem.format || '').toLowerCase();
+        if (fmt === 'mp4') {
+          openVideoModal(rawItem);
+        } else {
+          // MOV and other formats not natively supported in Chromium -> open with system default player
+          postToHost({ action: 'openWith', path: rawItem.fullPath });
+        }
         return;
       }
     },

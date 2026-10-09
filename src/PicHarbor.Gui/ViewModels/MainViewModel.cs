@@ -91,8 +91,32 @@ public partial class MainViewModel : ObservableObject
         AndroidBackupVM.NavigateToSettingsAction = () => SelectedTabIndex = 3;
         IPhoneSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 3;
         AndroidSyncVM.NavigateToSettingsAction = () => SelectedTabIndex = 3;
-        GooglePhotosVM.NavigateToSettingsAction = () => SelectedTabIndex = 3;
+        GooglePhotosVM.NavigateToSettingsAction = () =>
+        {
+            SelectedTabIndex = 3;
+            SettingsSubTabIndex = 2; // Jump directly to Engine & Network sub-tab
+        };
         GooglePhotosVM.NavigateToSearchAction = () => SelectedTabIndex = 1;
+
+        // Keep Android FTP connection parameters synchronized between Backup and Sync
+        AndroidBackupVM.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(AndroidBackupViewModel.AndroidFtpHost)) AndroidSyncVM.AndroidFtpHost = AndroidBackupVM.AndroidFtpHost;
+            if (e.PropertyName == nameof(AndroidBackupViewModel.AndroidFtpPort)) AndroidSyncVM.AndroidFtpPort = AndroidBackupVM.AndroidFtpPort;
+            if (e.PropertyName == nameof(AndroidBackupViewModel.AndroidFtpUser)) AndroidSyncVM.AndroidFtpUser = AndroidBackupVM.AndroidFtpUser;
+            if (e.PropertyName == nameof(AndroidBackupViewModel.AndroidFtpPassword)) AndroidSyncVM.AndroidFtpPassword = AndroidBackupVM.AndroidFtpPassword;
+        };
+        AndroidSyncVM.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(AndroidSyncViewModel.AndroidFtpHost)) AndroidBackupVM.AndroidFtpHost = AndroidSyncVM.AndroidFtpHost;
+            if (e.PropertyName == nameof(AndroidSyncViewModel.AndroidFtpPort)) AndroidBackupVM.AndroidFtpPort = AndroidSyncVM.AndroidFtpPort;
+            if (e.PropertyName == nameof(AndroidSyncViewModel.AndroidFtpUser)) AndroidBackupVM.AndroidFtpUser = AndroidSyncVM.AndroidFtpUser;
+            if (e.PropertyName == nameof(AndroidSyncViewModel.AndroidFtpPassword)) AndroidBackupVM.AndroidFtpPassword = AndroidSyncVM.AndroidFtpPassword;
+        };
+        SettingsVM.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(SettingsViewModel.GooglePhotosProxy)) GooglePhotosVM.Proxy = SettingsVM.GooglePhotosProxy;
+        };
 
         // Wire modal notification updates
         void NotifyModalChanged()
@@ -105,7 +129,7 @@ public partial class MainViewModel : ObservableObject
 
         BackupVM.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(BackupViewModel.IsDetailModalOpen)) NotifyModalChanged(); };
         AndroidBackupVM.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(AndroidBackupViewModel.IsDetailModalOpen)) NotifyModalChanged(); };
-        GooglePhotosVM.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(GooglePhotosSyncViewModel.IsDetailModalOpen)) NotifyModalChanged(); };
+        GooglePhotosVM.PropertyChanged += (s, e) => { if (e.PropertyName is nameof(GooglePhotosSyncViewModel.IsDetailModalOpen) or nameof(GooglePhotosSyncViewModel.IsManualModalOpen)) NotifyModalChanged(); };
         AndroidSyncVM.PropertyChanged += (s, e) => { if (e.PropertyName is nameof(AndroidSyncViewModel.IsDetailModalOpen) or nameof(AndroidSyncViewModel.IsPreflightModalOpen) or nameof(AndroidSyncViewModel.IsManualModalOpen)) NotifyModalChanged(); };
         IPhoneSyncVM.PropertyChanged += (s, e) => { if (e.PropertyName is nameof(IPhoneSyncViewModel.IsPreflightModalOpen) or nameof(IPhoneSyncViewModel.IsManualModalOpen)) NotifyModalChanged(); };
 
@@ -256,7 +280,8 @@ public partial class MainViewModel : ObservableObject
         IPhoneSyncVM.IsPreflightModalOpen ||
         AndroidSyncVM.IsPreflightModalOpen ||
         IPhoneSyncVM.IsManualModalOpen ||
-        AndroidSyncVM.IsManualModalOpen;
+        AndroidSyncVM.IsManualModalOpen ||
+        GooglePhotosVM.IsManualModalOpen;
 
     [RelayCommand]
     public void CloseActiveDetailModal()

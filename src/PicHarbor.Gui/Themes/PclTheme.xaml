@@ -50,6 +50,9 @@
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource ColorBrush1}" />
         <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="UseLayoutRounding" Value="True" />
+        <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+        <Setter Property="TextOptions.TextRenderingMode" Value="ClearType" />
         <Setter Property="Padding" Value="10,0" />
         <Setter Property="CornerRadius" Value="4" />
         <Setter Property="Template">
@@ -60,7 +63,9 @@
                             CornerRadius="{TemplateBinding CornerRadius}"
                             Background="{DynamicResource ColorBrushHalfWhite}"
                             BorderBrush="{DynamicResource ColorBrush6}"
-                            Padding="{TemplateBinding Padding}">
+                            Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True"
+                            UseLayoutRounding="True">
                         <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -80,16 +85,16 @@
                     <ControlTemplate.Triggers>
                         <!-- PCL2 Launch Hero Action Button -->
                         <Trigger Property="ButtonType" Value="Hero">
-                            <Setter Property="FontSize" Value="13.5" />
+                            <Setter Property="FontSize" Value="13" />
                             <Setter Property="FontWeight" Value="Bold" />
                             <Setter Property="CornerRadius" Value="4" />
                             <Setter Property="Padding" Value="14,0" />
-                            <Setter TargetName="PART_Border" Property="BorderThickness" Value="1.5" />
+                            <Setter TargetName="PART_Border" Property="BorderThickness" Value="1" />
                         </Trigger>
                         <Trigger Property="ButtonType" Value="Highlight">
                             <Setter Property="FontWeight" Value="Bold" />
                             <Setter Property="Padding" Value="12,0" />
-                            <Setter TargetName="PART_Border" Property="BorderThickness" Value="1.2" />
+                            <Setter TargetName="PART_Border" Property="BorderThickness" Value="1" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="PART_Border" Property="BorderBrush" Value="{DynamicResource ColorBrushGray4}" />
