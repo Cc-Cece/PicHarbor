@@ -1,0 +1,140 @@
+/* PicHarbor PCL2 Theming for Sweet-Album */
+:root {
+  --sp-bg: #F8FAFC;
+  --sp-fg: #343D4A;
+  --sp-fg-dim: #737373;
+  --sp-surface: #FFFFFF;
+  --sp-surface-hover: #EAF2FE;
+  --sp-border: #D5E6FD;
+  --sp-accent: #0B5BCB;
+  --sp-accent-fg: #FFFFFF;
+  --sp-danger: #EF4444;
+  --sp-heart: #EF4444;
+  --sp-tile-bg: #EDF2F7;
+  --sp-scrim: rgba(15, 23, 42, 0.45);
+  --sp-shadow: 0 8px 24px rgba(11, 91, 203, 0.12);
+  --sp-radius: 6px;
+  --sp-radius-lg: 8px;
+  --sp-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei UI", Roboto, sans-serif;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--sp-bg);
+  font-family: var(--sp-font);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#album-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Custom Badges */
+.badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #FFFFFF;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.badge-pill:hover {
+  transform: scale(1.05);
+  filter: brightness(1.1);
+}
+
+.badge-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
+}
+
+.badge-icon {
+  width: 12px;
+  height: 12px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.badge-iphone {
+  background: linear-gradient(135deg, #0B5BCB, #1370F3);
+}
+
+.badge-android {
+  background: linear-gradient(135deg, #059669, #10B981);
+}
+
+.badge-google {
+  background: linear-gradient(135deg, #D97706, #F59E0B);
+}
+
+.badge-live {
+  background: rgba(15, 23, 42, 0.72);
+  cursor: default;
+}
+
+.badge-video {
+  background: rgba(15, 23, 42, 0.72);
+  cursor: default;
+}
+
+/* Empty State */
+.empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: var(--sp-fg-dim);
+  pointer-events: none;
+}
+
+.empty-icon {
+  margin-bottom: 12px;
+  color: #94A3B8;
+}
+
+.empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--sp-fg);
+  margin-bottom: 6px;
+}
+
+.empty-desc {
+  font-size: 12px;
+  color: var(--sp-fg-dim);
+}

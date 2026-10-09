@@ -542,63 +542,11 @@
                                 </Grid>
                             </controls:PclCard>
 
-                            <!-- Gallery Grid View -->
-                            <Border Background="White" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1" Padding="12" Margin="0,0,0,14"
+                            <!-- Gallery Grid View (Sweet-Album Justified Timeline Gallery) -->
+                            <Border Background="White" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1" Margin="0,0,0,14"
+                                    ClipToBounds="True" Height="560"
                                     Visibility="{Binding SearchVM.IsGalleryView, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                <ListBox ItemsSource="{Binding SearchVM.GalleryRows}"
-                                         MaxHeight="520"
-                                         SelectionMode="Single"
-                                         Background="Transparent" BorderThickness="0"
-                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                         ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                         ScrollViewer.CanContentScroll="True"
-                                         ScrollViewer.ScrollChanged="Gallery_ScrollChanged"
-                                         VirtualizingPanel.IsVirtualizing="True"
-                                         VirtualizingPanel.VirtualizationMode="Recycling">
-                                    <ListBox.ItemContainerStyle>
-                                        <Style TargetType="ListBoxItem">
-                                            <Setter Property="Padding" Value="0" />
-                                            <Setter Property="Margin" Value="0,0,0,8" />
-                                            <Setter Property="Background" Value="Transparent" />
-                                            <Setter Property="BorderThickness" Value="0" />
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="ListBoxItem">
-                                                        <ContentPresenter />
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                        </Style>
-                                    </ListBox.ItemContainerStyle>
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <ItemsControl ItemsSource="{Binding Items}">
-                                                <ItemsControl.ItemsPanel>
-                                                    <ItemsPanelTemplate>
-                                                        <WrapPanel Orientation="Horizontal" />
-                                                    </ItemsPanelTemplate>
-                                                </ItemsControl.ItemsPanel>
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Border Width="165" Height="165" CornerRadius="8" ClipToBounds="True" Background="#F1F5F9"
-                                                                BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1" Margin="0,0,10,10"
-                                                                Cursor="Hand" MouseLeftButtonDown="GalleryCard_MouseLeftButtonDown">
-                                                            <Grid>
-                                                                <Image Source="{Binding ThumbnailImage}" Stretch="UniformToFill" />
-                                                                <Border Background="#90000000" VerticalAlignment="Bottom" Padding="8,4">
-                                                                    <StackPanel>
-                                                                        <TextBlock Text="{Binding RelativePath}" Foreground="White" FontSize="11" TextTrimming="CharacterEllipsis" />
-                                                                        <TextBlock Text="{Binding CapturedAt}" Foreground="#CBD5E1" FontSize="10" />
-                                                                    </StackPanel>
-                                                                </Border>
-                                                            </Grid>
-                                                        </Border>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
+                                <controls:PclGalleryWebControl DataContext="{Binding}" />
                             </Border>
 
                             <!-- Table View -->

@@ -52,9 +52,10 @@ public partial class App : Application
                     vm.SelectedTabIndex = i;
                     window.UpdateLayout();
 
-                    // Wait 500ms for PCL2 cascading entrance animations to finish
+                    // Wait for animations and WebView2 gallery to finish loading
+                    int waitMs = (i == 1) ? 2000 : 500;
                     var frame = new DispatcherFrame();
-                    var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+                    var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(waitMs) };
                     timer.Tick += (s, a) => { frame.Continue = false; timer.Stop(); };
                     timer.Start();
                     Dispatcher.PushFrame(frame);
@@ -66,6 +67,51 @@ public partial class App : Application
 
                     var rtb = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
                     rtb.Render(window);
+
+                    if (i == 1)
+                    {
+                        var galleryWeb = FindVisualChild<Controls.PclGalleryWebControl>(window);
+                        if (galleryWeb?.AlbumWebView?.CoreWebView2 != null)
+                        {
+                            try
+                            {
+                                using var webMs = new MemoryStream();
+                                var captureTask = galleryWeb.AlbumWebView.CoreWebView2.CapturePreviewAsync(
+                                    Microsoft.Web.WebView2.Core.CoreWebView2CapturePreviewImageFormat.Png,
+                                    webMs);
+
+                                var captureFrame = new DispatcherFrame();
+                                captureTask.ContinueWith(_ => { captureFrame.Continue = false; });
+                                Dispatcher.PushFrame(captureFrame);
+
+                                if (webMs.Length > 0)
+                                {
+                                    webMs.Position = 0;
+                                    var webBmp = new BitmapImage();
+                                    webBmp.BeginInit();
+                                    webBmp.StreamSource = webMs;
+                                    webBmp.CacheOption = BitmapCacheOption.OnLoad;
+                                    webBmp.EndInit();
+                                    webBmp.Freeze();
+
+                                    var dv = new DrawingVisual();
+                                    using (var dc = dv.RenderOpen())
+                                    {
+                                        dc.DrawImage(rtb, new Rect(0, 0, width, height));
+                                        var point = galleryWeb.TransformToAncestor(window).Transform(new Point(0, 0));
+                                        dc.DrawImage(webBmp, new Rect(point.X, point.Y, galleryWeb.ActualWidth, galleryWeb.ActualHeight));
+                                    }
+                                    var compRtb = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+                                    compRtb.Render(dv);
+                                    rtb = compRtb;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Composite error: {ex.Message}");
+                            }
+                        }
+                    }
 
                     var encoder = new PngBitmapEncoder();
                     encoder.Frames.Add(BitmapFrame.Create(rtb));
@@ -80,6 +126,18 @@ public partial class App : Application
         {
             try { File.WriteAllText(Path.Combine(outDir, "render_error.log"), ex.ToString()); } catch { }
         }
+    }
+
+    private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T typed) return typed;
+            var sub = FindVisualChild<T>(child);
+            if (sub is not null) return sub;
+        }
+        return null;
     }
 
     public static string GetString(string key, string fallback = "")

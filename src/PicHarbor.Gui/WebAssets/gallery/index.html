@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PicHarbor 图库</title>
+  <link rel="stylesheet" href="./sweet-album.css">
+  <link rel="stylesheet" href="./gallery.css">
+</head>
+<body>
+  <div id="album-container"></div>
+  <div id="empty-state" class="empty-state" style="display: none;">
+    <div class="empty-icon">
+      <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
+      </svg>
+    </div>
+    <div class="empty-title">当前筛选下没有归档照片</div>
+    <div class="empty-desc">请尝试调整搜索关键词、选择全部日期或连接手机备份归档</div>
+  </div>
+  <script type="module" src="./gallery.js"></script>
+</body>
+</html>

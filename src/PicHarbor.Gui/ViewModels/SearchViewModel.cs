@@ -296,10 +296,10 @@ public partial class SearchViewModel : ObservableObject
     private bool includeHeic = false;
 
     [ObservableProperty]
-    private bool isTableView = true;
+    private bool isTableView = false;
 
     [ObservableProperty]
-    private bool isGalleryView = false;
+    private bool isGalleryView = true;
 
     [ObservableProperty]
     private string searchSummaryText = "";
@@ -1202,6 +1202,57 @@ public partial class SearchViewModel : ObservableObject
         return list;
     }
 
+    public void AddItemsToManualSelection(string type, IReadOnlyList<string> relativePaths)
+    {
+        var targets = SearchResults.Where(x => relativePaths.Contains(x.RelativePath)).ToList();
+        if (targets.Count == 0) return;
+
+        if (type.Equals("iPhone", StringComparison.OrdinalIgnoreCase))
+        {
+            AddToIPhoneSelection(targets);
+        }
+        else if (type.Equals("Android", StringComparison.OrdinalIgnoreCase))
+        {
+            AddToAndroidSelection(targets);
+        }
+        else if (type.Equals("Google", StringComparison.OrdinalIgnoreCase))
+        {
+            AddToGooglePhotosSelection(targets);
+        }
+    }
+
+    public void RemoveItemsFromManualSelection(IReadOnlyList<string> relativePaths)
+    {
+        var targets = SearchResults.Where(x => relativePaths.Contains(x.RelativePath)).ToList();
+        if (targets.Count == 0) return;
+
+        RemoveFromIPhoneSelection(targets);
+        RemoveFromAndroidSelection(targets);
+        RemoveFromGooglePhotosSelection(targets);
+    }
+
+    public void ToggleItemsManualSelection(string type, IReadOnlyList<string> relativePaths)
+    {
+        var targets = SearchResults.Where(x => relativePaths.Contains(x.RelativePath)).ToList();
+        if (targets.Count == 0) return;
+
+        if (type.Equals("iPhone", StringComparison.OrdinalIgnoreCase))
+        {
+            bool anyUnselected = targets.Any(x => !x.IsManualSelectedForIPhone);
+            if (anyUnselected)
+                AddToIPhoneSelection(targets);
+            else
+                RemoveFromIPhoneSelection(targets);
+        }
+        else if (type.Equals("Android", StringComparison.OrdinalIgnoreCase))
+        {
+            bool anyUnselected = targets.Any(x => !x.IsManualSelectedForAndroid);
+            if (anyUnselected)
+                AddToAndroidSelection(targets);
+            else
+                RemoveFromAndroidSelection(targets);
+        }
+    }
 
     private static IntPtr GetMainWindowHandle()
     {
