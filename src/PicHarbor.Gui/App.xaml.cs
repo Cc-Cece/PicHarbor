@@ -53,7 +53,7 @@ public partial class App : Application
                     window.UpdateLayout();
 
                     // Wait for animations and WebView2 gallery to finish loading
-                    int waitMs = (i == 1) ? 2000 : 500;
+                    int waitMs = (i == 1) ? 3500 : 500;
                     var frame = new DispatcherFrame();
                     var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(waitMs) };
                     timer.Tick += (s, a) => { frame.Continue = false; timer.Stop(); };

@@ -27,6 +27,9 @@ public partial class MediaSearchResultItem : ObservableObject
     public string GpsCoordinates { get; set; } = string.Empty;
     public bool HasThumbnail { get; set; } = false;
     public bool IsVideo { get; set; }
+    public bool IsLivePhoto { get; set; } = false;
+    public int PixelWidth { get; set; } = 0;
+    public int PixelHeight { get; set; } = 0;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsThumbnailLoaded))]
@@ -182,6 +185,62 @@ public partial class SearchViewModel : ObservableObject
 
     [ObservableProperty]
     private string selectedType = "All (全部)";
+
+    partial void OnSelectedTypeChanged(string value)
+    {
+        _ = SearchAsync();
+    }
+
+    [ObservableProperty]
+    private int selectedViewCategory = 0;
+
+    public bool IsCategoryAll
+    {
+        get => SelectedViewCategory == 0;
+        set { if (value) SelectedViewCategory = 0; }
+    }
+
+    public bool IsCategoryVideo
+    {
+        get => SelectedViewCategory == 1;
+        set { if (value) SelectedViewCategory = 1; }
+    }
+
+    public bool IsCategoryCamera
+    {
+        get => SelectedViewCategory == 2;
+        set { if (value) SelectedViewCategory = 2; }
+    }
+
+    public bool IsCategoryManual
+    {
+        get => SelectedViewCategory == 3;
+        set { if (value) SelectedViewCategory = 3; }
+    }
+
+    public bool IsCategoryExport
+    {
+        get => SelectedViewCategory == 4;
+        set { if (value) SelectedViewCategory = 4; }
+    }
+
+    partial void OnSelectedViewCategoryChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsCategoryAll));
+        OnPropertyChanged(nameof(IsCategoryVideo));
+        OnPropertyChanged(nameof(IsCategoryCamera));
+        OnPropertyChanged(nameof(IsCategoryManual));
+        OnPropertyChanged(nameof(IsCategoryExport));
+
+        if (value == 1)
+        {
+            SelectedType = "video (视频)";
+        }
+        else
+        {
+            SelectedType = "All (全部)";
+        }
+    }
 
     [ObservableProperty]
     private string cameraFilter = "";
@@ -505,6 +564,67 @@ public partial class SearchViewModel : ObservableObject
                         gps = meta.Gps ?? "";
                     }
 
+                    int pixelWidth = 0;
+                    int pixelHeight = 0;
+                    bool isLive = false;
+
+                    if (File.Exists(fullPath))
+                    {
+                        var dims = ImageDimensionHelper.GetDimensions(fullPath);
+                        if (dims.HasValue)
+                        {
+                            pixelWidth = dims.Value.Width;
+                            pixelHeight = dims.Value.Height;
+                        }
+
+                        if (isVideo)
+                        {
+                            string? still = ImageDimensionHelper.FindLivePhotoStill(fullPath);
+                            if (still != null)
+                            {
+                                isLive = true;
+                                if (pixelWidth <= 0 || pixelHeight <= 0)
+                                {
+                                    var stillDims = ImageDimensionHelper.GetDimensions(still);
+                                    if (stillDims.HasValue)
+                                    {
+                                        pixelWidth = stillDims.Value.Width;
+                                        pixelHeight = stillDims.Value.Height;
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            string? pairedVideo = ImageDimensionHelper.FindLivePhotoVideo(fullPath);
+                            if (pairedVideo != null)
+                            {
+                                isLive = true;
+                            }
+                        }
+                    }
+
+                    // Adaptive fallback dimensions based on media type
+                    if (pixelWidth <= 0 || pixelHeight <= 0)
+                    {
+                        if (hit.Type == MediaType.Screenshot)
+                        {
+                            // Modern mobile screenshots (iPhone 14/15/16 Pro: 1179x2556, standard 9:19.5 aspect ratio)
+                            pixelWidth = 1179;
+                            pixelHeight = 2556;
+                        }
+                        else if (isVideo)
+                        {
+                            pixelWidth = 1920;
+                            pixelHeight = 1080;
+                        }
+                        else
+                        {
+                            pixelWidth = 4032;
+                            pixelHeight = 3024;
+                        }
+                    }
+
                     list.Add(new MediaSearchResultItem
                     {
                         RelativePath = hit.RelativePath,
@@ -517,6 +637,9 @@ public partial class SearchViewModel : ObservableObject
                         GpsCoordinates = gps,
                         HasThumbnail = isVideo || hit.Type is MediaType.Photo or MediaType.Screenshot,
                         IsVideo = isVideo,
+                        IsLivePhoto = isLive,
+                        PixelWidth = pixelWidth,
+                        PixelHeight = pixelHeight,
                         IsManualSelectedForIPhone = manualSet.Contains(hit.RelativePath),
                         IsManualSelectedForAndroid = androidManualSet.Contains(hit.RelativePath),
                         IsManualSelectedForGooglePhotos = googleManualSet.Contains(hit.RelativePath),
@@ -733,6 +856,34 @@ public partial class SearchViewModel : ObservableObject
         int idx = SearchResults.IndexOf(item);
         if (idx < 0) idx = 0;
         SetPreviewIndex(idx);
+    }
+
+    [RelayCommand]
+    public void PlayLiveVideo(MediaSearchResultItem? item)
+    {
+        if (item is null) return;
+        string? videoPath = item.IsVideo ? item.FullPath : ImageDimensionHelper.FindLivePhotoVideo(item.FullPath);
+        if (!string.IsNullOrEmpty(videoPath) && File.Exists(videoPath))
+        {
+            var match = SearchResults.FirstOrDefault(x => string.Equals(x.FullPath, videoPath, StringComparison.OrdinalIgnoreCase));
+            if (match != null)
+            {
+                OpenPreview(match);
+                return;
+            }
+
+            int idx = SearchResults.IndexOf(item);
+            PreviewIndex = idx >= 0 ? idx : 0;
+            PreviewItem = item;
+            IsPreviewOpen = true;
+            IsPreviewVideo = true;
+            PreviewVideoPath = videoPath;
+            PreviewImageSource = item.ThumbnailImage;
+            PreviewDetailsText = $"{Path.GetFileName(videoPath)} (实况动图) | 拍摄时间: {item.CapturedAt}";
+            IsPreviewVideoFailed = false;
+            PreviewStatusText = "";
+            IsPreviewPlaying = false;
+        }
     }
 
     [RelayCommand]

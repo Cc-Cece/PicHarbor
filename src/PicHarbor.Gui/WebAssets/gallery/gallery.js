@@ -207,6 +207,16 @@ function initAlbum(photos) {
         'fit',
         'divider',
         {
+          id: 'viewer-play-video',
+          title: '播放实况视频 / 视频',
+          icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/></svg>',
+          onClick: ({ state }) => {
+            if (state && state.item) {
+              postToHost({ action: 'openPreview', id: state.item.id, path: state.item.fullPath, forceVideo: true });
+            }
+          }
+        },
+        {
           id: 'viewer-external',
           title: '在系统默认应用中打开',
           icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
@@ -229,10 +239,56 @@ function initAlbum(photos) {
       ]
     },
 
+    onItemClick: (rawItem, index, ev) => {
+      if (rawItem && rawItem.isVideo) {
+        if (ev) {
+          ev.preventDefault();
+        }
+        postToHost({ action: 'openPreview', id: rawItem.id, path: rawItem.fullPath });
+        return;
+      }
+    },
+
     onSelectionChange: (ids, items) => {
       postToHost({ action: 'selectionChanged', count: ids.length, ids });
     }
   });
+
+  let relayoutDebounceTimer = null;
+  function scheduleAdaptiveRelayout() {
+    if (relayoutDebounceTimer) clearTimeout(relayoutDebounceTimer);
+    relayoutDebounceTimer = setTimeout(() => {
+      if (albumInstance) {
+        albumInstance.setData(currentPhotos);
+      }
+    }, 150);
+  }
+
+  // Auto-adapt aspect ratio when image loads if natural dimensions differ from initial estimate
+  container.addEventListener('load', (e) => {
+    if (e.target && e.target.classList.contains('sp-tile__img')) {
+      const img = e.target;
+      const tile = img.closest('.sp-tile');
+      if (!tile) return;
+      const key = tile.dataset.key;
+      if (!key) return;
+
+      const photo = currentPhotos.find(p => p.id === key || String(p.id) === String(key));
+      if (!photo) return;
+
+      const nw = img.naturalWidth;
+      const nh = img.naturalHeight;
+      if (nw > 0 && nh > 0) {
+        const actualRatio = nw / nh;
+        const currentRatio = (photo.width || 1) / (photo.height || 1);
+        if (Math.abs(actualRatio - currentRatio) > 0.05) {
+          photo.width = nw;
+          photo.height = nh;
+          scheduleAdaptiveRelayout();
+        }
+      }
+    }
+  }, true);
 
   // Attach infinite scroll loader
   setTimeout(() => {

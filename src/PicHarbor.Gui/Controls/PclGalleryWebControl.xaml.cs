@@ -153,8 +153,18 @@ public partial class PclGalleryWebControl : UserControl
             string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             string userDataDir = Path.Combine(localAppData, "PicHarbor", "WebView2", "Gallery");
             Directory.CreateDirectory(userDataDir);
-            sharedEnvironment = await CoreWebView2Environment.CreateAsync(null, userDataDir);
-            return sharedEnvironment;
+            try
+            {
+                sharedEnvironment = await CoreWebView2Environment.CreateAsync(null, userDataDir);
+                return sharedEnvironment;
+            }
+            catch (Exception ex) when (ex.HResult == unchecked((int)0x800700AA) || ex.Message.Contains("0x800700AA"))
+            {
+                string fallbackDir = Path.Combine(Path.GetTempPath(), "PicHarbor_WV2_" + Environment.ProcessId);
+                Directory.CreateDirectory(fallbackDir);
+                sharedEnvironment = await CoreWebView2Environment.CreateAsync(null, fallbackDir);
+                return sharedEnvironment;
+            }
         }
         finally
         {
@@ -173,8 +183,18 @@ public partial class PclGalleryWebControl : UserControl
 
         if (AlbumWebView.CoreWebView2 == null)
         {
-            var env = await GetOrCreateSharedEnvironmentAsync();
-            await AlbumWebView.EnsureCoreWebView2Async(env);
+            try
+            {
+                var env = await GetOrCreateSharedEnvironmentAsync();
+                await AlbumWebView.EnsureCoreWebView2Async(env);
+            }
+            catch (Exception ex) when (ex.HResult == unchecked((int)0x800700AA) || ex.Message.Contains("0x800700AA"))
+            {
+                string fallbackDir = Path.Combine(Path.GetTempPath(), "PicHarbor_WV2_" + Environment.ProcessId + "_" + Guid.NewGuid().ToString("N")[..6]);
+                Directory.CreateDirectory(fallbackDir);
+                var fallbackEnv = await CoreWebView2Environment.CreateAsync(null, fallbackDir);
+                await AlbumWebView.EnsureCoreWebView2Async(fallbackEnv);
+            }
         }
 
         if (AlbumWebView.CoreWebView2 is null)
@@ -218,10 +238,12 @@ public partial class PclGalleryWebControl : UserControl
 
             var query = HttpUtility.ParseQueryString(uri.Query);
             string? filePath = query["path"];
+            string ext = Path.GetExtension(filePath ?? "").ToLowerInvariant();
+            bool isVideo = ext is ".mp4" or ".mov" or ".avi" or ".mkv" or ".3gp";
 
             if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
             {
-                byte[] placeholder = GetPlaceholderTileBytes(Path.GetFileName(filePath ?? "Photo"));
+                byte[] placeholder = GetPlaceholderTileBytes(Path.GetFileName(filePath ?? "Media"), isVideo);
                 e.Response = AlbumWebView.CoreWebView2.Environment.CreateWebResourceResponse(
                     new MemoryStream(placeholder),
                     200,
@@ -242,10 +264,18 @@ public partial class PclGalleryWebControl : UserControl
                         "OK",
                         "Content-Type: image/jpeg\r\nAccess-Control-Allow-Origin: *\r\nCache-Control: public, max-age=86400");
                 }
+                else
+                {
+                    byte[] placeholder = GetPlaceholderTileBytes(Path.GetFileName(filePath), isVideo);
+                    e.Response = AlbumWebView.CoreWebView2.Environment.CreateWebResourceResponse(
+                        new MemoryStream(placeholder),
+                        200,
+                        "OK",
+                        "Content-Type: image/svg+xml\r\nAccess-Control-Allow-Origin: *\r\nCache-Control: public, max-age=3600");
+                }
             }
             else if (uri.AbsolutePath.Equals("/image", StringComparison.OrdinalIgnoreCase))
             {
-                string ext = Path.GetExtension(filePath).ToLowerInvariant();
                 if (ext is ".jpg" or ".jpeg" or ".png" or ".webp" or ".gif" or ".bmp")
                 {
                     var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
@@ -296,24 +326,28 @@ public partial class PclGalleryWebControl : UserControl
         try
         {
             ImageSource? img = null;
-            string ext = Path.GetExtension(filePath);
-            bool isVideo = ext.Equals(".mp4", StringComparison.OrdinalIgnoreCase)
-                        || ext.Equals(".mov", StringComparison.OrdinalIgnoreCase)
-                        || ext.Equals(".avi", StringComparison.OrdinalIgnoreCase)
-                        || ext.Equals(".mkv", StringComparison.OrdinalIgnoreCase);
+            string ext = Path.GetExtension(filePath).ToLowerInvariant();
+            bool isVideo = ext is ".mp4" or ".mov" or ".avi" or ".mkv" or ".3gp";
 
             if (isVideo)
             {
-                img = ShellServices.GetShellThumbnail(filePath, 240, 240, thumbnailOnly: true);
+                // First: Check if this video is a Live Photo companion video (e.g. IMG_1234.MOV with IMG_1234.HEIC/JPG)
+                string? pairedStill = ImageDimensionHelper.FindLivePhotoStill(filePath);
+                if (pairedStill != null)
+                {
+                    img = LoadFrozenBitmap(pairedStill, 240) ?? ShellServices.GetShellThumbnail(pairedStill, 240, 240, thumbnailOnly: false);
+                }
+
+                img ??= ShellServices.GetShellThumbnail(filePath, 240, 240, thumbnailOnly: false);
             }
-            else if (ext.Equals(".heic", StringComparison.OrdinalIgnoreCase) || ext.Equals(".heif", StringComparison.OrdinalIgnoreCase))
+            else if (ext is ".heic" or ".heif")
             {
-                img = ShellServices.GetShellThumbnail(filePath, 240, 240, thumbnailOnly: true);
+                img = ShellServices.GetShellThumbnail(filePath, 240, 240, thumbnailOnly: false);
             }
             else
             {
                 img = LoadFrozenBitmap(filePath, 240);
-                img ??= ShellServices.GetShellThumbnail(filePath, 240, 240, thumbnailOnly: true);
+                img ??= ShellServices.GetShellThumbnail(filePath, 240, 240, thumbnailOnly: false);
             }
 
             if (img is BitmapSource bs)
@@ -339,10 +373,28 @@ public partial class PclGalleryWebControl : UserControl
         return null;
     }
 
-    private static byte[] GetPlaceholderTileBytes(string fileName)
+    private static byte[] GetPlaceholderTileBytes(string fileName, bool isVideo = false)
     {
         string safeName = System.Security.SecurityElement.Escape(fileName);
-        string svg = $"""
+        string svg = isVideo ? $"""
+            <svg xmlns="http://www.w3.org/2000/svg" width="400" height="225" viewBox="0 0 400 225">
+              <defs>
+                <linearGradient id="gv" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#1E293B" />
+                  <stop offset="100%" stop-color="#0F172A" />
+                </linearGradient>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#gv)" rx="6" />
+              <circle cx="200" cy="95" r="28" fill="#0B5BCB" opacity="0.9" />
+              <polygon points="193,82 214,95 193,108" fill="#FFFFFF" />
+              <text x="200" y="150" font-family="-apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#E2E8F0" text-anchor="middle">
+                {safeName}
+              </text>
+              <text x="200" y="172" font-family="-apple-system, Segoe UI, sans-serif" font-size="11" fill="#94A3B8" text-anchor="middle">
+                视频媒体
+              </text>
+            </svg>
+            """ : $"""
             <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
               <defs>
                 <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -511,6 +563,49 @@ public partial class PclGalleryWebControl : UserControl
                         }
                     }
                     break;
+
+                case "openPreview":
+                    {
+                        string? path = obj["path"]?.GetValue<string>();
+                        string? id = obj["id"]?.GetValue<string>();
+                        bool forceVideo = obj["forceVideo"]?.GetValue<bool>() ?? false;
+                        Dispatcher.Invoke(() =>
+                        {
+                            if (currentSearchVM == null) return;
+                            MediaSearchResultItem? target = null;
+                            if (!string.IsNullOrEmpty(path))
+                            {
+                                target = currentSearchVM.SearchResults.FirstOrDefault(x => string.Equals(x.FullPath, path, StringComparison.OrdinalIgnoreCase));
+                            }
+                            if (target == null && !string.IsNullOrEmpty(id))
+                            {
+                                target = currentSearchVM.SearchResults.FirstOrDefault(x => string.Equals(x.RelativePath, id, StringComparison.OrdinalIgnoreCase));
+                            }
+
+                            if (target != null)
+                            {
+                                if (forceVideo && !target.IsVideo)
+                                {
+                                    currentSearchVM.PlayLiveVideoCommand.Execute(target);
+                                }
+                                else if (currentSearchVM.OpenPreviewCommand.CanExecute(target))
+                                {
+                                    currentSearchVM.OpenPreviewCommand.Execute(target);
+                                }
+                            }
+                            else if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                            {
+                                var transient = new MediaSearchResultItem
+                                {
+                                    FullPath = path,
+                                    RelativePath = Path.GetFileName(path),
+                                    IsVideo = true
+                                };
+                                currentSearchVM.OpenPreviewCommand.Execute(transient);
+                            }
+                        });
+                    }
+                    break;
             }
         }
         catch (Exception ex)
@@ -533,8 +628,8 @@ public partial class PclGalleryWebControl : UserControl
                 dateStr = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
             }
 
-            int w = item.IsVideo ? 1920 : 4032;
-            int h = item.IsVideo ? 1080 : 3024;
+            int w = item.PixelWidth > 0 ? item.PixelWidth : (item.MediaType == "screenshot" ? 1179 : (item.IsVideo ? 1920 : 4032));
+            int h = item.PixelHeight > 0 ? item.PixelHeight : (item.MediaType == "screenshot" ? 2556 : (item.IsVideo ? 1080 : 3024));
 
             photosList.Add(new
             {
@@ -547,6 +642,7 @@ public partial class PclGalleryWebControl : UserControl
                 fullPath = item.FullPath,
                 relativePath = item.RelativePath,
                 isVideo = item.IsVideo,
+                isLivePhoto = item.IsLivePhoto,
                 isPendingIPhone = item.IsManualSelectedForIPhone,
                 isPendingAndroid = item.IsManualSelectedForAndroid,
                 isGooglePhotos = item.IsManualSelectedForGooglePhotos,

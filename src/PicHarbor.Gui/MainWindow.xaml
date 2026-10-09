@@ -491,11 +491,11 @@
                         <controls:PclPageHost Direction="Horizontal">
                             <StackPanel Margin="0,12,0,0">
                                 <TextBlock Text="图库视图" FontSize="11.5" FontWeight="Bold" Foreground="{DynamicResource ColorBrushGray2}" Margin="18,10,0,8" />
-                                <controls:PclListItem Content="全部照片与视频" Logo="{StaticResource PclIconGallery}" IsChecked="True" />
-                                <controls:PclListItem Content="视频与实况" Logo="{StaticResource PclIconVideo}" />
-                                <controls:PclListItem Content="相机与设备" Logo="{StaticResource PclIconPhone}" />
-                                <controls:PclListItem Content="自选标记" Logo="{StaticResource PclIconStar}" />
-                                <controls:PclListItem Content="导出清单" Logo="{StaticResource PclIconList}" />
+                                <controls:PclListItem Content="全部照片与视频" Logo="{StaticResource PclIconGallery}" GroupName="GallerySubNav" IsChecked="{Binding SearchVM.IsCategoryAll, Mode=TwoWay}" />
+                                <controls:PclListItem Content="视频与实况" Logo="{StaticResource PclIconVideo}" GroupName="GallerySubNav" IsChecked="{Binding SearchVM.IsCategoryVideo, Mode=TwoWay}" />
+                                <controls:PclListItem Content="相机与设备" Logo="{StaticResource PclIconPhone}" GroupName="GallerySubNav" IsChecked="{Binding SearchVM.IsCategoryCamera, Mode=TwoWay}" />
+                                <controls:PclListItem Content="自选标记" Logo="{StaticResource PclIconStar}" GroupName="GallerySubNav" IsChecked="{Binding SearchVM.IsCategoryManual, Mode=TwoWay}" />
+                                <controls:PclListItem Content="导出清单" Logo="{StaticResource PclIconList}" GroupName="GallerySubNav" IsChecked="{Binding SearchVM.IsCategoryExport, Mode=TwoWay}" />
                             </StackPanel>
                         </controls:PclPageHost>
                     </Border>
