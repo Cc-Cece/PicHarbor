@@ -167,7 +167,7 @@ public sealed class SearchCommandTests : IDisposable
     {
         SqliteConnection.ClearAllPools();
         using var connection = new SqliteConnection(
-            new SqliteConnectionStringBuilder { DataSource = Path.Combine(root, TransferJournal.DatabaseFileName) }.ConnectionString);
+            new SqliteConnectionStringBuilder { DataSource = TransferJournal.ResolveDatabasePath(root) }.ConnectionString);
         connection.Open();
 
         using SqliteCommand version = connection.CreateCommand();

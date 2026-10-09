@@ -11,6 +11,7 @@ using PicHarbor.Core.Organize;
 using PicHarbor.Core.Preflight;
 using PicHarbor.Core.Progress;
 using PicHarbor.Core.Scope;
+using PicHarbor.Core.Storage;
 using PicHarbor.Core.Summary;
 using PicHarbor.Core.Transfer;
 using PicHarbor.Core.Util;
@@ -23,8 +24,74 @@ public partial class BackupViewModel : ObservableObject
     private readonly Action<string>? onPathChangedCallback;
     private CancellationTokenSource? backupCts;
 
+    public Action? NavigateToSettingsAction { get; set; }
+
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FullDestinationPreview))]
+    [NotifyPropertyChangedFor(nameof(TargetDriveSummary))]
     private string destinationPath = MainViewModel.DefaultArchivePath;
+
+    [ObservableProperty]
+    private string detectedDeviceModel = "iPhone";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FullDestinationPreview))]
+    private string deviceSubdir = "iPhone";
+
+    public string FullDestinationPreview =>
+        Path.Combine(DestinationPath, LibraryStorageService.SanitizeDeviceFolderName(DeviceSubdir));
+
+    public string TargetDriveSummary
+    {
+        get
+        {
+            string? root = Path.GetPathRoot(DestinationPath);
+            if (string.IsNullOrEmpty(root)) return DestinationPath;
+            try
+            {
+                var d = new DriveInfo(root);
+                if (d.IsReady)
+                {
+                    double freeGb = Math.Round(d.AvailableFreeSpace / (1024.0 * 1024.0 * 1024.0), 1);
+                    return $"{root.TrimEnd('\\')} ({DestinationPath}) - 可用: {freeGb} GB";
+                }
+            }
+            catch { }
+            return DestinationPath;
+        }
+    }
+
+    [RelayCommand]
+    private void NavigateToSettings() => NavigateToSettingsAction?.Invoke();
+
+    [RelayCommand]
+    private void ResetDeviceSubdir() => DeviceSubdir = DetectedDeviceModel;
+
+    [RelayCommand]
+    private void OpenDestinationFolder()
+    {
+        string target = Directory.Exists(FullDestinationPreview) ? FullDestinationPreview : DestinationPath;
+        if (!string.IsNullOrWhiteSpace(target))
+        {
+            try
+            {
+                if (!Directory.Exists(target)) Directory.CreateDirectory(target);
+                Process.Start(new ProcessStartInfo { FileName = target, UseShellExecute = true });
+            }
+            catch { }
+        }
+    }
+
+    public void SetDetectedDevice(string model)
+    {
+        if (string.IsNullOrWhiteSpace(model)) return;
+        string sanitized = LibraryStorageService.SanitizeDeviceFolderName(model);
+        DetectedDeviceModel = sanitized;
+        if (string.IsNullOrWhiteSpace(DeviceSubdir) || DeviceSubdir.Equals("iPhone", StringComparison.OrdinalIgnoreCase))
+        {
+            DeviceSubdir = sanitized;
+        }
+    }
 
     [ObservableProperty]
     private string selectedScheme = "month (YYYY-MM)";
@@ -500,82 +567,103 @@ public partial class BackupViewModel : ObservableObject
 
                 reporter.Start(progressModel);
 
-                DisconnectEscapeHatch escapeHatch = new(DestinationPath, new TerminateProcessTerminator());
-                using var copier = new FileCopier(
-                    client, journal, new DateFolderOrganizer(), new ExifMetadataExtractor(), DestinationPath, scheme,
-                    readTimeout: TimeSpan.FromSeconds(30), onBytesStreamed: progressModel.RecordBytes, verifyHash: false,
-                    onDisconnect: escapeHatch.Activate);
-
-                copier.CleanStaging();
-
-                int copied = 0, skipped = 0, failed = 0;
-                long bytesCopied = 0;
-                var stopwatch = Stopwatch.StartNew();
-
-                foreach (RemoteFile file in files)
+                var fallbackRoots = LibraryStorageService.FindAllExistingLibraryRoots()
+                    .Where(root => !string.Equals(root, DestinationPath, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                var fallbackJournals = new List<TransferJournal>();
+                foreach (string fRoot in fallbackRoots)
                 {
-                    ct.ThrowIfCancellationRequested();
-                    progressModel.StartFile(DateFolderOrganizer.ExtractFileName(file.Path), file.Size);
-
-                    CopyResult result = await copier.CopyAsync(file, ct).ConfigureAwait(false);
-
-                    if (result.Status == CopyStatus.Skipped)
-                    {
-                        progressModel.RecordSkippedBytes(file.Size);
-                    }
-
-                    progressModel.CompleteFile(result.Status);
-                    reporter.OnFileCompleted(result);
-
-                    string? relPath = result.RelativeDestPath;
-                    if (string.IsNullOrWhiteSpace(relPath))
-                    {
-                        relPath = journal.GetDestRelativePath(file.Path, file.Size)
-                                  ?? new DateFolderOrganizer().GetRelativeDestination(file, null, scheme);
-                    }
-
-                    string fullDestPath = !string.IsNullOrWhiteSpace(relPath)
-                        ? Path.Combine(DestinationPath, relPath)
-                        : string.Empty;
-
-                    var detailItem = new TransferItemDetail
-                    {
-                        SourcePath = file.Path,
-                        TargetPath = relPath ?? string.Empty,
-                        FullPath = fullDestPath,
-                        FileSizeText = FormatBytes(file.Size),
-                        StatusText = result.Status.ToString(),
-                        Details = result.Error ?? (result.Status == CopyStatus.Skipped ? App.GetString("MsgStatusSkipped", "已存在 / 增量跳过") : App.GetString("MsgStatusSuccess", "成功"))
-                    };
-
-                    await Application.Current.Dispatcher.InvokeAsync(() =>
-                    {
-                        switch (result.Status)
-                        {
-                            case CopyStatus.Copied:
-                                copied++;
-                                bytesCopied += result.BytesCopied;
-                                copiedDetails.Add(detailItem);
-                                break;
-                            case CopyStatus.Skipped:
-                                skipped++;
-                                skippedDetails.Add(detailItem);
-                                break;
-                            case CopyStatus.Failed:
-                                failed++;
-                                failedDetails.Add(detailItem);
-                                break;
-                        }
-                    });
+                    try { fallbackJournals.Add(TransferJournal.OpenReadOnly(fRoot)); } catch { }
                 }
 
-                stopwatch.Stop();
-                journal.RecordRun(runStartedAt, DateTimeOffset.UtcNow, "copy-gui", copied, skipped, failed, 0, device?.Udid);
+                try
+                {
+                    DisconnectEscapeHatch escapeHatch = new(DestinationPath, new TerminateProcessTerminator());
+                    using var copier = new FileCopier(
+                        client, journal, new DateFolderOrganizer(), new ExifMetadataExtractor(), DestinationPath, scheme,
+                        readTimeout: TimeSpan.FromSeconds(30), onBytesStreamed: progressModel.RecordBytes, verifyHash: false,
+                        onDisconnect: escapeHatch.Activate,
+                        deviceSubfolder: DeviceSubdir,
+                        fallbackJournals: fallbackJournals);
 
-                new SummaryWriter().Write(
-                    DestinationPath, journal.ReadManifest(), journal.ReadDevices(), journal.ReadRunsSummary(), DateTimeOffset.UtcNow);
+                    copier.CleanStaging();
 
-                AddLog($"[SUCCESS] Completed: {copied} copied, {skipped} skipped, {failed} failed in {stopwatch.Elapsed.TotalSeconds:F1}s.");
+                    int copied = 0, skipped = 0, failed = 0;
+                    long bytesCopied = 0;
+                    var stopwatch = Stopwatch.StartNew();
+
+                    foreach (RemoteFile file in files)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        progressModel.StartFile(DateFolderOrganizer.ExtractFileName(file.Path), file.Size);
+
+                        CopyResult result = await copier.CopyAsync(file, ct).ConfigureAwait(false);
+
+                        if (result.Status == CopyStatus.Skipped)
+                        {
+                            progressModel.RecordSkippedBytes(file.Size);
+                        }
+
+                        progressModel.CompleteFile(result.Status);
+                        reporter.OnFileCompleted(result);
+
+                        string? relPath = result.RelativeDestPath;
+                        if (string.IsNullOrWhiteSpace(relPath))
+                        {
+                            relPath = journal.GetDestRelativePath(file.Path, file.Size)
+                                      ?? new DateFolderOrganizer().GetRelativeDestination(file, null, scheme, DeviceSubdir);
+                        }
+
+                        string fullDestPath = !string.IsNullOrWhiteSpace(relPath)
+                            ? Path.Combine(DestinationPath, relPath)
+                            : string.Empty;
+
+                        var detailItem = new TransferItemDetail
+                        {
+                            SourcePath = file.Path,
+                            TargetPath = relPath ?? string.Empty,
+                            FullPath = fullDestPath,
+                            FileSizeText = FormatBytes(file.Size),
+                            StatusText = result.Status.ToString(),
+                            Details = result.Error ?? (result.Status == CopyStatus.Skipped ? App.GetString("MsgStatusSkipped", "已存在 / 增量跳过") : App.GetString("MsgStatusSuccess", "成功"))
+                        };
+
+                        await Application.Current.Dispatcher.InvokeAsync(() =>
+                        {
+                            switch (result.Status)
+                            {
+                                case CopyStatus.Copied:
+                                    copied++;
+                                    bytesCopied += result.BytesCopied;
+                                    copiedDetails.Add(detailItem);
+                                    break;
+                                case CopyStatus.Skipped:
+                                    skipped++;
+                                    skippedDetails.Add(detailItem);
+                                    break;
+                                case CopyStatus.Failed:
+                                    failed++;
+                                    failedDetails.Add(detailItem);
+                                    break;
+                            }
+                        });
+                    }
+
+                    stopwatch.Stop();
+                    journal.RecordRun(runStartedAt, DateTimeOffset.UtcNow, "copy-gui", copied, skipped, failed, 0, device?.Udid);
+
+                    new SummaryWriter().Write(
+                        DestinationPath, journal.ReadManifest(), journal.ReadDevices(), journal.ReadRunsSummary(), DateTimeOffset.UtcNow);
+
+                    AddLog($"[SUCCESS] Completed: {copied} copied, {skipped} skipped, {failed} failed in {stopwatch.Elapsed.TotalSeconds:F1}s.");
+                }
+                finally
+                {
+                    foreach (var fj in fallbackJournals)
+                    {
+                        fj.Dispose();
+                    }
+                }
             }, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException)

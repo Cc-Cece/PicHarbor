@@ -1,15 +1,35 @@
+using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PicHarbor.Core.Journal;
 using PicHarbor.Core.Organize;
+using PicHarbor.Core.Storage;
 
 namespace PicHarbor.Gui.ViewModels;
 
 public partial class SettingsViewModel : ObservableObject
 {
+    private readonly Action<string>? onArchivePathChanged;
+
     [ObservableProperty]
-    private string archivePath = MainViewModel.DefaultArchivePath;
+    private ObservableCollection<LibraryVolumeInfo> availableVolumes = new();
+
+    [ObservableProperty]
+    private LibraryVolumeInfo? selectedVolume;
+
+    [ObservableProperty]
+    private string primaryDriveLetter = "";
+
+    [ObservableProperty]
+    private string archivePath = "";
+
+    [ObservableProperty]
+    private bool groupMediaByDevice = true;
+
+    [ObservableProperty]
+    private string discoveredArchivesSummary = "";
 
     [ObservableProperty]
     private bool syncExifToLastWriteTime = true;
@@ -65,14 +85,84 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string syncStatusMessage = "";
 
-    public SettingsViewModel()
+    public SettingsViewModel(Action<string>? onArchivePathChanged = null)
     {
+        this.onArchivePathChanged = onArchivePathChanged;
         LoadConfig();
+        RefreshVolumes();
+    }
+
+    [RelayCommand]
+    public void RefreshVolumes()
+    {
+        AvailableVolumes.Clear();
+        var vols = LibraryStorageService.DiscoverVolumes(PrimaryDriveLetter);
+        foreach (var v in vols)
+        {
+            AvailableVolumes.Add(v);
+        }
+
+        if (AvailableVolumes.Count > 0)
+        {
+            var match = AvailableVolumes.FirstOrDefault(v => string.Equals(v.DriveLetter, PrimaryDriveLetter, StringComparison.OrdinalIgnoreCase))
+                        ?? AvailableVolumes.FirstOrDefault(v => v.HasExistingLibrary)
+                        ?? AvailableVolumes[0];
+
+            SelectedVolume = match;
+            PrimaryDriveLetter = match.DriveLetter;
+            ArchivePath = LibraryStorageService.GetLibraryRootForDrive(PrimaryDriveLetter);
+        }
+
+        var otherExisting = AvailableVolumes
+            .Where(v => v.HasExistingLibrary && !string.Equals(v.DriveLetter, PrimaryDriveLetter, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (otherExisting.Count > 0)
+        {
+            DiscoveredArchivesSummary = string.Format(
+                App.GetString("MsgDiscoveredOtherArchives", "已自动识别归档卷: {0} (跨盘增量防重已自动生效)"),
+                string.Join(", ", otherExisting.Select(v => $"{v.DriveLetter} [{v.RootPath}]")));
+        }
+        else
+        {
+            DiscoveredArchivesSummary = App.GetString("MsgNoOtherArchives", "未检测到其他盘符的归档卷");
+        }
+    }
+
+    [RelayCommand]
+    private void OpenInExplorer()
+    {
+        if (string.IsNullOrWhiteSpace(ArchivePath))
+        {
+            return;
+        }
+
+        try
+        {
+            if (!Directory.Exists(ArchivePath))
+            {
+                Directory.CreateDirectory(ArchivePath);
+            }
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = ArchivePath,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            SyncStatusMessage = $"无法打开文件夹: {ex.Message}";
+        }
     }
 
     private void LoadConfig()
     {
         var config = Config.AppSettings.Load();
+        PrimaryDriveLetter = string.IsNullOrWhiteSpace(config.PrimaryDriveLetter)
+            ? LibraryStorageService.GetDefaultDriveLetter()
+            : config.PrimaryDriveLetter;
+        ArchivePath = LibraryStorageService.GetLibraryRootForDrive(PrimaryDriveLetter);
+        GroupMediaByDevice = config.GroupMediaByDevice;
         SyncExifToLastWriteTime = config.SyncExifToLastWriteTime;
         SyncExifToCreationTime = config.SyncExifToCreationTime;
         ReadTimeoutSeconds = config.ReadTimeoutSeconds;
@@ -84,6 +174,9 @@ public partial class SettingsViewModel : ObservableObject
     public void SaveConfig()
     {
         var config = Config.AppSettings.Load();
+        config.PrimaryDriveLetter = PrimaryDriveLetter;
+        config.DestinationPath = ArchivePath;
+        config.GroupMediaByDevice = GroupMediaByDevice;
         config.SyncExifToLastWriteTime = SyncExifToLastWriteTime;
         config.SyncExifToCreationTime = SyncExifToCreationTime;
         config.ReadTimeoutSeconds = ReadTimeoutSeconds;
@@ -93,6 +186,20 @@ public partial class SettingsViewModel : ObservableObject
         Config.AppSettings.Save(config);
     }
 
+    partial void OnSelectedVolumeChanged(LibraryVolumeInfo? value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        PrimaryDriveLetter = value.DriveLetter;
+        ArchivePath = LibraryStorageService.GetLibraryRootForDrive(PrimaryDriveLetter);
+        SaveConfig();
+        onArchivePathChanged?.Invoke(ArchivePath);
+    }
+
+    partial void OnGroupMediaByDeviceChanged(bool value) => SaveConfig();
     partial void OnSyncExifToLastWriteTimeChanged(bool value) => SaveConfig();
     partial void OnSyncExifToCreationTimeChanged(bool value) => SaveConfig();
     partial void OnReadTimeoutSecondsChanged(int value) => SaveConfig();

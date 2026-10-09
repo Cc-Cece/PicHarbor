@@ -115,7 +115,7 @@ internal static class SearchCommand
     internal static int Run(string destination, MediaSearchCriteria criteria, bool open, IFolderOpener opener, IAnsiConsole console)
     {
         destination = Path.GetFullPath(destination);
-        string databasePath = Path.Combine(destination, TransferJournal.DatabaseFileName);
+        string databasePath = TransferJournal.ResolveDatabasePath(destination);
         // Probe via the \\?\ long-path prefix so a deep archive root is detected (a non-prefixed File.Exists
         // silently fails past MAX_PATH) before the read-only open (R6 / #39).
         if (!File.Exists(LongPath.ToExtended(databasePath)))

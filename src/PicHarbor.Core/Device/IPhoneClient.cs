@@ -18,40 +18,4 @@ namespace PicHarbor.Core.Device;
 /// </remarks>
 public interface IPhoneClient : IMediaSourceClient
 {
-    /// <summary>
-    /// Information about the connected device, or <see langword="null"/> before <see cref="ConnectAsync"/> succeeds.
-    /// </summary>
-    new DeviceInfo? Device { get; }
-
-    /// <summary>
-    /// Establishes the read-only AFC session: locate the device, perform the lockdown handshake,
-    /// start <c>com.apple.afc</c>, and create the AFC client.
-    /// </summary>
-    /// <param name="cancellationToken">Token to observe for cancellation.</param>
-    /// <returns>A task that completes once the device is connected and ready to read.</returns>
-    new Task ConnectAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Lists the immediate child entry names of an AFC directory (excluding <c>.</c> and <c>..</c>).
-    /// </summary>
-    /// <param name="path">Absolute device path, e.g. <c>/DCIM/</c>.</param>
-    /// <param name="cancellationToken">Token to observe for cancellation.</param>
-    /// <returns>The child entry names. Use <see cref="GetFileInfoAsync"/> to classify each one.</returns>
-    new Task<IReadOnlyList<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Reads metadata (size, modified time, directory flag) for a single AFC path.
-    /// </summary>
-    /// <param name="path">Absolute device path.</param>
-    /// <param name="cancellationToken">Token to observe for cancellation.</param>
-    /// <returns>The parsed file information.</returns>
-    new Task<RemoteFileInfo> GetFileInfoAsync(string path, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Opens a file on the device for sequential reading.
-    /// </summary>
-    /// <param name="path">Absolute device path to a regular file.</param>
-    /// <param name="cancellationToken">Token to observe for cancellation.</param>
-    /// <returns>A forward-only, read-only stream over the file's bytes. The caller owns and disposes it.</returns>
-    new Task<Stream> OpenReadAsync(string path, CancellationToken cancellationToken = default);
 }

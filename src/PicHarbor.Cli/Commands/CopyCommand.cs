@@ -347,7 +347,7 @@ internal static class CopyCommand
     /// </summary>
     internal static OrganizeScheme? TryReadRecordedScheme(string destination)
     {
-        string databasePath = Path.Combine(destination, TransferJournal.DatabaseFileName);
+        string databasePath = TransferJournal.ResolveDatabasePath(destination);
         if (!File.Exists(LongPath.ToExtended(databasePath)))
         {
             return null;
@@ -404,7 +404,7 @@ internal static class CopyCommand
         Console.WriteLine($"Failed:     {stats.Failed:N0}");
         Console.WriteLine(
             $"Elapsed:    {FormatDuration(stats.Elapsed)}  ({megabytesPerSecond.ToString("0.0", CultureInfo.InvariantCulture)} MB/s avg)");
-        Console.WriteLine($"Manifest:   {Path.Combine(destination, TransferJournal.DatabaseFileName)}");
+        Console.WriteLine($"Manifest:   {TransferJournal.ResolveDatabasePath(destination)}");
         Console.WriteLine($"Summary:    {Path.Combine(destination, SummaryWriter.FileName)}");
 
         long remaining = stats.Enumerated - stats.Copied - stats.Skipped;

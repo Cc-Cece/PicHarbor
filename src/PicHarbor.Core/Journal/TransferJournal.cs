@@ -23,7 +23,10 @@ namespace PicHarbor.Core.Journal;
 /// </remarks>
 public sealed class TransferJournal : IDisposable
 {
-    /// <summary>The journal/manifest filename written at the destination root.</summary>
+    /// <summary>Hidden metadata package folder inside the archive destination root.</summary>
+    public const string MetadataFolderName = ".picharbor";
+
+    /// <summary>The journal/manifest filename written at the destination root or inside .picharbor.</summary>
     public const string DatabaseFileName = "picharbor.db";
 
     /// <summary>Legacy database filename for backwards compatibility.</summary>
@@ -51,11 +54,17 @@ public sealed class TransferJournal : IDisposable
     public string DatabasePath { get; private init; } = string.Empty;
 
     /// <summary>
-    /// Resolves the effective database path at destination root, checking for picharbor.db first,
-    /// then falling back to legacy get-and-see.db if it exists.
+    /// Resolves the effective database path at destination root, checking for .picharbor/picharbor.db first,
+    /// then root picharbor.db, then legacy get-and-see.db. Defaults to .picharbor/picharbor.db.
     /// </summary>
     public static string ResolveDatabasePath(string destinationRoot)
     {
+        string modernPath = Path.Combine(destinationRoot, MetadataFolderName, DatabaseFileName);
+        if (File.Exists(LongPath.ToExtended(modernPath)))
+        {
+            return modernPath;
+        }
+
         string picharborPath = Path.Combine(destinationRoot, DatabaseFileName);
         if (File.Exists(LongPath.ToExtended(picharborPath)))
         {
@@ -68,11 +77,54 @@ public sealed class TransferJournal : IDisposable
             return legacyPath;
         }
 
-        return picharborPath;
+        return modernPath;
     }
 
     /// <summary>
-    /// Opens (creating if necessary) the journal at <c>&lt;destinationRoot&gt;/picharbor.db</c> and
+    /// Ensures the hidden metadata folder (<c>.picharbor</c>) exists at destination root.
+    /// </summary>
+    public static void EnsureMetadataDirectory(string destinationRoot)
+    {
+        string modernDir = Path.Combine(destinationRoot, MetadataFolderName);
+        string extendedDir = LongPath.ToExtended(modernDir);
+        if (!System.IO.Directory.Exists(extendedDir))
+        {
+            System.IO.Directory.CreateDirectory(extendedDir);
+        }
+
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                var dirInfo = new DirectoryInfo(extendedDir);
+                if (!dirInfo.Attributes.HasFlag(FileAttributes.Hidden))
+                {
+                    dirInfo.Attributes |= FileAttributes.Hidden;
+                }
+            }
+        }
+        catch
+        {
+            // Best effort hidden attribute
+        }
+    }
+
+    private static void MoveSidecarIfExists(string source, string target)
+    {
+        string extSrc = LongPath.ToExtended(source);
+        if (File.Exists(extSrc))
+        {
+            string extTarget = LongPath.ToExtended(target);
+            if (File.Exists(extTarget))
+            {
+                File.Delete(extTarget);
+            }
+            File.Move(extSrc, extTarget);
+        }
+    }
+
+    /// <summary>
+    /// Opens (creating if necessary) the journal at <c>&lt;destinationRoot&gt;/.picharbor/picharbor.db</c> and
     /// ensures the schema and <c>manifest</c> view exist.
     /// </summary>
     /// <param name="destinationRoot">The destination root directory.</param>
@@ -80,15 +132,34 @@ public sealed class TransferJournal : IDisposable
     public static TransferJournal Open(string destinationRoot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
-        // Create the destination root through the \\?\ long-path form so a deep root is created on a
-        // stock Windows machine (LongPathsEnabled=0); the DataSource below is already prefixed (R6 / #39).
         System.IO.Directory.CreateDirectory(LongPath.ToExtended(destinationRoot));
 
+        string modernPath = Path.Combine(destinationRoot, MetadataFolderName, DatabaseFileName);
         string databasePath = ResolveDatabasePath(destinationRoot);
-        // Route the SQLite DataSource through the \\?\ long-path prefix so a deep destination root —
-        // and the -wal/-shm sidecars SQLite derives from it — can exceed the legacy MAX_PATH limit,
-        // exactly as the media copy path already does (R6 / #39). DatabasePath keeps the clean,
-        // user-facing form for display and diagnostics.
+
+        // If modern path does not exist yet but root database exists, smoothly migrate into .picharbor/
+        if (!File.Exists(LongPath.ToExtended(modernPath)) &&
+            File.Exists(LongPath.ToExtended(databasePath)) &&
+            !string.Equals(databasePath, modernPath, StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                EnsureMetadataDirectory(destinationRoot);
+                File.Move(LongPath.ToExtended(databasePath), LongPath.ToExtended(modernPath));
+                MoveSidecarIfExists(databasePath + "-wal", modernPath + "-wal");
+                MoveSidecarIfExists(databasePath + "-shm", modernPath + "-shm");
+                databasePath = modernPath;
+            }
+            catch
+            {
+                // Best-effort migration; keep using databasePath if move is locked
+            }
+        }
+        else if (string.Equals(databasePath, modernPath, StringComparison.OrdinalIgnoreCase))
+        {
+            EnsureMetadataDirectory(destinationRoot);
+        }
+
         var builder = new SqliteConnectionStringBuilder { DataSource = LongPath.ToExtended(databasePath) };
         var connection = new SqliteConnection(builder.ConnectionString);
         connection.Open();

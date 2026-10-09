@@ -118,7 +118,7 @@ public sealed class AndroidSyncTests : IDisposable
     {
         SqliteConnection.ClearAllPools();
         using var connection = new SqliteConnection(
-            new SqliteConnectionStringBuilder { DataSource = Path.Combine(root, TransferJournal.DatabaseFileName) }.ConnectionString);
+            new SqliteConnectionStringBuilder { DataSource = TransferJournal.ResolveDatabasePath(root) }.ConnectionString);
         connection.Open();
         using SqliteCommand command = connection.CreateCommand();
         command.CommandText = "PRAGMA user_version;";

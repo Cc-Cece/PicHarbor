@@ -455,7 +455,7 @@ public sealed class CopyPipelineHarnessTests
     {
         Microsoft.Data.Sqlite.SqliteConnectionStringBuilder builder = new()
         {
-            DataSource = Path.Combine(destinationRoot, TransferJournal.DatabaseFileName),
+            DataSource = TransferJournal.ResolveDatabasePath(destinationRoot),
             Mode = Microsoft.Data.Sqlite.SqliteOpenMode.ReadOnly,
         };
         using Microsoft.Data.Sqlite.SqliteConnection connection = new(builder.ConnectionString);

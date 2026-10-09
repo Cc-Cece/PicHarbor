@@ -51,7 +51,7 @@ public sealed class FileCopierTests : IDisposable
     {
         var builder = new SqliteConnectionStringBuilder
         {
-            DataSource = Path.Combine(destination.Path, TransferJournal.DatabaseFileName),
+            DataSource = TransferJournal.ResolveDatabasePath(destination.Path),
             Mode = SqliteOpenMode.ReadOnly,
         };
         using var connection = new SqliteConnection(builder.ConnectionString);

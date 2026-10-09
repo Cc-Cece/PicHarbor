@@ -14,7 +14,7 @@ internal static class JournalFixtures
     /// <param name="destinationRoot">The archive root containing the database.</param>
     public static void DowngradeToV2(string destinationRoot)
     {
-        string databasePath = Path.Combine(destinationRoot, TransferJournal.DatabaseFileName);
+        string databasePath = TransferJournal.ResolveDatabasePath(destinationRoot);
         // The journal pools its connection; release it so this out-of-band edit is not blocked.
         SqliteConnection.ClearAllPools();
         using var connection = new SqliteConnection(

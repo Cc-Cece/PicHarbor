@@ -47,7 +47,7 @@ public sealed class JournalLongPathTests : IDisposable
 
             // The DB really landed past MAX_PATH (only reachable via the \\?\ prefix) — without the fix
             // the Open above would have thrown SQLITE_CANTOPEN before any of the asserts ran.
-            string databasePath = Path.Combine(deepRoot, TransferJournal.DatabaseFileName);
+            string databasePath = TransferJournal.ResolveDatabasePath(deepRoot);
             databasePath.Length.ShouldBeGreaterThan(260, "the test must exercise a DB path beyond MAX_PATH");
             File.Exists(LongPath.ToExtended(databasePath)).ShouldBeTrue();
 
@@ -93,8 +93,8 @@ public sealed class JournalLongPathTests : IDisposable
     /// </summary>
     private string CreateDeepRoot()
     {
-        const int targetDatabasePathLength = 272;
-        int suffixLength = 1 + TransferJournal.DatabaseFileName.Length; // "\get-and-see.db"
+        const int targetDatabasePathLength = 275;
+        int suffixLength = 1 + TransferJournal.MetadataFolderName.Length + 1 + TransferJournal.DatabaseFileName.Length;
         int padLength = targetDatabasePathLength - suffixLength - temp.Path.Length - 1;
         padLength.ShouldBeGreaterThan(0, "the temp path is too long to build the long-path fixture");
 
@@ -118,6 +118,9 @@ public sealed class JournalLongPathTests : IDisposable
             TransferJournal.DatabaseFileName,
             TransferJournal.DatabaseFileName + "-wal",
             TransferJournal.DatabaseFileName + "-shm",
+            Path.Combine(TransferJournal.MetadataFolderName, TransferJournal.DatabaseFileName),
+            Path.Combine(TransferJournal.MetadataFolderName, TransferJournal.DatabaseFileName + "-wal"),
+            Path.Combine(TransferJournal.MetadataFolderName, TransferJournal.DatabaseFileName + "-shm"),
             SummaryWriter.FileName,
         ];
         foreach (string name in names)

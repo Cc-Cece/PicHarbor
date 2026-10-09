@@ -59,6 +59,8 @@ public sealed class FileCopier : IDisposable
     /// </summary>
     private const int DefaultConsecutiveFailureLimit = 10;
 
+    private readonly string? deviceSubfolder;
+    private readonly IReadOnlyList<TransferJournal>? fallbackJournals;
     private readonly IMediaSourceClient client;
     private readonly TransferJournal journal;
     private readonly DateFolderOrganizer organizer;
@@ -74,47 +76,6 @@ public sealed class FileCopier : IDisposable
     private readonly ForwardProgressWatchdog? progressWatchdog;
 
     /// <summary>Creates a copier targeting <paramref name="destinationRoot"/>.</summary>
-    /// <param name="client">Connected read-only device client.</param>
-    /// <param name="journal">Open transfer journal at the destination root.</param>
-    /// <param name="organizer">Date-folder organizer.</param>
-    /// <param name="organizeScheme">
-    /// The archive's folder layout, applied to every file's destination path. <b>Required</b> — layout is an
-    /// archive property, so the caller must thread the resolved scheme here explicitly (the CLI/resolver owns
-    /// the product default; a new archive's default is <see cref="OrganizeScheme.Month"/>). The historical
-    /// byte-stable direction for an existing nested archive is <see cref="OrganizeScheme.YearMonth"/>.
-    /// </param>
-    /// <param name="metadataExtractor">EXIF/metadata extractor used on the local copy.</param>
-    /// <param name="destinationRoot">Destination root directory.</param>
-    /// <param name="clock">Time source; defaults to the system clock. Also drives the forward-progress watchdog.</param>
-    /// <param name="readTimeout">
-    /// Forward-progress timeout for the run-level liveness watchdog (#11 / #25 / #38 / #42 / R2): if the
-    /// device delivers no bytes (and completes no file) for this long while a copy is in flight, the run
-    /// stops cleanly and resurably. <see langword="null"/> or non-positive disables the watchdog (reads
-    /// can block indefinitely, as in Sprint 1).
-    /// </param>
-    /// <param name="onBytesStreamed">
-    /// Optional cheap per-chunk callback invoked with the number of bytes just streamed, used to drive
-    /// the live progress/speed readout. Must not block.
-    /// </param>
-    /// <param name="verifyHash">
-    /// When <see langword="true"/>, compute each copied file's SHA-256 during the copy (single pass over
-    /// the stream buffer) and record it in the manifest's <c>sha256</c> column (R12 / <c>--verify-hash</c>).
-    /// Read-only and off by default; when <see langword="false"/> no hashing occurs and the copy is
-    /// byte-for-byte identical to the default path.
-    /// </param>
-    /// <param name="consecutiveFailureLimit">
-    /// Number of consecutive per-file failures (with no intervening progress) after which the run is
-    /// stopped as a lost device connection (#38) — the fast path for a cable-yank that fast-fails every
-    /// file instead of parking. Defaults to <see cref="DefaultConsecutiveFailureLimit"/>.
-    /// </param>
-    /// <param name="onDisconnect">
-    /// The Sprint 3.4 disconnect escape-hatch (#45), run on the forward-progress watchdog's independent
-    /// timer thread the first time it trips. When the byte heartbeat is dead the device is provably gone
-    /// and the main copy thread may be wedged in a synchronous native call (<c>afc_file_close</c> spinning
-    /// on the dead transport) that cancellation cannot interrupt, so this action writes the summary and
-    /// hard-terminates the process rather than relying on a clean unwind. <see langword="null"/> keeps the
-    /// Sprint 3.3 cancel-and-unwind behaviour.
-    /// </param>
     public FileCopier(
         IMediaSourceClient client,
         TransferJournal journal,
@@ -127,21 +88,23 @@ public sealed class FileCopier : IDisposable
         Action<long>? onBytesStreamed = null,
         bool verifyHash = false,
         int consecutiveFailureLimit = DefaultConsecutiveFailureLimit,
-        Action? onDisconnect = null)
+        Action? onDisconnect = null,
+        string? deviceSubfolder = null,
+        IReadOnlyList<TransferJournal>? fallbackJournals = null)
     {
         this.client = client;
         this.journal = journal;
         this.organizer = organizer;
         this.organizeScheme = organizeScheme;
         this.metadataExtractor = metadataExtractor;
-        // Normalize to the extended-length form once so every derived destination path (staging, final,
-        // collision checks) can exceed MAX_PATH for free (R6).
         this.destinationRoot = LongPath.ToExtended(destinationRoot);
         this.clock = clock ?? TimeProvider.System;
         this.readTimeout = readTimeout ?? TimeSpan.Zero;
         this.onBytesStreamed = onBytesStreamed;
         this.verifyHash = verifyHash;
-        stagingDirectory = Path.Combine(this.destinationRoot, StagingFolderName);
+        this.deviceSubfolder = string.IsNullOrWhiteSpace(deviceSubfolder) ? null : deviceSubfolder.Trim();
+        this.fallbackJournals = fallbackJournals;
+        stagingDirectory = Path.Combine(this.destinationRoot, TransferJournal.MetadataFolderName, "staging");
         assignedDestPaths = new HashSet<string>(journal.GetUsedDestPaths(), StringComparer.OrdinalIgnoreCase);
         progressWatchdog = this.readTimeout > TimeSpan.Zero
             ? new ForwardProgressWatchdog(this.readTimeout, this.clock, consecutiveFailureLimit, onTrip: onDisconnect)
@@ -153,19 +116,24 @@ public sealed class FileCopier : IDisposable
     /// </summary>
     public void CleanStaging()
     {
-        try
+        CleanDirectory(stagingDirectory);
+        CleanDirectory(Path.Combine(destinationRoot, StagingFolderName));
+
+        static void CleanDirectory(string dir)
         {
-            if (System.IO.Directory.Exists(stagingDirectory))
+            try
             {
-                foreach (string partial in System.IO.Directory.EnumerateFiles(stagingDirectory, "*.partial"))
+                if (System.IO.Directory.Exists(dir))
                 {
-                    SafeDelete(partial);
+                    foreach (string partial in System.IO.Directory.EnumerateFiles(dir, "*.partial"))
+                    {
+                        SafeDelete(partial);
+                    }
                 }
             }
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Cleanup is best-effort; orphaned staging files are harmless and never published.
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+            }
         }
     }
 
@@ -186,7 +154,7 @@ public sealed class FileCopier : IDisposable
         }
 
         string? relPath = journal.GetDestRelativePath(file.Path, file.Size)
-                          ?? organizer.GetRelativeDestination(file, null, organizeScheme);
+                          ?? organizer.GetRelativeDestination(file, null, organizeScheme, deviceSubfolder);
         string candidatePath = LongPath.ToExtended(Path.Combine(destinationRoot, relPath));
 
         if (File.Exists(candidatePath))
@@ -209,6 +177,20 @@ public sealed class FileCopier : IDisposable
                 }
                 progressWatchdog?.RecordProgress();
                 return new CopyResult(CopyStatus.Skipped, file, relPath, 0, null);
+            }
+        }
+
+        // Cross-volume / fallback journal check: if already backed up in another discovered archive, skip!
+        if (journal.GetState(file.Path, file.Size) != FileState.Done && fallbackJournals is not null)
+        {
+            foreach (TransferJournal fallback in fallbackJournals)
+            {
+                if (fallback.GetState(file.Path, file.Size) == FileState.Done)
+                {
+                    journal.MarkDone(file.Path, file.Size, relPath, MediaMetadata.Empty, clock.GetUtcNow(), null);
+                    progressWatchdog?.RecordProgress();
+                    return new CopyResult(CopyStatus.Skipped, file, relPath, 0, null);
+                }
             }
         }
 
@@ -237,7 +219,7 @@ public sealed class FileCopier : IDisposable
             }
 
             MediaMetadata metadata = metadataExtractor.Extract(stagingPath);
-            string relativeDest = ResolveUniqueRelativePath(organizer.GetRelativeDestination(file, metadata, organizeScheme));
+            string relativeDest = ResolveUniqueRelativePath(organizer.GetRelativeDestination(file, metadata, organizeScheme, deviceSubfolder));
             string finalPath = Path.Combine(destinationRoot, relativeDest);
 
             System.IO.Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);

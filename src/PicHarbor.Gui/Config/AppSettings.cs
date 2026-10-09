@@ -6,6 +6,10 @@ namespace PicHarbor.Gui.Config;
 public sealed class AppConfig
 {
     public string DestinationPath { get; set; } = string.Empty;
+    public string PrimaryDriveLetter { get; set; } = string.Empty;
+    public string IPhoneCustomSubdir { get; set; } = string.Empty;
+    public string AndroidCustomSubdir { get; set; } = string.Empty;
+    public bool GroupMediaByDevice { get; set; } = true;
     public string CurrentLanguage { get; set; } = "zh-CN";
     public string SelectedScheme { get; set; } = "month (YYYY-MM)";
     public bool SyncExifToLastWriteTime { get; set; } = true;

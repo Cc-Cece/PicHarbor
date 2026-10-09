@@ -29,7 +29,7 @@ public sealed class StatusCommandTests : IDisposable
         int exit = StatusCommand.Run(dir.Path);
 
         exit.ShouldBe(2);
-        File.Exists(Path.Combine(dir.Path, TransferJournal.DatabaseFileName)).ShouldBeFalse();
+        File.Exists(TransferJournal.ResolveDatabasePath(dir.Path)).ShouldBeFalse();
     }
 
     [Fact]

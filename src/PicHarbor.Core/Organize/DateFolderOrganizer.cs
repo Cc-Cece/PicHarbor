@@ -34,52 +34,52 @@ public sealed class DateFolderOrganizer
     /// <param name="file">The enumerated device file.</param>
     /// <param name="metadata">Extracted metadata, or <see langword="null"/> if none is available yet (e.g. dry-run).</param>
     /// <param name="scheme">The archive's folder layout.</param>
+    /// <param name="deviceSubfolder">Optional device-specific subfolder prefix.</param>
     /// <returns>
     /// A relative path such as <c>2024-08\IMG_1234.HEIC</c> (<see cref="OrganizeScheme.Month"/>),
     /// <c>2024\2024-08\IMG_1234.HEIC</c> (<see cref="OrganizeScheme.YearMonth"/>), or
     /// <c>unsorted\IMG_1234.HEIC</c> when no trustworthy date exists (identical under every scheme).
     /// </returns>
-    public string GetRelativeDestination(RemoteFile file, MediaMetadata? metadata, OrganizeScheme scheme)
+    public string GetRelativeDestination(RemoteFile file, MediaMetadata? metadata, OrganizeScheme scheme, string? deviceSubfolder = null)
     {
         string fileName = SanitizeFileName(ExtractFileName(file.Path));
         DateTime? date = ResolveDate(metadata?.DateTimeOriginal, file.ModifiedAt);
-        return GetRelativeDestination(fileName, date, scheme);
+        return GetRelativeDestination(fileName, date, scheme, deviceSubfolder);
     }
 
     /// <summary>
     /// Computes the relative destination path for an already-final leaf <paramref name="fileName"/> placed by
-    /// <paramref name="captureDate"/> under <paramref name="scheme"/>. This is the pure folder-shape rule
-    /// shared by the copier (which derives the name and date from a device file) and <c>reorganize</c> (which
-    /// derives them from the journal), so the two can never disagree on where a file belongs.
+    /// <paramref name="captureDate"/> under <paramref name="scheme"/>, optionally prefixed by <paramref name="deviceSubfolder"/>.
     /// </summary>
-    /// <param name="fileName">The final destination leaf name — already sanitized, and carrying any <c>_2</c>/<c>_3</c> suffix assigned at copy time.</param>
-    /// <param name="captureDate">The resolved capture date (see <see cref="ResolveDate(DateTime?, DateTimeOffset?)"/>), or <see langword="null"/> for <c>unsorted</c>.</param>
+    /// <param name="fileName">The final destination leaf name.</param>
+    /// <param name="captureDate">The resolved capture date, or <see langword="null"/> for <c>unsorted</c>.</param>
     /// <param name="scheme">The archive's folder layout.</param>
-    /// <returns>
-    /// A relative path such as <c>2024-08\IMG_1234.HEIC</c> (<see cref="OrganizeScheme.Month"/>) or
-    /// <c>unsorted\IMG_1234.HEIC</c> when no trustworthy date exists (identical under every scheme).
-    /// </returns>
-    public string GetRelativeDestination(string fileName, DateTime? captureDate, OrganizeScheme scheme)
+    /// <param name="deviceSubfolder">Optional device-specific subfolder prefix (e.g. "iPhone 15 Pro").</param>
+    /// <returns>The relative destination path.</returns>
+    public string GetRelativeDestination(string fileName, DateTime? captureDate, OrganizeScheme scheme, string? deviceSubfolder = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(fileName);
 
+        string relative;
         if (captureDate is null)
         {
-            // Unsorted is identical under every scheme — a file with no trustworthy date is never
-            // placed in a dated folder.
-            return Path.Combine(UnsortedFolder, fileName);
+            relative = Path.Combine(UnsortedFolder, fileName);
+        }
+        else
+        {
+            string year = captureDate.Value.Year.ToString("D4");
+            string month = $"{captureDate.Value.Year:D4}-{captureDate.Value.Month:D2}";
+            relative = scheme switch
+            {
+                OrganizeScheme.Month => Path.Combine(month, fileName),
+                OrganizeScheme.YearMonth => Path.Combine(year, month, fileName),
+                OrganizeScheme.Year => Path.Combine(year, fileName),
+                OrganizeScheme.Flat => fileName,
+                _ => throw new ArgumentOutOfRangeException(nameof(scheme), scheme, "Unknown organize scheme."),
+            };
         }
 
-        string year = captureDate.Value.Year.ToString("D4");
-        string month = $"{captureDate.Value.Year:D4}-{captureDate.Value.Month:D2}";
-        return scheme switch
-        {
-            OrganizeScheme.Month => Path.Combine(month, fileName),
-            OrganizeScheme.YearMonth => Path.Combine(year, month, fileName),
-            OrganizeScheme.Year => Path.Combine(year, fileName),
-            OrganizeScheme.Flat => fileName,
-            _ => throw new ArgumentOutOfRangeException(nameof(scheme), scheme, "Unknown organize scheme."),
-        };
+        return string.IsNullOrWhiteSpace(deviceSubfolder) ? relative : Path.Combine(deviceSubfolder.Trim(), relative);
     }
 
     /// <summary>

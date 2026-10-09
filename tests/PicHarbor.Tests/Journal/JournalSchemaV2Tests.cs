@@ -90,7 +90,7 @@ public sealed class JournalSchemaV2Tests : IDisposable
         }
 
         // Simulate a Sprint 1 (pre-v2) database: drop the new tables and reset the schema version.
-        string dbPath = Path.Combine(dir.Path, TransferJournal.DatabaseFileName);
+        string dbPath = TransferJournal.ResolveDatabasePath(dir.Path);
         using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = dbPath }.ConnectionString))
         {
             connection.Open();
@@ -140,7 +140,7 @@ public sealed class JournalSchemaV2Tests : IDisposable
         }
 
         // Simulate a Sprint 1 (pre-v2) database: drop the v2 tables.
-        string dbPath = Path.Combine(dir.Path, TransferJournal.DatabaseFileName);
+        string dbPath = TransferJournal.ResolveDatabasePath(dir.Path);
         using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = dbPath }.ConnectionString))
         {
             connection.Open();
