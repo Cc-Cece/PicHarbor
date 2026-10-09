@@ -30,8 +30,8 @@
     <Geometry x:Key="PclIconStorage">M511 995a128 128 0 0 1-57-13L70 791a126 126 0 0 1-70-113V311a126 126 0 0 1 15-60V248c1-2 3-5 5-8a127 127 0 0 1 49-42L454 13a128 128 0 0 1 112 0l383 190a126 126 0 0 1 72 113v360a126 126 0 0 1-70 115L568 984c-17 7-37 11-57 11z m42-470v370l360-178c14-7 23-21 23-38v-335L554 524zM85 330v347a42 42 0 0 0 23 38l360 178V523L85 330zM135 260l375 189 137-65L286 188 135 260z m245-118l363 197 150-71-365-180a42 42 0 0 0-37 0l-111 53z</Geometry>
     <Geometry x:Key="PclIconPhone">M716.8 64H307.2C247.992 64 200 111.992 200 171.2v681.6C200 912.008 247.992 960 307.2 960h409.6c59.208 0 107.2-47.992 107.2-107.2V171.2C824 111.992 776.008 64 716.8 64z m-204.8 832c-35.346 0-64-28.654-64-64s28.654-64 64-64 64 28.654 64 64-28.654 64-64 64z m236.8-208H275.2V192h473.6v496z</Geometry>
     <Geometry x:Key="PclIconAndroid">M352 160a32 32 0 0 1 32-32h256a32 32 0 0 1 32 32v64H352v-64z m384 128H288a96 96 0 0 0-96 96v352a96 96 0 0 0 96 96h448a96 96 0 0 0 96-96V384a96 96 0 0 0-96-96z m-352 288a48 48 0 1 1 0-96 48 48 0 0 1 0 96z m256 0a48 48 0 1 1 0-96 48 48 0 0 1 0 96z</Geometry>
-    <Geometry x:Key="PclIconVideo">M803.904 463.936a55.168 55.168 0 0 1 0 96.128l-463.616 264.448C302.848 845.888 256 819.136 256 776.448V247.616c0-42.752 46.848-69.44 84.288-48.064l463.616 264.384z</Geometry>
-    <Geometry x:Key="PclIconStar">M700.856 155.543c-74.769 0-144.295 72.696-190.046 127.26-45.737-54.576-115.247-127.26-190.056-127.26-134.79 0-244.443 105.78-244.443 235.799 0 77.57 39.278 131.988 70.845 175.713C238.908 694.053 469.62 852.094 479.39 858.757c9.41 6.414 20.424 9.629 31.401 9.629 11.006 0 21.998-3.215 31.398-9.63 9.782-6.662 240.514-164.703 332.238-291.701 31.587-43.724 70.874-98.143 70.874-175.713-0.001-130.02-109.656-235.8-244.445-235.8z</Geometry>
+    <Geometry x:Key="PclIconVideo">M52.1,164.5c-1.4,0-3.1-0.5-4.2-1.3c-2.6-1.7-4-4.2-4-7V43.8c0-2.9,1.6-5.8,4.1-7c1.2-0.8,2.7-1.2,4.1-1.2c1.5,0,2.9,0.4,4.2,1.2L153.1,93c0,0,0.1,0,0.1,0.1c2.6,1.7,4,4.2,4,7c0,3-1.7,5.8-4.2,7.1l-96.8,56.2C55.1,164,53.5,164.5,52.1,164.5z M60.4,142.1l72.1-42.1L60.4,58.2V142.1z</Geometry>
+    <Geometry x:Key="PclIconStar">M512 896a42.666667 42.666667 0 0 1-30.293333-12.373333l-331.52-331.946667a224.426667 224.426667 0 0 1 0-315.733333 223.573333 223.573333 0 0 1 315.733333 0L512 282.026667l46.08-46.08a223.573333 223.573333 0 0 1 315.733333 0 224.426667 224.426667 0 0 1 0 315.733333l-331.52 331.946667A42.666667 42.666667 0 0 1 512 896zM308.053333 256a136.533333 136.533333 0 0 0-97.28 40.106667 138.24 138.24 0 0 0 0 194.986666L512 792.746667l301.226667-301.653334a138.24 138.24 0 0 0 0-194.986666 141.653333 141.653333 0 0 0-194.56 0l-76.373334 76.8a42.666667 42.666667 0 0 1-60.586666 0L405.333333 296.106667A136.533333 136.533333 0 0 0 308.053333 256z</Geometry>
     <Geometry x:Key="PclIconList">M384 128h640v128H384zM160 192m-96 0a96 96 0 1 0 192 0 96 96 0 1 0-192 0ZM384 448h640v128H384zM160 512m-96 0a96 96 0 1 0 192 0 96 96 0 1 0-192 0ZM384 768h640v128H384zM160 832m-96 0a96 96 0 1 0 192 0 96 96 0 1 0-192 0Z</Geometry>
     <Geometry x:Key="PclIconCheck">M512 0a512 512 0 1 0 512 512A512 512 0 0 0 512 0z m0 921.6a409.6 409.6 0 1 1 409.6-409.6 409.6 409.6 0 0 1-409.6 409.6z M716.8 339.968l-256 253.44L328.192 460.8A51.2 51.2 0 0 0 256 532.992l168.448 168.96a51.2 51.2 0 0 0 72.704 0l289.28-289.792A51.2 51.2 0 0 0 716.8 339.968z</Geometry>
     <Geometry x:Key="PclIconCalendar">M832 128h-64V64h-64v64H320V64h-64v64h-64a128 128 0 0 0-128 128v640a128 128 0 0 0 128 128h640a128 128 0 0 0 128-128V256a128 128 0 0 0-128-128z m64 768a64 64 0 0 1-64 64H192a64 64 0 0 1-64-64V384h768v512z m0-576H128V256a64 64 0 0 1 64-64h64v64h64v-64h384v64h64v-64h64a64 64 0 0 1 64 64v64z</Geometry>
@@ -66,7 +66,8 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            <ContentPresenter Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <ContentPresenter Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              TextBlock.Foreground="{Binding BorderBrush, ElementName=PART_Border}" />
                             <TextBlock Grid.Row="1" x:Name="PART_Subtitle"
                                        Text="{TemplateBinding Subtitle}"
                                        FontSize="11" FontWeight="Normal"
@@ -77,25 +78,21 @@
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
-                        <!-- PCL2 Vibrant Launch Hero Button -->
+                        <!-- PCL2 Launch Hero Action Button -->
                         <Trigger Property="ButtonType" Value="Hero">
-                            <Setter Property="Foreground" Value="White" />
                             <Setter Property="FontSize" Value="15" />
                             <Setter Property="FontWeight" Value="Bold" />
-                            <Setter Property="CornerRadius" Value="6" />
+                            <Setter Property="CornerRadius" Value="4" />
                             <Setter Property="Padding" Value="20,10,20,12" />
-                            <Setter TargetName="PART_Border" Property="Background" Value="{DynamicResource ColorBrush3}" />
-                            <Setter TargetName="PART_Border" Property="BorderBrush" Value="{DynamicResource ColorBrush2}" />
                             <Setter TargetName="PART_Border" Property="BorderThickness" Value="1.5" />
-                            <Setter TargetName="PART_Subtitle" Property="Foreground" Value="{DynamicResource ColorBrush8}" />
                         </Trigger>
                         <Trigger Property="ButtonType" Value="Highlight">
-                            <Setter Property="Foreground" Value="White" />
-                            <Setter TargetName="PART_Border" Property="Background" Value="{DynamicResource ColorBrush3}" />
-                            <Setter TargetName="PART_Border" Property="BorderBrush" Value="{DynamicResource ColorBrush2}" />
+                            <Setter Property="FontWeight" Value="Bold" />
+                            <Setter TargetName="PART_Border" Property="BorderThickness" Value="1.2" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.4" />
+                            <Setter TargetName="PART_Border" Property="BorderBrush" Value="{DynamicResource ColorBrushGray4}" />
+                            <Setter TargetName="PART_Subtitle" Property="Foreground" Value="{DynamicResource ColorBrushGray4}" />
                             <Setter Property="Cursor" Value="Arrow" />
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -218,17 +215,17 @@
         <Setter Property="OverridesDefaultStyle" Value="True" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="FontWeight" Value="Medium" />
-        <Setter Property="Foreground" Value="{DynamicResource ColorBrushGray1}" />
-        <Setter Property="Height" Value="38" />
-        <Setter Property="Margin" Value="10,2" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource ColorBrush1}" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Margin" Value="8,2" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type controls:PclListItem}">
                     <Grid Background="Transparent">
                         <!-- Hover Pill -->
                         <Border x:Name="PART_HoverPill"
-                                CornerRadius="6"
+                                CornerRadius="5"
                                 Background="{DynamicResource ColorBrush7}"
                                 BorderBrush="{DynamicResource ColorBrush6}"
                                 BorderThickness="1" />
@@ -272,13 +269,19 @@
                                        Margin="0,0,8,0"
                                        Visibility="{Binding Icon, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource StringNotEmptyToVisibilityConverter}}" />
 
-                            <ContentPresenter Grid.Column="1" VerticalAlignment="Center" />
+                            <ContentPresenter Grid.Column="1" VerticalAlignment="Center"
+                                              TextBlock.FontWeight="{TemplateBinding FontWeight}"
+                                              TextBlock.FontSize="{TemplateBinding FontSize}"
+                                              TextBlock.Foreground="{TemplateBinding Foreground}" />
                         </Grid>
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter Property="Foreground" Value="{DynamicResource ColorBrush2}" />
-                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter Property="FontWeight" Value="Bold" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource ColorBrush3}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -291,14 +294,16 @@
     <!-- ======================================================== -->
     <Style TargetType="{x:Type controls:PclCheckBox}">
         <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Foreground" Value="{DynamicResource ColorBrush1}" />
+        <Setter Property="MinHeight" Value="24" />
         <Setter Property="Margin" Value="0,4" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type controls:PclCheckBox}">
-                    <Grid Background="Transparent">
+                    <Grid Background="Transparent" VerticalAlignment="Center">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="22" />
                             <ColumnDefinition Width="*" />
@@ -331,14 +336,16 @@
     <!-- ======================================================== -->
     <Style TargetType="{x:Type controls:PclRadioBox}">
         <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Foreground" Value="{DynamicResource ColorBrush1}" />
+        <Setter Property="MinHeight" Value="24" />
         <Setter Property="Margin" Value="0,4" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type controls:PclRadioBox}">
-                    <Grid Background="Transparent">
+                    <Grid Background="Transparent" VerticalAlignment="Center">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="22" />
                             <ColumnDefinition Width="*" />
@@ -428,13 +435,16 @@
         <Setter Property="SnapsToDevicePixels" Value="True" />
         <Setter Property="Foreground" Value="{DynamicResource ColorBrush1}" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="Height" Value="32" />
+        <Setter Property="MinHeight" Value="28" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type controls:PclComboBox}">
-                    <Grid>
+                    <Grid SnapsToDevicePixels="True">
                         <Border x:Name="PART_Border"
+                                SnapsToDevicePixels="True"
                                 Background="{DynamicResource ColorBrushHalfWhite}"
                                 CornerRadius="3"
                                 BorderThickness="1"

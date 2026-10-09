@@ -74,9 +74,8 @@ public class PclButton : Button
             borderContainer.RenderTransform = scaleTransform;
             borderContainer.RenderTransformOrigin = new Point(0.5, 0.5);
 
-            // Clone brushes for independent animation
-            dynamicBackgroundBrush = (borderContainer.Background as SolidColorBrush)?.Clone() ?? new SolidColorBrush(GetDefaultBgColor());
-            dynamicBorderBrush = (borderContainer.BorderBrush as SolidColorBrush)?.Clone() ?? new SolidColorBrush(GetDefaultBorderColor());
+            dynamicBackgroundBrush = new SolidColorBrush(GetDefaultBgColor());
+            dynamicBorderBrush = new SolidColorBrush(GetDefaultBorderColor());
 
             borderContainer.Background = dynamicBackgroundBrush;
             borderContainer.BorderBrush = dynamicBorderBrush;
@@ -136,35 +135,45 @@ public class PclButton : Button
 
     private Color GetDefaultBgColor() => ButtonType switch
     {
-        PclButtonType.Hero => Color.FromArgb(240, 255, 255, 255),
-        PclButtonType.Highlight => Color.FromRgb(0x13, 0x70, 0xF3),
         PclButtonType.Danger => Color.FromArgb(0x40, 0xFB, 0xDD, 0xDD),
         _ => Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF) // ColorBrushHalfWhite
     };
 
     private Color GetHoverBgColor() => ButtonType switch
     {
-        PclButtonType.Hero => Color.FromRgb(0xE0, 0xEA, 0xFD), // ColorBrush7
-        PclButtonType.Highlight => Color.FromRgb(0x48, 0x90, 0xF5),
         PclButtonType.Danger => Color.FromArgb(0x80, 0xFB, 0xDD, 0xDD),
         _ => Color.FromRgb(0xE0, 0xEA, 0xFD) // ColorBrush7
     };
 
-    private Color GetDefaultBorderColor() => ButtonType switch
+    public PclButton()
     {
-        PclButtonType.Hero => Color.FromRgb(0x13, 0x70, 0xF3),
-        PclButtonType.Highlight => Color.FromRgb(0x0B, 0x5B, 0xCB),
-        PclButtonType.Danger => Color.FromRgb(0xCE, 0x21, 0x11),
-        _ => Color.FromRgb(0x34, 0x3D, 0x4A) // ColorBrush1
-    };
+        Loaded += (s, e) => AnimateHover(false);
+        IsEnabledChanged += (s, e) => AnimateHover(false);
+    }
 
-    private Color GetHoverBorderColor() => ButtonType switch
+    private Color GetDefaultBorderColor()
     {
-        PclButtonType.Hero => Color.FromRgb(0x0B, 0x5B, 0xCB),
-        PclButtonType.Highlight => Color.FromRgb(0x13, 0x70, 0xF3),
-        PclButtonType.Danger => Color.FromRgb(0xFF, 0x4C, 0x4C),
-        _ => Color.FromRgb(0x13, 0x70, 0xF3) // ColorBrush3
-    };
+        if (!IsEnabled) return Color.FromRgb(0xA6, 0xA6, 0xA6); // ColorBrushGray4
+        return ButtonType switch
+        {
+            PclButtonType.Hero => Color.FromRgb(0x0B, 0x5B, 0xCB),      // ColorBrush2
+            PclButtonType.Highlight => Color.FromRgb(0x0B, 0x5B, 0xCB), // ColorBrush2
+            PclButtonType.Danger => Color.FromRgb(0xCE, 0x21, 0x11),
+            _ => Color.FromRgb(0x34, 0x3D, 0x4A)                        // ColorBrush1
+        };
+    }
+
+    private Color GetHoverBorderColor()
+    {
+        if (!IsEnabled) return Color.FromRgb(0xA6, 0xA6, 0xA6);
+        return ButtonType switch
+        {
+            PclButtonType.Hero => Color.FromRgb(0x13, 0x70, 0xF3),      // ColorBrush3
+            PclButtonType.Highlight => Color.FromRgb(0x13, 0x70, 0xF3), // ColorBrush3
+            PclButtonType.Danger => Color.FromRgb(0xFF, 0x4C, 0x4C),
+            _ => Color.FromRgb(0x13, 0x70, 0xF3)                        // ColorBrush3
+        };
+    }
 
     private static void OnButtonTypeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {

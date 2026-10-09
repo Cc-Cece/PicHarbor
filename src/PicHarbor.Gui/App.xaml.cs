@@ -21,11 +21,13 @@ public partial class App : Application
             args.Handled = true;
         };
 
-        if (e.Args.Length > 0 && e.Args[0] == "--render-preview")
+        var cmdArgs = Environment.GetCommandLineArgs();
+        int previewIdx = Array.FindIndex(cmdArgs, a => a.Equals("--render-preview", StringComparison.OrdinalIgnoreCase));
+        if (previewIdx >= 0)
         {
-            string outDir = e.Args.Length > 1 ? e.Args[1] : ".";
+            string outDir = (previewIdx + 1 < cmdArgs.Length) ? cmdArgs[previewIdx + 1] : ".";
             ExportPreviews(outDir);
-            Shutdown();
+            Shutdown(0);
             return;
         }
 
@@ -76,7 +78,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Preview export failed: {ex}");
+            try { File.WriteAllText(Path.Combine(outDir, "render_error.log"), ex.ToString()); } catch { }
         }
     }
 
