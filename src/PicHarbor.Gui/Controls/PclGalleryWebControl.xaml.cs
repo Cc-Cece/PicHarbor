@@ -14,6 +14,9 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
+using PicHarbor.Core;
+using PicHarbor.Core.Search;
+using PicHarbor.Core.Util;
 using PicHarbor.Gui.Util;
 using PicHarbor.Gui.ViewModels;
 
@@ -71,6 +74,7 @@ public partial class PclGalleryWebControl : UserControl
 
         if (currentSearchVM != null)
         {
+            currentSearchVM.HitsUpdated -= CurrentSearchVM_HitsUpdated;
             currentSearchVM.SearchResults.CollectionChanged -= SearchResults_CollectionChanged;
             currentSearchVM.PropertyChanged -= CurrentSearchVM_PropertyChanged;
         }
@@ -79,6 +83,7 @@ public partial class PclGalleryWebControl : UserControl
 
         if (currentSearchVM != null)
         {
+            currentSearchVM.HitsUpdated += CurrentSearchVM_HitsUpdated;
             currentSearchVM.SearchResults.CollectionChanged += SearchResults_CollectionChanged;
             currentSearchVM.PropertyChanged += CurrentSearchVM_PropertyChanged;
 
@@ -87,6 +92,11 @@ public partial class PclGalleryWebControl : UserControl
                 TriggerPush();
             }
         }
+    }
+
+    private void CurrentSearchVM_HitsUpdated(object? sender, EventArgs e)
+    {
+        TriggerPush();
     }
 
     private void SearchResults_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -113,7 +123,7 @@ public partial class PclGalleryWebControl : UserControl
         pushDebounceTimer.Stop();
         if (isWebReady && currentSearchVM != null)
         {
-            PushPhotosToWeb(currentSearchVM.SearchResults);
+            PushPhotosToWeb();
         }
     }
 
@@ -573,7 +583,7 @@ public partial class PclGalleryWebControl : UserControl
                         LoadingOverlay.Visibility = Visibility.Collapsed;
                         if (currentSearchVM != null)
                         {
-                            PushPhotosToWeb(currentSearchVM.SearchResults);
+                            PushPhotosToWeb();
                         }
                     });
                     break;
@@ -678,6 +688,29 @@ public partial class PclGalleryWebControl : UserControl
                                 target = currentSearchVM.SearchResults.FirstOrDefault(x => string.Equals(x.RelativePath, id, StringComparison.OrdinalIgnoreCase));
                             }
 
+                            if (target == null && currentSearchVM.GetCurrentHits().Count > 0)
+                            {
+                                var hit = currentSearchVM.GetCurrentHits().FirstOrDefault(h =>
+                                    (!string.IsNullOrEmpty(path) && string.Equals(Path.Combine(currentSearchVM.ArchivePath, h.RelativePath), path, StringComparison.OrdinalIgnoreCase)) ||
+                                    (!string.IsNullOrEmpty(id) && string.Equals(h.RelativePath, id, StringComparison.OrdinalIgnoreCase)));
+                                if (hit != null)
+                                {
+                                    string full = Path.Combine(currentSearchVM.ArchivePath, hit.RelativePath);
+                                    string ext = Path.GetExtension(full).ToLowerInvariant();
+                                    bool isVid = hit.Type == MediaType.Video || ext is ".mp4" or ".mov" or ".m4v" or ".avi" or ".mkv";
+                                    target = new MediaSearchResultItem
+                                    {
+                                        FullPath = full,
+                                        RelativePath = hit.RelativePath,
+                                        CapturedAt = hit.CapturedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "",
+                                        SizeText = ByteSize.Humanize(hit.SizeBytes),
+                                        MediaType = hit.Type.ToString().ToLowerInvariant(),
+                                        IsVideo = isVid,
+                                        HasThumbnail = true
+                                    };
+                                }
+                            }
+
                             if (target != null)
                             {
                                 if (forceVideo && !target.IsVideo)
@@ -710,46 +743,137 @@ public partial class PclGalleryWebControl : UserControl
         }
     }
 
-    private void PushPhotosToWeb(IEnumerable<MediaSearchResultItem> items)
+    private void PushPhotosToWeb()
     {
-        if (!isWebReady || AlbumWebView.CoreWebView2 == null) return;
+        if (!isWebReady || AlbumWebView.CoreWebView2 == null || currentSearchVM == null) return;
 
-        var photosList = new List<object>();
+        var hits = currentSearchVM.GetCurrentHits();
+        var photosList = new List<object>(hits.Count > 0 ? hits.Count : currentSearchVM.SearchResults.Count);
+        string archivePath = currentSearchVM.ArchivePath;
 
-        foreach (var item in items)
+        if (hits.Count > 0)
         {
-            string dateStr = item.CapturedAt;
-            if (string.IsNullOrWhiteSpace(dateStr))
+            var display = currentSearchVM.GetDisplayMeta();
+            var iphoneSet = currentSearchVM.IPhoneSyncVM?.GetManualSelectionPathsSet() ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var androidSet = currentSearchVM.AndroidSyncVM?.GetManualSelectionPathsSet() ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var googleSet = currentSearchVM.GooglePhotosVM?.GetManualSelectionPathsSet() ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            var videoStems = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var stillStems = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var h in hits)
             {
-                dateStr = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                string ext = Path.GetExtension(h.RelativePath).ToLowerInvariant();
+                string stem = Path.ChangeExtension(h.RelativePath, null);
+                if (ext is ".mov" or ".mp4")
+                {
+                    videoStems.Add(stem);
+                }
+                else if (ext is ".heic" or ".jpg" or ".jpeg")
+                {
+                    stillStems.Add(stem);
+                }
             }
 
-            int w = item.PixelWidth > 0 ? item.PixelWidth : (item.MediaType == "screenshot" ? 1179 : (item.IsVideo ? 1920 : 4032));
-            int h = item.PixelHeight > 0 ? item.PixelHeight : (item.MediaType == "screenshot" ? 2556 : (item.IsVideo ? 1080 : 3024));
-
-            string ext = Path.GetExtension(item.FullPath ?? "").TrimStart('.').ToUpperInvariant();
-            if (string.IsNullOrWhiteSpace(ext)) ext = item.IsVideo ? "MP4" : "JPG";
-
-            photosList.Add(new
+            foreach (var hit in hits)
             {
-                id = item.RelativePath,
-                width = w,
-                height = h,
-                takenAt = dateStr,
-                thumbUrl = $"https://media.gallery.local/thumb?path={Uri.EscapeDataString(item.FullPath ?? "")}",
-                url = $"https://media.gallery.local/image?path={Uri.EscapeDataString(item.FullPath ?? "")}",
-                fullPath = item.FullPath,
-                relativePath = item.RelativePath,
-                isVideo = item.IsVideo,
-                isLivePhoto = item.IsLivePhoto,
-                format = ext,
-                mediaType = item.MediaType,
-                isPendingIPhone = item.IsManualSelectedForIPhone,
-                isPendingAndroid = item.IsManualSelectedForAndroid,
-                isGooglePhotos = item.IsManualSelectedForGooglePhotos,
-                sizeText = item.SizeText,
-                cameraModel = item.CameraModel
-            });
+                string rel = hit.RelativePath;
+                string full = Path.Combine(archivePath, rel);
+                string ext = Path.GetExtension(rel).TrimStart('.').ToUpperInvariant();
+                bool isVideo = hit.Type == MediaType.Video || ext is "MP4" or "MOV" or "M4V" or "AVI" or "MKV";
+                string stem = Path.ChangeExtension(rel, null);
+                bool isLive = isVideo ? stillStems.Contains(stem) : videoStems.Contains(stem);
+
+                if (string.IsNullOrWhiteSpace(ext)) ext = isVideo ? "MP4" : "JPG";
+
+                string dateStr = hit.CapturedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                    ?? DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+                int w = 0, h = 0;
+                if (ImageDimensionHelper.TryGetCachedDimensions(full, out var cachedDims))
+                {
+                    w = cachedDims.Width;
+                    h = cachedDims.Height;
+                }
+                else
+                {
+                    if (hit.Type == MediaType.Screenshot)
+                    {
+                        w = 1179;
+                        h = 2556;
+                    }
+                    else if (isVideo)
+                    {
+                        w = 1920;
+                        h = 1080;
+                    }
+                    else
+                    {
+                        w = 4032;
+                        h = 3024;
+                    }
+                }
+
+                string camera = display.TryGetValue(rel, out var meta) ? meta.Camera : "";
+
+                photosList.Add(new
+                {
+                    id = rel,
+                    width = w,
+                    height = h,
+                    takenAt = dateStr,
+                    thumbUrl = $"https://media.gallery.local/thumb?path={Uri.EscapeDataString(full)}",
+                    url = $"https://media.gallery.local/image?path={Uri.EscapeDataString(full)}",
+                    fullPath = full,
+                    relativePath = rel,
+                    isVideo = isVideo,
+                    isLivePhoto = isLive,
+                    format = ext,
+                    mediaType = hit.Type.ToString().ToLowerInvariant(),
+                    isPendingIPhone = iphoneSet.Contains(rel),
+                    isPendingAndroid = androidSet.Contains(rel),
+                    isGooglePhotos = googleSet.Contains(rel),
+                    sizeText = ByteSize.Humanize(hit.SizeBytes),
+                    cameraModel = camera
+                });
+            }
+        }
+        else
+        {
+            foreach (var item in currentSearchVM.SearchResults)
+            {
+                string dateStr = item.CapturedAt;
+                if (string.IsNullOrWhiteSpace(dateStr))
+                {
+                    dateStr = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                }
+
+                int w = item.PixelWidth > 0 ? item.PixelWidth : (item.MediaType == "screenshot" ? 1179 : (item.IsVideo ? 1920 : 4032));
+                int h = item.PixelHeight > 0 ? item.PixelHeight : (item.MediaType == "screenshot" ? 2556 : (item.IsVideo ? 1080 : 3024));
+
+                string ext = Path.GetExtension(item.FullPath ?? "").TrimStart('.').ToUpperInvariant();
+                if (string.IsNullOrWhiteSpace(ext)) ext = item.IsVideo ? "MP4" : "JPG";
+
+                photosList.Add(new
+                {
+                    id = item.RelativePath,
+                    width = w,
+                    height = h,
+                    takenAt = dateStr,
+                    thumbUrl = $"https://media.gallery.local/thumb?path={Uri.EscapeDataString(item.FullPath ?? "")}",
+                    url = $"https://media.gallery.local/image?path={Uri.EscapeDataString(item.FullPath ?? "")}",
+                    fullPath = item.FullPath,
+                    relativePath = item.RelativePath,
+                    isVideo = item.IsVideo,
+                    isLivePhoto = item.IsLivePhoto,
+                    format = ext,
+                    mediaType = item.MediaType,
+                    isPendingIPhone = item.IsManualSelectedForIPhone,
+                    isPendingAndroid = item.IsManualSelectedForAndroid,
+                    isGooglePhotos = item.IsManualSelectedForGooglePhotos,
+                    sizeText = item.SizeText,
+                    cameraModel = item.CameraModel
+                });
+            }
         }
 
         var payload = new

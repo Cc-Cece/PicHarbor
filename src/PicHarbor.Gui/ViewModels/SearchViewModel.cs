@@ -64,6 +64,12 @@ public partial class SearchViewModel : ObservableObject
     private string allCamerasLabel = "";
     private bool suppressSort;
     private bool resortRequested;
+    private bool suppressFilterSearch;
+    private System.Threading.Timer? searchDebounceTimer;
+
+    public event EventHandler? HitsUpdated;
+    public IReadOnlyList<MediaSearchHit> GetCurrentHits() => currentHits;
+    public IReadOnlyDictionary<string, (string Camera, string Gps)> GetDisplayMeta() => displayByPath;
 
     public IPhoneSyncViewModel? IPhoneSyncVM { get; set; }
     public AndroidSyncViewModel? AndroidSyncVM { get; set; }
@@ -111,6 +117,10 @@ public partial class SearchViewModel : ObservableObject
         {
             FilterFrom = formatted;
         }
+        if (!suppressFilterSearch && SelectedDatePresetIndex == 5)
+        {
+            _ = SearchAsync();
+        }
     }
 
     partial void OnFilterToDateChanged(DateTime? value)
@@ -119,6 +129,10 @@ public partial class SearchViewModel : ObservableObject
         if (filterTo != formatted)
         {
             FilterTo = formatted;
+        }
+        if (!suppressFilterSearch && SelectedDatePresetIndex == 5)
+        {
+            _ = SearchAsync();
         }
     }
 
@@ -183,12 +197,90 @@ public partial class SearchViewModel : ObservableObject
         FilterTo = "";
     }
 
+    public ObservableCollection<string> FilterTypeLabels { get; } = new()
+    {
+        "全部类型",
+        "照片",
+        "视频",
+        "实况照片",
+        "截屏"
+    };
+
+    [ObservableProperty]
+    private int selectedTypeIndex = 0;
+
+    partial void OnSelectedTypeIndexChanged(int value)
+    {
+        if (suppressFilterSearch) return;
+        SelectedType = value switch
+        {
+            1 => "photo (照片)",
+            2 => "video (视频)",
+            3 => "live (实况照片)",
+            4 => "screenshot (截图)",
+            _ => "All (全部)"
+        };
+    }
+
+    public ObservableCollection<string> DatePresetLabels { get; } = new()
+    {
+        "全部时间",
+        "本年",
+        "去年",
+        "近90天",
+        "近30天",
+        "自定义..."
+    };
+
+    [ObservableProperty]
+    private int selectedDatePresetIndex = 0;
+
+    public bool IsCustomDateRangeVisible => SelectedDatePresetIndex == 5;
+
+    partial void OnSelectedDatePresetIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsCustomDateRangeVisible));
+        if (suppressFilterSearch) return;
+
+        suppressFilterSearch = true;
+        switch (value)
+        {
+            case 0:
+                ClearDateRange();
+                break;
+            case 1:
+                SetDatePresetThisYear();
+                break;
+            case 2:
+                FilterToDate = new DateTime(DateTime.Today.Year - 1, 12, 31);
+                FilterFromDate = new DateTime(DateTime.Today.Year - 1, 1, 1);
+                break;
+            case 3:
+                SetDatePresetLast90Days();
+                break;
+            case 4:
+                SetDatePresetLast30Days();
+                break;
+            case 5:
+                break;
+        }
+        suppressFilterSearch = false;
+
+        if (value != 5)
+        {
+            _ = SearchAsync();
+        }
+    }
+
     [ObservableProperty]
     private string selectedType = "All (全部)";
 
     partial void OnSelectedTypeChanged(string value)
     {
-        _ = SearchAsync();
+        if (!suppressFilterSearch)
+        {
+            _ = SearchAsync();
+        }
     }
 
     [ObservableProperty]
@@ -250,6 +342,14 @@ public partial class SearchViewModel : ObservableObject
 
     [ObservableProperty]
     private string selectedCameraModel = "";
+
+    partial void OnSelectedCameraModelChanged(string value)
+    {
+        if (!suppressFilterSearch)
+        {
+            _ = SearchAsync();
+        }
+    }
 
     [ObservableProperty]
     private string cameraKeyword = "";
@@ -346,7 +446,51 @@ public partial class SearchViewModel : ObservableObject
     }
 
     [ObservableProperty]
+    private string searchText = "";
+
+    partial void OnSearchTextChanged(string value)
+    {
+        if (FileNameFilter != value)
+        {
+            FileNameFilter = value;
+        }
+        searchDebounceTimer?.Dispose();
+        searchDebounceTimer = new System.Threading.Timer(_ =>
+        {
+            Application.Current?.Dispatcher.InvokeAsync(() =>
+            {
+                _ = SearchAsync();
+            });
+        }, null, 250, Timeout.Infinite);
+    }
+
+    [ObservableProperty]
     private string fileNameFilter = "";
+
+    partial void OnFileNameFilterChanged(string value)
+    {
+        if (SearchText != value)
+        {
+            SearchText = value;
+        }
+    }
+
+    [RelayCommand]
+    private void ClearAllFilters()
+    {
+        suppressFilterSearch = true;
+        SearchText = "";
+        FileNameFilter = "";
+        SelectedTypeIndex = 0;
+        SelectedType = "All (全部)";
+        SelectedDatePresetIndex = 0;
+        ClearDateRange();
+        SelectedCameraModel = allCamerasLabel;
+        CameraKeyword = "";
+        SelectedViewCategory = 0;
+        suppressFilterSearch = false;
+        _ = SearchAsync();
+    }
 
     [ObservableProperty]
     private bool hasGpsOnly = false;
@@ -356,6 +500,11 @@ public partial class SearchViewModel : ObservableObject
 
     [ObservableProperty]
     private bool isTableView = false;
+
+    partial void OnIsTableViewChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanLoadMoreInTableView));
+    }
 
     [ObservableProperty]
     private bool isGalleryView = true;
@@ -423,6 +572,13 @@ public partial class SearchViewModel : ObservableObject
     [ObservableProperty]
     private bool hasMoreItems = false;
 
+    partial void OnHasMoreItemsChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanLoadMoreInTableView));
+    }
+
+    public bool CanLoadMoreInTableView => IsTableView && HasMoreItems;
+
     private const int BatchSize = 1000;
     private List<MediaSearchHit> currentHits = new();
     private int loadedHitIndex = 0;
@@ -446,7 +602,8 @@ public partial class SearchViewModel : ObservableObject
 
         DateTimeOffset? fromDate = DateTimeOffset.TryParse(FilterFrom, CultureInfo.InvariantCulture, out var f) ? f : null;
         DateTimeOffset? toDate = DateTimeOffset.TryParse(FilterTo, CultureInfo.InvariantCulture, out var t) ? t : null;
-        MediaType? mediaType = ParseMediaType(SelectedType);
+        bool filterLiveOnly = SelectedType.Contains("live") || SelectedType.Contains("实况");
+        MediaType? mediaType = filterLiveOnly ? null : ParseMediaType(SelectedType);
         string camera = ResolveCameraFilter();
 
         var criteria = new MediaSearchCriteria(
@@ -467,7 +624,21 @@ public partial class SearchViewModel : ObservableObject
             {
                 using var journal = TransferJournal.OpenReadOnly(ArchivePath);
                 IReadOnlyList<ManifestSearchRow> rows = journal.ReadSearchRows();
-                return (MediaSearch.Find(rows, criteria).ToList(), BuildDisplay(rows), DistinctCameraModels(rows));
+                var found = MediaSearch.Find(rows, criteria).ToList();
+                if (filterLiveOnly)
+                {
+                    var liveStems = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var r in rows)
+                    {
+                        string ext = Path.GetExtension(r.RelativePath).ToLowerInvariant();
+                        if (ext is ".mov" or ".mp4")
+                        {
+                            liveStems.Add(Path.ChangeExtension(r.RelativePath, null));
+                        }
+                    }
+                    found = found.Where(h => liveStems.Contains(Path.ChangeExtension(h.RelativePath, null))).ToList();
+                }
+                return (found, BuildDisplay(rows), DistinctCameraModels(rows));
             }, ct).ConfigureAwait(false);
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
@@ -481,6 +652,8 @@ public partial class SearchViewModel : ObservableObject
                 SearchResults = new ObservableCollection<MediaSearchResultItem>();
                 GalleryRows = new ObservableCollection<GalleryRow>();
                 HasMoreItems = currentHits.Count > 0;
+                SearchSummaryText = $"检索成功：共匹配 {currentHits.Count:N0} 项";
+                HitsUpdated?.Invoke(this, EventArgs.Empty);
             });
 
             if (currentHits.Count == 0)
@@ -489,6 +662,7 @@ public partial class SearchViewModel : ObservableObject
                 {
                     SearchSummaryText = "检索成功：共匹配 0 项";
                     HasMoreItems = false;
+                    HitsUpdated?.Invoke(this, EventArgs.Empty);
                 });
             }
             else
@@ -1617,7 +1791,9 @@ public partial class SearchViewModel : ObservableObject
             }
         }
 
+        suppressFilterSearch = true;
         SelectedCameraModel = keepSpecific ? previous : allCamerasLabel;
+        suppressFilterSearch = false;
     }
 
     private static Dictionary<string, (string Camera, string Gps)> BuildDisplay(IReadOnlyList<ManifestSearchRow> rows)

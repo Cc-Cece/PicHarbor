@@ -517,29 +517,66 @@
                         <StackPanel>
                             <!-- Search Box (1:1 PCL2 MySearchBox) -->
                             <controls:PclSearchBox Text="{Binding SearchVM.SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                                   HintText="搜索图库中的照片、拍摄设备或日期..." Margin="0,0,0,14" />
+                                                   HintText="搜索图库中的照片、拍摄设备或日期..." Margin="0,0,0,12" />
 
-                            <!-- Toolbar Card -->
-                            <controls:PclCard Title="图库检视与排序" CanSwap="False">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding SearchVM.SearchSummaryText}" Foreground="{DynamicResource ColorBrush2}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                        <controls:PclButton Content="加载更多" Command="{Binding SearchVM.LoadMoreItemsCommand}"
-                                                            Visibility="{Binding SearchVM.HasMoreItems, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                                            Height="26" Margin="12,0,0,0" Padding="8,2" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="排序:" Foreground="{DynamicResource ColorBrushGray2}" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                        <controls:PclComboBox Width="130" Height="28" ItemsSource="{Binding SearchVM.SortModeLabels}" SelectedIndex="{Binding SearchVM.SortModeIndex, Mode=TwoWay}" Margin="0,0,8,0" />
-                                        <controls:PclButton Content="{Binding SearchVM.SortDirectionText}" Command="{Binding SearchVM.ToggleSortDirectionCommand}" Height="28" Margin="0,0,10,0" />
-                                        <RadioButton Content="画廊" IsChecked="{Binding SearchVM.IsGalleryView}" Style="{StaticResource PclSegmentedTab}" Margin="0,0,4,0" />
-                                        <RadioButton Content="列表" IsChecked="{Binding SearchVM.IsTableView}" Style="{StaticResource PclSegmentedTab}" />
-                                    </StackPanel>
-                                </Grid>
+                            <!-- Toolbar & Filter Card -->
+                            <controls:PclCard Title="图库检视与筛选" CanSwap="False">
+                                <StackPanel>
+                                    <!-- Row 1: Summary & View Options -->
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding SearchVM.SearchSummaryText}" Foreground="{DynamicResource ColorBrush2}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                            <controls:PclButton Content="加载更多" Command="{Binding SearchVM.LoadMoreItemsCommand}"
+                                                                Visibility="{Binding SearchVM.CanLoadMoreInTableView, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                                Height="26" Margin="12,0,0,0" Padding="8,2" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="排序:" Foreground="{DynamicResource ColorBrushGray2}" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                            <controls:PclComboBox Width="130" Height="28" ItemsSource="{Binding SearchVM.SortModeLabels}" SelectedIndex="{Binding SearchVM.SortModeIndex, Mode=TwoWay}" Margin="0,0,8,0" />
+                                            <controls:PclButton Content="{Binding SearchVM.SortDirectionText}" Command="{Binding SearchVM.ToggleSortDirectionCommand}" Height="28" Margin="0,0,10,0" />
+                                            <RadioButton Content="画廊" IsChecked="{Binding SearchVM.IsGalleryView}" Style="{StaticResource PclSegmentedTab}" Margin="0,0,4,0" />
+                                            <RadioButton Content="列表" IsChecked="{Binding SearchVM.IsTableView}" Style="{StaticResource PclSegmentedTab}" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Row 2: Multi-dimensional Filters -->
+                                    <Border BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="0,1,0,0" Padding="0,10,0,0">
+                                        <WrapPanel VerticalAlignment="Center">
+                                            <!-- Media Type Filter -->
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,6">
+                                                <TextBlock Text="类型:" Foreground="{DynamicResource ColorBrushGray2}" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                <controls:PclComboBox Width="110" Height="28" ItemsSource="{Binding SearchVM.FilterTypeLabels}" SelectedIndex="{Binding SearchVM.SelectedTypeIndex, Mode=TwoWay}" />
+                                            </StackPanel>
+
+                                            <!-- Time / Date Filter -->
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,6">
+                                                <TextBlock Text="时间:" Foreground="{DynamicResource ColorBrushGray2}" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                <controls:PclComboBox Width="110" Height="28" ItemsSource="{Binding SearchVM.DatePresetLabels}" SelectedIndex="{Binding SearchVM.SelectedDatePresetIndex, Mode=TwoWay}" />
+                                            </StackPanel>
+
+                                            <!-- Custom Date Range (when selected) -->
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,6"
+                                                        Visibility="{Binding SearchVM.IsCustomDateRangeVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <DatePicker SelectedDate="{Binding SearchVM.FilterFromDate, Mode=TwoWay}" Width="120" Height="28" VerticalAlignment="Center" />
+                                                <TextBlock Text="至" Foreground="{DynamicResource ColorBrushGray2}" FontSize="12" VerticalAlignment="Center" Margin="6,0,6,0" />
+                                                <DatePicker SelectedDate="{Binding SearchVM.FilterToDate, Mode=TwoWay}" Width="120" Height="28" VerticalAlignment="Center" />
+                                            </StackPanel>
+
+                                            <!-- Camera Model Filter -->
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,6">
+                                                <TextBlock Text="设备:" Foreground="{DynamicResource ColorBrushGray2}" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                <controls:PclComboBox Width="140" Height="28" ItemsSource="{Binding SearchVM.CameraModels}" SelectedItem="{Binding SearchVM.SelectedCameraModel, Mode=TwoWay}" />
+                                            </StackPanel>
+
+                                            <!-- Reset Filters Button -->
+                                            <controls:PclButton Content="重置筛选" Command="{Binding SearchVM.ClearAllFiltersCommand}" Height="28" Margin="0,0,0,6" Padding="10,2" />
+                                        </WrapPanel>
+                                    </Border>
+                                </StackPanel>
                             </controls:PclCard>
 
                             <!-- Gallery Grid View (Sweet-Album Justified Timeline Gallery) -->

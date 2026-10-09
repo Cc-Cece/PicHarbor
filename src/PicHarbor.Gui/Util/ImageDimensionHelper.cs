@@ -14,6 +14,19 @@ public static class ImageDimensionHelper
 {
     private static readonly ConcurrentDictionary<string, (int Width, int Height)> Cache = new(StringComparer.OrdinalIgnoreCase);
 
+    public static bool TryGetCachedDimensions(string filePath, out (int Width, int Height) dims)
+    {
+        return Cache.TryGetValue(filePath, out dims);
+    }
+
+    public static void SetCachedDimensions(string filePath, int width, int height)
+    {
+        if (width > 0 && height > 0)
+        {
+            Cache[filePath] = (width, height);
+        }
+    }
+
     public static (int Width, int Height)? GetDimensions(string filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
