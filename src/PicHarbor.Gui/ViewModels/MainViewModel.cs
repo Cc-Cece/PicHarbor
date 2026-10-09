@@ -211,11 +211,21 @@ public partial class MainViewModel : ObservableObject
         _ = ProbeDeviceStatusAsync();
     }
 
-    public bool IsDetailModalOpen =>
-        BackupVM.IsDetailModalOpen ||
-        AndroidBackupVM.IsDetailModalOpen ||
-        GooglePhotosVM.IsDetailModalOpen ||
-        AndroidSyncVM.IsDetailModalOpen;
+    public bool IsDetailModalOpen
+    {
+        get =>
+            BackupVM.IsDetailModalOpen ||
+            AndroidBackupVM.IsDetailModalOpen ||
+            GooglePhotosVM.IsDetailModalOpen ||
+            AndroidSyncVM.IsDetailModalOpen;
+        set
+        {
+            if (!value)
+            {
+                CloseActiveDetailModal();
+            }
+        }
+    }
 
     public string ActiveDetailModalTitle
     {

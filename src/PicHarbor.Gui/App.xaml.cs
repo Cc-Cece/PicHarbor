@@ -17,7 +17,15 @@ public partial class App : Application
         base.OnStartup(e);
         DispatcherUnhandledException += (s, args) =>
         {
-            MessageBox.Show($"程序运行遇到异常:\n{args.Exception.Message}", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            try
+            {
+                File.WriteAllText("crash.log", args.Exception.ToString() + "\nInner:\n" + args.Exception.InnerException?.ToString());
+            }
+            catch { }
+            string detail = args.Exception.InnerException != null
+                ? $"{args.Exception.Message}\n原因: {args.Exception.InnerException.Message}"
+                : args.Exception.Message;
+            MessageBox.Show($"程序运行遇到异常:\n{detail}", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
             args.Handled = true;
         };
 

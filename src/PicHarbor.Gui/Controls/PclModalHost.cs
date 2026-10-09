@@ -20,7 +20,7 @@ public class PclModalHost : ContentControl
 
     public static readonly DependencyProperty IsOpenProperty =
         DependencyProperty.Register(nameof(IsOpen), typeof(bool), typeof(PclModalHost),
-            new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnIsOpenChanged));
+            new FrameworkPropertyMetadata(false, OnIsOpenChanged));
 
     public static readonly DependencyProperty CloseCommandProperty =
         DependencyProperty.Register(nameof(CloseCommand), typeof(ICommand), typeof(PclModalHost),
@@ -126,10 +126,16 @@ public class PclModalHost : ContentControl
 
     private void UpdateVisualState(bool animate)
     {
-        if (rootGrid == null || contentPresenter == null || scaleTransform == null) return;
-
         if (IsOpen)
         {
+            if (rootGrid == null)
+            {
+                Visibility = Visibility.Visible;
+                ApplyTemplate();
+            }
+
+            if (rootGrid == null || contentPresenter == null || scaleTransform == null) return;
+
             if (!ActiveModals.Contains(this))
             {
                 ActiveModals.Add(this);
@@ -160,6 +166,12 @@ public class PclModalHost : ContentControl
         else
         {
             IsHitTestVisible = false;
+
+            if (rootGrid == null || contentPresenter == null || scaleTransform == null)
+            {
+                Visibility = Visibility.Collapsed;
+                return;
+            }
 
             if (animate && Visibility == Visibility.Visible)
             {

@@ -1726,7 +1726,7 @@
         <!--  MODAL 1: 传输文件明细弹窗 (PCL2 风格弹窗)                -->
         <!-- ======================================================== -->
         <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1000"
-                               IsOpen="{Binding IsDetailModalOpen}"
+                               IsOpen="{Binding IsDetailModalOpen, Mode=OneWay}"
                                CloseCommand="{Binding CloseActiveDetailModalCommand}">
             <Border Style="{StaticResource PclDialogContainer}" Width="840" Height="520" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20">
                 <Grid>
