@@ -1905,20 +1905,70 @@ public partial class SearchViewModel : ObservableObject
 
     private static ImageSource? LoadResultThumbnail(MediaSearchResultItem item)
     {
-        if (item.IsVideo)
+        return item.IsVideo ? LoadVideoStill(item.FullPath, 200) : LoadStillThumbnail(item.FullPath);
+    }
+
+    /// <summary>
+    /// Returns a thumbnail already decoded for the gallery list, when this path is on the current page.
+    /// </summary>
+    public ImageSource? FindLoadedThumbnail(string fullPath)
+    {
+        if (string.IsNullOrWhiteSpace(fullPath))
         {
-            return LoadVideoStill(item.FullPath, 200);
+            return null;
         }
 
-        ImageSource? frozen = LoadFrozenThumbnail(item.FullPath, 200);
+        foreach (MediaSearchResultItem item in SearchResults)
+        {
+            if (item.ThumbnailImage is not null
+                && string.Equals(item.FullPath, fullPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return item.ThumbnailImage;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Decodes one list-row thumbnail: the same still, live-still, and video-frame path the gallery list uses.
+    /// </summary>
+    public static async Task<ImageSource?> CreateListThumbnailAsync(string fullPath, CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested
+            || string.IsNullOrWhiteSpace(fullPath)
+            || !File.Exists(fullPath))
+        {
+            return null;
+        }
+
+        bool video = IsVideoPath(fullPath);
+        ImageSource? thumb = video ? LoadVideoStill(fullPath, 200) : LoadStillThumbnail(fullPath);
+        if (thumb is null && video && !cancellationToken.IsCancellationRequested)
+        {
+            thumb = await ShellServices.GetVideoFrameAsync(fullPath, 200).ConfigureAwait(false);
+        }
+
+        return thumb;
+    }
+
+    private static ImageSource? LoadStillThumbnail(string fullPath)
+    {
+        ImageSource? frozen = LoadFrozenThumbnail(fullPath, 200);
         if (frozen is not null)
         {
             return frozen;
         }
 
-        return IsHeif(item.FullPath)
-            ? ShellServices.DecodeHeifStill(item.FullPath, 200) ?? ShellServices.GetShellThumbnail(item.FullPath, 200, 200, thumbnailOnly: false)
-            : ShellServices.GetShellThumbnail(item.FullPath, 200, 200, thumbnailOnly: true);
+        return IsHeif(fullPath)
+            ? ShellServices.DecodeHeifStill(fullPath, 200) ?? ShellServices.GetShellThumbnail(fullPath, 200, 200, thumbnailOnly: false)
+            : ShellServices.GetShellThumbnail(fullPath, 200, 200, thumbnailOnly: true);
+    }
+
+    private static bool IsVideoPath(string path)
+    {
+        string extension = Path.GetExtension(path);
+        return extension is ".mp4" or ".mov" or ".m4v" or ".avi" or ".mkv" or ".wmv" or ".3gp";
     }
 
     private async Task UpgradeVideoPosterAsync(MediaSearchResultItem item, int index)

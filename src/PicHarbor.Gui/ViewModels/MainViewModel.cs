@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using System.Windows.Media;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -16,6 +17,7 @@ namespace PicHarbor.Gui.ViewModels;
 public partial class MainViewModel : ObservableObject
 {
     private readonly DispatcherTimer deviceProbeTimer;
+    private CancellationTokenSource? manualThumbnailCts;
 
     [ObservableProperty]
     private int selectedTabIndex = 0;
@@ -297,6 +299,7 @@ public partial class MainViewModel : ObservableObject
             GooglePhotosVM.SyncWithUnifiedManualSelections(IPhoneSyncVM.ManualSelectedItems);
             SearchVM?.NotifyManualSelectionsChanged();
         };
+        IPhoneSyncVM.ManualSelectionsReloaded += (_, _) => RequestUnifiedManualThumbnails();
 
         // Initial sync of selections from db
         IPhoneSyncVM.LoadManualSelectionsFromDb();
@@ -658,10 +661,85 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(UnifiedManualSelectedItems));
         SearchVM?.NotifyManualSelectionsChanged();
         IsUnifiedManualModalOpen = true;
+        RequestUnifiedManualThumbnails();
     }
 
     [RelayCommand]
-    public void CloseUnifiedManualModal() => IsUnifiedManualModalOpen = false;
+    public void CloseUnifiedManualModal()
+    {
+        IsUnifiedManualModalOpen = false;
+        manualThumbnailCts?.Cancel();
+    }
+
+    private void RequestUnifiedManualThumbnails()
+    {
+        if (!IsUnifiedManualModalOpen)
+        {
+            return;
+        }
+
+        manualThumbnailCts?.Cancel();
+        manualThumbnailCts = new CancellationTokenSource();
+        _ = FillUnifiedManualThumbnailsAsync(manualThumbnailCts.Token);
+    }
+
+    private async Task FillUnifiedManualThumbnailsAsync(CancellationToken cancellationToken)
+    {
+        List<ManualSelectedItemViewModel> pending = new();
+        foreach (ManualSelectedItemViewModel item in IPhoneSyncVM.ManualSelectedItems.ToList())
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (item.ThumbnailImage is not null || string.IsNullOrWhiteSpace(item.FullPath))
+            {
+                continue;
+            }
+
+            ImageSource? known = SearchVM.FindLoadedThumbnail(item.FullPath);
+            if (known is not null)
+            {
+                item.ThumbnailImage = known;
+                continue;
+            }
+
+            if (File.Exists(item.FullPath))
+            {
+                pending.Add(item);
+            }
+        }
+
+        var parallelOptions = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = Math.Min(Environment.ProcessorCount, 6),
+            CancellationToken = cancellationToken
+        };
+
+        try
+        {
+            await Parallel.ForEachAsync(pending, parallelOptions, async (item, token) =>
+            {
+                ImageSource? thumb = await SearchViewModel.CreateListThumbnailAsync(item.FullPath, token).ConfigureAwait(false);
+                if (thumb is null || token.IsCancellationRequested || Application.Current is null)
+                {
+                    return;
+                }
+
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    if (!token.IsCancellationRequested)
+                    {
+                        item.ThumbnailImage = thumb;
+                    }
+                }, DispatcherPriority.Background);
+            }).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
 
     [RelayCommand]
     public void ClearUnifiedManualItems()

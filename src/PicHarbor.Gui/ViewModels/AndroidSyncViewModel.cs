@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PicHarbor.Core.Android;
@@ -801,11 +800,10 @@ public partial class AndroidSyncViewModel : ObservableObject
         if (OpenManualModalAction != null)
         {
             OpenManualModalAction();
+            return;
         }
-        else
-        {
-            IsManualModalOpen = true;
-        }
+
+        IsManualModalOpen = true;
         _ = LoadThumbnailsForManualItemsAsync();
     }
 
@@ -855,49 +853,20 @@ public partial class AndroidSyncViewModel : ObservableObject
     private async Task LoadThumbnailsForManualItemsAsync()
     {
         var targets = ManualSelectedItems.Where(x => x.ThumbnailImage is null && File.Exists(x.FullPath)).ToList();
-        foreach (var item in targets)
+        foreach (ManualSelectedItemViewModel item in targets)
         {
             try
             {
-                ImageSource? thumb = await Task.Run(() => LoadFrozenThumbnail(item.FullPath, 120)).ConfigureAwait(false);
+                ImageSource? thumb = await SearchViewModel.CreateListThumbnailAsync(item.FullPath, CancellationToken.None)
+                    .ConfigureAwait(false);
                 if (thumb is not null)
                 {
                     await Application.Current.Dispatcher.InvokeAsync(() => item.ThumbnailImage = thumb);
                 }
             }
-            catch { }
-        }
-    }
-
-    private static ImageSource? LoadFrozenThumbnail(string filePath, int decodeWidth = 120)
-    {
-        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
-            return null;
-
-        try
-        {
-            var shellThumb = PicHarbor.Gui.Util.ShellServices.GetShellThumbnail(filePath, decodeWidth, decodeWidth);
-            if (shellThumb is not null)
-                return shellThumb;
-        }
-        catch { }
-
-        try
-        {
-            using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.StreamSource = stream;
-            bitmap.DecodePixelWidth = decodeWidth;
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
-            bitmap.EndInit();
-            bitmap.Freeze();
-            return bitmap;
-        }
-        catch
-        {
-            return null;
+            catch
+            {
+            }
         }
     }
 

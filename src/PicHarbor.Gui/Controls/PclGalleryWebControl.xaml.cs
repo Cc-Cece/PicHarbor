@@ -1638,14 +1638,14 @@ public partial class PclGalleryWebControl : UserControl
 
         if (e.Key == Key.Left)
         {
-            ShowAdjacent(1);
+            ShowAdjacent(-1);
             e.Handled = true;
             return;
         }
 
         if (e.Key == Key.Right)
         {
-            ShowAdjacent(-1);
+            ShowAdjacent(1);
             e.Handled = true;
             return;
         }
@@ -2029,13 +2029,13 @@ public partial class PclGalleryWebControl : UserControl
 
     private void PlayerPrev_Click(object sender, RoutedEventArgs e)
     {
-        ShowAdjacent(-1);
+        ShowAdjacent(1);
         e.Handled = true;
     }
 
     private void PlayerNext_Click(object sender, RoutedEventArgs e)
     {
-        ShowAdjacent(1);
+        ShowAdjacent(-1);
         e.Handled = true;
     }
 
@@ -2260,8 +2260,8 @@ public partial class PclGalleryWebControl : UserControl
     {
         int count = previewEntries.Count;
         PlayerCounter.Text = previewIndex >= 0 && count > 0 ? $"{previewIndex + 1} / {count}" : "";
-        PlayerPrev.IsEnabled = previewIndex > 0;
-        PlayerNext.IsEnabled = previewIndex >= 0 && previewIndex < count - 1;
+        PlayerNext.IsEnabled = previewIndex > 0;
+        PlayerPrev.IsEnabled = previewIndex >= 0 && previewIndex < count - 1;
     }
 
     private void ResetView()

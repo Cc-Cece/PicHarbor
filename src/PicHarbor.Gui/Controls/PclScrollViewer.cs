@@ -55,6 +55,14 @@ public class PclScrollViewer : ScrollViewer
             {
                 return;
             }
+
+            // The gallery list has its own scroller inside this page. Leave the wheel
+            // there, including when that list is already at its top or bottom.
+            ScrollViewer? nested = FindParent<ScrollViewer>(dep);
+            if (nested is not null && !ReferenceEquals(nested, this) && nested.ScrollableHeight > 0)
+            {
+                return;
+            }
         }
 
         e.Handled = true;
