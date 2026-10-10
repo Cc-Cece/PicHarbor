@@ -129,6 +129,8 @@ This project makes use of ideas and components from the following open-source pr
 
 - [get-and-see](https://github.com/denis-a-evdokimov/get-and-see) (MIT)
 - [gpmc](https://github.com/xob0t/gpmc) (MIT)
+- [PCL](https://github.com/Meloong-Git/PCL) (other)
+- [sweet-album](https://github.com/leuvi/sweet-album) (MIT)
 
 ---
 
