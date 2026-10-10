@@ -1957,10 +1957,22 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="软件显示语言" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" Margin="0,0,25,0" />
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                            <controls:PclButton Content="🇨🇳 简体中文" Command="{Binding SwitchLanguageCommand}" CommandParameter="zh-CN" Height="28" Margin="0,0,10,0" />
-                                            <controls:PclButton Content="🇺🇸 English" Command="{Binding SwitchLanguageCommand}" CommandParameter="en-US" Height="28" />
-                                        </StackPanel>
+                                        <ItemsControl Grid.Column="1" ItemsSource="{Binding AvailableLanguages}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel Orientation="Horizontal" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <controls:PclButton Content="{Binding DisplayName}"
+                                                                        ButtonType="{Binding ButtonType}"
+                                                                        Command="{Binding DataContext.SwitchLanguageCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding Code}"
+                                                                        Height="28" Margin="0,0,10,0" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
                                     </Grid>
                                 </controls:PclCard>
 

@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using PicHarbor.Gui.Util;
 using PicHarbor.Gui.ViewModels;
 
 namespace PicHarbor.Gui;
@@ -246,32 +247,9 @@ public partial class App : Application
         return null;
     }
 
-    public static string GetString(string key, string fallback = "")
-    {
-        if (Current?.TryFindResource(key) is string value)
-        {
-            return value;
-        }
-        return fallback;
-    }
+    public static string GetString(string key, string fallback = "") =>
+        LocalizationService.GetString(key, fallback);
 
-    public static void SwitchLanguage(string cultureCode)
-    {
-        var app = (App)Current;
-        var resourceDict = new ResourceDictionary
-        {
-            Source = new Uri($"Resources/StringResources.{cultureCode}.xaml", UriKind.Relative)
-        };
-
-        // Replace language resource dictionary
-        var existingLangDict = app.Resources.MergedDictionaries.FirstOrDefault(d =>
-            d.Source != null && d.Source.OriginalString.Contains("StringResources"));
-
-        if (existingLangDict != null)
-        {
-            app.Resources.MergedDictionaries.Remove(existingLangDict);
-        }
-
-        app.Resources.MergedDictionaries.Add(resourceDict);
-    }
+    public static void SwitchLanguage(string cultureCode) =>
+        LocalizationService.SwitchLanguage(cultureCode);
 }

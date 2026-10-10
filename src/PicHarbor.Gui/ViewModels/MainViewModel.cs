@@ -148,6 +148,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string currentLanguage = "zh-CN";
 
+    public IReadOnlyList<LanguageOption> AvailableLanguages => LocalizationService.SupportedLanguages;
+
     public BackupViewModel BackupVM { get; }
     public AndroidBackupViewModel AndroidBackupVM { get; }
     public IPhoneSyncViewModel IPhoneSyncVM { get; } = new();
@@ -169,11 +171,12 @@ public partial class MainViewModel : ObservableObject
         {
             destinationPath = config.DestinationPath;
         }
-        if (!string.IsNullOrWhiteSpace(config.CurrentLanguage))
-        {
-            currentLanguage = config.CurrentLanguage;
-            App.SwitchLanguage(config.CurrentLanguage);
-        }
+
+        string initLang = !string.IsNullOrWhiteSpace(config.CurrentLanguage)
+            ? config.CurrentLanguage
+            : LocalizationService.DefaultLanguageCode;
+        currentLanguage = initLang;
+        LocalizationService.SwitchLanguage(initLang);
 
         // Link SearchVM to IPhoneSyncVM, AndroidSyncVM and GooglePhotosVM for manual selection coordination
         SearchVM.IPhoneSyncVM = IPhoneSyncVM;
