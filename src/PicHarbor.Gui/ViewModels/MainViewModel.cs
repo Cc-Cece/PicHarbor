@@ -526,6 +526,43 @@ public partial class MainViewModel : ObservableObject
         _ = ProbeDeviceStatusAsync();
     }
 
+    [RelayCommand]
+    private void OpenGitHub() => OpenBrowserUrl(AppLinks.GitHub);
+
+    [RelayCommand]
+    private void OpenOfficialWebsite() => OpenBrowserUrl(AppLinks.OfficialWebsite);
+
+    [RelayCommand]
+    private void OpenLicense() => OpenBrowserUrl(AppLinks.License);
+
+    [RelayCommand]
+    private void OpenAcknowledgements() => OpenBrowserUrl(AppLinks.Acknowledgements);
+
+    [RelayCommand]
+    private void OpenUrl(string? url)
+    {
+        if (!string.IsNullOrWhiteSpace(url))
+        {
+            OpenBrowserUrl(url);
+        }
+    }
+
+    private static void OpenBrowserUrl(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to open URL '{url}': {ex.Message}");
+        }
+    }
+
     public bool IsDetailModalOpen
     {
         get =>

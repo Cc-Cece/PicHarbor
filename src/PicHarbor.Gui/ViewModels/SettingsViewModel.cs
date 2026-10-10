@@ -278,13 +278,33 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private Task CopyHevcProductLink() => CopyTextAsync(AppleCodecLinks.HevcFreeStoreUrl);
 
-    private static void OpenUrl(string url)
+    [RelayCommand]
+    private void OpenGitHub() => OpenUrl(AppLinks.GitHub);
+
+    [RelayCommand]
+    private void OpenOfficialWebsite() => OpenUrl(AppLinks.OfficialWebsite);
+
+    [RelayCommand]
+    private void OpenLicense() => OpenUrl(AppLinks.License);
+
+    [RelayCommand]
+    private void OpenAcknowledgements() => OpenUrl(AppLinks.Acknowledgements);
+
+    private static void OpenUrl(string? url)
     {
-        Process.Start(new ProcessStartInfo
+        if (string.IsNullOrWhiteSpace(url)) return;
+        try
         {
-            FileName = url,
-            UseShellExecute = true
-        });
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to open URL '{url}': {ex.Message}");
+        }
     }
 
     private async Task CopyTextAsync(string text)

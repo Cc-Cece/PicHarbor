@@ -1971,7 +1971,14 @@
                                         <TextBlock Text="版本: 1.0.0 (Release) · 遵循 PCL2 设计美学规范" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,12" />
                                         <TextBlock Text="• 无损直连：支持 iPhone 与 Android 原生传输，保留 Live Photo 实况照片与 EXIF 元数据。" FontSize="12" Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,4" />
                                         <TextBlock Text="• 随盘即插即用：统一主盘存储架构，跨驱动器全局防重秒传。" FontSize="12" Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,4" />
-                                        <TextBlock Text="• 现代画廊：融合 SweetAlbum 瀑布流画廊与毫秒级虚拟化时间线检视。" FontSize="12" Foreground="{DynamicResource ColorBrush1}" />
+                                        <TextBlock Text="• 现代画廊：融合 SweetAlbum 瀑布流画廊与毫秒级虚拟化时间线检视。" FontSize="12" Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,16" />
+
+                                        <WrapPanel Orientation="Horizontal">
+                                            <controls:PclButton Content="GitHub" Command="{Binding OpenGitHubCommand}" Height="28" Margin="0,0,10,8" Padding="14,0" ToolTip="https://github.com/Cc-Cece/PicHarbor" />
+                                            <controls:PclButton Content="官网" Command="{Binding OpenOfficialWebsiteCommand}" Height="28" Margin="0,0,10,8" Padding="14,0" ToolTip="https://picharbor.akihito.dpdns.org/" />
+                                            <controls:PclButton Content="许可证" Command="{Binding OpenLicenseCommand}" Height="28" Margin="0,0,10,8" Padding="14,0" ToolTip="https://github.com/Cc-Cece/PicHarbor/blob/main/LICENSE" />
+                                            <controls:PclButton Content="致谢" Command="{Binding OpenAcknowledgementsCommand}" Height="28" Margin="0,0,0,8" Padding="14,0" ToolTip="https://github.com/Cc-Cece/PicHarbor#acknowledgements" />
+                                        </WrapPanel>
                                     </StackPanel>
                                 </controls:PclCard>
                             </StackPanel>
