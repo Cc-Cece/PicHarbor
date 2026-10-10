@@ -719,7 +719,7 @@ public partial class PclGalleryWebControl : UserControl
 
                 case "addManualSelection":
                     {
-                        string type = obj["type"]?.GetValue<string>() ?? "iPhone";
+                        string type = obj["type"]?.GetValue<string>() ?? "Unified";
                         var ids = obj["ids"]?.AsArray().Select(x => x?.GetValue<string>()).Where(x => !string.IsNullOrEmpty(x)).ToList();
                         if (ids != null && ids.Count > 0 && currentSearchVM != null)
                         {

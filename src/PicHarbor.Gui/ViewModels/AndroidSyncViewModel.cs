@@ -780,10 +780,19 @@ public partial class AndroidSyncViewModel : ObservableObject
         return rel.Replace('\\', '/');
     }
 
+    public Action? OpenManualModalAction { get; set; }
+
     [RelayCommand]
     private void OpenManualModal()
     {
-        IsManualModalOpen = true;
+        if (OpenManualModalAction != null)
+        {
+            OpenManualModalAction();
+        }
+        else
+        {
+            IsManualModalOpen = true;
+        }
         _ = LoadThumbnailsForManualItemsAsync();
     }
 

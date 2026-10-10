@@ -759,7 +759,14 @@
     <!--  15. PclDataGrid Style (PCL2 Clean Table)                 -->
     <!-- ======================================================== -->
     <Style x:Key="PclDataGrid" TargetType="DataGrid">
+        <Style.Resources>
+            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#E0EDFE" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#0F172A" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#F1F5F9" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#0F172A" />
+        </Style.Resources>
         <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource ColorBrush1}" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="RowHeaderWidth" Value="0" />
         <Setter Property="GridLinesVisibility" Value="None" />
@@ -782,7 +789,14 @@
         <Setter Property="RowStyle">
             <Setter.Value>
                 <Style TargetType="DataGridRow">
+                    <Style.Resources>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#E0EDFE" />
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#0F172A" />
+                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#F1F5F9" />
+                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#0F172A" />
+                    </Style.Resources>
                     <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="Foreground" Value="{DynamicResource ColorBrush1}" />
                     <Setter Property="Height" Value="34" />
                     <Setter Property="Cursor" Value="Hand" />
                     <Style.Triggers>
@@ -791,6 +805,7 @@
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
                             <Setter Property="Background" Value="#E0EDFE" />
+                            <Setter Property="Foreground" Value="{DynamicResource ColorBrush1}" />
                         </Trigger>
                     </Style.Triggers>
                 </Style>
@@ -799,9 +814,16 @@
         <Setter Property="CellStyle">
             <Setter.Value>
                 <Style TargetType="DataGridCell">
+                    <Style.Resources>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#E0EDFE" />
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#0F172A" />
+                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#F1F5F9" />
+                        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#0F172A" />
+                    </Style.Resources>
                     <Setter Property="BorderThickness" Value="0" />
                     <Setter Property="Padding" Value="12,0" />
                     <Setter Property="VerticalAlignment" Value="Center" />
+                    <Setter Property="Foreground" Value="{DynamicResource ColorBrush1}" />
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="DataGridCell">
@@ -811,6 +833,12 @@
                             </ControlTemplate>
                         </Setter.Value>
                     </Setter>
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="Foreground" Value="{DynamicResource ColorBrush1}" />
+                        </Trigger>
+                    </Style.Triggers>
                 </Style>
             </Setter.Value>
         </Setter>

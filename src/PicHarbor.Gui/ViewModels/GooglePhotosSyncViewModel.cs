@@ -1200,11 +1200,20 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         }
     }
 
+    public Action? OpenManualModalAction { get; set; }
+
     [RelayCommand]
     private void OpenManualModal()
     {
         LoadManualSelectionsFromDb();
-        IsManualModalOpen = true;
+        if (OpenManualModalAction != null)
+        {
+            OpenManualModalAction();
+        }
+        else
+        {
+            IsManualModalOpen = true;
+        }
     }
 
     [RelayCommand]

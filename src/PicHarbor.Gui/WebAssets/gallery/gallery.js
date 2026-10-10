@@ -210,22 +210,12 @@ function initAlbum(photos) {
 
       return [
         {
-          id: 'mark-iphone',
-          label: `📌 加入 iPhone 待传清单 (${targets.length})`,
-          onClick: () => postToHost({ action: 'addManualSelection', type: 'iPhone', ids })
+          id: 'mark-unified',
+          label: `📌 加入待传清单 (${targets.length})`,
+          onClick: () => postToHost({ action: 'addManualSelection', type: 'Unified', ids })
         },
         {
-          id: 'mark-android',
-          label: `📌 加入 Android 待传清单 (${targets.length})`,
-          onClick: () => postToHost({ action: 'addManualSelection', type: 'Android', ids })
-        },
-        {
-          id: 'mark-google',
-          label: `☁ 加入 Google Photos 待传 (${targets.length})`,
-          onClick: () => postToHost({ action: 'addManualSelection', type: 'Google', ids })
-        },
-        {
-          id: 'unmark-all',
+          id: 'unmark-unified',
           label: `✖ 从待传清单中移除 (${targets.length})`,
           onClick: () => postToHost({ action: 'removeManualSelection', ids })
         },
@@ -256,26 +246,17 @@ function initAlbum(photos) {
     // Batch Actions on Top Toolbar
     selectionActions: (selected) => [
       {
-        id: 'batch-iphone',
-        label: `加入 iPhone 待传 (${selected.length})`,
-        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="3"/><circle cx="12" cy="18" r="1"/></svg>',
+        id: 'batch-unified',
+        label: `📌 加入待传清单 (${selected.length})`,
+        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>',
         onClick: ({ selected, clearSelection }) => {
-          postToHost({ action: 'addManualSelection', type: 'iPhone', ids: selected.map(s => s.id) });
-          clearSelection();
-        }
-      },
-      {
-        id: 'batch-android',
-        label: `加入 Android 待传 (${selected.length})`,
-        icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 10h16v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V10z"/><path d="M8 6l-2-3M16 6l2-3"/><circle cx="9" cy="8" r="1"/><circle cx="15" cy="8" r="1"/></svg>',
-        onClick: ({ selected, clearSelection }) => {
-          postToHost({ action: 'addManualSelection', type: 'Android', ids: selected.map(s => s.id) });
+          postToHost({ action: 'addManualSelection', type: 'Unified', ids: selected.map(s => s.id) });
           clearSelection();
         }
       },
       {
         id: 'batch-remove',
-        label: `移出待传清单 (${selected.length})`,
+        label: `✖ 移出待传清单 (${selected.length})`,
         danger: true,
         onClick: ({ selected, clearSelection }) => {
           postToHost({ action: 'removeManualSelection', ids: selected.map(s => s.id) });

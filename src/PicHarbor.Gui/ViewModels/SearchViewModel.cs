@@ -38,6 +38,9 @@ public partial class MediaSearchResultItem : ObservableObject
     public bool IsThumbnailLoaded => ThumbnailImage is not null;
 
     [ObservableProperty]
+    private bool isManualSelected = false;
+
+    [ObservableProperty]
     private bool isManualSelectedForIPhone = false;
 
     [ObservableProperty]
@@ -1242,6 +1245,28 @@ public partial class SearchViewModel : ObservableObject
         }
     }
 
+    public void PreviewFilePath(string fullPath)
+    {
+        if (string.IsNullOrWhiteSpace(fullPath) || !File.Exists(fullPath)) return;
+        var match = SearchResults.FirstOrDefault(x => string.Equals(x.FullPath, fullPath, StringComparison.OrdinalIgnoreCase));
+        if (match != null)
+        {
+            OpenPreview(match);
+            return;
+        }
+
+        string ext = Path.GetExtension(fullPath).ToLowerInvariant();
+        bool isVid = ext is ".mp4" or ".mov" or ".mkv" or ".avi" or ".wmv";
+        var tempItem = new MediaSearchResultItem
+        {
+            FullPath = fullPath,
+            RelativePath = Path.GetFileName(fullPath),
+            CapturedAt = File.GetCreationTime(fullPath).ToString("yyyy-MM-dd HH:mm:ss"),
+            IsVideo = isVid
+        };
+        OpenPreview(tempItem);
+    }
+
     private static (List<string> existing, List<string> missing) FilterSelectedPaths(object? parameter)
     {
         var existing = new List<string>();
@@ -1596,12 +1621,61 @@ public partial class SearchViewModel : ObservableObject
         return list;
     }
 
+    [RelayCommand]
+    public void AddToUnifiedSelection(object? parameter)
+    {
+        var items = ExtractMediaItems(parameter);
+        if (items.Count == 0) return;
+
+        var destPaths = items.Select(x => x.RelativePath).Where(p => !string.IsNullOrEmpty(p)).ToList();
+        if (destPaths.Count == 0) return;
+
+        string path = ArchivePath;
+        string deviceModel = IPhoneSyncVM?.DeviceModel ?? "iPhone";
+        string deviceId = AndroidSyncVM?.AndroidDeviceId ?? "Android Device";
+
+        if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
+        {
+            try
+            {
+                using var journal = TransferJournal.Open(path);
+                journal.BatchAddUnifiedManualSelections(deviceModel, deviceId, destPaths);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"BatchAddUnifiedManualSelections error: {ex.Message}");
+            }
+        }
+
+        foreach (var item in items)
+        {
+            item.IsManualSelected = true;
+            item.IsManualSelectedForIPhone = true;
+            item.IsManualSelectedForAndroid = true;
+            item.IsManualSelectedForGooglePhotos = true;
+        }
+
+        IPhoneSyncVM?.LoadManualSelectionsFromDb();
+        IPhoneSyncVM?.RecalculateScopeSummary();
+        AndroidSyncVM?.LoadManualSelectionsFromDb();
+        AndroidSyncVM?.RecalculateScopeSummary();
+        GooglePhotosVM?.LoadManualSelectionsFromDb();
+        GooglePhotosVM?.RecalculateScopeSummary();
+    }
+
+    public void AddItemsToManualSelection(IReadOnlyList<string> relativePaths) =>
+        AddItemsToManualSelection("Unified", relativePaths);
+
     public void AddItemsToManualSelection(string type, IReadOnlyList<string> relativePaths)
     {
         var targets = SearchResults.Where(x => relativePaths.Contains(x.RelativePath)).ToList();
         if (targets.Count == 0) return;
 
-        if (type.Equals("iPhone", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrEmpty(type) || type.Equals("Unified", StringComparison.OrdinalIgnoreCase))
+        {
+            AddToUnifiedSelection(targets);
+        }
+        else if (type.Equals("iPhone", StringComparison.OrdinalIgnoreCase))
         {
             AddToIPhoneSelection(targets);
         }
@@ -1620,9 +1694,37 @@ public partial class SearchViewModel : ObservableObject
         var targets = SearchResults.Where(x => relativePaths.Contains(x.RelativePath)).ToList();
         if (targets.Count == 0) return;
 
-        RemoveFromIPhoneSelection(targets);
-        RemoveFromAndroidSelection(targets);
-        RemoveFromGooglePhotosSelection(targets);
+        string path = ArchivePath;
+        string deviceModel = IPhoneSyncVM?.DeviceModel ?? "iPhone";
+        string deviceId = AndroidSyncVM?.AndroidDeviceId ?? "Android Device";
+
+        if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
+        {
+            try
+            {
+                using var journal = TransferJournal.Open(path);
+                journal.BatchRemoveUnifiedManualSelections(deviceModel, deviceId, relativePaths);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"BatchRemoveUnifiedManualSelections error: {ex.Message}");
+            }
+        }
+
+        foreach (var item in targets)
+        {
+            item.IsManualSelected = false;
+            item.IsManualSelectedForIPhone = false;
+            item.IsManualSelectedForAndroid = false;
+            item.IsManualSelectedForGooglePhotos = false;
+        }
+
+        IPhoneSyncVM?.LoadManualSelectionsFromDb();
+        IPhoneSyncVM?.RecalculateScopeSummary();
+        AndroidSyncVM?.LoadManualSelectionsFromDb();
+        AndroidSyncVM?.RecalculateScopeSummary();
+        GooglePhotosVM?.LoadManualSelectionsFromDb();
+        GooglePhotosVM?.RecalculateScopeSummary();
     }
 
     public void ToggleItemsManualSelection(string type, IReadOnlyList<string> relativePaths)

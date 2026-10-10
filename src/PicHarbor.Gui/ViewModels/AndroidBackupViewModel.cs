@@ -6,10 +6,12 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
 using PicHarbor.Core.Android;
+using PicHarbor.Core.Device;
 using PicHarbor.Core.Journal;
 using PicHarbor.Core.Organize;
 using PicHarbor.Core.Preflight;
 using PicHarbor.Core.Progress;
+using PicHarbor.Core.Scope;
 using PicHarbor.Core.Storage;
 using PicHarbor.Core.Transfer;
 using PicHarbor.Core.Util;
@@ -161,6 +163,94 @@ public partial class AndroidBackupViewModel : ObservableObject
 
     [ObservableProperty]
     private DateTime? scopeDateTo = null;
+
+    [ObservableProperty]
+    private ScopeMode scopeMode = ScopeMode.All;
+
+    public bool IsScopeAll
+    {
+        get => ScopeMode == ScopeMode.All;
+        set
+        {
+            if (value && ScopeMode != ScopeMode.All)
+            {
+                ScopeMode = ScopeMode.All;
+                NotifyScopeProperties();
+            }
+        }
+    }
+
+    public bool IsScopeDateRange
+    {
+        get => ScopeMode == ScopeMode.Date;
+        set
+        {
+            if (value && ScopeMode != ScopeMode.Date)
+            {
+                ScopeMode = ScopeMode.Date;
+                NotifyScopeProperties();
+            }
+        }
+    }
+
+    public bool IsScopeManualSelection
+    {
+        get => ScopeMode == ScopeMode.Manual;
+        set
+        {
+            if (value && ScopeMode != ScopeMode.Manual)
+            {
+                ScopeMode = ScopeMode.Manual;
+                NotifyScopeProperties();
+            }
+        }
+    }
+
+    private void NotifyScopeProperties()
+    {
+        OnPropertyChanged(nameof(IsScopeAll));
+        OnPropertyChanged(nameof(IsScopeDateRange));
+        OnPropertyChanged(nameof(IsScopeManualSelection));
+    }
+
+    public string ScopeDateFromText
+    {
+        get => ScopeDateFrom?.ToString("yyyy-MM-dd") ?? string.Empty;
+        set
+        {
+            if (DateTime.TryParse(value, out DateTime dt))
+            {
+                ScopeDateFrom = dt;
+            }
+            else if (string.IsNullOrWhiteSpace(value))
+            {
+                ScopeDateFrom = null;
+            }
+            OnPropertyChanged(nameof(ScopeDateFromText));
+        }
+    }
+
+    public string ScopeDateToText
+    {
+        get => ScopeDateTo?.ToString("yyyy-MM-dd") ?? string.Empty;
+        set
+        {
+            if (DateTime.TryParse(value, out DateTime dt))
+            {
+                ScopeDateTo = dt;
+            }
+            else if (string.IsNullOrWhiteSpace(value))
+            {
+                ScopeDateTo = null;
+            }
+            OnPropertyChanged(nameof(ScopeDateToText));
+        }
+    }
+
+    public Action? OpenManualModalAction { get; set; }
+
+    [RelayCommand]
+    private void OpenManualModal() => OpenManualModalAction?.Invoke();
 
     [ObservableProperty]
     private bool isAdvancedPanelOpen = false;
@@ -611,8 +701,40 @@ public partial class AndroidBackupViewModel : ObservableObject
                     IncludeVideos = IncludeVideos
                 };
 
+                DateTime? fromDate = IsScopeDateRange ? ScopeDateFrom : null;
+                DateTime? toDate = IsScopeDateRange ? ScopeDateTo : null;
+
                 AddLog("[INFO] 正在枚举选定相册中的媒体文件...");
-                var files = await client.EnumerateFilesAsync(selectedAlbums, filterOptions, ScopeDateFrom, ScopeDateTo, ct).ConfigureAwait(false);
+                var files = await client.EnumerateFilesAsync(selectedAlbums, filterOptions, fromDate, toDate, ct).ConfigureAwait(false);
+
+                if (IsScopeManualSelection)
+                {
+                    try
+                    {
+                        var deviceId = string.IsNullOrWhiteSpace(AndroidDeviceId) ? AndroidFtpHost : AndroidDeviceId;
+                        using var manualJournal = TransferJournal.Open(DestinationPath);
+                        var manualSet = manualJournal.GetAndroidManualSelections(deviceId);
+                        manualSet.UnionWith(manualJournal.GetManualSelections(DetectedDeviceModel));
+                        manualSet.UnionWith(manualJournal.GetGooglePhotosManualSelections());
+
+                        if (manualSet.Count > 0)
+                        {
+                            files = files.Where(f =>
+                            {
+                                string fn = Path.GetFileName(f.Path);
+                                return manualSet.Contains(fn) || manualSet.Any(m => m.EndsWith(fn, StringComparison.OrdinalIgnoreCase));
+                            }).ToList();
+                        }
+                        else
+                        {
+                            files = new List<RemoteFile>();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        AddLog($"[WARN] 读取自选待传清单失败: {ex.Message}");
+                    }
+                }
 
                 if (files.Count == 0)
                 {

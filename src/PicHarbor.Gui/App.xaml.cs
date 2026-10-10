@@ -134,18 +134,58 @@ public partial class App : Application
                 window.UpdateLayout();
                 SaveWindowSnapshot(window, Path.Combine(outDir, "pcl2_ui_preview_android.png"));
 
+                // Render Backup Scope Modal with Android Scope & Filters
+                vm.AndroidBackupVM.Albums.Clear();
+                vm.AndroidBackupVM.Albums.Add(new AndroidAlbumOptionViewModel { DisplayName = "DCIM/Camera (相机照片与视频)", IsChecked = true, RemotePath = "/DCIM/Camera" });
+                vm.AndroidBackupVM.Albums.Add(new AndroidAlbumOptionViewModel { DisplayName = "Pictures/Screenshots (屏幕截图)", IsChecked = true, RemotePath = "/Pictures/Screenshots" });
+                vm.AndroidBackupVM.Albums.Add(new AndroidAlbumOptionViewModel { DisplayName = "Pictures/WeiXin (微信保存图片)", IsChecked = false, RemotePath = "/Pictures/WeiXin" });
+                vm.OpenScopeModalCommand.Execute(null);
+                WaitAnimation(350);
+                window.UpdateLayout();
+                SaveWindowSnapshot(window, Path.Combine(outDir, "pcl2_ui_preview_scope_modal.png"));
+                vm.CloseScopeModalCommand.Execute(null);
+                WaitAnimation(350);
+
+                // Render Detail Modal with DataGrid
+                vm.BackupVM.DetailItems.Clear();
+                vm.BackupVM.DetailItems.Add(new TransferItemDetail { StatusText = "已完成", TargetPath = "Photos/2024/IMG_4521.HEIC", FileSizeText = "2.8 MB", Details = "哈希校验通过 · 增量归档完成" });
+                vm.BackupVM.DetailItems.Add(new TransferItemDetail { StatusText = "已完成", TargetPath = "Photos/2024/IMG_4522.MOV", FileSizeText = "14.2 MB", Details = "完整传输完成" });
+                vm.BackupVM.DetailModalTitle = "📱 iPhone 备份 已传输文件明细 (双击查看照片)";
+                vm.BackupVM.IsDetailModalOpen = true;
+                WaitAnimation(350);
+                window.UpdateLayout();
+                SaveWindowSnapshot(window, Path.Combine(outDir, "pcl2_ui_preview_detail_modal.png"));
+                vm.BackupVM.IsDetailModalOpen = false;
+                WaitAnimation(350);
+
+                // Render Unified Manual Transfer Modal
+                vm.OpenUnifiedManualModalCommand.Execute(null);
+                vm.UnifiedManualSelectedItems.Clear();
+                vm.UnifiedManualSelectedItems.Add(new ManualSelectedItemViewModel { RelativePath = "Camera/IMG_20240901_102030.jpg", CapturedAt = "2024-09-01 10:20:30", SizeText = "4.2 MB" });
+                vm.UnifiedManualSelectedItems.Add(new ManualSelectedItemViewModel { RelativePath = "Camera/VID_20240902_153012.mp4", CapturedAt = "2024-09-02 15:30:12", SizeText = "38.5 MB" });
+                WaitAnimation(350);
+                window.UpdateLayout();
+                SaveWindowSnapshot(window, Path.Combine(outDir, "pcl2_ui_preview_unified_manual_modal.png"));
+                vm.CloseUnifiedManualModalCommand.Execute(null);
+                WaitAnimation(350);
+
+                // Render Image Viewer Modal
+                vm.ViewerImageTitle = "IMG_20240901_102030.jpg";
+                vm.ViewerImageDetails = "4.2 MB · 2024-09-01 10:20:30 · 4032 × 3024";
+                vm.IsImageViewerOpen = true;
+                WaitAnimation(350);
+                window.UpdateLayout();
+                SaveWindowSnapshot(window, Path.Combine(outDir, "pcl2_ui_preview_image_viewer.png"));
+                vm.CloseImageViewerCommand.Execute(null);
+                WaitAnimation(350);
+
                 // Render Android FTP Connection Modal
                 vm.OpenAndroidFtpModalCommand.Execute(null);
+                WaitAnimation(350);
                 window.UpdateLayout();
                 SaveWindowSnapshot(window, Path.Combine(outDir, "pcl2_ui_preview_ftp_modal.png"));
                 vm.CloseAndroidFtpModalCommand.Execute(null);
-
-                var waitFrame = new DispatcherFrame();
-                var waitTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
-                waitTimer.Tick += (s, a) => { waitFrame.Continue = false; waitTimer.Stop(); };
-                waitTimer.Start();
-                Dispatcher.PushFrame(waitFrame);
-                window.UpdateLayout();
+                WaitAnimation(350);
 
                 // Render Task Manager Overlay matching Image 2
                 vm.AndroidBackupVM.IsTransferring = true;
@@ -177,6 +217,15 @@ public partial class App : Application
         encoder.Frames.Add(BitmapFrame.Create(rtb));
         using var stream = File.Create(filePath);
         encoder.Save(stream);
+    }
+
+    private static void WaitAnimation(int ms = 350)
+    {
+        var frame = new DispatcherFrame();
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(ms) };
+        timer.Tick += (s, a) => { frame.Continue = false; timer.Stop(); };
+        timer.Start();
+        Dispatcher.PushFrame(frame);
     }
 
     private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject

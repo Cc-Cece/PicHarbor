@@ -1,11 +1,14 @@
+using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PicHarbor.Core.Device;
-using PicHarbor.Gui.Config;
-
 using PicHarbor.Core.Storage;
+using PicHarbor.Core.Util;
+using PicHarbor.Gui.Config;
+using PicHarbor.Gui.Util;
 
 namespace PicHarbor.Gui.ViewModels;
 
@@ -39,6 +42,31 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsAnyModalOpen))]
     private bool isAndroidFtpModalOpen = false;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsAnyModalOpen))]
+    private bool isImageViewerOpen = false;
+
+    [ObservableProperty]
+    private string viewerImageTitle = "";
+
+    [ObservableProperty]
+    private string viewerImageDetails = "";
+
+    [ObservableProperty]
+    private System.Windows.Media.ImageSource? viewerImageSource;
+
+    [ObservableProperty]
+    private string viewerImagePath = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsAnyModalOpen))]
+    private bool isUnifiedManualModalOpen = false;
+
+    public ObservableCollection<ManualSelectedItemViewModel> UnifiedManualSelectedItems => IPhoneSyncVM.ManualSelectedItems;
+
+    public string UnifiedManualSelectionCountText =>
+        string.Format(App.GetString("ScopeManualCountText", "已选 {0} 项媒体"), UnifiedManualSelectedItems.Count);
 
     [ObservableProperty]
     private bool isTaskManagerOpen = false;
@@ -179,6 +207,13 @@ public partial class MainViewModel : ObservableObject
             if (e.PropertyName is nameof(IPhoneSyncViewModel.IsExporting) or nameof(IPhoneSyncViewModel.ProgressValue) or nameof(IPhoneSyncViewModel.SpeedText) or nameof(IPhoneSyncViewModel.RemainingFilesCount))
                 NotifyTaskChanged();
         };
+
+        // Wire unified manual selection modal across all devices
+        AndroidBackupVM.OpenManualModalAction = () => IsUnifiedManualModalOpen = true;
+        IPhoneSyncVM.OpenManualModalAction = () => IsUnifiedManualModalOpen = true;
+        AndroidSyncVM.OpenManualModalAction = () => IsUnifiedManualModalOpen = true;
+        GooglePhotosVM.OpenManualModalAction = () => IsUnifiedManualModalOpen = true;
+        IPhoneSyncVM.ManualSelectedItems.CollectionChanged += (s, e) => OnPropertyChanged(nameof(UnifiedManualSelectionCountText));
 
         // Sync initial destination path across all sub-ViewModels
         SyncDestinationPath(DestinationPath);
@@ -325,6 +360,8 @@ public partial class MainViewModel : ObservableObject
         IsScopeModalOpen ||
         IsRenameModalOpen ||
         IsAndroidFtpModalOpen ||
+        IsImageViewerOpen ||
+        IsUnifiedManualModalOpen ||
         IPhoneSyncVM.IsPreflightModalOpen ||
         AndroidSyncVM.IsPreflightModalOpen ||
         IPhoneSyncVM.IsManualModalOpen ||
@@ -349,6 +386,121 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void CloseScopeModal() => IsScopeModalOpen = false;
+
+    // Image Viewer Commands
+    [RelayCommand]
+    public void CloseImageViewer()
+    {
+        IsImageViewerOpen = false;
+        ViewerImageSource = null;
+        ViewerImagePath = "";
+    }
+
+    [RelayCommand]
+    public void OpenViewerInExplorer()
+    {
+        if (!string.IsNullOrEmpty(ViewerImagePath) && File.Exists(ViewerImagePath))
+        {
+            ShellServices.ShowInExplorer(new[] { ViewerImagePath });
+        }
+    }
+
+    [RelayCommand]
+    public void OpenViewerInExternalApp()
+    {
+        if (!string.IsNullOrEmpty(ViewerImagePath) && File.Exists(ViewerImagePath))
+        {
+            ShellServices.OpenFiles(new[] { ViewerImagePath });
+        }
+    }
+
+    public void OpenImageViewer(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return;
+        try
+        {
+            ViewerImagePath = path;
+            ViewerImageTitle = Path.GetFileName(path);
+            var fi = new FileInfo(path);
+            ViewerImageDetails = $"{ByteSize.Humanize(fi.Length)} · {fi.LastWriteTime:yyyy-MM-dd HH:mm:ss}";
+
+            var bitmap = new System.Windows.Media.Imaging.BitmapImage();
+            bitmap.BeginInit();
+            bitmap.UriSource = new Uri(path);
+            bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            ViewerImageSource = bitmap;
+            IsImageViewerOpen = true;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"OpenImageViewer error: {ex.Message}");
+            ShellServices.OpenFiles(new[] { path });
+        }
+    }
+
+    // Unified Manual Selection Modal Commands
+    [RelayCommand]
+    public void OpenUnifiedManualModal()
+    {
+        IPhoneSyncVM.LoadManualSelectionsFromDb();
+        OnPropertyChanged(nameof(UnifiedManualSelectionCountText));
+        OnPropertyChanged(nameof(UnifiedManualSelectedItems));
+        IsUnifiedManualModalOpen = true;
+    }
+
+    [RelayCommand]
+    public void CloseUnifiedManualModal() => IsUnifiedManualModalOpen = false;
+
+    [RelayCommand]
+    public void ClearUnifiedManualItems()
+    {
+        IPhoneSyncVM.ClearAllManualSelectionsCommand.Execute(null);
+        AndroidSyncVM.ClearAllManualSelectionsCommand.Execute(null);
+        GooglePhotosVM.ClearAllManualSelectionsCommand.Execute(null);
+        OnPropertyChanged(nameof(UnifiedManualSelectionCountText));
+    }
+
+    [RelayCommand]
+    public void RemoveUnifiedManualItem(ManualSelectedItemViewModel? item)
+    {
+        if (item is null) return;
+        IPhoneSyncVM.RemoveManualItemCommand.Execute(item);
+        AndroidSyncVM.RemoveManualItemCommand.Execute(item);
+        GooglePhotosVM.RemoveManualItemCommand.Execute(item);
+        OnPropertyChanged(nameof(UnifiedManualSelectionCountText));
+    }
+
+    [RelayCommand]
+    public void PickFilesForUnifiedManual()
+    {
+        var ofd = new Microsoft.Win32.OpenFileDialog
+        {
+            Multiselect = true,
+            Filter = "媒体文件|*.jpg;*.jpeg;*.png;*.heic;*.mp4;*.mov;*.dng;*.raw|所有文件|*.*"
+        };
+        if (ofd.ShowDialog() == true && ofd.FileNames.Length > 0)
+        {
+            AddFilesToUnifiedManual(ofd.FileNames);
+        }
+    }
+
+    public void AddFilesToUnifiedManual(IEnumerable<string> filePaths)
+    {
+        var relPaths = new List<string>();
+        foreach (var p in filePaths)
+        {
+            string rel = !string.IsNullOrWhiteSpace(DestinationPath) && p.StartsWith(DestinationPath, StringComparison.OrdinalIgnoreCase)
+                ? Path.GetRelativePath(DestinationPath, p).Replace('\\', '/')
+                : Path.GetFileName(p);
+            relPaths.Add(rel);
+        }
+
+        SearchVM?.AddItemsToManualSelection(relPaths);
+        OnPropertyChanged(nameof(UnifiedManualSelectionCountText));
+        OnPropertyChanged(nameof(UnifiedManualSelectedItems));
+    }
 
     [RelayCommand]
     public void OpenRenameModal()

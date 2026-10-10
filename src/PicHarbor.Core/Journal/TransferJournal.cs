@@ -1850,6 +1850,34 @@ public sealed class TransferJournal : IDisposable
         }
     }
 
+    /// <summary>Adds destination paths to unified manual selections across all sync targets (iPhone, Android, Google Photos).</summary>
+    public void BatchAddUnifiedManualSelections(string? deviceModel, string? deviceId, IEnumerable<string> destPaths, bool isAutofilled = false)
+    {
+        var list = destPaths.ToList();
+        if (list.Count == 0) return;
+        BatchAddManualSelections(string.IsNullOrWhiteSpace(deviceModel) ? "iPhone" : deviceModel, list, isAutofilled);
+        BatchAddAndroidManualSelections(string.IsNullOrWhiteSpace(deviceId) ? "Android Device" : deviceId, list, isAutofilled);
+        BatchAddGooglePhotosManualSelections(list, isAutofilled);
+    }
+
+    /// <summary>Removes destination paths from unified manual selections across all sync targets.</summary>
+    public void BatchRemoveUnifiedManualSelections(string? deviceModel, string? deviceId, IEnumerable<string> destPaths)
+    {
+        var list = destPaths.ToList();
+        if (list.Count == 0) return;
+        BatchRemoveManualSelections(string.IsNullOrWhiteSpace(deviceModel) ? "iPhone" : deviceModel, list);
+        BatchRemoveAndroidManualSelections(string.IsNullOrWhiteSpace(deviceId) ? "Android Device" : deviceId, list);
+        BatchRemoveGooglePhotosManualSelections(list);
+    }
+
+    /// <summary>Clears unified manual selections across all sync targets.</summary>
+    public void ClearUnifiedManualSelections(string? deviceModel, string? deviceId)
+    {
+        ClearManualSelections(string.IsNullOrWhiteSpace(deviceModel) ? "iPhone" : deviceModel);
+        ClearAndroidManualSelections(string.IsNullOrWhiteSpace(deviceId) ? "Android Device" : deviceId);
+        ClearGooglePhotosManualSelections();
+    }
+
     /// <summary>Closes the underlying SQLite connection.</summary>
     public void Dispose()
     {

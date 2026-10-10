@@ -110,25 +110,59 @@ public partial class MainWindow : Window
         }
     }
 
+    private static readonly HashSet<string> PreviewImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg", ".jpeg", ".jfif", ".png", ".bmp", ".gif", ".webp",
+        ".heic", ".heif", ".tif", ".tiff", ".dng", ".raw", ".cr2", ".cr3", ".nef", ".arw", ".rw2", ".orf"
+    };
+
+    private string? ResolveDetailFilePath(TransferItemDetail? detail)
+    {
+        if (detail == null) return null;
+        if (!string.IsNullOrEmpty(detail.FullPath) && File.Exists(detail.FullPath))
+            return detail.FullPath;
+        if (!string.IsNullOrEmpty(detail.TargetPath) && File.Exists(detail.TargetPath))
+            return detail.TargetPath;
+        if (!string.IsNullOrEmpty(detail.SourcePath) && File.Exists(detail.SourcePath))
+            return detail.SourcePath;
+        if (DataContext is MainViewModel mainVM && !string.IsNullOrEmpty(detail.TargetPath))
+        {
+            var dest = mainVM.DestinationPath;
+            if (!string.IsNullOrEmpty(dest))
+            {
+                var candidate = Path.Combine(dest, detail.TargetPath);
+                if (File.Exists(candidate)) return candidate;
+            }
+        }
+        return null;
+    }
+
+    private void DetailDataGridRow_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is DataGridRow row)
+        {
+            row.IsSelected = true;
+            row.Focus();
+        }
+    }
+
     private void DetailDataGridRow_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         try
         {
             if (sender is DataGridRow { DataContext: TransferItemDetail detail })
             {
-                if (DataContext is MainViewModel mainVM)
+                var path = ResolveDetailFilePath(detail);
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
                 {
-                    if (mainVM.BackupVM.IsDetailModalOpen)
+                    string ext = Path.GetExtension(path);
+                    if (PreviewImageExtensions.Contains(ext) && DataContext is MainViewModel mainVM)
                     {
-                        mainVM.BackupVM.OpenDetailCommand.Execute(detail);
+                        mainVM.OpenImageViewer(path);
                     }
-                    else if (mainVM.AndroidSyncVM.IsDetailModalOpen)
+                    else
                     {
-                        mainVM.AndroidSyncVM.OpenDetailCommand.Execute(detail);
-                    }
-                    else if (mainVM.GooglePhotosVM.IsDetailModalOpen)
-                    {
-                        mainVM.GooglePhotosVM.OpenDetailCommand.Execute(detail);
+                        ShellServices.OpenFiles(new[] { path });
                     }
                     e.Handled = true;
                 }
@@ -137,6 +171,55 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"DetailDataGridRow_MouseDoubleClick error: {ex.Message}");
+        }
+    }
+
+    private void DetailContextMenu_ShowInExplorer_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: TransferItemDetail detail })
+        {
+            var path = ResolveDetailFilePath(detail);
+            if (!string.IsNullOrEmpty(path))
+            {
+                ShellServices.ShowInExplorer(new[] { path });
+            }
+        }
+    }
+
+    private void DetailContextMenu_OpenExternal_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: TransferItemDetail detail })
+        {
+            var path = ResolveDetailFilePath(detail);
+            if (!string.IsNullOrEmpty(path))
+            {
+                ShellServices.OpenFiles(new[] { path });
+            }
+        }
+    }
+
+    private void DetailContextMenu_CopyFile_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: TransferItemDetail detail })
+        {
+            var path = ResolveDetailFilePath(detail);
+            if (!string.IsNullOrEmpty(path))
+            {
+                ShellServices.CopyFilesToClipboard(new[] { path });
+            }
+        }
+    }
+
+    private void DetailContextMenu_Properties_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: TransferItemDetail detail })
+        {
+            var path = ResolveDetailFilePath(detail);
+            if (!string.IsNullOrEmpty(path))
+            {
+                var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+                ShellServices.ShowProperties(new[] { path }, hwnd);
+            }
         }
     }
 
@@ -263,6 +346,28 @@ public partial class MainWindow : Window
             e.Effects = DragDropEffects.None;
         }
         e.Handled = true;
+    }
+
+    private void UnifiedManualDropZone_Drop(object sender, DragEventArgs e)
+    {
+        try
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
+                {
+                    if (DataContext is MainViewModel mainVM)
+                    {
+                        mainVM.AddFilesToUnifiedManual(files);
+                        e.Handled = true;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"UnifiedManualDropZone_Drop error: {ex.Message}");
+        }
     }
 
     private void IPhoneManualDropZone_Drop(object sender, DragEventArgs e)
