@@ -175,26 +175,29 @@ public partial class App : Application
                 vm.CloseUnifiedManualModalCommand.Execute(null);
                 WaitAnimation(350);
 
-                // Render Android FTP Connection Modal
-                vm.OpenAndroidFtpModalCommand.Execute(null);
-                WaitAnimation(350);
-                window.UpdateLayout();
-                SaveWindowSnapshot(window, Path.Combine(outDir, "pcl2_ui_preview_ftp_modal.png"));
-                vm.CloseAndroidFtpModalCommand.Execute(null);
-                WaitAnimation(350);
-
-                // Render Task Manager Overlay with clickable counts
-                vm.AndroidBackupVM.IsTransferring = true;
-                vm.AndroidBackupVM.ProgressPercentage = 70.0;
-                vm.AndroidBackupVM.SpeedText = "12.2 MB/s";
-                vm.AndroidBackupVM.RemainingFilesCount = 794;
-                vm.AndroidBackupVM.CurrentFileName = "IMG_20240901_102030.jpg";
-                vm.AndroidBackupVM.CopiedCount = 1850;
-                vm.AndroidBackupVM.SkippedCount = 120;
-                vm.AndroidBackupVM.FailedCount = 2;
+                // Render Task Manager Overlay matching user scenario (completed previous task)
+                vm.SelectedDeviceIndex = 1;
+                vm.AndroidBackupVM.IsTransferring = false;
+                vm.AndroidBackupVM.DetectedDeviceModel = "Pixel 8";
+                vm.AndroidBackupVM.CopiedCount = 1;
+                vm.AndroidBackupVM.SkippedCount = 16;
+                vm.AndroidBackupVM.FailedCount = 0;
                 vm.OpenTaskManagerCommand.Execute(null);
                 window.UpdateLayout();
                 SaveWindowSnapshot(window, Path.Combine(outDir, "pcl2_ui_preview_task_manager.png"));
+                vm.CloseTaskManagerCommand.Execute(null);
+                WaitAnimation(200);
+
+                // Render Task Manager Overlay empty / waiting state
+                vm.AndroidBackupVM.CopiedCount = 0;
+                vm.AndroidBackupVM.SkippedCount = 0;
+                vm.AndroidBackupVM.FailedCount = 0;
+                vm.BackupVM.CopiedCount = 0;
+                vm.BackupVM.SkippedCount = 0;
+                vm.BackupVM.FailedCount = 0;
+                vm.OpenTaskManagerCommand.Execute(null);
+                window.UpdateLayout();
+                SaveWindowSnapshot(window, Path.Combine(outDir, "pcl2_ui_preview_task_manager_empty.png"));
             }
             window.Close();
         }

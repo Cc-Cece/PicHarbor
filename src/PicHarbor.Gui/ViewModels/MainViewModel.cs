@@ -153,32 +153,7 @@ public partial class MainViewModel : ObservableObject
             if (e.PropertyName == nameof(SettingsViewModel.GooglePhotosProxy)) GooglePhotosVM.Proxy = SettingsVM.GooglePhotosProxy;
         };
 
-        // Wire modal notification updates
-        void NotifyModalChanged()
-        {
-            OnPropertyChanged(nameof(IsDetailModalOpen));
-            OnPropertyChanged(nameof(ActiveDetailModalTitle));
-            OnPropertyChanged(nameof(ActiveDetailItems));
-            OnPropertyChanged(nameof(IsAnyModalOpen));
-        }
 
-        void NotifyTaskChanged()
-        {
-            OnPropertyChanged(nameof(IsAnyTaskRunning));
-            OnPropertyChanged(nameof(ActiveTaskTitle));
-            OnPropertyChanged(nameof(ActiveTaskProgressPercentage));
-            OnPropertyChanged(nameof(ActiveTaskProgressPercentText));
-            OnPropertyChanged(nameof(ActiveTaskSpeedText));
-            OnPropertyChanged(nameof(ActiveTaskRemainingFilesText));
-            OnPropertyChanged(nameof(ActiveTaskCurrentFileName));
-            OnPropertyChanged(nameof(ActiveTaskStep2Status));
-            OnPropertyChanged(nameof(ActiveTaskStep2Text));
-            OnPropertyChanged(nameof(ActiveTaskStep3Status));
-            OnPropertyChanged(nameof(ActiveTaskStep4Status));
-            OnPropertyChanged(nameof(ActiveTaskCopiedCount));
-            OnPropertyChanged(nameof(ActiveTaskSkippedCount));
-            OnPropertyChanged(nameof(ActiveTaskFailedCount));
-        }
 
         BackupVM.PropertyChanged += (s, e) =>
         {
@@ -231,6 +206,39 @@ public partial class MainViewModel : ObservableObject
 
         // Initial probe
         _ = ProbeDeviceStatusAsync();
+    }
+
+    public void NotifyModalChanged()
+    {
+        OnPropertyChanged(nameof(IsDetailModalOpen));
+        OnPropertyChanged(nameof(ActiveDetailModalTitle));
+        OnPropertyChanged(nameof(ActiveDetailItems));
+        OnPropertyChanged(nameof(IsAnyModalOpen));
+    }
+
+    public void NotifyTaskChanged()
+    {
+        OnPropertyChanged(nameof(IsAnyTaskRunning));
+        OnPropertyChanged(nameof(HasPreviousTaskRun));
+        OnPropertyChanged(nameof(HasActiveOrPreviousTask));
+        OnPropertyChanged(nameof(ShowEmptyTaskWaitingPrompt));
+        OnPropertyChanged(nameof(ActiveTaskTitle));
+        OnPropertyChanged(nameof(ActiveTaskProgressPercentage));
+        OnPropertyChanged(nameof(ActiveTaskProgressPercentText));
+        OnPropertyChanged(nameof(ActiveTaskSpeedText));
+        OnPropertyChanged(nameof(ActiveTaskRemainingFilesText));
+        OnPropertyChanged(nameof(ActiveTaskCurrentFileName));
+        OnPropertyChanged(nameof(ActiveTaskStep1Status));
+        OnPropertyChanged(nameof(ActiveTaskStep1Text));
+        OnPropertyChanged(nameof(ActiveTaskStep2Status));
+        OnPropertyChanged(nameof(ActiveTaskStep2Text));
+        OnPropertyChanged(nameof(ActiveTaskStep3Status));
+        OnPropertyChanged(nameof(ActiveTaskStep3Text));
+        OnPropertyChanged(nameof(ActiveTaskStep4Status));
+        OnPropertyChanged(nameof(ActiveTaskStep4Text));
+        OnPropertyChanged(nameof(ActiveTaskCopiedCount));
+        OnPropertyChanged(nameof(ActiveTaskSkippedCount));
+        OnPropertyChanged(nameof(ActiveTaskFailedCount));
     }
 
     partial void OnDestinationPathChanged(string value)
@@ -578,19 +586,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void OpenTaskManager()
     {
-        OnPropertyChanged(nameof(ActiveTaskTitle));
-        OnPropertyChanged(nameof(ActiveTaskProgressPercentage));
-        OnPropertyChanged(nameof(ActiveTaskProgressPercentText));
-        OnPropertyChanged(nameof(ActiveTaskSpeedText));
-        OnPropertyChanged(nameof(ActiveTaskRemainingFilesText));
-        OnPropertyChanged(nameof(ActiveTaskCurrentFileName));
-        OnPropertyChanged(nameof(ActiveTaskStep2Status));
-        OnPropertyChanged(nameof(ActiveTaskStep2Text));
-        OnPropertyChanged(nameof(ActiveTaskStep3Status));
-        OnPropertyChanged(nameof(ActiveTaskStep4Status));
-        OnPropertyChanged(nameof(ActiveTaskCopiedCount));
-        OnPropertyChanged(nameof(ActiveTaskSkippedCount));
-        OnPropertyChanged(nameof(ActiveTaskFailedCount));
+        NotifyTaskChanged();
         IsTaskManagerOpen = true;
     }
 
@@ -715,6 +711,15 @@ public partial class MainViewModel : ObservableObject
         if (AndroidSyncVM.IsSyncing) AndroidSyncVM.CancelSyncCommand.Execute(null);
     }
 
+    public bool HasPreviousTaskRun =>
+        ActiveTaskCopiedCount > 0 ||
+        ActiveTaskSkippedCount > 0 ||
+        ActiveTaskFailedCount > 0;
+
+    public bool ShowEmptyTaskWaitingPrompt => !IsAnyTaskRunning && !HasPreviousTaskRun;
+
+    public bool HasActiveOrPreviousTask => IsAnyTaskRunning || HasPreviousTaskRun;
+
     public bool IsAnyTaskRunning =>
         BackupVM.IsTransferring ||
         AndroidBackupVM.IsTransferring ||
@@ -726,17 +731,33 @@ public partial class MainViewModel : ObservableObject
     {
         get
         {
-            if (AndroidBackupVM.IsTransferring)
-                return $"{(string.IsNullOrWhiteSpace(AndroidBackupVM.DetectedDeviceModel) ? "Android 设备" : AndroidBackupVM.DetectedDeviceModel)} 增量备份";
-            if (BackupVM.IsTransferring)
-                return $"{(string.IsNullOrWhiteSpace(BackupVM.DetectedDeviceModel) ? "iPhone 设备" : BackupVM.DetectedDeviceModel)} 增量备份";
-            if (GooglePhotosVM.IsSyncing)
-                return "Google 相册上传与同步";
-            if (IPhoneSyncVM.IsExporting)
-                return "iPhone 照片导出与回传";
-            if (AndroidSyncVM.IsSyncing)
-                return "Android 照片回传与同步";
-            return "传输任务";
+            if (IsAnyTaskRunning)
+            {
+                if (AndroidBackupVM.IsTransferring)
+                    return $"{(string.IsNullOrWhiteSpace(AndroidBackupVM.DetectedDeviceModel) ? "Android 设备" : AndroidBackupVM.DetectedDeviceModel)} 增量备份 (进行中)";
+                if (BackupVM.IsTransferring)
+                    return $"{(string.IsNullOrWhiteSpace(BackupVM.DetectedDeviceModel) ? "iPhone 设备" : BackupVM.DetectedDeviceModel)} 增量备份 (进行中)";
+                if (GooglePhotosVM.IsSyncing)
+                    return "Google 相册上传与同步 (进行中)";
+                if (IPhoneSyncVM.IsExporting)
+                    return "iPhone 照片导出与回传 (进行中)";
+                if (AndroidSyncVM.IsSyncing)
+                    return "Android 照片回传与同步 (进行中)";
+                return "传输任务 (进行中)";
+            }
+
+            if (HasPreviousTaskRun)
+            {
+                if (SelectedDeviceIndex == 1 || AndroidBackupVM.CopiedCount > 0 || AndroidBackupVM.SkippedCount > 0)
+                {
+                    string model = string.IsNullOrWhiteSpace(AndroidBackupVM.DetectedDeviceModel) ? "Android 设备" : AndroidBackupVM.DetectedDeviceModel;
+                    return $"{model} 增量备份 (已完成)";
+                }
+                string iphoneModel = string.IsNullOrWhiteSpace(BackupVM.DetectedDeviceModel) ? "iPhone 设备" : BackupVM.DetectedDeviceModel;
+                return $"{iphoneModel} 增量备份 (已完成)";
+            }
+
+            return "等待开启新任务";
         }
     }
 
@@ -749,11 +770,22 @@ public partial class MainViewModel : ObservableObject
             if (GooglePhotosVM.IsSyncing) return GooglePhotosVM.ProgressValue;
             if (IPhoneSyncVM.IsExporting) return IPhoneSyncVM.ProgressValue;
             if (AndroidSyncVM.IsSyncing) return AndroidSyncVM.ProgressValue;
+            if (HasPreviousTaskRun) return 100.0;
             return 0;
         }
     }
 
-    public string ActiveTaskProgressPercentText => $"{ActiveTaskProgressPercentage:F2} %";
+    public string ActiveTaskProgressPercentText
+    {
+        get
+        {
+            if (IsAnyTaskRunning)
+                return $"{ActiveTaskProgressPercentage:F2} %";
+            if (HasPreviousTaskRun)
+                return "100.00 %";
+            return "--";
+        }
+    }
 
     public string ActiveTaskSpeedText
     {
@@ -764,7 +796,8 @@ public partial class MainViewModel : ObservableObject
             if (GooglePhotosVM.IsSyncing) return string.IsNullOrWhiteSpace(GooglePhotosVM.SpeedText) ? "--" : GooglePhotosVM.SpeedText;
             if (IPhoneSyncVM.IsExporting) return string.IsNullOrWhiteSpace(IPhoneSyncVM.SpeedText) ? "--" : IPhoneSyncVM.SpeedText;
             if (AndroidSyncVM.IsSyncing) return string.IsNullOrWhiteSpace(AndroidSyncVM.SpeedText) ? "--" : AndroidSyncVM.SpeedText;
-            return "0.0 MB/s";
+            if (HasPreviousTaskRun) return "已完成";
+            return "--";
         }
     }
 
@@ -777,6 +810,7 @@ public partial class MainViewModel : ObservableObject
             if (GooglePhotosVM.IsSyncing) return GooglePhotosVM.RemainingFilesCount > 0 ? GooglePhotosVM.RemainingFilesCount.ToString("N0") : "--";
             if (IPhoneSyncVM.IsExporting) return IPhoneSyncVM.RemainingFilesCount > 0 ? IPhoneSyncVM.RemainingFilesCount.ToString("N0") : "--";
             if (AndroidSyncVM.IsSyncing) return AndroidSyncVM.RemainingFilesCount > 0 ? AndroidSyncVM.RemainingFilesCount.ToString("N0") : "--";
+            if (HasPreviousTaskRun) return "0";
             return "--";
         }
     }
@@ -792,23 +826,61 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    public string ActiveTaskStep2Status => $"{ActiveTaskProgressPercentage:F0}%";
+    public string ActiveTaskStep1Status => (IsAnyTaskRunning || HasPreviousTaskRun) ? "✓" : "•••";
+
+    public string ActiveTaskStep1Text => (IsAnyTaskRunning || HasPreviousTaskRun) ? "扫描媒体与相册清单 (完成)" : "扫描媒体与相册清单";
+
+    public string ActiveTaskStep2Status
+    {
+        get
+        {
+            if (IsAnyTaskRunning) return $"{ActiveTaskProgressPercentage:F0}%";
+            if (HasPreviousTaskRun) return "✓";
+            return "•••";
+        }
+    }
 
     public string ActiveTaskStep2Text
     {
         get
         {
-            string fn = ActiveTaskCurrentFileName;
-            if (!string.IsNullOrWhiteSpace(fn) && fn != "Ready" && fn != "Idle" && fn != "In progress..." && fn != "进行中...")
+            if (IsAnyTaskRunning)
             {
-                return $"传输媒体文件 ({fn})";
+                string fn = ActiveTaskCurrentFileName;
+                if (!string.IsNullOrWhiteSpace(fn) && fn != "Ready" && fn != "Idle" && fn != "In progress..." && fn != "进行中...")
+                {
+                    return $"传输媒体文件 ({fn})";
+                }
+                return "传输媒体文件";
             }
-            return "传输媒体文件";
+            if (HasPreviousTaskRun) return "传输媒体文件 (全部传输完毕)";
+            return "传输媒体文件 (等待启动)";
         }
     }
 
-    public string ActiveTaskStep3Status => ActiveTaskProgressPercentage >= 95 ? "✓" : (ActiveTaskProgressPercentage >= 80 ? $"{ActiveTaskProgressPercentage:F0}%" : "•••");
-    public string ActiveTaskStep4Status => ActiveTaskProgressPercentage >= 100 ? "✓" : "•••";
+    public string ActiveTaskStep3Status
+    {
+        get
+        {
+            if (IsAnyTaskRunning) return ActiveTaskProgressPercentage >= 95 ? "✓" : (ActiveTaskProgressPercentage >= 80 ? $"{ActiveTaskProgressPercentage:F0}%" : "•••");
+            if (HasPreviousTaskRun) return "✓";
+            return "•••";
+        }
+    }
+
+    public string ActiveTaskStep3Text => HasPreviousTaskRun ? "EXIF 拍摄时间与元数据校准 (完成)" : "EXIF 拍摄时间与元数据校准";
+
+    public string ActiveTaskStep4Status
+    {
+        get
+        {
+            if (IsAnyTaskRunning) return ActiveTaskProgressPercentage >= 100 ? "✓" : "•••";
+            if (HasPreviousTaskRun) return "✓";
+            return "•••";
+        }
+    }
+
+    public string ActiveTaskStep4Text => HasPreviousTaskRun ? "更新 SQLite 媒体库索引 (完成)" : "更新 SQLite 媒体库索引";
 
     [RelayCommand]
     private void NavigateToSettings()
