@@ -286,6 +286,13 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ImageViewerBackdrop_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource == sender && DataContext is MainViewModel mainVM)
+        {
+            mainVM.CloseImageViewerCommand.Execute(null);
+        }
+    }
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
@@ -299,6 +306,12 @@ public partial class MainWindow : Window
 
             if (DataContext is MainViewModel mainVM)
             {
+                if (e.Key == Key.Escape && mainVM.IsImageViewerOpen)
+                {
+                    mainVM.CloseImageViewerCommand.Execute(null);
+                    e.Handled = true;
+                    return;
+                }
 
                 if (e.Key == Key.V && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
                 {

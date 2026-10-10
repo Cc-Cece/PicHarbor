@@ -29,6 +29,8 @@ public partial class BackupViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FullDestinationPreview))]
     [NotifyPropertyChangedFor(nameof(TargetDriveSummary))]
+    [NotifyPropertyChangedFor(nameof(TargetDriveFreeSpaceText))]
+    [NotifyPropertyChangedFor(nameof(TargetDriveSubtext))]
     private string destinationPath = MainViewModel.DefaultArchivePath;
 
     [ObservableProperty]
@@ -40,6 +42,39 @@ public partial class BackupViewModel : ObservableObject
 
     public string FullDestinationPreview =>
         Path.Combine(DestinationPath, LibraryStorageService.SanitizeDeviceFolderName(DeviceSubdir));
+
+    public string TargetDriveFreeSpaceText
+    {
+        get
+        {
+            string? root = Path.GetPathRoot(DestinationPath);
+            if (string.IsNullOrEmpty(root)) return "--";
+            try
+            {
+                var d = new DriveInfo(root);
+                if (d.IsReady)
+                {
+                    double freeGb = Math.Round(d.AvailableFreeSpace / (1024.0 * 1024.0 * 1024.0), 1);
+                    if (freeGb >= 1024)
+                    {
+                        return $"{freeGb / 1024.0:F2} TB 可用";
+                    }
+                    return $"{freeGb:F1} GB 可用";
+                }
+            }
+            catch { }
+            return "--";
+        }
+    }
+
+    public string TargetDriveSubtext
+    {
+        get
+        {
+            string? root = Path.GetPathRoot(DestinationPath);
+            return string.IsNullOrEmpty(root) ? DestinationPath : $"{root.TrimEnd('\\')} 盘可用空间 ({DestinationPath})";
+        }
+    }
 
     public string TargetDriveSummary
     {

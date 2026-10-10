@@ -135,10 +135,13 @@ public partial class App : Application
                 SaveWindowSnapshot(window, Path.Combine(outDir, "pcl2_ui_preview_android.png"));
 
                 // Render Backup Scope Modal with Android Scope & Filters
+                vm.SelectedDeviceIndex = 1;
                 vm.AndroidBackupVM.Albums.Clear();
-                vm.AndroidBackupVM.Albums.Add(new AndroidAlbumOptionViewModel { DisplayName = "DCIM/Camera (相机照片与视频)", IsChecked = true, RemotePath = "/DCIM/Camera" });
-                vm.AndroidBackupVM.Albums.Add(new AndroidAlbumOptionViewModel { DisplayName = "Pictures/Screenshots (屏幕截图)", IsChecked = true, RemotePath = "/Pictures/Screenshots" });
-                vm.AndroidBackupVM.Albums.Add(new AndroidAlbumOptionViewModel { DisplayName = "Pictures/WeiXin (微信保存图片)", IsChecked = false, RemotePath = "/Pictures/WeiXin" });
+                vm.AndroidBackupVM.Albums.Add(new AndroidAlbumOptionViewModel { DisplayName = "📷 相机胶卷 (Camera)", IsChecked = true, RemotePath = "/DCIM/Camera", DetailText = "1,420 项 · 5.8 GB" });
+                vm.AndroidBackupVM.Albums.Add(new AndroidAlbumOptionViewModel { DisplayName = "📱 屏幕截图 (Screenshots)", IsChecked = true, RemotePath = "/Pictures/Screenshots", DetailText = "328 项 · 410 MB" });
+                vm.AndroidBackupVM.Albums.Add(new AndroidAlbumOptionViewModel { DisplayName = "💬 微信相册 (WeiXin)", IsChecked = false, RemotePath = "/Pictures/WeiXin", DetailText = "512 项 · 1.2 GB" });
+                vm.AndroidBackupVM.IsScopeDefault = true;
+                vm.AndroidBackupVM.UpdateScopeSummarySentence();
                 vm.OpenScopeModalCommand.Execute(null);
                 WaitAnimation(350);
                 window.UpdateLayout();
@@ -148,8 +151,11 @@ public partial class App : Application
 
                 // Render Detail Modal with DataGrid
                 vm.BackupVM.DetailItems.Clear();
-                vm.BackupVM.DetailItems.Add(new TransferItemDetail { StatusText = "已完成", TargetPath = "Photos/2024/IMG_4521.HEIC", FileSizeText = "2.8 MB", Details = "哈希校验通过 · 增量归档完成" });
-                vm.BackupVM.DetailItems.Add(new TransferItemDetail { StatusText = "已完成", TargetPath = "Photos/2024/IMG_4522.MOV", FileSizeText = "14.2 MB", Details = "完整传输完成" });
+                var item1 = new TransferItemDetail { StatusText = "已完成", TargetPath = "Photos/2024/IMG_4521.HEIC", FileSizeText = "2.8 MB", Details = "哈希校验通过 · 增量归档完成" };
+                var item2 = new TransferItemDetail { StatusText = "已完成", TargetPath = "Photos/2024/IMG_4522.MOV", FileSizeText = "14.2 MB", Details = "完整传输完成" };
+                vm.BackupVM.DetailItems.Add(item1);
+                vm.BackupVM.DetailItems.Add(item2);
+                vm.SelectedDetailItem = item1;
                 vm.BackupVM.DetailModalTitle = "📱 iPhone 备份 已传输文件明细 (双击查看照片)";
                 vm.BackupVM.IsDetailModalOpen = true;
                 WaitAnimation(350);

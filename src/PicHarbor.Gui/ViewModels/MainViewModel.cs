@@ -333,6 +333,9 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    [ObservableProperty]
+    private TransferItemDetail? selectedDetailItem;
+
     public string ActiveDetailModalTitle
     {
         get
@@ -382,7 +385,18 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenScopeModal() => IsScopeModalOpen = true;
+    private void OpenScopeModal()
+    {
+        IsScopeModalOpen = true;
+        if (SelectedDeviceIndex == 1)
+        {
+            AndroidBackupVM.UpdateScopeSummarySentence();
+            if (AndroidBackupVM.Albums.Count == 0 && !AndroidBackupVM.IsScanningAlbums)
+            {
+                _ = AndroidBackupVM.ScanAlbumsCommand.ExecuteAsync(null);
+            }
+        }
+    }
 
     [RelayCommand]
     private void CloseScopeModal() => IsScopeModalOpen = false;
