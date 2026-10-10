@@ -15,10 +15,117 @@ namespace PicHarbor.Gui;
 /// </summary>
 public partial class MainWindow : Window
 {
+    private MainViewModel? _hookedMainVM;
+
     public MainWindow()
     {
         InitializeComponent();
         PreviewKeyDown += MainWindow_PreviewKeyDown;
+        Loaded += MainWindow_Loaded;
+        DataContextChanged += MainWindow_DataContextChanged;
+        if (DataContext is MainViewModel vm)
+        {
+            HookMainViewModel(vm);
+        }
+    }
+
+    private void MainWindow_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        HookMainViewModel(e.NewValue as MainViewModel);
+    }
+
+    private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm && vm.IsTaskManagerOpen)
+        {
+            AnimateOpenTaskManager(animate: false);
+        }
+    }
+
+    private void HookMainViewModel(MainViewModel? vm)
+    {
+        if (_hookedMainVM != null)
+        {
+            _hookedMainVM.PropertyChanged -= MainVM_PropertyChanged;
+        }
+        _hookedMainVM = vm;
+        if (_hookedMainVM != null)
+        {
+            _hookedMainVM.PropertyChanged += MainVM_PropertyChanged;
+        }
+    }
+
+    private void MainVM_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.IsTaskManagerOpen))
+        {
+            if (_hookedMainVM?.IsTaskManagerOpen == true)
+            {
+                AnimateOpenTaskManager(animate: true);
+            }
+            else
+            {
+                AnimateCloseTaskManager(animate: true);
+            }
+        }
+    }
+
+    public void AnimateOpenTaskManager(bool animate = true)
+    {
+        if (TaskManagerOverlay == null || TaskManagerTranslate == null) return;
+
+        TaskManagerOverlay.Visibility = Visibility.Visible;
+        TaskManagerOverlay.IsHitTestVisible = true;
+
+        if (!animate)
+        {
+            TaskManagerOverlay.BeginAnimation(OpacityProperty, null);
+            TaskManagerTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+            TaskManagerOverlay.Opacity = 1.0;
+            TaskManagerTranslate.Y = 0.0;
+            return;
+        }
+
+        // Reset previous clocks and set starting values
+        TaskManagerOverlay.BeginAnimation(OpacityProperty, null);
+        TaskManagerTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+        TaskManagerOverlay.Opacity = 0.0;
+        TaskManagerTranslate.Y = 32.0;
+
+        // PCL2 subpage slide up and fade in
+        Controls.PclAnimation.AnimateDouble(TaskManagerOverlay, OpacityProperty, 1.0, 220, Controls.PclAnimation.EaseOutFluentWeak);
+        Controls.PclAnimation.AnimateDouble(TaskManagerTranslate, TranslateTransform.YProperty, 0.0, 260, Controls.PclAnimation.EaseOutFluentStrong);
+    }
+
+    public void AnimateCloseTaskManager(bool animate = true)
+    {
+        if (TaskManagerOverlay == null || TaskManagerTranslate == null) return;
+
+        TaskManagerOverlay.IsHitTestVisible = false;
+
+        if (!animate)
+        {
+            TaskManagerOverlay.BeginAnimation(OpacityProperty, null);
+            TaskManagerTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+            TaskManagerOverlay.Visibility = Visibility.Collapsed;
+            TaskManagerOverlay.Opacity = 0.0;
+            TaskManagerTranslate.Y = 32.0;
+            return;
+        }
+
+        // PCL2 subpage slide down and fade out
+        Controls.PclAnimation.AnimateDouble(TaskManagerTranslate, TranslateTransform.YProperty, 24.0, 160, Controls.PclAnimation.EaseOutFluentMiddle);
+        Controls.PclAnimation.AnimateDouble(TaskManagerOverlay, OpacityProperty, 0.0, 160, Controls.PclAnimation.EaseOutFluentMiddle, onCompleted: () =>
+        {
+            if (DataContext is MainViewModel vm && !vm.IsTaskManagerOpen)
+            {
+                TaskManagerOverlay.BeginAnimation(OpacityProperty, null);
+                TaskManagerTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+                TaskManagerOverlay.Visibility = Visibility.Collapsed;
+                TaskManagerOverlay.Opacity = 0.0;
+                TaskManagerTranslate.Y = 32.0;
+            }
+        });
     }
 
     private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -30,6 +137,14 @@ public partial class MainWindow : Window
             {
                 topModal.Close();
                 e.Handled = true;
+                return;
+            }
+
+            if (DataContext is MainViewModel mainVM && mainVM.IsTaskManagerOpen)
+            {
+                mainVM.CloseTaskManager();
+                e.Handled = true;
+                return;
             }
         }
     }

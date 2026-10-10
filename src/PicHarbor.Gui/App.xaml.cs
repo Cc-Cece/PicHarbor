@@ -183,10 +183,11 @@ public partial class App : Application
                 vm.AndroidBackupVM.SkippedCount = 16;
                 vm.AndroidBackupVM.FailedCount = 0;
                 vm.OpenTaskManagerCommand.Execute(null);
+                window.AnimateOpenTaskManager(animate: false);
                 window.UpdateLayout();
                 SaveWindowSnapshot(window, Path.Combine(outDir, "pcl2_ui_preview_task_manager.png"));
                 vm.CloseTaskManagerCommand.Execute(null);
-                WaitAnimation(200);
+                window.AnimateCloseTaskManager(animate: false);
 
                 // Render Task Manager Overlay empty / waiting state
                 vm.AndroidBackupVM.CopiedCount = 0;
@@ -196,8 +197,11 @@ public partial class App : Application
                 vm.BackupVM.SkippedCount = 0;
                 vm.BackupVM.FailedCount = 0;
                 vm.OpenTaskManagerCommand.Execute(null);
+                window.AnimateOpenTaskManager(animate: false);
                 window.UpdateLayout();
                 SaveWindowSnapshot(window, Path.Combine(outDir, "pcl2_ui_preview_task_manager_empty.png"));
+                vm.CloseTaskManagerCommand.Execute(null);
+                window.AnimateCloseTaskManager(animate: false);
             }
             window.Close();
         }

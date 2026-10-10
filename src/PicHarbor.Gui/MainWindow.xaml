@@ -2316,9 +2316,12 @@
         <!-- ======================================================== -->
         <!--  PCL2 TASK MANAGEMENT OVERLAY (1:1 Port of PCL2 任务管理)   -->
         <!-- ======================================================== -->
-        <Grid Grid.RowSpan="2" Panel.ZIndex="1100"
+        <Grid x:Name="TaskManagerOverlay" Grid.RowSpan="2" Panel.ZIndex="1100"
               Background="{DynamicResource ColorBrushCanvasGradient}"
-              Visibility="{Binding IsTaskManagerOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+              Visibility="Collapsed" Opacity="0.0">
+            <Grid.RenderTransform>
+                <TranslateTransform x:Name="TaskManagerTranslate" Y="32" />
+            </Grid.RenderTransform>
             <Grid.RowDefinitions>
                 <!-- Blue Title Bar (44px) -->
                 <RowDefinition Height="44" />
@@ -2335,23 +2338,70 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- Back Button: ← 任务管理 (HitTestVisible in WindowChrome) -->
+                    <!-- Back Button: ← 任务管理 (HitTestVisible in WindowChrome with PCL2 press feedback) -->
                     <Button Grid.Column="0"
                             WindowChrome.IsHitTestVisibleInChrome="True"
                             Command="{Binding CloseTaskManagerCommand}" Click="CloseTaskManager_Click"
                             Background="Transparent" BorderThickness="0" Cursor="Hand" Padding="6,4">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
-                                <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="6,2">
+                                <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="4" Padding="6,2"
+                                        RenderTransformOrigin="0.5, 0.5">
+                                    <Border.RenderTransform>
+                                        <ScaleTransform x:Name="bdScale" ScaleX="1.0" ScaleY="1.0" />
+                                    </Border.RenderTransform>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Path Data="{StaticResource PclIconArrowLeft}" Width="16" Height="16" Stretch="Uniform"
-                                              Fill="White" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                        <Path x:Name="arrowIcon" Data="{StaticResource PclIconArrowLeft}" Width="16" Height="16" Stretch="Uniform"
+                                              Fill="White" VerticalAlignment="Center" Margin="0,0,10,0" RenderTransformOrigin="0.5, 0.5">
+                                            <Path.RenderTransform>
+                                                <TranslateTransform x:Name="arrowTrans" X="0" />
+                                            </Path.RenderTransform>
+                                        </Path>
                                         <TextBlock Text="任务管理" FontSize="16" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="#25FFFFFF" />
+                                        <Setter TargetName="bd" Property="Background" Value="#25FFFFFF" />
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="bd" Property="Background" Value="#45FFFFFF" />
+                                        <Trigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="bdScale" Storyboard.TargetProperty="ScaleX"
+                                                                     To="0.94" Duration="0:0:0.08" />
+                                                    <DoubleAnimation Storyboard.TargetName="bdScale" Storyboard.TargetProperty="ScaleY"
+                                                                     To="0.94" Duration="0:0:0.08" />
+                                                    <DoubleAnimation Storyboard.TargetName="arrowTrans" Storyboard.TargetProperty="X"
+                                                                     To="-3" Duration="0:0:0.08" />
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </Trigger.EnterActions>
+                                        <Trigger.ExitActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="bdScale" Storyboard.TargetProperty="ScaleX"
+                                                                     To="1.0" Duration="0:0:0.24">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <BackEase Amplitude="0.35" EasingMode="EaseOut" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                    <DoubleAnimation Storyboard.TargetName="bdScale" Storyboard.TargetProperty="ScaleY"
+                                                                     To="1.0" Duration="0:0:0.24">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <BackEase Amplitude="0.35" EasingMode="EaseOut" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                    <DoubleAnimation Storyboard.TargetName="arrowTrans" Storyboard.TargetProperty="X"
+                                                                     To="0" Duration="0:0:0.2">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <PowerEase Power="3" EasingMode="EaseOut" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </Trigger.ExitActions>
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
