@@ -2,7 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
-    <!-- Application Title & General -->
+    <!-- Application Title &amp; General -->
     <sys:String x:Key="AppTitle">PicHarbor</sys:String>
     <sys:String x:Key="AppSubtitle">iPhone 媒体备份与归档</sys:String>
     <sys:String x:Key="DeviceConnected">已连接: iPhone 15 Pro (128GB)</sys:String>
@@ -20,7 +20,7 @@
     <sys:String x:Key="NavReorganize">📁 目录整理</sys:String>
     <sys:String x:Key="NavSettings">⚙️ 设置</sys:String>
 
-    <!-- General UI Labels & Buttons -->
+    <!-- General UI Labels &amp; Buttons -->
     <sys:String x:Key="LabelTransferred">已传输</sys:String>
     <sys:String x:Key="LabelSkipped">已跳过</sys:String>
     <sys:String x:Key="LabelFailed">失败数</sys:String>
@@ -202,7 +202,7 @@
     <sys:String x:Key="MsgUpdatedZero">已更新: 0 项</sys:String>
     <sys:String x:Key="MsgNoFilesToSync">归档清单中未找到可同步的文件</sys:String>
     <sys:String x:Key="MsgSyncSuccess">✅ 同步完成！共检索 {0} 个归档文件，成功将 {1} 个文件的 EXIF 时间同步到 Windows 系统时间。</sys:String>
-    <!-- Details DataGrid Columns & Tooltips -->
+    <!-- Details DataGrid Columns &amp; Tooltips -->
     <sys:String x:Key="ColSourcePath">源路径</sys:String>
     <sys:String x:Key="ColStatus">状态</sys:String>
     <sys:String x:Key="ColDetails">详细说明</sys:String>
@@ -238,7 +238,7 @@
     <sys:String x:Key="MsgMirrorDeleteWarningTitle">ℹ️ 关闭镜像删除提示</sys:String>
     <sys:String x:Key="MsgMirrorDeleteWarningBody">关闭后，归档中已删除的照片仍将保留在同步文件夹中，同步到 iPhone 的照片将不会自动移除。是否确认？</sys:String>
 
-    <!-- Restore Scope & Manual Selection Strings -->
+    <!-- Restore Scope &amp; Manual Selection Strings -->
     <sys:String x:Key="IPhoneScopeHeader">🎯 第一步：选择恢复范围 (Restore Scope &amp; Filter)</sys:String>
     <sys:String x:Key="AndroidRestoreModeLabel">恢复模式:</sys:String>
     <sys:String x:Key="AndroidRestoreModeDefault">默认恢复 (全量恢复不跳过)</sys:String>
@@ -279,7 +279,7 @@
     <sys:String x:Key="MsgPickedAlreadyExists">ℹ️ 选中的文件已存在于挑选清单中。</sys:String>
     <sys:String x:Key="MsgClipboardNoFiles">⚠️ 剪贴板中没有可粘贴的文件路径。请在 Windows 资源管理器中复制 (Ctrl+C) 照片后重试。</sys:String>
 
-    <!-- Auto-Completion & Preflight Check Strings -->
+    <!-- Auto-Completion &amp; Preflight Check Strings -->
     <sys:String x:Key="ScopeAutoPairCountText">🪄 一键补全缺失的配对文件 ({0}项)</sys:String>
     <sys:String x:Key="MsgAutoPairSuccess">✨ 智能补全成功！自动增加了 {0} 项 Live Photo/侧车配对文件。</sys:String>
     <sys:String x:Key="TitlePreflightIntercept">⚠️ 恢复完整性校验拦截</sys:String>
@@ -298,7 +298,7 @@
     <sys:String x:Key="MsgPickedWithAutoPairNotice">✨ 成功挑选 {0} 项照片！已根据配置自动补全了 {1} 项 Live Photo/侧车配对文件（如 {2}）。在「查看/编辑清单」中已标注 [🪄 来自自动补全] 标记。</sys:String>
     <sys:String x:Key="OpenSettingsTabBtn">⚙️ 开启自动补全设置</sys:String>
 
-    <!-- Date Picker & Preset Quick Shortcut Strings -->
+    <!-- Date Picker &amp; Preset Quick Shortcut Strings -->
     <sys:String x:Key="ScopeClearDateBtn">🗑️ 重置日期</sys:String>
     <sys:String x:Key="ScopeQuickPresetsLabel">快捷时间段:</sys:String>
     <sys:String x:Key="PresetLast30Days">⚡ 近 30 天</sys:String>
@@ -392,7 +392,7 @@
     <sys:String x:Key="GooglePhotosManualEmptyHint">清单中暂无手动挑选的媒体</sys:String>
     <sys:String x:Key="GooglePhotosManualEmptySubHint">请前往「媒体检索」页面，右键照片或视频选择【☁️ 添加到 Google 相册上传清单】</sys:String>
 
-    <!-- Google Photos Detail Modal & Tooltips -->
+    <!-- Google Photos Detail Modal &amp; Tooltips -->
     <sys:String x:Key="ToolTipGooglePhotosUploaded">点击查看已上传到 Google 相册的文件列表</sys:String>
     <sys:String x:Key="ToolTipGooglePhotosSkipped">点击查看已跳过的文件列表 (云端已存在)</sys:String>
     <sys:String x:Key="ToolTipGooglePhotosFailed">点击查看上传失败的文件列表</sys:String>
@@ -402,7 +402,7 @@
     <sys:String x:Key="StatusUploaded">已上传</sys:String>
     <sys:String x:Key="StatusSkipped">已跳过</sys:String>
     <sys:String x:Key="StatusFailed">失败</sys:String>
-    <!-- Storage & Device Subdir Architecture -->
+    <!-- Storage &amp; Device Subdir Architecture -->
     <sys:String x:Key="TargetDriveLabel">目标存储主盘:</sys:String>
     <sys:String x:Key="ChangePrimaryDriveButton">⚙ 前往设置更改</sys:String>
     <sys:String x:Key="DeviceSubdirLabel">设备分类目录:</sys:String>
@@ -421,5 +421,304 @@
     <sys:String x:Key="ActionHeader">操作</sys:String>
     <sys:String x:Key="LightboxToolTip">单击查看大图预览</sys:String>
 
+
+    <!-- Modern PCL2 UI &amp; Settings Localized Strings -->
+    <sys:String x:Key="TabBackup">备份</sys:String>
+    <sys:String x:Key="TabGallery">图库</sys:String>
+    <sys:String x:Key="TabSync">云同步与回传</sys:String>
+    <sys:String x:Key="TabSettings">设置</sys:String>
+    <sys:String x:Key="ToolTipMinimize">最小化</sys:String>
+    <sys:String x:Key="ToolTipClose">关闭</sys:String>
+    <sys:String x:Key="DeviceIPhone">iPhone</sys:String>
+    <sys:String x:Key="DeviceAndroid">Android</sys:String>
+    <sys:String x:Key="HeroStartBackup">开始增量备份</sys:String>
+    <sys:String x:Key="HeroStopBackup">停止备份</sys:String>
+    <sys:String x:Key="HeroBackupScope">备份范围</sys:String>
+    <sys:String x:Key="HeroTransferLog">传输日志</sys:String>
+    <sys:String x:Key="SubTabBackupExec">增量备份与执行</sys:String>
+    <sys:String x:Key="SubTabBackupStatus">运行状态与历史</sys:String>
+    <sys:String x:Key="CardStorageOverview">图库存储主盘概览</sys:String>
+    <sys:String x:Key="ArchivedMediaCount">已归档媒体</sys:String>
+    <sys:String x:Key="ArchivedTotalSize">图库总大小</sys:String>
+    <sys:String x:Key="DiskFreeSpace">磁盘可用空间</sys:String>
+    <sys:String x:Key="CrossDriveReadyHint">跨驱动器指纹防重库已就绪，移动硬盘与本机换盘插拔均能极速秒传去重。</sys:String>
+    <sys:String x:Key="CardStatsOverview">媒体库统计概览</sys:String>
+    <sys:String x:Key="StatTotalFiles">总文件数</sys:String>
+    <sys:String x:Key="StatTotalSize">存储总占用</sys:String>
+    <sys:String x:Key="StatPhotosCount">照片总数</sys:String>
+    <sys:String x:Key="StatVideosCount">视频总数</sys:String>
+    <sys:String x:Key="BtnRefreshStats">🔄 刷新媒体库统计</sys:String>
+    <sys:String x:Key="CardDbStatus">核心存储库与数据库状态</sys:String>
+    <sys:String x:Key="LabelSqliteDbPath">SQLite 索引库路径</sys:String>
+    <sys:String x:Key="LabelLastBackupTime">上次备份时间</sys:String>
+    <sys:String x:Key="CardConnectedDevices">已连接设备历史清单</sys:String>
+    <sys:String x:Key="HintDeviceHistoryDoubleClick">💡 提示：双击下方任意设备行，可打开该设备的历史备份全景档案（按批次查看传输明细与来源）。</sys:String>
+    <sys:String x:Key="DeviceHistoryMenuItem">📱 查看设备历史备份全景档案...</sys:String>
+    <sys:String x:Key="SearchBoxHint">搜索图库中的照片、拍摄设备或日期...</sys:String>
+    <sys:String x:Key="CardGalleryInspection">图库检视与筛选</sys:String>
+    <sys:String x:Key="BtnLoadMore">加载更多</sys:String>
+    <sys:String x:Key="BtnViewTransferQueue">📋 查看 / 导出待传清单</sys:String>
+    <sys:String x:Key="LabelSort">排序:</sys:String>
+    <sys:String x:Key="TabGalleryView">画廊</sys:String>
+    <sys:String x:Key="TabTableView">列表</sys:String>
+    <sys:String x:Key="CodecNoticeText">HEIC / 实况需要系统扩展</sys:String>
+    <sys:String x:Key="BtnViewCodecSetup">查看安装方法</sys:String>
+    <sys:String x:Key="FilterTypeLabelShort">类型:</sys:String>
+    <sys:String x:Key="FilterDateLabelShort">时间:</sys:String>
+    <sys:String x:Key="LabelDateTo">到:</sys:String>
+    <sys:String x:Key="FilterDeviceLabelShort">设备:</sys:String>
+    <sys:String x:Key="SearchLoadingText">正在检索与更新图库...</sys:String>
+    <sys:String x:Key="SyncEngineHeader">同步引擎与回传</sys:String>
+    <sys:String x:Key="NavGooglePhotosPill">Google 相册</sys:String>
+    <sys:String x:Key="NavIPhoneSyncPill">同步到 iPhone</sys:String>
+    <sys:String x:Key="NavAndroidSyncPill">同步到 Android</sys:String>
+    <sys:String x:Key="SettingsSystemHeader">系统设置</sys:String>
+    <sys:String x:Key="SettingsNavBackup">备份</sys:String>
+    <sys:String x:Key="SettingsNavGallery">图库与选择</sys:String>
+    <sys:String x:Key="SettingsNavSync">云同步与回传</sys:String>
+    <sys:String x:Key="SettingsNavTools">内置工具</sys:String>
+    <sys:String x:Key="SettingsNavOther">其它</sys:String>
+    <sys:String x:Key="SettingsCardBackupLocation">备份位置</sys:String>
+    <sys:String x:Key="SettingsLabelPrimaryDrive">当前主备份盘</sys:String>
+    <sys:String x:Key="SettingsBtnOpenFolder">打开目录</sys:String>
+    <sys:String x:Key="SettingsLabelArchivePath">归档根目录路径</sys:String>
+    <sys:String x:Key="SettingsCardSubdirConfig">子目录配置</sys:String>
+    <sys:String x:Key="SettingsLabelDeviceSubdir">设备分类目录</sys:String>
+    <sys:String x:Key="SettingsBtnResetDeviceName">恢复默认型号</sys:String>
+    <sys:String x:Key="SettingsLabelOrganizeFormat">默认照片时间组织格式:</sys:String>
+    <sys:String x:Key="SettingsSubdirDeviceOption">按设备型号与别名划分专属子目录 (如 D:\PicHarbor\iPhone 15\)</sys:String>
+    <sys:String x:Key="SettingsCardCodecs">HEIC 与实况扩展</sys:String>
+    <sys:String x:Key="SettingsCardSmartBinding">文件智能绑定</sys:String>
+    <sys:String x:Key="SettingsCardTimeCalibration">文件时间校准</sys:String>
+    <sys:String x:Key="SettingsAdvancedBadge">高级</sys:String>
+    <sys:String x:Key="SettingsAdvancedTitle">高级设置</sys:String>
+    <sys:String x:Key="SettingsAdvancedHint">（建议保持默认）</sys:String>
+    <sys:String x:Key="SettingsLivePhotoPairOption">保留手机原始 Live Photo 配套 MOV 视频成对组织 (防止实况失效)</sys:String>
+    <sys:String x:Key="SettingsAaeOption">自动关联 AAE 调色编辑副文件 (保证滤镜编辑无损还原)</sys:String>
+    <sys:String x:Key="SettingsRawJpgOption">关联 RAW + JPG 成对组织 (专业单反与预览图成对收纳)</sys:String>
+    <sys:String x:Key="SettingsTimeCalibrationHint">在导入照片时，自动读取照片内部真实拍摄时间并同步校准 Windows 文件系统时间属性：</sys:String>
+    <sys:String x:Key="SettingsSyncLastWriteOption">校准至文件修改时间 (LastWriteTime)</sys:String>
+    <sys:String x:Key="SettingsSyncCreationOption">校准至文件创建时间 (CreationTime - 解决第三方网盘及照片应用排序错乱)</sys:String>
+    <sys:String x:Key="CodecDescText">iPhone 的 HEIC 和实况需要 Windows 的 HEIF、HEVC 扩展，图库才能显示和播放。下面三种方式任选。装好后点「重新检测」。</sys:String>
+    <sys:String x:Key="BtnRecheckCodecs">重新检测</sys:String>
+    <sys:String x:Key="CodecSectionStore">微软商店</sys:String>
+    <sys:String x:Key="CodecStoreDesc">HEIF 图像扩展免费。HEVC 有付费版，也有设备制造商提供的免费版；免费版不是每台电脑都能下载。</sys:String>
+    <sys:String x:Key="BtnOpenHeifStore">打开 HEIF 商店页</sys:String>
+    <sys:String x:Key="BtnOpenHevcPaidStore">打开 HEVC 商店页（付费）</sys:String>
+    <sys:String x:Key="BtnOpenHevcFreeStore">打开 HEVC 商店页（免费）</sys:String>
+    <sys:String x:Key="CodecSectionPackage">安装包</sys:String>
+    <sys:String x:Key="CodecPackageDesc">下载页里是 HEIF 图像扩展，以及设备制造商提供的 HEVC 视频扩展，文件为 .appxbundle。</sys:String>
+    <sys:String x:Key="BtnOpenPackageDownload">打开下载页</sys:String>
+    <sys:String x:Key="CodecPasswordHint">密码 0000</sys:String>
+    <sys:String x:Key="BtnCopyPackagePassword">复制密码</sys:String>
+    <sys:String x:Key="CodecSectionLinkGen">商店无法安装时</sys:String>
+    <sys:String x:Key="CodecLinkGenDesc">打开链接生成页，把产品链接粘贴进输入框并确认，下载 .appxbundle 后安装，然后重启本软件。HEIF 和 HEVC 各复制一次。</sys:String>
+    <sys:String x:Key="BtnOpenLinkGenerator">打开链接生成页</sys:String>
+    <sys:String x:Key="BtnCopyHeifLink">复制 HEIF 产品链接</sys:String>
+    <sys:String x:Key="BtnCopyHevcLink">复制 HEVC 产品链接</sys:String>
+    <sys:String x:Key="CodecThirdPartyWarning">此方式会打开第三方网站。链接和文件是否有效、是否安全，本软件不能保证。请自行确认来源并遵守许可，风险由你承担。</sys:String>
+    <sys:String x:Key="SettingsCardProxy">代理</sys:String>
+    <sys:String x:Key="SettingsProxyDesc">配置全局网络 HTTP/SOCKS5 代理地址，供 Google 相册等远程云服务直接复用。</sys:String>
+    <sys:String x:Key="SettingsProxyLabel">网络代理地址:</sys:String>
+    <sys:String x:Key="SettingsBtnTestProxy">测试连接</sys:String>
+    <sys:String x:Key="SettingsCardPythonPath">Python 解释器路径</sys:String>
+    <sys:String x:Key="SettingsPythonPathDesc">供 Google 相册云端同步引擎调用。PicHarbor 已内置运行环境，如需指定特定的系统 Python 环境可在此自定义指定。</sys:String>
+    <sys:String x:Key="SettingsPythonLabel">解释器路径:</sys:String>
+    <sys:String x:Key="SettingsBtnBrowse">📂 浏览...</sys:String>
+    <sys:String x:Key="SettingsCardGooglePhotosParams">谷歌相册上传参数</sys:String>
+    <sys:String x:Key="SettingsQualityQuotaLabel">画质与配额策略:</sys:String>
+    <sys:String x:Key="SettingsSkipExistingFilenamesOption">同步本地缓存跳过同名文件 (减少重复远程校验)</sys:String>
+    <sys:String x:Key="SettingsConcurrentThreadsLabel">并发上传线程数</sys:String>
+    <sys:String x:Key="SettingsRequestTimeoutLabel">请求超时阈值</sys:String>
+    <sys:String x:Key="SettingsAutoRetryLabel">失败自动重试</sys:String>
+    <sys:String x:Key="SettingsCardTimeoutSleep">防止超时与休眠</sys:String>
+    <sys:String x:Key="SettingsDeviceTimeoutLabel">设备读取超时阈值</sys:String>
+    <sys:String x:Key="SettingsPreventSleepOption">传输进行中阻止电脑自动进入休眠</sys:String>
+    <sys:String x:Key="SettingsCardToolExifSync">文件时间校准工具</sys:String>
+    <sys:String x:Key="SettingsExifToolDesc">智能遍历主归档盘中媒体文件，将 EXIF 拍摄时间写入操作系统底层文件创建时间与修改时间，彻底解决 Windows 照片与第三方网盘时间混乱问题。</sys:String>
+    <sys:String x:Key="SettingsBtnStartExifSync">立即开始校准</sys:String>
+    <sys:String x:Key="SettingsCardToolReorganize">目录结构整理工具</sys:String>
+    <sys:String x:Key="SettingsReorgToolDesc">无损重构本地媒体库的目录层级结构，支持按拍摄时间分类格式重新归档。</sys:String>
+    <sys:String x:Key="SettingsCurrentSchemeLabel">当前组织结构</sys:String>
+    <sys:String x:Key="SettingsTargetSchemeLabel">目标组织方案</sys:String>
+    <sys:String x:Key="SettingsBtnDryRun">🔍 模拟预览 (Dry Run)</sys:String>
+    <sys:String x:Key="SettingsBtnExecuteReorg">⚡ 开始执行重构</sys:String>
+    <sys:String x:Key="SettingsCardToolDb">数据库维护工具</sys:String>
+    <sys:String x:Key="SettingsDbToolDesc">监控 SQLite 核心索引库体积，按期清理追溯审计流水以释放磁盘空间，并支持智能自愈扫描（修复电脑端手动删除导致的脱节幽灵索引）。</sys:String>
+    <sys:String x:Key="SettingsDbSizeLabel">数据库占用大小</sys:String>
+    <sys:String x:Key="SettingsDbTotalMediaLabel">索引媒体总量</sys:String>
+    <sys:String x:Key="SettingsDbAuditCountLabel">审计流水条数</sys:String>
+    <sys:String x:Key="SettingsBtnVacuumDb">⚡ 压缩清理数据库 (VACUUM)</sys:String>
+    <sys:String x:Key="SettingsBtnCleanAudit">🧹 清理历史追溯审计日志</sys:String>
+    <sys:String x:Key="SettingsBtnHealDb">🪄 智能自愈扫描与脱节索引修复</sys:String>
+    <sys:String x:Key="SettingsCardLangTheme">语言与外观</sys:String>
+    <sys:String x:Key="SettingsLabelDisplayLanguage">软件显示语言</sys:String>
+    <sys:String x:Key="SettingsCardAbout">关于 PicHarbor</sys:String>
+    <sys:String x:Key="AboutSubtitleText">PicHarbor 极简手机相册本地备份与跨端管理系统</sys:String>
+    <sys:String x:Key="AboutVersionText">版本: 1.0.0 (Release) · 遵循 PCL2 设计美学规范</sys:String>
+    <sys:String x:Key="AboutFeature1">• 无损直连：支持 iPhone 与 Android 原生传输，保留 Live Photo 实况照片与 EXIF 元数据。</sys:String>
+    <sys:String x:Key="AboutFeature2">• 随盘即插即用：统一主盘存储架构，跨驱动器全局防重秒传。</sys:String>
+    <sys:String x:Key="AboutFeature3">• 现代画廊：融合 SweetAlbum 瀑布流画廊与毫秒级虚拟化时间线检视。</sys:String>
+    <sys:String x:Key="AboutBtnWebsite">官网</sys:String>
+    <sys:String x:Key="AboutBtnLicense">许可证</sys:String>
+    <sys:String x:Key="AboutBtnAcknowledgements">致谢</sys:String>
+
+    <sys:String x:Key="SettingsDbPhysicalSize">数据库物理体积 (含 WAL 缓存)</sys:String>
+    <sys:String x:Key="SettingsDbMetricsComposition">记录指标构成 (核心索引 vs 审计流水)</sys:String>
+    <sys:String x:Key="SettingsBtnRefreshDbMetrics">🔄 刷新数据库指标</sys:String>
+    <sys:String x:Key="SettingsDbAuditPruneTitle">1. 冗余审计历史清理（安全回收空间）</sys:String>
+    <sys:String x:Key="SettingsDbAuditPruneDesc">历史传输明细仅用于在设备卡片中回溯以前哪台手机传了什么照片。清理冗余历史绝对不会影响电脑上的真实照片，手机下次插入也依然能秒级跳过已备份文件。</sys:String>
+    <sys:String x:Key="SettingsDbRetentionPolicy">保留时长策略:</sys:String>
+    <sys:String x:Key="SettingsBtnPruneAuditNow">立即执行清理与整理</sys:String>
+    <sys:String x:Key="SettingsDbRepairTitle">2. 智能自愈与一致性修复（修复电脑手动删文件）</sys:String>
+    <sys:String x:Key="SettingsDbRepairDesc">若您曾手动在电脑归档目录中删除了某些照片导致数据库残留失效索引，可在此进行一键自愈。系统将安全剔除幽灵记录，绝不主动删除任何电脑或手机上的真实有效文件。</sys:String>
+    <sys:String x:Key="SettingsDbRepairNotice">安全红线：自愈修复只清理数据库中指向已不存在文件的失效索引，使图库与磁盘保持真实一致，绝不修改或删除任何尚存的媒体文件。</sys:String>
+    <sys:String x:Key="SettingsBtnStartRepairNow">⚡ 一键扫描并自愈修复</sys:String>
+    <sys:String x:Key="SettingsExifToolSafetyNotice">本操作将直接更新本地文件系统的时间戳属性，不修改媒体原始二进制内容。校准速度极快且完全无损。</sys:String>
+    <sys:String x:Key="SettingsExifSyncModifyTime">将 EXIF 拍摄时间同步写入文件修改时间 (LastWriteTime)</sys:String>
+    <sys:String x:Key="SettingsExifSyncCreateTime">将 EXIF 拍摄时间同步写入文件创建时间 (CreationTime)</sys:String>
+    <sys:String x:Key="GalleryNavHeader">图库视图</sys:String>
+    <sys:String x:Key="CatAll">全部</sys:String>
+    <sys:String x:Key="CatVideos">视频</sys:String>
+    <sys:String x:Key="CatPhotosLive">照片与实况</sys:String>
+    <sys:String x:Key="CatScreenshots">截图</sys:String>
+    <sys:String x:Key="BtnResetFilters">重置筛选</sys:String>
+    <sys:String x:Key="MenuRevealInExplorer">在文件资源管理器中定位</sys:String>
+    <sys:String x:Key="MenuTogglePending">📌 加入/移出待传列表</sys:String>
+    <sys:String x:Key="TooltipTogglePending">加入或移出待传列表</sys:String>
+    <sys:String x:Key="PendingBadgeText">待传</sys:String>
+    <sys:String x:Key="CardGoogleAccount">Google 相册授权与连接</sys:String>
+    <sys:String x:Key="LabelAuthorizedAccount">已授权账号</sys:String>
+    <sys:String x:Key="AccountNotLoggedIn">未登录</sys:String>
+    <sys:String x:Key="BtnLoginSwitchAccount">登录 / 切换账号</sys:String>
+    <sys:String x:Key="BtnLogoutAccount">退出登录</sys:String>
+    <sys:String x:Key="LabelProxyChannel">网络代理通道</sys:String>
+    <sys:String x:Key="BtnGoToProxySettings">前往网络设置</sys:String>
+    <sys:String x:Key="CardGoogleScope">上传归档范围与相册策略</sys:String>
+    <sys:String x:Key="LabelUploadScope">上传任务范围</sys:String>
+    <sys:String x:Key="ScopeGoogleAll">全量同步 (将本地所有照片增量上传至 Google 相册)</sys:String>
+    <sys:String x:Key="ScopeGoogleManual">自选清单同步 (仅上传在图库中挑选标记的照片)</sys:String>
+    <sys:String x:Key="BtnViewEditPendingList">👁️ 查看 / 编辑待传清单</sys:String>
+    <sys:String x:Key="BtnPickFromExplorer">从文件资源管理器挑选...</sys:String>
+    <sys:String x:Key="LabelGoogleAlbumMode">Google 相册归档模式</sys:String>
+    <sys:String x:Key="AlbumModeAuto">按拍摄年月自动归档相册 (YYYY-MM)</sys:String>
+    <sys:String x:Key="AlbumModeNone">全量备份入相册库 (不建相册)</sys:String>
+    <sys:String x:Key="AlbumModeCustom">指定自定义相册名称</sys:String>
+    <sys:String x:Key="LabelTargetAlbumName">目标相册名称:</sys:String>
+    <sys:String x:Key="BtnStartGoogleSync">开始同步到 Google 相册</sys:String>
+    <sys:String x:Key="BtnStopGoogleSync">停止同步</sys:String>
+    <sys:String x:Key="BannerIPhoneSyncGuide">通过 Apple Devices / iTunes 文件共享无损回传照片与实况照片至 iPhone。</sys:String>
+    <sys:String x:Key="CardIPhoneRestoreScope">回传媒体范围与挑选</sys:String>
+    <sys:String x:Key="ScopeRestoreAll">全量回传 (将本地媒体库全部照片回传)</sys:String>
+    <sys:String x:Key="ScopeRestoreDateRange">按拍摄日期范围挑选</sys:String>
+    <sys:String x:Key="LabelDateFrom">从:</sys:String>
+    <sys:String x:Key="BtnClear">清空</sys:String>
+    <sys:String x:Key="LabelDatePresets">快捷预设:</sys:String>
+    <sys:String x:Key="BtnPresetLast30Days">近30天</sys:String>
+    <sys:String x:Key="BtnPresetLast90Days">近90天</sys:String>
+    <sys:String x:Key="BtnPresetLast1Year">近1年</sys:String>
+    <sys:String x:Key="BtnPresetThisYear">今年</sys:String>
+    <sys:String x:Key="ScopeRestoreSubfolder">按子目录分类挑选</sys:String>
+    <sys:String x:Key="ScopeRestoreManual">仅回传自选清单中的照片</sys:String>
+    <sys:String x:Key="CardIPhoneTargetAlbum">目标相册与回传选项</sys:String>
+    <sys:String x:Key="FolderModeYearMonth">按拍摄年月组织文件夹 (如 2026-10)</sys:String>
+    <sys:String x:Key="FolderModeFlat">单一平面文件夹导入 (适合直接在手机端相册全选存图)</sys:String>
+    <sys:String x:Key="LabelAppleDevicesDir">Apple Devices 传输目录:</sys:String>
+    <sys:String x:Key="BtnBrowseDir">浏览...</sys:String>
+    <sys:String x:Key="BtnLaunchAppleDevices">🚀 启动 Apple Devices</sys:String>
+    <sys:String x:Key="BtnStartIPhoneSync">开始导出并同步到 iPhone</sys:String>
+    <sys:String x:Key="BtnStopIPhoneSync">停止回传</sys:String>
+    <sys:String x:Key="BannerAndroidSyncGuide">通过局域网 FTP 服务无损回传照片与视频至 Android 设备相机相册目录。</sys:String>
+    <sys:String x:Key="CardAndroidFtpConn">Android 设备 FTP 连接参数</sys:String>
+    <sys:String x:Key="LabelPhoneIp">手机 IP 地址:</sys:String>
+    <sys:String x:Key="LabelFtpPort">FTP 端口:</sys:String>
+    <sys:String x:Key="LabelFtpUsername">用户名 (可选):</sys:String>
+    <sys:String x:Key="LabelFtpPassword">密码 (可选):</sys:String>
+    <sys:String x:Key="BtnTestFtpConn">测试连接</sys:String>
+    <sys:String x:Key="BtnStartAndroidSync">开始同步回传至 Android 设备</sys:String>
+    <sys:String x:Key="BtnStopAndroidSync">停止回传</sys:String>
+    <sys:String x:Key="HeroBtnRename">✏️ 重命名</sys:String>
+    <sys:String x:Key="HeroTooltipRename">自定义设备别名</sys:String>
+    <sys:String x:Key="HeroBtnRefresh">🔄 刷新</sys:String>
+    <sys:String x:Key="HeroTooltipRefresh">重新检测连接状态</sys:String>
+    <sys:String x:Key="HeroBtnFtpParams">📡 连接参数</sys:String>
+    <sys:String x:Key="HeroTooltipFtpParams">配置 Android 手机 FTP 连接参数</sys:String>
+    <sys:String x:Key="HeroBtnRescan">🔄 重扫</sys:String>
+    <sys:String x:Key="HeroTooltipRescan">重新扫描局域网与设备</sys:String>
+    <sys:String x:Key="ScopeModalTitle">配置备份范围与过滤</sys:String>
+    <sys:String x:Key="ScopeModalFull">全量备份 (传输设备中全部照片与视频)</sys:String>
+    <sys:String x:Key="ScopeModalDateRange">按日期范围备份</sys:String>
+    <sys:String x:Key="ScopeModalAdvanced">高级模式 (自由勾选相册与自定义路径)</sys:String>
+    <sys:String x:Key="ScopeAlbumHeader">相册选取与智能过滤</sys:String>
+    <sys:String x:Key="BtnRescanAlbums">🔍 重新扫描相册</sys:String>
+    <sys:String x:Key="BtnSelectAllAlbums">全选</sys:String>
+    <sys:String x:Key="BtnDeselectAllAlbums">全不选</sys:String>
+    <sys:String x:Key="BtnAddCustomAlbumPath">+ 添加自定义路径</sys:String>
+    <sys:String x:Key="ScopeFilterHeader">导入清洗与格式过滤</sys:String>
+    <sys:String x:Key="ScopeFilterSmallImages">自动过滤小图与临时缓存</sys:String>
+    <sys:String x:Key="ScopeIncludePhotos">备份照片 (JPG, PNG, HEIC, RAW...)</sys:String>
+    <sys:String x:Key="ScopeIncludeVideos">备份视频 (MP4, MOV, MKV...)</sys:String>
+    <sys:String x:Key="BtnConfirm">确定</sys:String>
+    <sys:String x:Key="BtnCancel">取消</sys:String>
+    <sys:String x:Key="BtnGoSettings">前往设置</sys:String>
+    <sys:String x:Key="BtnIgnoreRiskProceed">忽略风险继续</sys:String>
+    <sys:String x:Key="BtnAutoFixProceed">自动修复并开始</sys:String>
+    <sys:String x:Key="ManualModalTitle">📋 自选待传文件清单</sys:String>
+    <sys:String x:Key="ManualModalBadge">多端同步通用清单</sys:String>
+    <sys:String x:Key="BtnClearPendingList">清空清单</sys:String>
+    <sys:String x:Key="BtnDone">完成</sys:String>
+    <sys:String x:Key="RenameModalTitle">修改设备别名</sys:String>
+    <sys:String x:Key="RenameModalHint">设置后，备份文件将在目标主盘对应子目录中归档保存：</sys:String>
+    <sys:String x:Key="BtnSaveApply">保存并应用</sys:String>
+    <sys:String x:Key="FtpModalTitle">📡 FTP 连接参数配置</sys:String>
+    <sys:String x:Key="FtpModalHint">在 Android 手机文件管理或 FTP 客户端开启服务，输入下方局域网连接参数。</sys:String>
+    <sys:String x:Key="TaskManagerTitle">任务中心</sys:String>
+    <sys:String x:Key="TaskManagerSpeed">总速度</sys:String>
+    <sys:String x:Key="TaskManagerRemaining">剩余文件</sys:String>
+    <sys:String x:Key="TaskManagerEmpty">当前没有进行中或未关闭的任务</sys:String>
+    <sys:String x:Key="BtnStop">停止</sys:String>
+    <sys:String x:Key="BtnDismiss">关闭</sys:String>
+    <sys:String x:Key="BtnCopiedDetails">已复制明细</sys:String>
+    <sys:String x:Key="BtnSkippedDetails">已跳过明细</sys:String>
+    <sys:String x:Key="BtnFailedDetails">失败明细</sys:String>
+    <sys:String x:Key="QualityOriginalUnlimited">原画质不计配额（推荐）</sys:String>
+    <sys:String x:Key="QualityOriginalWithQuota">原画质（占用空间）</sys:String>
+    <sys:String x:Key="QualityStorageSaver">压缩画质</sys:String>
+    <sys:String x:Key="BtnCollapseAdvanced">▲ 收起高级设置</sys:String>
+    <sys:String x:Key="BtnExpandAdvanced">▼ 展开高级设置</sys:String>
+    <sys:String x:Key="RetentionKeepAll">永久保留所有历史（默认）</sys:String>
+    <sys:String x:Key="RetentionPrune180Days">清理 180 天前的冗余历史记录</sys:String>
+    <sys:String x:Key="RetentionPrune90Days">清理 90 天前的冗余历史记录</sys:String>
+    <sys:String x:Key="RetentionPrune30Days">清理 30 天前的冗余历史记录</sys:String>
+    <sys:String x:Key="RetentionPruneAll">清理所有历史备份流水记录</sys:String>
+    <sys:String x:Key="DbMetricsSummaryInitial">点击刷新查看数据库体积与记录统计</sys:String>
+
+    <sys:String x:Key="CardAndroidRestoreScope">回传恢复范围与筛选</sys:String>
+    <sys:String x:Key="ScopeAndroidRestoreAll">全量恢复 (将电脑归档库全部照片回传至手机)</sys:String>
+    <sys:String x:Key="ScopeAndroidRestoreDateRange">按拍摄日期范围回传</sys:String>
+    <sys:String x:Key="ScopeAndroidRestoreManual">仅回传在图库中挑选标记的照片</sys:String>
+    <sys:String x:Key="BtnTestConnection">测试连通性</sys:String>
+    <sys:String x:Key="SettingsCardProxyDesc">配置全局科学上网 HTTP/SOCKS5 代理地址，供 Google 相册等远程云服务直接复用。</sys:String>
+    <sys:String x:Key="ReorgCurrentSchemeLabel">当前组织结构</sys:String>
+    <sys:String x:Key="ReorgBtnDryRun">🔍 模拟预览 (Dry Run)</sys:String>
+    <sys:String x:Key="ReorgSummaryInitial">点击“模拟预览”分析目录结构重排变动。</sys:String>
+    <sys:String x:Key="ReorgColOriginalPath">原文件路径</sys:String>
+    <sys:String x:Key="ReorgColTargetPath">重组后新路径</sys:String>
+    <sys:String x:Key="MenuDetailShowInExplorer">📂 在资源管理器中显示</sys:String>
+    <sys:String x:Key="MenuDetailOpenExternal">↗ 在默认应用中打开</sys:String>
+    <sys:String x:Key="MenuDetailCopyFile">📋 复制文件</sys:String>
+    <sys:String x:Key="MenuDetailProperties">ℹ 属性</sys:String>
+    <sys:String x:Key="ColDetailStatus">状态</sys:String>
+    <sys:String x:Key="ColDetailFileName">文件名</sys:String>
+    <sys:String x:Key="ColDetailSize">大小</sys:String>
+    <sys:String x:Key="ColDetailDescription">详情说明</sys:String>
+    <sys:String x:Key="ScopeModalScopeModeHeader">备份范围模式</sys:String>
+    <sys:String x:Key="ScopeModalDefaultMode">默认模式 (智能备份 相机胶卷 与 屏幕截图)</sys:String>
+    <sys:String x:Key="ScopeModalAllMode">全量模式 (备份扫描出的全部手机相册)</sys:String>
+    <sys:String x:Key="ScopeCustomPathTooltip">输入手机内部路径，如 /DCIM/100MEDIA 或 /Pictures/Snapseed</sys:String>
+    <sys:String x:Key="ScopeRemoveCustomPathTooltip">删除自定义路径</sys:String>
+    <sys:String x:Key="TaskManagerCloseTooltip">关闭任务中心</sys:String>
+    <sys:String x:Key="BtnPickFromExplorerShort">从文件管理器挑选...</sys:String>
+    <sys:String x:Key="DetailModalTitleFallback">传输文件明细清单</sys:String>
 </ResourceDictionary>
 

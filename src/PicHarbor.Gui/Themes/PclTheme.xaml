@@ -192,7 +192,7 @@
                                     Cursor="{Binding CanSwap, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource BoolToHandCursorConverter}}"
                                     Padding="16,13,16,10">
                                 <Grid>
-                                    <TextBlock Text="{TemplateBinding Title}"
+                                    <TextBlock Text="{Binding Title, RelativeSource={RelativeSource TemplatedParent}}"
                                                FontSize="13" FontWeight="Bold"
                                                Foreground="{DynamicResource ColorBrush1}"
                                                VerticalAlignment="Center" />

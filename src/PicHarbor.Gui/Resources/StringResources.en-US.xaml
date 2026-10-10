@@ -2,7 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
-    <!-- Application Title & General -->
+    <!-- Application Title &amp; General -->
     <sys:String x:Key="AppTitle">PicHarbor</sys:String>
     <sys:String x:Key="AppSubtitle">iPhone Media Backup &amp; Archive</sys:String>
     <sys:String x:Key="DeviceConnected">Connected: iPhone 15 Pro (128GB)</sys:String>
@@ -20,7 +20,7 @@
     <sys:String x:Key="NavReorganize">📁 Layout Reorganize</sys:String>
     <sys:String x:Key="NavSettings">⚙️ Settings</sys:String>
 
-    <!-- General UI Labels & Buttons -->
+    <!-- General UI Labels &amp; Buttons -->
     <sys:String x:Key="LabelTransferred">Transferred</sys:String>
     <sys:String x:Key="LabelSkipped">Skipped</sys:String>
     <sys:String x:Key="LabelFailed">Failed</sys:String>
@@ -202,7 +202,7 @@
     <sys:String x:Key="MsgUpdatedZero">Updated: 0 items</sys:String>
     <sys:String x:Key="MsgNoFilesToSync">No syncable files found in archive manifest</sys:String>
     <sys:String x:Key="MsgSyncSuccess">✅ Sync complete! Checked {0} archive files, successfully updated EXIF timestamps for {1} files to Windows system time.</sys:String>
-    <!-- Details DataGrid Columns & Tooltips -->
+    <!-- Details DataGrid Columns &amp; Tooltips -->
     <sys:String x:Key="ColSourcePath">Source Path</sys:String>
     <sys:String x:Key="ColStatus">Status</sys:String>
     <sys:String x:Key="ColDetails">Details</sys:String>
@@ -238,7 +238,7 @@
     <sys:String x:Key="MsgMirrorDeleteWarningTitle">ℹ️ Disable Mirror Delete Notice</sys:String>
     <sys:String x:Key="MsgMirrorDeleteWarningBody">After disabling, photos deleted from the archive will remain in the sync folder and won't be removed from iPhone during sync. Confirm?</sys:String>
 
-    <!-- Restore Scope & Manual Selection Strings -->
+    <!-- Restore Scope &amp; Manual Selection Strings -->
     <sys:String x:Key="IPhoneScopeHeader">🎯 Step 1: Restore Scope &amp; Filter</sys:String>
     <sys:String x:Key="AndroidRestoreModeLabel">Restore Mode:</sys:String>
     <sys:String x:Key="AndroidRestoreModeDefault">Default Restore (Scope &amp; Target Equivalence, records history on success)</sys:String>
@@ -279,7 +279,7 @@
     <sys:String x:Key="MsgPickedAlreadyExists">ℹ️ Selected files are already in the selection list.</sys:String>
     <sys:String x:Key="MsgClipboardNoFiles">⚠️ No file paths in clipboard. Copy (Ctrl+C) photos in Explorer first.</sys:String>
 
-    <!-- Auto-Completion & Preflight Check Strings -->
+    <!-- Auto-Completion &amp; Preflight Check Strings -->
     <sys:String x:Key="ScopeAutoPairCountText">🪄 Auto-complete missing pair files ({0})</sys:String>
     <sys:String x:Key="MsgAutoPairSuccess">✨ Auto-completion success! Added {0} Live Photo/sidecar pair files.</sys:String>
     <sys:String x:Key="TitlePreflightIntercept">⚠️ Pre-Export Sanity Interception</sys:String>
@@ -298,7 +298,7 @@
     <sys:String x:Key="MsgPickedWithAutoPairNotice">✨ Added {0} photos! Automatically paired {1} associated files ({2}). Marked as [🪄 Auto-filled] in selection list.</sys:String>
     <sys:String x:Key="OpenSettingsTabBtn">⚙️ Open Auto-Completion Settings</sys:String>
 
-    <!-- Date Picker & Preset Quick Shortcut Strings -->
+    <!-- Date Picker &amp; Preset Quick Shortcut Strings -->
     <sys:String x:Key="ScopeClearDateBtn">🗑️ Reset Dates</sys:String>
     <sys:String x:Key="ScopeQuickPresetsLabel">Presets:</sys:String>
     <sys:String x:Key="PresetLast30Days">⚡ Last 30 Days</sys:String>
@@ -392,7 +392,7 @@
     <sys:String x:Key="GooglePhotosManualEmptyHint">No manually selected items in list</sys:String>
     <sys:String x:Key="GooglePhotosManualEmptySubHint">Go to Media Search, right-click photo or video and select [☁️ Add to Google Photos Upload List]</sys:String>
 
-    <!-- Google Photos Detail Modal & Tooltips -->
+    <!-- Google Photos Detail Modal &amp; Tooltips -->
     <sys:String x:Key="ToolTipGooglePhotosUploaded">Click to view list of uploaded files</sys:String>
     <sys:String x:Key="ToolTipGooglePhotosSkipped">Click to view list of skipped files (already exist in cloud)</sys:String>
     <sys:String x:Key="ToolTipGooglePhotosFailed">Click to view list of failed files</sys:String>
@@ -402,7 +402,7 @@
     <sys:String x:Key="StatusUploaded">Uploaded</sys:String>
     <sys:String x:Key="StatusSkipped">Skipped</sys:String>
     <sys:String x:Key="StatusFailed">Failed</sys:String>
-    <!-- Storage & Device Subdir Architecture -->
+    <!-- Storage &amp; Device Subdir Architecture -->
     <sys:String x:Key="TargetDriveLabel">Primary Target Drive:</sys:String>
     <sys:String x:Key="ChangePrimaryDriveButton">⚙ Change in Settings</sys:String>
     <sys:String x:Key="DeviceSubdirLabel">Device Subfolder:</sys:String>
@@ -421,5 +421,304 @@
     <sys:String x:Key="ActionHeader">Action</sys:String>
     <sys:String x:Key="LightboxToolTip">Click to preview in lightbox</sys:String>
 
+
+    <!-- Modern PCL2 UI &amp; Settings Localized Strings -->
+    <sys:String x:Key="TabBackup">Backup</sys:String>
+    <sys:String x:Key="TabGallery">Gallery</sys:String>
+    <sys:String x:Key="TabSync">Cloud Sync &amp; Return</sys:String>
+    <sys:String x:Key="TabSettings">Settings</sys:String>
+    <sys:String x:Key="ToolTipMinimize">Minimize</sys:String>
+    <sys:String x:Key="ToolTipClose">Close</sys:String>
+    <sys:String x:Key="DeviceIPhone">iPhone</sys:String>
+    <sys:String x:Key="DeviceAndroid">Android</sys:String>
+    <sys:String x:Key="HeroStartBackup">Start Incremental Backup</sys:String>
+    <sys:String x:Key="HeroStopBackup">Stop Backup</sys:String>
+    <sys:String x:Key="HeroBackupScope">Backup Scope</sys:String>
+    <sys:String x:Key="HeroTransferLog">Transfer Log</sys:String>
+    <sys:String x:Key="SubTabBackupExec">Incremental Backup &amp; Execution</sys:String>
+    <sys:String x:Key="SubTabBackupStatus">Status &amp; History</sys:String>
+    <sys:String x:Key="CardStorageOverview">Storage &amp; Library Overview</sys:String>
+    <sys:String x:Key="ArchivedMediaCount">Archived Media</sys:String>
+    <sys:String x:Key="ArchivedTotalSize">Total Library Size</sys:String>
+    <sys:String x:Key="DiskFreeSpace">Disk Free Space</sys:String>
+    <sys:String x:Key="CrossDriveReadyHint">Cross-drive deduplication index ready. Instant transfers across removable and internal drives.</sys:String>
+    <sys:String x:Key="CardStatsOverview">Media Library Statistics</sys:String>
+    <sys:String x:Key="StatTotalFiles">Total Files</sys:String>
+    <sys:String x:Key="StatTotalSize">Storage Used</sys:String>
+    <sys:String x:Key="StatPhotosCount">Total Photos</sys:String>
+    <sys:String x:Key="StatVideosCount">Total Videos</sys:String>
+    <sys:String x:Key="BtnRefreshStats">🔄 Refresh Statistics</sys:String>
+    <sys:String x:Key="CardDbStatus">Core Database &amp; Storage Status</sys:String>
+    <sys:String x:Key="LabelSqliteDbPath">SQLite Index DB Path</sys:String>
+    <sys:String x:Key="LabelLastBackupTime">Last Backup Time</sys:String>
+    <sys:String x:Key="CardConnectedDevices">Connected Device History</sys:String>
+    <sys:String x:Key="HintDeviceHistoryDoubleClick">💡 Tip: Double-click any device row to view its historical backup archive.</sys:String>
+    <sys:String x:Key="DeviceHistoryMenuItem">📱 View Device Backup Archive...</sys:String>
+    <sys:String x:Key="SearchBoxHint">Search photos, camera models or dates...</sys:String>
+    <sys:String x:Key="CardGalleryInspection">Gallery View &amp; Filters</sys:String>
+    <sys:String x:Key="BtnLoadMore">Load More</sys:String>
+    <sys:String x:Key="BtnViewTransferQueue">📋 View / Export Queue</sys:String>
+    <sys:String x:Key="LabelSort">Sort:</sys:String>
+    <sys:String x:Key="TabGalleryView">Gallery</sys:String>
+    <sys:String x:Key="TabTableView">List</sys:String>
+    <sys:String x:Key="CodecNoticeText">HEIC / Live Photo requires system extension</sys:String>
+    <sys:String x:Key="BtnViewCodecSetup">View Setup Guide</sys:String>
+    <sys:String x:Key="FilterTypeLabelShort">Type:</sys:String>
+    <sys:String x:Key="FilterDateLabelShort">Date:</sys:String>
+    <sys:String x:Key="LabelDateTo">to</sys:String>
+    <sys:String x:Key="FilterDeviceLabelShort">Device:</sys:String>
+    <sys:String x:Key="SearchLoadingText">Searching and updating library...</sys:String>
+    <sys:String x:Key="SyncEngineHeader">Sync Engines &amp; Return</sys:String>
+    <sys:String x:Key="NavGooglePhotosPill">Google Photos</sys:String>
+    <sys:String x:Key="NavIPhoneSyncPill">Sync to iPhone</sys:String>
+    <sys:String x:Key="NavAndroidSyncPill">Sync to Android</sys:String>
+    <sys:String x:Key="SettingsSystemHeader">System Settings</sys:String>
+    <sys:String x:Key="SettingsNavBackup">Backup</sys:String>
+    <sys:String x:Key="SettingsNavGallery">Gallery &amp; Selection</sys:String>
+    <sys:String x:Key="SettingsNavSync">Cloud Sync &amp; Return</sys:String>
+    <sys:String x:Key="SettingsNavTools">Built-in Tools</sys:String>
+    <sys:String x:Key="SettingsNavOther">Other</sys:String>
+    <sys:String x:Key="SettingsCardBackupLocation">Backup Location</sys:String>
+    <sys:String x:Key="SettingsLabelPrimaryDrive">Primary Backup Drive</sys:String>
+    <sys:String x:Key="SettingsBtnOpenFolder">Open Folder</sys:String>
+    <sys:String x:Key="SettingsLabelArchivePath">Archive Root Path</sys:String>
+    <sys:String x:Key="SettingsCardSubdirConfig">Subdirectory Configuration</sys:String>
+    <sys:String x:Key="SettingsLabelDeviceSubdir">Device Subdirectory</sys:String>
+    <sys:String x:Key="SettingsBtnResetDeviceName">Reset to Default</sys:String>
+    <sys:String x:Key="SettingsLabelOrganizeFormat">Default Date Organize Format:</sys:String>
+    <sys:String x:Key="SettingsSubdirDeviceOption">Separate into device subdirectories (e.g. D:\PicHarbor\iPhone 15\)</sys:String>
+    <sys:String x:Key="SettingsCardCodecs">HEIC &amp; Live Photo Codecs</sys:String>
+    <sys:String x:Key="SettingsCardSmartBinding">Smart File Pairing</sys:String>
+    <sys:String x:Key="SettingsCardTimeCalibration">File Timestamp Calibration</sys:String>
+    <sys:String x:Key="SettingsAdvancedBadge">Advanced</sys:String>
+    <sys:String x:Key="SettingsAdvancedTitle">Advanced Settings</sys:String>
+    <sys:String x:Key="SettingsAdvancedHint">(Recommended default)</sys:String>
+    <sys:String x:Key="SettingsLivePhotoPairOption">Pair Live Photo MOV videos with photos (preserves live effect)</sys:String>
+    <sys:String x:Key="SettingsAaeOption">Automatically pair AAE edit sidecar files</sys:String>
+    <sys:String x:Key="SettingsRawJpgOption">Pair RAW + JPG photos together</sys:String>
+    <sys:String x:Key="SettingsTimeCalibrationHint">Automatically calibrate Windows filesystem timestamps using genuine EXIF capture dates:</sys:String>
+    <sys:String x:Key="SettingsSyncLastWriteOption">Calibrate LastWriteTime</sys:String>
+    <sys:String x:Key="SettingsSyncCreationOption">Calibrate CreationTime (resolves 3rd-party cloud sync sorting)</sys:String>
+    <sys:String x:Key="CodecDescText">iPhone HEIC &amp; Live Photos require Windows HEIF &amp; HEVC extensions for display and playback. Choose an option below, then click Recheck.</sys:String>
+    <sys:String x:Key="BtnRecheckCodecs">Recheck</sys:String>
+    <sys:String x:Key="CodecSectionStore">Microsoft Store</sys:String>
+    <sys:String x:Key="CodecStoreDesc">HEIF is free. HEVC has paid and OEM free editions; OEM availability varies by device.</sys:String>
+    <sys:String x:Key="BtnOpenHeifStore">Open HEIF Store Page</sys:String>
+    <sys:String x:Key="BtnOpenHevcPaidStore">Open HEVC Store Page (Paid)</sys:String>
+    <sys:String x:Key="BtnOpenHevcFreeStore">Open HEVC Store Page (Free)</sys:String>
+    <sys:String x:Key="CodecSectionPackage">Offline Package</sys:String>
+    <sys:String x:Key="CodecPackageDesc">Download page contains HEIF and OEM HEVC .appxbundle packages.</sys:String>
+    <sys:String x:Key="BtnOpenPackageDownload">Open Download Page</sys:String>
+    <sys:String x:Key="CodecPasswordHint">Password: 0000</sys:String>
+    <sys:String x:Key="BtnCopyPackagePassword">Copy Password</sys:String>
+    <sys:String x:Key="CodecSectionLinkGen">If Store Fails</sys:String>
+    <sys:String x:Key="CodecLinkGenDesc">Paste product links into link generator, download .appxbundle to install, then restart software.</sys:String>
+    <sys:String x:Key="BtnOpenLinkGenerator">Open Link Generator</sys:String>
+    <sys:String x:Key="BtnCopyHeifLink">Copy HEIF Product Link</sys:String>
+    <sys:String x:Key="BtnCopyHevcLink">Copy HEVC Product Link</sys:String>
+    <sys:String x:Key="CodecThirdPartyWarning">This opens a third-party website. The software does not guarantee safety. Proceed at your own risk.</sys:String>
+    <sys:String x:Key="SettingsCardProxy">Proxy</sys:String>
+    <sys:String x:Key="SettingsProxyDesc">Configure HTTP/SOCKS5 proxy for Google Photos and remote services.</sys:String>
+    <sys:String x:Key="SettingsProxyLabel">Proxy Address:</sys:String>
+    <sys:String x:Key="SettingsBtnTestProxy">Test Connection</sys:String>
+    <sys:String x:Key="SettingsCardPythonPath">Python Interpreter Path</sys:String>
+    <sys:String x:Key="SettingsPythonPathDesc">Used by Google Photos sync engine. PicHarbor bundles its runtime, or specify a custom system Python here.</sys:String>
+    <sys:String x:Key="SettingsPythonLabel">Interpreter Path:</sys:String>
+    <sys:String x:Key="SettingsBtnBrowse">📂 Browse...</sys:String>
+    <sys:String x:Key="SettingsCardGooglePhotosParams">Google Photos Upload Parameters</sys:String>
+    <sys:String x:Key="SettingsQualityQuotaLabel">Quality &amp; Quota Policy:</sys:String>
+    <sys:String x:Key="SettingsSkipExistingFilenamesOption">Skip existing filenames using local cache (reduces remote checks)</sys:String>
+    <sys:String x:Key="SettingsConcurrentThreadsLabel">Concurrent Upload Threads</sys:String>
+    <sys:String x:Key="SettingsRequestTimeoutLabel">Request Timeout</sys:String>
+    <sys:String x:Key="SettingsAutoRetryLabel">Auto Retry On Failure</sys:String>
+    <sys:String x:Key="SettingsCardTimeoutSleep">Prevent Timeout &amp; Sleep</sys:String>
+    <sys:String x:Key="SettingsDeviceTimeoutLabel">Device Read Timeout</sys:String>
+    <sys:String x:Key="SettingsPreventSleepOption">Prevent PC from sleeping during transfer</sys:String>
+    <sys:String x:Key="SettingsCardToolExifSync">File Timestamp Tool</sys:String>
+    <sys:String x:Key="SettingsExifToolDesc">Calibrate OS file timestamps from EXIF capture time across archive, fixing sorting issues in Windows Photos &amp; cloud drives.</sys:String>
+    <sys:String x:Key="SettingsBtnStartExifSync">Start Calibration Now</sys:String>
+    <sys:String x:Key="SettingsCardToolReorganize">Directory Structure Tool</sys:String>
+    <sys:String x:Key="SettingsReorgToolDesc">Reorganize media library directory structure according to chosen date hierarchy without data loss.</sys:String>
+    <sys:String x:Key="SettingsCurrentSchemeLabel">Current Structure</sys:String>
+    <sys:String x:Key="SettingsTargetSchemeLabel">Target Structure</sys:String>
+    <sys:String x:Key="SettingsBtnDryRun">🔍 Dry Run Preview</sys:String>
+    <sys:String x:Key="SettingsBtnExecuteReorg">⚡ Execute Reorganization</sys:String>
+    <sys:String x:Key="SettingsCardToolDb">Database Maintenance Tool</sys:String>
+    <sys:String x:Key="SettingsDbToolDesc">Monitor SQLite database size, clean audit trails to reclaim disk space, and run self-healing repairs for orphaned indexes.</sys:String>
+    <sys:String x:Key="SettingsDbSizeLabel">Database Size</sys:String>
+    <sys:String x:Key="SettingsDbTotalMediaLabel">Indexed Media</sys:String>
+    <sys:String x:Key="SettingsDbAuditCountLabel">Audit Records</sys:String>
+    <sys:String x:Key="SettingsBtnVacuumDb">⚡ Vacuum Database</sys:String>
+    <sys:String x:Key="SettingsBtnCleanAudit">🧹 Clean Audit Logs</sys:String>
+    <sys:String x:Key="SettingsBtnHealDb">🪄 Self-Healing Index Repair</sys:String>
+    <sys:String x:Key="SettingsCardLangTheme">Language &amp; Appearance</sys:String>
+    <sys:String x:Key="SettingsLabelDisplayLanguage">Display Language</sys:String>
+    <sys:String x:Key="SettingsCardAbout">About PicHarbor</sys:String>
+    <sys:String x:Key="AboutSubtitleText">PicHarbor: Minimalist Local Mobile Photo Backup &amp; Cross-Platform Manager</sys:String>
+    <sys:String x:Key="AboutVersionText">Version: 1.0.0 (Release) · Crafted with PCL2 Design Aesthetics</sys:String>
+    <sys:String x:Key="AboutFeature1">• Lossless Direct Transfer: Native iPhone &amp; Android transfer, preserving Live Photos &amp; EXIF.</sys:String>
+    <sys:String x:Key="AboutFeature2">• Plug &amp; Play: Unified primary storage architecture with global cross-drive deduplication.</sys:String>
+    <sys:String x:Key="AboutFeature3">• Modern Gallery: SweetAlbum masonry layout with millisecond virtualized timeline search.</sys:String>
+    <sys:String x:Key="AboutBtnWebsite">Website</sys:String>
+    <sys:String x:Key="AboutBtnLicense">License</sys:String>
+    <sys:String x:Key="AboutBtnAcknowledgements">Acknowledgements</sys:String>
+
+    <sys:String x:Key="SettingsDbPhysicalSize">Database Physical Size (incl. WAL cache)</sys:String>
+    <sys:String x:Key="SettingsDbMetricsComposition">Records Breakdown (Core Index vs Audit Trail)</sys:String>
+    <sys:String x:Key="SettingsBtnRefreshDbMetrics">🔄 Refresh Database Metrics</sys:String>
+    <sys:String x:Key="SettingsDbAuditPruneTitle">1. Redundant Audit History Cleanup (Safe Space Reclaim)</sys:String>
+    <sys:String x:Key="SettingsDbAuditPruneDesc">Transfer history details are only used to inspect which phone backed up which photos. Cleaning redundant history will never affect real photos on your PC, and re-plugged phones will still instantly skip backed up files.</sys:String>
+    <sys:String x:Key="SettingsDbRetentionPolicy">Retention Policy:</sys:String>
+    <sys:String x:Key="SettingsBtnPruneAuditNow">Clean &amp; Optimize Now</sys:String>
+    <sys:String x:Key="SettingsDbRepairTitle">2. Smart Self-Healing &amp; Consistency Repair (Fix Manually Deleted PC Files)</sys:String>
+    <sys:String x:Key="SettingsDbRepairDesc">If you manually deleted photos in the archive directory, leaving stale indices in the database, run self-healing here. It safely purges ghost records without deleting any valid files.</sys:String>
+    <sys:String x:Key="SettingsDbRepairNotice">Safety Rule: Self-healing only purges stale indices pointing to non-existent files to keep gallery consistent with disk, never modifying or deleting existing media.</sys:String>
+    <sys:String x:Key="SettingsBtnStartRepairNow">⚡ Scan &amp; Self-Heal Now</sys:String>
+    <sys:String x:Key="SettingsExifToolSafetyNotice">This operation updates file system timestamps directly without modifying original binary content. Fast and lossless.</sys:String>
+    <sys:String x:Key="SettingsExifSyncModifyTime">Sync EXIF capture time to file modified time (LastWriteTime)</sys:String>
+    <sys:String x:Key="SettingsExifSyncCreateTime">Sync EXIF capture time to file creation time (CreationTime)</sys:String>
+    <sys:String x:Key="GalleryNavHeader">Gallery Views</sys:String>
+    <sys:String x:Key="CatAll">All</sys:String>
+    <sys:String x:Key="CatVideos">Videos</sys:String>
+    <sys:String x:Key="CatPhotosLive">Photos &amp; Live</sys:String>
+    <sys:String x:Key="CatScreenshots">Screenshots</sys:String>
+    <sys:String x:Key="BtnResetFilters">Reset Filters</sys:String>
+    <sys:String x:Key="MenuRevealInExplorer">Reveal in File Explorer</sys:String>
+    <sys:String x:Key="MenuTogglePending">📌 Add / Remove from Transfer Queue</sys:String>
+    <sys:String x:Key="TooltipTogglePending">Add or remove from transfer queue</sys:String>
+    <sys:String x:Key="PendingBadgeText">Queued</sys:String>
+    <sys:String x:Key="CardGoogleAccount">Google Photos Authorization &amp; Connection</sys:String>
+    <sys:String x:Key="LabelAuthorizedAccount">Authorized Account</sys:String>
+    <sys:String x:Key="AccountNotLoggedIn">Not signed in</sys:String>
+    <sys:String x:Key="BtnLoginSwitchAccount">Sign In / Switch Account</sys:String>
+    <sys:String x:Key="BtnLogoutAccount">Sign Out</sys:String>
+    <sys:String x:Key="LabelProxyChannel">Network Proxy Channel</sys:String>
+    <sys:String x:Key="BtnGoToProxySettings">Open Network Settings</sys:String>
+    <sys:String x:Key="CardGoogleScope">Upload Scope &amp; Album Policy</sys:String>
+    <sys:String x:Key="LabelUploadScope">Upload Scope</sys:String>
+    <sys:String x:Key="ScopeGoogleAll">Full Sync (Incrementally upload all local photos to Google Photos)</sys:String>
+    <sys:String x:Key="ScopeGoogleManual">Queue Sync (Upload only selected photos marked in gallery)</sys:String>
+    <sys:String x:Key="BtnViewEditPendingList">👁️ View / Edit Transfer Queue</sys:String>
+    <sys:String x:Key="BtnPickFromExplorer">Pick from File Explorer...</sys:String>
+    <sys:String x:Key="LabelGoogleAlbumMode">Google Photos Album Organization</sys:String>
+    <sys:String x:Key="AlbumModeAuto">Organize into monthly albums automatically (YYYY-MM)</sys:String>
+    <sys:String x:Key="AlbumModeNone">Backup to main library (No album)</sys:String>
+    <sys:String x:Key="AlbumModeCustom">Specify custom album name</sys:String>
+    <sys:String x:Key="LabelTargetAlbumName">Target Album Name:</sys:String>
+    <sys:String x:Key="BtnStartGoogleSync">Start Sync to Google Photos</sys:String>
+    <sys:String x:Key="BtnStopGoogleSync">Stop Sync</sys:String>
+    <sys:String x:Key="BannerIPhoneSyncGuide">Losslessly transfer photos and Live Photos back to iPhone via Apple Devices / iTunes File Sharing.</sys:String>
+    <sys:String x:Key="CardIPhoneRestoreScope">Restore Media Scope &amp; Selection</sys:String>
+    <sys:String x:Key="ScopeRestoreAll">Full Restore (Restore all media library photos)</sys:String>
+    <sys:String x:Key="ScopeRestoreDateRange">Filter by capture date range</sys:String>
+    <sys:String x:Key="LabelDateFrom">From:</sys:String>
+    <sys:String x:Key="BtnClear">Clear</sys:String>
+    <sys:String x:Key="LabelDatePresets">Quick Presets:</sys:String>
+    <sys:String x:Key="BtnPresetLast30Days">Last 30 Days</sys:String>
+    <sys:String x:Key="BtnPresetLast90Days">Last 90 Days</sys:String>
+    <sys:String x:Key="BtnPresetLast1Year">Last 1 Year</sys:String>
+    <sys:String x:Key="BtnPresetThisYear">This Year</sys:String>
+    <sys:String x:Key="ScopeRestoreSubfolder">Select by subfolder category</sys:String>
+    <sys:String x:Key="ScopeRestoreManual">Only restore photos in transfer queue</sys:String>
+    <sys:String x:Key="CardIPhoneTargetAlbum">Target Album &amp; Restore Options</sys:String>
+    <sys:String x:Key="FolderModeYearMonth">Organize folders by year and month (e.g. 2026-10)</sys:String>
+    <sys:String x:Key="FolderModeFlat">Flat single-folder import (Best for one-tap save on device)</sys:String>
+    <sys:String x:Key="LabelAppleDevicesDir">Apple Devices Sync Directory:</sys:String>
+    <sys:String x:Key="BtnBrowseDir">Browse...</sys:String>
+    <sys:String x:Key="BtnLaunchAppleDevices">🚀 Launch Apple Devices</sys:String>
+    <sys:String x:Key="BtnStartIPhoneSync">Start Export &amp; Sync to iPhone</sys:String>
+    <sys:String x:Key="BtnStopIPhoneSync">Stop Restore</sys:String>
+    <sys:String x:Key="BannerAndroidSyncGuide">Losslessly transfer photos and videos to Android Camera folder via local Wi-Fi FTP service.</sys:String>
+    <sys:String x:Key="CardAndroidFtpConn">Android Device FTP Connection Parameters</sys:String>
+    <sys:String x:Key="LabelPhoneIp">Phone IP Address:</sys:String>
+    <sys:String x:Key="LabelFtpPort">FTP Port:</sys:String>
+    <sys:String x:Key="LabelFtpUsername">Username (Optional):</sys:String>
+    <sys:String x:Key="LabelFtpPassword">Password (Optional):</sys:String>
+    <sys:String x:Key="BtnTestFtpConn">Test Connection</sys:String>
+    <sys:String x:Key="BtnStartAndroidSync">Start Sync to Android Device</sys:String>
+    <sys:String x:Key="BtnStopAndroidSync">Stop Restore</sys:String>
+    <sys:String x:Key="HeroBtnRename">✏️ Rename</sys:String>
+    <sys:String x:Key="HeroTooltipRename">Customize device alias</sys:String>
+    <sys:String x:Key="HeroBtnRefresh">🔄 Refresh</sys:String>
+    <sys:String x:Key="HeroTooltipRefresh">Re-check connection status</sys:String>
+    <sys:String x:Key="HeroBtnFtpParams">📡 FTP Params</sys:String>
+    <sys:String x:Key="HeroTooltipFtpParams">Configure Android phone FTP parameters</sys:String>
+    <sys:String x:Key="HeroBtnRescan">🔄 Rescan</sys:String>
+    <sys:String x:Key="HeroTooltipRescan">Rescan local network and devices</sys:String>
+    <sys:String x:Key="ScopeModalTitle">Configure Backup Scope &amp; Filtering</sys:String>
+    <sys:String x:Key="ScopeModalFull">Full Backup (Transfer all photos and videos on device)</sys:String>
+    <sys:String x:Key="ScopeModalDateRange">Backup by date range</sys:String>
+    <sys:String x:Key="ScopeModalAdvanced">Advanced Mode (Select albums and custom paths freely)</sys:String>
+    <sys:String x:Key="ScopeAlbumHeader">Album Selection &amp; Smart Filter</sys:String>
+    <sys:String x:Key="BtnRescanAlbums">🔍 Rescan Albums</sys:String>
+    <sys:String x:Key="BtnSelectAllAlbums">Select All</sys:String>
+    <sys:String x:Key="BtnDeselectAllAlbums">Deselect All</sys:String>
+    <sys:String x:Key="BtnAddCustomAlbumPath">+ Add Custom Path</sys:String>
+    <sys:String x:Key="ScopeFilterHeader">Cleaning &amp; Format Filtering</sys:String>
+    <sys:String x:Key="ScopeFilterSmallImages">Automatically filter small images and cache</sys:String>
+    <sys:String x:Key="ScopeIncludePhotos">Backup Photos (JPG, PNG, HEIC, RAW...)</sys:String>
+    <sys:String x:Key="ScopeIncludeVideos">Backup Videos (MP4, MOV, MKV...)</sys:String>
+    <sys:String x:Key="BtnConfirm">Confirm</sys:String>
+    <sys:String x:Key="BtnCancel">Cancel</sys:String>
+    <sys:String x:Key="BtnGoSettings">Open Settings</sys:String>
+    <sys:String x:Key="BtnIgnoreRiskProceed">Ignore Risk &amp; Proceed</sys:String>
+    <sys:String x:Key="BtnAutoFixProceed">Auto Fix &amp; Start</sys:String>
+    <sys:String x:Key="ManualModalTitle">📋 Transfer Queue Items</sys:String>
+    <sys:String x:Key="ManualModalBadge">Universal Multi-device Queue</sys:String>
+    <sys:String x:Key="BtnClearPendingList">Clear Queue</sys:String>
+    <sys:String x:Key="BtnDone">Done</sys:String>
+    <sys:String x:Key="RenameModalTitle">Rename Device Alias</sys:String>
+    <sys:String x:Key="RenameModalHint">Backed up files will be organized under this subfolder on the target drive:</sys:String>
+    <sys:String x:Key="BtnSaveApply">Save &amp; Apply</sys:String>
+    <sys:String x:Key="FtpModalTitle">📡 FTP Connection Settings</sys:String>
+    <sys:String x:Key="FtpModalHint">Start FTP service on your Android phone and enter the local Wi-Fi parameters below.</sys:String>
+    <sys:String x:Key="TaskManagerTitle">Task Center</sys:String>
+    <sys:String x:Key="TaskManagerSpeed">Total Speed</sys:String>
+    <sys:String x:Key="TaskManagerRemaining">Remaining</sys:String>
+    <sys:String x:Key="TaskManagerEmpty">No active or pending tasks right now</sys:String>
+    <sys:String x:Key="BtnStop">Stop</sys:String>
+    <sys:String x:Key="BtnDismiss">Dismiss</sys:String>
+    <sys:String x:Key="BtnCopiedDetails">Copied Details</sys:String>
+    <sys:String x:Key="BtnSkippedDetails">Skipped Details</sys:String>
+    <sys:String x:Key="BtnFailedDetails">Failed Details</sys:String>
+    <sys:String x:Key="QualityOriginalUnlimited">Original Quality (Unlimited Quota, Recommended)</sys:String>
+    <sys:String x:Key="QualityOriginalWithQuota">Original Quality (Uses Storage Quota)</sys:String>
+    <sys:String x:Key="QualityStorageSaver">Storage Saver</sys:String>
+    <sys:String x:Key="BtnCollapseAdvanced">▲ Collapse Advanced</sys:String>
+    <sys:String x:Key="BtnExpandAdvanced">▼ Expand Advanced</sys:String>
+    <sys:String x:Key="RetentionKeepAll">Keep all history forever (Default)</sys:String>
+    <sys:String x:Key="RetentionPrune180Days">Clean records older than 180 days</sys:String>
+    <sys:String x:Key="RetentionPrune90Days">Clean records older than 90 days</sys:String>
+    <sys:String x:Key="RetentionPrune30Days">Clean records older than 30 days</sys:String>
+    <sys:String x:Key="RetentionPruneAll">Clean all historical transfer audit records</sys:String>
+    <sys:String x:Key="DbMetricsSummaryInitial">Click refresh to view database size and records statistics</sys:String>
+
+    <sys:String x:Key="CardAndroidRestoreScope">Restore Scope &amp; Filtering</sys:String>
+    <sys:String x:Key="ScopeAndroidRestoreAll">Full Restore (Restore all PC archive photos to phone)</sys:String>
+    <sys:String x:Key="ScopeAndroidRestoreDateRange">Restore by capture date range</sys:String>
+    <sys:String x:Key="ScopeAndroidRestoreManual">Only restore photos selected and marked in gallery</sys:String>
+    <sys:String x:Key="BtnTestConnection">Test Connectivity</sys:String>
+    <sys:String x:Key="SettingsCardProxyDesc">Configure global HTTP/SOCKS5 proxy address for remote cloud services like Google Photos.</sys:String>
+    <sys:String x:Key="ReorgCurrentSchemeLabel">Current Structure</sys:String>
+    <sys:String x:Key="ReorgBtnDryRun">🔍 Dry Run Preview</sys:String>
+    <sys:String x:Key="ReorgSummaryInitial">Click 'Dry Run Preview' to analyze directory rearrangement changes.</sys:String>
+    <sys:String x:Key="ReorgColOriginalPath">Original File Path</sys:String>
+    <sys:String x:Key="ReorgColTargetPath">Reorganized Target Path</sys:String>
+    <sys:String x:Key="MenuDetailShowInExplorer">📂 Reveal in File Explorer</sys:String>
+    <sys:String x:Key="MenuDetailOpenExternal">↗ Open in Default App</sys:String>
+    <sys:String x:Key="MenuDetailCopyFile">📋 Copy File</sys:String>
+    <sys:String x:Key="MenuDetailProperties">ℹ Properties</sys:String>
+    <sys:String x:Key="ColDetailStatus">Status</sys:String>
+    <sys:String x:Key="ColDetailFileName">File Name</sys:String>
+    <sys:String x:Key="ColDetailSize">Size</sys:String>
+    <sys:String x:Key="ColDetailDescription">Details</sys:String>
+    <sys:String x:Key="ScopeModalScopeModeHeader">Backup Scope Mode</sys:String>
+    <sys:String x:Key="ScopeModalDefaultMode">Default Mode (Smart backup of Camera Roll &amp; Screenshots)</sys:String>
+    <sys:String x:Key="ScopeModalAllMode">Full Mode (Backup all scanned phone albums)</sys:String>
+    <sys:String x:Key="ScopeCustomPathTooltip">Enter device path, e.g. /DCIM/100MEDIA or /Pictures/Snapseed</sys:String>
+    <sys:String x:Key="ScopeRemoveCustomPathTooltip">Remove custom path</sys:String>
+    <sys:String x:Key="TaskManagerCloseTooltip">Close Task Center</sys:String>
+    <sys:String x:Key="BtnPickFromExplorerShort">Pick from File Manager...</sys:String>
+    <sys:String x:Key="DetailModalTitleFallback">Transfer File Details List</sys:String>
 </ResourceDictionary>
 
