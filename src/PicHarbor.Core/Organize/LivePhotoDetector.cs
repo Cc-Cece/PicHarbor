@@ -1,3 +1,5 @@
+using PicHarbor.Core.Search;
+
 namespace PicHarbor.Core.Organize;
 
 /// <summary>
@@ -63,5 +65,95 @@ public static class LivePhotoDetector
         }
 
         return pairs;
+    }
+
+    /// <summary>
+    /// Folder plus filename stem, the key used to pair a still with its motion clip.
+    /// </summary>
+    public static string PairKey(string relativePath)
+    {
+        string directory = Path.GetDirectoryName(relativePath) ?? string.Empty;
+        string stem = Path.GetFileNameWithoutExtension(relativePath);
+        return Path.Combine(directory, stem);
+    }
+
+    /// <summary>
+    /// Stems that have both a still (<c>.heic</c>/<c>.jpg</c>/<c>.jpeg</c>) and a motion clip
+    /// (<c>.mov</c>/<c>.mp4</c>) in the same folder. Matches the gallery's existing pairing.
+    /// </summary>
+    public static IReadOnlySet<string> FindLivePairKeys(IEnumerable<string> relativePaths)
+    {
+        ArgumentNullException.ThrowIfNull(relativePaths);
+
+        var stills = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var videos = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string path in relativePaths)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                continue;
+            }
+
+            string extension = Path.GetExtension(path);
+            string key = PairKey(path);
+            if (extension.Equals(".heic", StringComparison.OrdinalIgnoreCase)
+                || extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase)
+                || extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase))
+            {
+                stills.Add(key);
+            }
+            else if (extension.Equals(".mov", StringComparison.OrdinalIgnoreCase)
+                || extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase))
+            {
+                videos.Add(key);
+            }
+        }
+
+        stills.IntersectWith(videos);
+        return stills;
+    }
+
+    /// <summary>
+    /// The All view keeps stills and standalone videos. A motion clip whose stem is a live pair is hidden
+    /// so the still occupies the only card.
+    /// </summary>
+    public static bool ShowInAllView(string relativePath, MediaType type, IReadOnlySet<string> livePairKeys)
+    {
+        ArgumentNullException.ThrowIfNull(livePairKeys);
+        if (type != MediaType.Video)
+        {
+            return true;
+        }
+
+        return !livePairKeys.Contains(PairKey(relativePath));
+    }
+
+    /// <summary>
+    /// Counts gallery items: each still, screenshot, and standalone video is one.
+    /// A paired motion clip (<c>.mov</c> or <c>.mp4</c> with a same-folder still) is not an extra item.
+    /// </summary>
+    public static int CountDisplayedItems(IEnumerable<string> paths)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        var list = paths as ICollection<string> ?? paths.ToList();
+        if (list.Count == 0)
+        {
+            return 0;
+        }
+
+        IReadOnlySet<string> keys = FindLivePairKeys(list);
+        int pairedClips = 0;
+        foreach (string path in list)
+        {
+            string extension = Path.GetExtension(path);
+            bool isClip = extension.Equals(".mov", StringComparison.OrdinalIgnoreCase)
+                || extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase);
+            if (isClip && keys.Contains(PairKey(path)))
+            {
+                pairedClips++;
+            }
+        }
+
+        return list.Count - pairedClips;
     }
 }

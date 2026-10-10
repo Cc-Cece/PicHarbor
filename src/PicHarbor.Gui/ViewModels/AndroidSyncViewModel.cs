@@ -277,6 +277,14 @@ public partial class AndroidSyncViewModel : ObservableObject
     private int copiedCount = 0;
 
     [ObservableProperty]
+    private int remainingFilesCount = 0;
+
+    [ObservableProperty]
+    private string speedText = "--";
+
+    public double SpeedBytesPerSecond { get; private set; }
+
+    [ObservableProperty]
     private int skippedCount = 0;
 
     [ObservableProperty]
@@ -452,6 +460,17 @@ public partial class AndroidSyncViewModel : ObservableObject
         }
 
         UpdateManualSelectionTexts();
+    }
+
+    public void SyncWithUnifiedManualSelections(IEnumerable<ManualSelectedItemViewModel> items)
+    {
+        ManualSelectedItems.Clear();
+        foreach (var item in items)
+        {
+            ManualSelectedItems.Add(item);
+        }
+        UpdateManualSelectionTexts();
+        RecalculateScopeSummary();
     }
 
     public void UpdateManualSelectionTexts()
@@ -774,10 +793,19 @@ public partial class AndroidSyncViewModel : ObservableObject
         return rel.Replace('\\', '/');
     }
 
+    public Action? OpenManualModalAction { get; set; }
+
     [RelayCommand]
     private void OpenManualModal()
     {
-        IsManualModalOpen = true;
+        if (OpenManualModalAction != null)
+        {
+            OpenManualModalAction();
+        }
+        else
+        {
+            IsManualModalOpen = true;
+        }
         _ = LoadThumbnailsForManualItemsAsync();
     }
 
@@ -1089,6 +1117,9 @@ public partial class AndroidSyncViewModel : ObservableObject
                 CopiedCount = snapshot.CopiedFiles;
                 SkippedCount = snapshot.SkippedFiles;
                 FailedCount = snapshot.FailedFiles;
+                RemainingFilesCount = Math.Max(0, snapshot.TotalFiles - snapshot.ProcessedFiles);
+                SpeedBytesPerSecond = snapshot.CurrentBytesPerSecond;
+                SpeedText = snapshot.CurrentBytesPerSecond > 0 ? $"{snapshot.CurrentBytesPerSecond / 1024d / 1024d:F1} MB/s" : "--";
                 TransferredSizeText = $"{FormatBytes(snapshot.ProcessedBytes)} / {FormatBytes(snapshot.TotalBytes)}";
                 EtaText = snapshot.Eta is TimeSpan eta
                     ? FormatTimeSpan(eta)

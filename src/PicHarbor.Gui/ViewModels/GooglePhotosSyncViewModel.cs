@@ -67,7 +67,10 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     private string authData = "";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProxyDisplayText))]
     private string proxy = "";
+
+    public string ProxyDisplayText => !string.IsNullOrWhiteSpace(Proxy) ? $"{Proxy} (已配置)" : "直连 (未配置代理)";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotTestingProxy))]
@@ -471,6 +474,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         FailedCount = 0;
         ProgressValue = 0;
         TransferredSizeText = "0 B / 0 B";
+        SpeedBytesPerSecond = 0;
         SpeedText = "--";
         EtaText = "--";
         CurrentFile = "--";
@@ -551,6 +555,11 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
 
     [ObservableProperty]
     private string speedText = "--";
+
+    public double SpeedBytesPerSecond { get; private set; }
+
+    [ObservableProperty]
+    private int remainingFilesCount = 0;
 
     [ObservableProperty]
     private string etaText = "--";
@@ -900,6 +909,31 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void Logout()
+    {
+        OAuthCookie = string.Empty;
+        AuthData = string.Empty;
+        AccountEmail = "未登录 / 未设置凭据";
+        IsConnected = false;
+        ConnectionStatusText = "未配置凭据";
+        TestStatusText = string.Empty;
+
+        var config = AppSettings.Load();
+        config.GooglePhotosOAuthCookie = string.Empty;
+        config.GooglePhotosAuthData = string.Empty;
+        config.GooglePhotosAccountEmail = string.Empty;
+        AppSettings.Save(config);
+
+        LogEntries.Add("[INFO] 已成功注销 Google 账号凭据。");
+    }
+
+    [RelayCommand]
+    private void NavigateToSettings()
+    {
+        NavigateToSettingsAction?.Invoke();
+    }
+
+    [RelayCommand]
     private void BrowseCustomTarget()
     {
         var dialog = new OpenFolderDialog
@@ -1031,6 +1065,21 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         }
     }
 
+    public void SyncWithUnifiedManualSelections(IEnumerable<ManualSelectedItemViewModel> items)
+    {
+        ManualSelectedItems.Clear();
+        foreach (var item in items)
+        {
+            ManualSelectedItems.Add(item);
+        }
+        ManualSelectionCount = ManualSelectedItems.Count;
+        ManualSelectionCountText = $"已选择 {ManualSelectionCount} 项媒体";
+        ManualSelectionModalBtnText = string.Format(App.GetString("GooglePhotosViewEditListBtn", "👁️ 查看/编辑上传清单 ({0})"), ManualSelectionCount);
+        OnPropertyChanged(nameof(HasManualSelections));
+        OnPropertyChanged(nameof(HasNoManualSelections));
+        RecalculateScopeSummary();
+    }
+
     public HashSet<string> GetManualSelectionPathsSet()
     {
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
@@ -1128,6 +1177,30 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void ClearAllManualSelections() => ClearManualSelections();
+
+    [RelayCommand]
+    private void PickFilesFromExplorer()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Multiselect = true,
+            Title = App.GetString("TitlePickFilesFromExplorer", "从资源管理器挑选照片..."),
+            Filter = App.GetString("FilterMediaFiles", "媒体文件|*.jpg;*.jpeg;*.heic;*.png;*.webp;*.mov;*.mp4;*.dng;*.cr2;*.nef;*.arw|所有文件|*.*")
+        };
+
+        if (!string.IsNullOrWhiteSpace(ArchivePath) && Directory.Exists(ArchivePath))
+        {
+            dialog.InitialDirectory = ArchivePath;
+        }
+
+        if (dialog.ShowDialog() == true)
+        {
+            ProcessPickedFiles(dialog.FileNames);
+        }
+    }
+
+    [RelayCommand]
     private void RemoveManualItem(ManualSelectedItemViewModel? item)
     {
         if (item == null || string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath)) return;
@@ -1145,11 +1218,20 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         }
     }
 
+    public Action? OpenManualModalAction { get; set; }
+
     [RelayCommand]
     private void OpenManualModal()
     {
         LoadManualSelectionsFromDb();
-        IsManualModalOpen = true;
+        if (OpenManualModalAction != null)
+        {
+            OpenManualModalAction();
+        }
+        else
+        {
+            IsManualModalOpen = true;
+        }
     }
 
     [RelayCommand]
@@ -1304,6 +1386,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         failedDetails.Clear();
         DetailItems.Clear();
         ProgressText = "正在准备上传...";
+        SpeedBytesPerSecond = 0;
         SpeedText = "--";
         EtaText = "--";
         CurrentFile = "--";
@@ -1318,8 +1401,10 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             UploadedCount = s.UploadedFiles;
             SkippedCount = s.SkippedFiles;
             FailedCount = s.FailedFiles;
+            RemainingFilesCount = Math.Max(0, s.TotalFiles - (s.UploadedFiles + s.SkippedFiles + s.FailedFiles));
             activePlanUploadedBytes = s.UploadedBytes;
             TransferredSizeText = $"{FormatSize(s.UploadedBytes)} / {FormatSize(s.TotalBytes)}";
+            SpeedBytesPerSecond = s.SpeedBytesPerSecond;
             SpeedText = s.SpeedBytesPerSecond > 0 ? $"{FormatSize((long)s.SpeedBytesPerSecond)}/s" : "--";
             CurrentFile = s.CurrentFile;
             CurrentPhase = s.CurrentPhase;
@@ -1439,6 +1524,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         isPauseRequested = false;
         CurrentPhase = App.GetString("GooglePhotosResumingPhase", "继续上传中...");
         ProgressText = $"正在继续上传，剩余 {remainingFiles.Count} 项...";
+        SpeedBytesPerSecond = 0;
         SpeedText = "--";
         EtaText = "--";
         CurrentFile = "--";
@@ -1479,8 +1565,10 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             UploadedCount = s.UploadedFiles;
             SkippedCount = s.SkippedFiles;
             FailedCount = s.FailedFiles;
+            RemainingFilesCount = Math.Max(0, s.TotalFiles - (s.UploadedFiles + s.SkippedFiles + s.FailedFiles));
             activePlanUploadedBytes = s.UploadedBytes;
             TransferredSizeText = $"{FormatSize(s.UploadedBytes)} / {FormatSize(s.TotalBytes)}";
+            SpeedBytesPerSecond = s.SpeedBytesPerSecond;
             SpeedText = s.SpeedBytesPerSecond > 0 ? $"{FormatSize((long)s.SpeedBytesPerSecond)}/s" : "--";
             CurrentFile = s.CurrentFile;
             CurrentPhase = s.CurrentPhase;
@@ -1643,6 +1731,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         isPauseRequested = false;
         ProgressValue = 0;
         ProgressText = $"正在重试 {retryTargetFiles.Count} 个失败文件...";
+        SpeedBytesPerSecond = 0;
         SpeedText = "--";
         EtaText = "--";
         CurrentFile = "--";
@@ -1675,7 +1764,9 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         var progressTarget = new Progress<GooglePhotosProgressSnapshot>(s =>
         {
             ProgressValue = s.OverallPercent;
+            RemainingFilesCount = Math.Max(0, s.TotalFiles - (s.UploadedFiles + s.SkippedFiles + s.FailedFiles));
             TransferredSizeText = $"{FormatSize(s.UploadedBytes)} / {FormatSize(s.TotalBytes)}";
+            SpeedBytesPerSecond = s.SpeedBytesPerSecond;
             SpeedText = s.SpeedBytesPerSecond > 0 ? $"{FormatSize((long)s.SpeedBytesPerSecond)}/s" : "--";
             CurrentFile = s.CurrentFile;
             CurrentPhase = s.CurrentPhase;

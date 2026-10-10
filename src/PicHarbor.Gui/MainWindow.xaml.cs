@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using PicHarbor.Gui.Util;
 using PicHarbor.Gui.ViewModels;
 
 namespace PicHarbor.Gui;
@@ -14,24 +15,156 @@ namespace PicHarbor.Gui;
 /// </summary>
 public partial class MainWindow : Window
 {
-    private readonly DispatcherTimer previewClock;
-    private bool suppressSeekCallback;
-    private bool previewUserSeeking;
-    private string? attemptedVideoPath;
-    private bool previewOpened;
-    private bool markingPreviewFailure;
+    private MainViewModel? _hookedMainVM;
 
     public MainWindow()
     {
         InitializeComponent();
-        previewClock = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
-        previewClock.Tick += (_, _) => UpdatePreviewClock();
-        if (DataContext is MainViewModel main)
+        PreviewKeyDown += MainWindow_PreviewKeyDown;
+        Loaded += MainWindow_Loaded;
+        DataContextChanged += MainWindow_DataContextChanged;
+        if (DataContext is MainViewModel vm)
         {
-            main.SearchVM.PropertyChanged += SearchVm_PropertyChanged;
+            HookMainViewModel(vm);
+        }
+    }
+
+    private void MainWindow_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        HookMainViewModel(e.NewValue as MainViewModel);
+    }
+
+    private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm && vm.IsTaskManagerOpen)
+        {
+            AnimateOpenTaskManager(animate: false);
+        }
+    }
+
+    private void HookMainViewModel(MainViewModel? vm)
+    {
+        if (_hookedMainVM != null)
+        {
+            _hookedMainVM.PropertyChanged -= MainVM_PropertyChanged;
+        }
+        _hookedMainVM = vm;
+        if (_hookedMainVM != null)
+        {
+            _hookedMainVM.PropertyChanged += MainVM_PropertyChanged;
+        }
+    }
+
+    private void MainVM_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.IsTaskManagerOpen))
+        {
+            if (_hookedMainVM?.IsTaskManagerOpen == true)
+            {
+                AnimateOpenTaskManager(animate: true);
+            }
+            else
+            {
+                AnimateCloseTaskManager(animate: true);
+            }
+        }
+    }
+
+    public void AnimateOpenTaskManager(bool animate = true)
+    {
+        if (TaskManagerOverlay == null || TaskManagerTranslate == null) return;
+
+        TaskManagerOverlay.Visibility = Visibility.Visible;
+        TaskManagerOverlay.IsHitTestVisible = true;
+
+        if (!animate)
+        {
+            TaskManagerOverlay.BeginAnimation(OpacityProperty, null);
+            TaskManagerTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+            TaskManagerOverlay.Opacity = 1.0;
+            TaskManagerTranslate.Y = 0.0;
+            return;
         }
 
-        Closed += (_, _) => StopPreviewPlayback();
+        // Reset previous clocks and set starting values
+        TaskManagerOverlay.BeginAnimation(OpacityProperty, null);
+        TaskManagerTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+        TaskManagerOverlay.Opacity = 0.0;
+        TaskManagerTranslate.Y = 32.0;
+
+        // PCL2 subpage slide up and fade in
+        Controls.PclAnimation.AnimateDouble(TaskManagerOverlay, OpacityProperty, 1.0, 220, Controls.PclAnimation.EaseOutFluentWeak);
+        Controls.PclAnimation.AnimateDouble(TaskManagerTranslate, TranslateTransform.YProperty, 0.0, 260, Controls.PclAnimation.EaseOutFluentStrong);
+    }
+
+    public void AnimateCloseTaskManager(bool animate = true)
+    {
+        if (TaskManagerOverlay == null || TaskManagerTranslate == null) return;
+
+        TaskManagerOverlay.IsHitTestVisible = false;
+
+        if (!animate)
+        {
+            TaskManagerOverlay.BeginAnimation(OpacityProperty, null);
+            TaskManagerTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+            TaskManagerOverlay.Visibility = Visibility.Collapsed;
+            TaskManagerOverlay.Opacity = 0.0;
+            TaskManagerTranslate.Y = 32.0;
+            return;
+        }
+
+        // PCL2 subpage slide down and fade out
+        Controls.PclAnimation.AnimateDouble(TaskManagerTranslate, TranslateTransform.YProperty, 24.0, 160, Controls.PclAnimation.EaseOutFluentMiddle);
+        Controls.PclAnimation.AnimateDouble(TaskManagerOverlay, OpacityProperty, 0.0, 160, Controls.PclAnimation.EaseOutFluentMiddle, onCompleted: () =>
+        {
+            if (DataContext is MainViewModel vm && !vm.IsTaskManagerOpen)
+            {
+                TaskManagerOverlay.BeginAnimation(OpacityProperty, null);
+                TaskManagerTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+                TaskManagerOverlay.Visibility = Visibility.Collapsed;
+                TaskManagerOverlay.Opacity = 0.0;
+                TaskManagerTranslate.Y = 32.0;
+            }
+        });
+    }
+
+    private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            var topModal = Controls.PclModalHost.GetTopActiveModal();
+            if (topModal != null)
+            {
+                topModal.Close();
+                e.Handled = true;
+                return;
+            }
+
+            if (DataContext is MainViewModel mainVM && mainVM.IsTaskManagerOpen)
+            {
+                mainVM.CloseTaskManager();
+                e.Handled = true;
+                return;
+            }
+        }
+    }
+
+    private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == MouseButton.Left)
+        {
+            DragMove();
+        }
+    }
+
+    private void MinimizeButton_Click(object sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
+    }
+
+    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        Close();
     }
 
     private void NavButton_Click(object sender, RoutedEventArgs e)
@@ -92,26 +225,52 @@ public partial class MainWindow : Window
         }
     }
 
+    private static readonly HashSet<string> PreviewImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg", ".jpeg", ".jfif", ".png", ".bmp", ".gif", ".webp",
+        ".heic", ".heif", ".tif", ".tiff", ".dng", ".raw", ".cr2", ".cr3", ".nef", ".arw", ".rw2", ".orf"
+    };
+
+    private string? ResolveDetailFilePath(TransferItemDetail? detail)
+    {
+        if (detail == null) return null;
+        if (!string.IsNullOrEmpty(detail.FullPath) && File.Exists(detail.FullPath))
+            return detail.FullPath;
+        if (!string.IsNullOrEmpty(detail.TargetPath) && File.Exists(detail.TargetPath))
+            return detail.TargetPath;
+        if (!string.IsNullOrEmpty(detail.SourcePath) && File.Exists(detail.SourcePath))
+            return detail.SourcePath;
+        if (DataContext is MainViewModel mainVM && !string.IsNullOrEmpty(detail.TargetPath))
+        {
+            var dest = mainVM.DestinationPath;
+            if (!string.IsNullOrEmpty(dest))
+            {
+                var candidate = Path.Combine(dest, detail.TargetPath);
+                if (File.Exists(candidate)) return candidate;
+            }
+        }
+        return null;
+    }
+
+    private void DetailDataGridRow_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is DataGridRow row)
+        {
+            row.IsSelected = true;
+            row.Focus();
+        }
+    }
+
     private void DetailDataGridRow_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         try
         {
             if (sender is DataGridRow { DataContext: TransferItemDetail detail })
             {
-                if (DataContext is MainViewModel mainVM)
+                var path = ResolveDetailFilePath(detail);
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
                 {
-                    if (mainVM.BackupVM.IsDetailModalOpen)
-                    {
-                        mainVM.BackupVM.OpenDetailCommand.Execute(detail);
-                    }
-                    else if (mainVM.AndroidSyncVM.IsDetailModalOpen)
-                    {
-                        mainVM.AndroidSyncVM.OpenDetailCommand.Execute(detail);
-                    }
-                    else if (mainVM.GooglePhotosVM.IsDetailModalOpen)
-                    {
-                        mainVM.GooglePhotosVM.OpenDetailCommand.Execute(detail);
-                    }
+                    ShellServices.OpenFiles(new[] { path });
                     e.Handled = true;
                 }
             }
@@ -122,304 +281,229 @@ public partial class MainWindow : Window
         }
     }
 
-    private void GalleryCard_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void DetailContextMenu_ShowInExplorer_Click(object sender, RoutedEventArgs e)
     {
-        try
+        if (sender is MenuItem { DataContext: TransferItemDetail detail })
         {
-            if (e.ClickCount == 2)
+            var path = ResolveDetailFilePath(detail);
+            if (!string.IsNullOrEmpty(path))
             {
-                if (sender is FrameworkElement { DataContext: MediaSearchResultItem item })
-                {
-                    if (DataContext is MainViewModel { SearchVM: { } searchVM })
-                    {
-                        searchVM.OpenPreviewCommand.Execute(item);
-                        e.Handled = true;
-                    }
-                }
+                ShellServices.ShowInExplorer(new[] { path });
             }
         }
-        catch (Exception ex)
+    }
+
+    private void DetailContextMenu_OpenExternal_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: TransferItemDetail detail })
         {
-            System.Diagnostics.Debug.WriteLine($"GalleryCard_MouseLeftButtonDown error: {ex.Message}");
+            var path = ResolveDetailFilePath(detail);
+            if (!string.IsNullOrEmpty(path))
+            {
+                ShellServices.OpenFiles(new[] { path });
+            }
         }
     }
 
-    private void LightboxImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void DetailContextMenu_CopyFile_Click(object sender, RoutedEventArgs e)
     {
-        OpenPreviewItemExternal(e);
+        if (sender is MenuItem { DataContext: TransferItemDetail detail })
+        {
+            var path = ResolveDetailFilePath(detail);
+            if (!string.IsNullOrEmpty(path))
+            {
+                ShellServices.CopyFilesToClipboard(new[] { path });
+            }
+        }
     }
 
-    private void PreviewPlayer_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void DetailContextMenu_Properties_Click(object sender, RoutedEventArgs e)
     {
-        OpenPreviewItemExternal(e);
+        if (sender is MenuItem { DataContext: TransferItemDetail detail })
+        {
+            var path = ResolveDetailFilePath(detail);
+            if (!string.IsNullOrEmpty(path))
+            {
+                var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+                ShellServices.ShowProperties(new[] { path }, hwnd);
+            }
+        }
     }
 
-    private void OpenPreviewItemExternal(MouseButtonEventArgs e)
+    private void ModernListItem_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         try
         {
-            if (e.ClickCount == 2)
+            if (sender is FrameworkElement { DataContext: MediaSearchResultItem item })
             {
-                if (DataContext is MainViewModel { SearchVM: { PreviewItem: not null } searchVM })
+                if (!string.IsNullOrEmpty(item.FullPath) && File.Exists(item.FullPath))
                 {
-                    searchVM.OpenCommand.Execute(new[] { searchVM.PreviewItem });
+                    ShellServices.OpenFiles([item.FullPath]);
                     e.Handled = true;
                 }
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"LightboxImage_MouseLeftButtonDown error: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"ModernListItem_MouseDoubleClick error: {ex.Message}");
         }
     }
 
-    private void SearchVm_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void ModernListItem_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.PropertyName is nameof(SearchViewModel.PreviewVideoPath)
-            or nameof(SearchViewModel.IsPreviewVideo)
-            or nameof(SearchViewModel.IsPreviewOpen))
+        if (sender is ListViewItem item)
         {
-            SyncPreviewPlayer();
+            item.IsSelected = true;
         }
     }
 
-    private void SyncPreviewPlayer()
+    private void ListItem_ToggleUnified_Click(object sender, RoutedEventArgs e)
     {
-        if (DataContext is not MainViewModel { SearchVM: { } search })
+        if (sender is FrameworkElement { DataContext: MediaSearchResultItem item } &&
+            DataContext is MainViewModel { SearchVM: { } searchVM })
         {
-            return;
-        }
-
-        StopPreviewPlayback();
-        if (!search.IsPreviewOpen || !search.IsPreviewVideo || string.IsNullOrWhiteSpace(search.PreviewVideoPath))
-        {
-            return;
-        }
-
-        if (!File.Exists(search.PreviewVideoPath))
-        {
-            return;
-        }
-
-        try
-        {
-            attemptedVideoPath = search.PreviewVideoPath;
-            previewOpened = false;
-            search.IsPreviewVideoFailed = false;
-            search.PreviewStatusText = "";
-            PreviewPlayer.Source = new Uri(search.PreviewVideoPath, UriKind.Absolute);
-            PreviewPlayer.Play();
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Preview playback error: {ex.Message}");
-            MarkPreviewVideoFailed(search);
+            searchVM.ToggleUnifiedManualSelectionCommand.Execute(item);
         }
     }
 
-    private void StopPreviewPlayback()
+    private void ListItem_ToggleIPhone_Click(object sender, RoutedEventArgs e)
     {
-        previewClock.Stop();
-        previewUserSeeking = false;
-        attemptedVideoPath = null;
-        previewOpened = false;
-        suppressSeekCallback = true;
-        PreviewSeek.Value = 0;
-        suppressSeekCallback = false;
-        PreviewClockText.Text = "0:00 / 0:00";
-        PreviewPlayer.Visibility = Visibility.Collapsed;
-        try
+        if (sender is FrameworkElement { DataContext: MediaSearchResultItem item } &&
+            DataContext is MainViewModel { SearchVM: { } searchVM })
         {
-            PreviewPlayer.Stop();
-            PreviewPlayer.Source = null;
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Stop preview error: {ex.Message}");
-        }
-
-        if (DataContext is MainViewModel { SearchVM: { } search })
-        {
-            search.IsPreviewPlaying = false;
+            searchVM.ToggleUnifiedManualSelectionCommand.Execute(item);
         }
     }
 
-    private void PreviewPlayer_MediaOpened(object sender, RoutedEventArgs e)
+    private void ListItem_ToggleAndroid_Click(object sender, RoutedEventArgs e)
     {
-        if (DataContext is not MainViewModel { SearchVM: { } search })
+        if (sender is FrameworkElement { DataContext: MediaSearchResultItem item } &&
+            DataContext is MainViewModel { SearchVM: { } searchVM })
         {
-            return;
+            searchVM.ToggleUnifiedManualSelectionCommand.Execute(item);
         }
-
-        if (PreviewPlayer.Source is not Uri uri ||
-            !string.Equals(uri.LocalPath, attemptedVideoPath, StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        previewOpened = true;
-        search.IsPreviewVideoFailed = false;
-        search.PreviewStatusText = "";
-        PreviewPlayer.Visibility = Visibility.Visible;
-        search.IsPreviewPlaying = true;
-        previewClock.Start();
-        UpdatePreviewClock();
     }
 
-    private void PreviewPlayer_MediaFailed(object sender, ExceptionRoutedEventArgs e)
+    private void ListItem_Reveal_Click(object sender, RoutedEventArgs e)
     {
-        if (markingPreviewFailure || previewOpened || DataContext is not MainViewModel { SearchVM: { } search })
+        if (sender is FrameworkElement { DataContext: MediaSearchResultItem item } &&
+            !string.IsNullOrEmpty(item.FullPath) && File.Exists(item.FullPath))
         {
-            return;
+            ShellServices.ShowInExplorer([item.FullPath]);
         }
-
-        if (PreviewPlayer.Source is not Uri uri ||
-            !string.Equals(uri.LocalPath, attemptedVideoPath, StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        System.Diagnostics.Debug.WriteLine($"Preview media failed: {e.ErrorException?.Message}");
-        MarkPreviewVideoFailed(search);
     }
 
-    private void PreviewPlayer_MediaEnded(object sender, RoutedEventArgs e)
+    private void ListItem_Open_Click(object sender, RoutedEventArgs e)
     {
-        if (!previewOpened)
+        if (sender is FrameworkElement { DataContext: MediaSearchResultItem item } &&
+            !string.IsNullOrEmpty(item.FullPath) && File.Exists(item.FullPath))
         {
-            return;
+            ShellServices.OpenFiles([item.FullPath]);
         }
-
-        PreviewPlayer.Position = TimeSpan.Zero;
-        PreviewPlayer.Play();
     }
 
-    private void PreviewPlayPause_Click(object sender, RoutedEventArgs e)
+    private void ManualListItem_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (DataContext is not MainViewModel { SearchVM: { } search } || !search.IsPreviewVideo)
+        if (TryResolveManualItem(sender, out _, out string path))
         {
-            return;
+            ShellServices.OpenFiles([path]);
+            e.Handled = true;
         }
-
-        if (search.IsPreviewPlaying)
-        {
-            PreviewPlayer.Pause();
-            search.IsPreviewPlaying = false;
-            previewClock.Stop();
-            return;
-        }
-
-        if (PreviewPlayer.Source is null)
-        {
-            SyncPreviewPlayer();
-            return;
-        }
-
-        PreviewPlayer.Play();
-        search.IsPreviewPlaying = true;
-        previewClock.Start();
     }
 
-    private void PreviewSeek_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    private void ManualListItem_Open_Click(object sender, RoutedEventArgs e)
     {
-        previewUserSeeking = true;
+        if (TryResolveManualItem(sender, out _, out string path))
+        {
+            ShellServices.OpenFiles([path]);
+        }
     }
 
-    private void PreviewSeek_PreviewMouseUp(object sender, MouseButtonEventArgs e)
+    private void ManualListItem_Reveal_Click(object sender, RoutedEventArgs e)
     {
-        previewUserSeeking = false;
-        SeekPreview(PreviewSeek.Value);
+        if (TryResolveManualItem(sender, out _, out string path))
+        {
+            ShellServices.ShowInExplorer([path]);
+        }
     }
 
-    private void PreviewSeek_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    private void ManualListItem_Toggle_Click(object sender, RoutedEventArgs e)
     {
-        if (suppressSeekCallback || !previewUserSeeking)
+        if (TryGetManualItem(sender, out ManualSelectedItemViewModel item) &&
+            DataContext is MainViewModel main)
         {
-            return;
+            main.RemoveUnifiedManualItemCommand.Execute(item);
         }
-
-        SeekPreview(e.NewValue);
     }
 
-    private void SeekPreview(double seconds)
+    private bool TryResolveManualItem(object sender, out ManualSelectedItemViewModel item, out string path)
     {
-        if (!PreviewPlayer.NaturalDuration.HasTimeSpan || double.IsNaN(seconds))
+        item = null!;
+        path = "";
+        if (!TryGetManualItem(sender, out ManualSelectedItemViewModel selected))
         {
-            return;
+            return false;
         }
 
-        TimeSpan duration = PreviewPlayer.NaturalDuration.TimeSpan;
-        if (seconds < 0)
+        item = selected;
+        if (!string.IsNullOrWhiteSpace(selected.FullPath) && File.Exists(selected.FullPath))
         {
-            seconds = 0;
+            path = selected.FullPath;
+            return true;
         }
 
-        if (seconds > duration.TotalSeconds)
+        if (DataContext is MainViewModel main &&
+            !string.IsNullOrWhiteSpace(main.DestinationPath) &&
+            !string.IsNullOrWhiteSpace(selected.RelativePath))
         {
-            seconds = duration.TotalSeconds;
+            string combined = Path.Combine(main.DestinationPath, selected.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+            if (File.Exists(combined))
+            {
+                path = combined;
+                return true;
+            }
         }
 
-        PreviewPlayer.Position = TimeSpan.FromSeconds(seconds);
-        UpdatePreviewClock();
+        return false;
     }
 
-    private void UpdatePreviewClock()
+    private static bool TryGetManualItem(object sender, out ManualSelectedItemViewModel item)
     {
-        if (!PreviewPlayer.NaturalDuration.HasTimeSpan)
+        item = null!;
+        if (sender is not FrameworkElement element)
         {
-            return;
+            return false;
         }
 
-        TimeSpan duration = PreviewPlayer.NaturalDuration.TimeSpan;
-        TimeSpan position = PreviewPlayer.Position;
-        if (!previewUserSeeking)
+        if (element.DataContext is ManualSelectedItemViewModel direct)
         {
-            suppressSeekCallback = true;
-            PreviewSeek.Maximum = Math.Max(duration.TotalSeconds, 0.001);
-            PreviewSeek.Value = Math.Clamp(position.TotalSeconds, 0, PreviewSeek.Maximum);
-            suppressSeekCallback = false;
+            item = direct;
+            return true;
         }
 
-        PreviewClockText.Text = $"{FormatClock(position)} / {FormatClock(duration)}";
+        DependencyObject? current = element;
+        while (current != null)
+        {
+            if (current is ContextMenu menu &&
+                menu.PlacementTarget is FrameworkElement target &&
+                target.DataContext is ManualSelectedItemViewModel placed)
+            {
+                item = placed;
+                return true;
+            }
+
+            current = LogicalTreeHelper.GetParent(current) ?? VisualTreeHelper.GetParent(current);
+        }
+
+        return false;
     }
 
-    private static string FormatClock(TimeSpan time)
+    private void CloseTaskManager_Click(object sender, RoutedEventArgs e)
     {
-        if (time < TimeSpan.Zero)
+        if (DataContext is MainViewModel mainVM)
         {
-            time = TimeSpan.Zero;
+            mainVM.CloseTaskManager();
         }
-
-        return time.TotalHours >= 1
-            ? $"{(int)time.TotalHours}:{time.Minutes:00}:{time.Seconds:00}"
-            : $"{(int)time.TotalMinutes}:{time.Seconds:00}";
-    }
-
-    private void MarkPreviewVideoFailed(SearchViewModel search)
-    {
-        if (markingPreviewFailure)
-        {
-            return;
-        }
-
-        markingPreviewFailure = true;
-        previewClock.Stop();
-        PreviewPlayer.Visibility = Visibility.Collapsed;
-        try
-        {
-            PreviewPlayer.Stop();
-            PreviewPlayer.Source = null;
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Stop failed preview error: {ex.Message}");
-        }
-
-        attemptedVideoPath = null;
-        search.IsPreviewPlaying = false;
-        search.IsPreviewVideoFailed = true;
-        search.PreviewStatusText = App.GetString("PreviewVideoFailed", "无法播放此视频，已显示配套静图。");
-        markingPreviewFailure = false;
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
@@ -434,32 +518,18 @@ public partial class MainWindow : Window
 
             if (DataContext is MainViewModel mainVM)
             {
-                if (mainVM.SearchVM is { IsPreviewOpen: true } searchVM)
+                if (e.Key == Key.Escape && mainVM.IsDetailModalOpen)
                 {
-                    if (e.Key == Key.Escape)
-                    {
-                        searchVM.ClosePreviewCommand.Execute(null);
-                        e.Handled = true;
-                        return;
-                    }
-                    else if (e.Key == Key.Space && searchVM.IsPreviewVideo && Keyboard.FocusedElement is not (TextBox or Button or Slider))
-                    {
-                        PreviewPlayPause_Click(this, new RoutedEventArgs());
-                        e.Handled = true;
-                        return;
-                    }
-                    else if (e.Key == Key.Left)
-                    {
-                        searchVM.PrevPreviewCommand.Execute(null);
-                        e.Handled = true;
-                        return;
-                    }
-                    else if (e.Key == Key.Right)
-                    {
-                        searchVM.NextPreviewCommand.Execute(null);
-                        e.Handled = true;
-                        return;
-                    }
+                    mainVM.CloseActiveDetailModal();
+                    e.Handled = true;
+                    return;
+                }
+
+                if (e.Key == Key.Escape && mainVM.IsTaskManagerOpen)
+                {
+                    mainVM.CloseTaskManager();
+                    e.Handled = true;
+                    return;
                 }
 
                 if (e.Key == Key.V && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
@@ -508,6 +578,28 @@ public partial class MainWindow : Window
             e.Effects = DragDropEffects.None;
         }
         e.Handled = true;
+    }
+
+    private void UnifiedManualDropZone_Drop(object sender, DragEventArgs e)
+    {
+        try
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
+                {
+                    if (DataContext is MainViewModel mainVM)
+                    {
+                        mainVM.AddFilesToUnifiedManual(files);
+                        e.Handled = true;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"UnifiedManualDropZone_Drop error: {ex.Message}");
+        }
     }
 
     private void IPhoneManualDropZone_Drop(object sender, DragEventArgs e)
@@ -610,6 +702,39 @@ public partial class MainWindow : Window
         }
     }
 
+    private void DeviceHeroArea_MouseEnter(object sender, MouseEventArgs e)
+    {
+        if (IPhoneHeroHoverMenu != null)
+        {
+            Controls.PclAnimation.AnimateDouble(IPhoneHeroHoverMenu, HeightProperty, 30.0, 160, Controls.PclAnimation.EaseOutFluentWeak);
+            Controls.PclAnimation.AnimateDouble(IPhoneHeroHoverMenu, OpacityProperty, 1.0, 160, Controls.PclAnimation.EaseOutFluentWeak);
+        }
+        if (AndroidHeroHoverMenu != null)
+        {
+            Controls.PclAnimation.AnimateDouble(AndroidHeroHoverMenu, HeightProperty, 30.0, 160, Controls.PclAnimation.EaseOutFluentWeak);
+            Controls.PclAnimation.AnimateDouble(AndroidHeroHoverMenu, OpacityProperty, 1.0, 160, Controls.PclAnimation.EaseOutFluentWeak);
+        }
+    }
+
+    private void DeviceHeroArea_MouseLeave(object sender, MouseEventArgs e)
+    {
+        if (IPhoneHeroHoverMenu != null)
+        {
+            Controls.PclAnimation.AnimateDouble(IPhoneHeroHoverMenu, HeightProperty, 0.0, 140, Controls.PclAnimation.EaseOutFluentMiddle);
+            Controls.PclAnimation.AnimateDouble(IPhoneHeroHoverMenu, OpacityProperty, 0.0, 140, Controls.PclAnimation.EaseOutFluentMiddle);
+        }
+        if (AndroidHeroHoverMenu != null)
+        {
+            Controls.PclAnimation.AnimateDouble(AndroidHeroHoverMenu, HeightProperty, 0.0, 140, Controls.PclAnimation.EaseOutFluentMiddle);
+            Controls.PclAnimation.AnimateDouble(AndroidHeroHoverMenu, OpacityProperty, 0.0, 140, Controls.PclAnimation.EaseOutFluentMiddle);
+        }
+    }
+
+    private void IPhoneHero_MouseEnter(object sender, MouseEventArgs e) => DeviceHeroArea_MouseEnter(sender, e);
+    private void IPhoneHero_MouseLeave(object sender, MouseEventArgs e) => DeviceHeroArea_MouseLeave(sender, e);
+    private void AndroidHero_MouseEnter(object sender, MouseEventArgs e) => DeviceHeroArea_MouseEnter(sender, e);
+    private void AndroidHero_MouseLeave(object sender, MouseEventArgs e) => DeviceHeroArea_MouseLeave(sender, e);
+
     private static T? FindParent<T>(DependencyObject child) where T : DependencyObject
     {
         DependencyObject? parentObject = VisualTreeHelper.GetParent(child);
@@ -617,4 +742,16 @@ public partial class MainWindow : Window
         if (parentObject is T parent) return parent;
         return FindParent<T>(parentObject);
     }
+
+    private void DeviceGridRow_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is DataGridRow row && row.Item is DeviceHistoryItem item)
+        {
+            if (DataContext is MainViewModel mainVM)
+            {
+                mainVM.StatusVM.OpenDeviceHistory(item);
+            }
+        }
+    }
 }
+

@@ -22,7 +22,7 @@ public sealed class AndroidSyncTests : IDisposable
             journal.EnsurePending(new RemoteFile("/DCIM/IMG_1001.JPG", 1024, null));
         }
 
-        ReadUserVersion(dir.Path).ShouldBe(6);
+        ReadUserVersion(dir.Path).ShouldBe(TransferJournal.SchemaVersion);
     }
 
     [Fact]

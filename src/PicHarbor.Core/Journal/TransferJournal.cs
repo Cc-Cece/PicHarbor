@@ -33,7 +33,7 @@ public sealed class TransferJournal : IDisposable
     public const string LegacyDatabaseFileName = "get-and-see.db";
 
     /// <summary>Current journal schema version (bumped when tables are added; migrated in place).</summary>
-    public const long SchemaVersion = 6;
+    public const long SchemaVersion = 7;
 
     /// <summary>The <c>settings</c> key under which an archive's <c>organize_scheme</c> token is stored.</summary>
     private const string OrganizeSchemeKey = "organize_scheme";
@@ -360,6 +360,41 @@ public sealed class TransferJournal : IDisposable
         EnsureColumnExists("android_manual_selections", "is_autofilled", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumnExists("google_photos_manual_selections", "is_autofilled", "INTEGER NOT NULL DEFAULT 0");
 
+        Execute(
+            """
+            CREATE TABLE IF NOT EXISTS backup_sessions (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                device_uid       TEXT NOT NULL,
+                device_name      TEXT,
+                device_model     TEXT,
+                started_at       TEXT NOT NULL,
+                finished_at      TEXT,
+                files_count      INTEGER NOT NULL DEFAULT 0,
+                total_size_bytes INTEGER NOT NULL DEFAULT 0,
+                status           TEXT NOT NULL DEFAULT 'InFlight',
+                error_message    TEXT
+            );
+            """);
+        Execute("CREATE INDEX IF NOT EXISTS ix_sessions_device ON backup_sessions (device_uid);");
+        Execute("CREATE INDEX IF NOT EXISTS ix_sessions_started ON backup_sessions (started_at);");
+
+        Execute(
+            """
+            CREATE TABLE IF NOT EXISTS backup_history_records (
+                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id         INTEGER NOT NULL,
+                device_source_path TEXT NOT NULL,
+                dest_path          TEXT NOT NULL,
+                file_size          INTEGER NOT NULL,
+                transferred_at     TEXT NOT NULL,
+                media_type         TEXT
+            );
+            """);
+        Execute("CREATE INDEX IF NOT EXISTS ix_history_session ON backup_history_records (session_id);");
+
+        EnsureColumnExists("devices", "hardware_serial", "TEXT");
+        EnsureColumnExists("devices", "device_type", "TEXT");
+
         Migrate();
     }
 
@@ -498,6 +533,44 @@ public sealed class TransferJournal : IDisposable
                     PRIMARY KEY (device_id, dest_path)
                 );
                 """);
+        }
+
+        if (version < 7)
+        {
+            Execute(
+                """
+                CREATE TABLE IF NOT EXISTS backup_sessions (
+                    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                    device_uid       TEXT NOT NULL,
+                    device_name      TEXT,
+                    device_model     TEXT,
+                    started_at       TEXT NOT NULL,
+                    finished_at      TEXT,
+                    files_count      INTEGER NOT NULL DEFAULT 0,
+                    total_size_bytes INTEGER NOT NULL DEFAULT 0,
+                    status           TEXT NOT NULL DEFAULT 'InFlight',
+                    error_message    TEXT
+                );
+                """);
+            Execute("CREATE INDEX IF NOT EXISTS ix_sessions_device ON backup_sessions (device_uid);");
+            Execute("CREATE INDEX IF NOT EXISTS ix_sessions_started ON backup_sessions (started_at);");
+
+            Execute(
+                """
+                CREATE TABLE IF NOT EXISTS backup_history_records (
+                    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id         INTEGER NOT NULL,
+                    device_source_path TEXT NOT NULL,
+                    dest_path          TEXT NOT NULL,
+                    file_size          INTEGER NOT NULL,
+                    transferred_at     TEXT NOT NULL,
+                    media_type         TEXT
+                );
+                """);
+            Execute("CREATE INDEX IF NOT EXISTS ix_history_session ON backup_history_records (session_id);");
+
+            EnsureColumnExists("devices", "hardware_serial", "TEXT");
+            EnsureColumnExists("devices", "device_type", "TEXT");
         }
 
         Execute($"PRAGMA user_version = {SchemaVersion};");
@@ -938,8 +1011,13 @@ public sealed class TransferJournal : IDisposable
             return rows;
         }
 
-        using SqliteCommand command = CreateCommand(
-            "SELECT udid, name, model, last_seen FROM devices ORDER BY last_seen DESC;");
+        bool hasSerial = ColumnExists("devices", "hardware_serial");
+        bool hasType = ColumnExists("devices", "device_type");
+        string sql = (hasSerial && hasType)
+            ? "SELECT udid, name, model, last_seen, hardware_serial, device_type FROM devices ORDER BY last_seen DESC;"
+            : "SELECT udid, name, model, last_seen FROM devices ORDER BY last_seen DESC;";
+
+        using SqliteCommand command = CreateCommand(sql);
         using SqliteDataReader reader = command.ExecuteReader();
         while (reader.Read())
         {
@@ -947,10 +1025,405 @@ public sealed class TransferJournal : IDisposable
                 reader.GetString(0),
                 reader.IsDBNull(1) ? null : reader.GetString(1),
                 reader.IsDBNull(2) ? null : reader.GetString(2),
-                reader.IsDBNull(3) ? null : ParseIsoOrNull(reader.GetString(3))));
+                reader.IsDBNull(3) ? null : ParseIsoOrNull(reader.GetString(3)),
+                (hasSerial && !reader.IsDBNull(4)) ? reader.GetString(4) : null,
+                (hasType && !reader.IsDBNull(5)) ? reader.GetString(5) : null));
         }
 
         return rows;
+    }
+
+    /// <summary>
+    /// Registers a new device or updates an existing device, applying automatic renaming and deduplication.
+    /// If the device was renamed on the phone, updates name immediately (forced sync).
+    /// If another device shares the same name, automatically appends suffix '(2)', '(3)' etc. (forced disambiguation).
+    /// </summary>
+    public string RegisterOrUpdateDevice(
+        string udid,
+        string? name,
+        string? model,
+        string? hardwareSerial,
+        string? deviceType,
+        DateTimeOffset seenAt)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(udid);
+        string effectiveName = string.IsNullOrWhiteSpace(name) ? "Unknown Device" : name.Trim();
+
+        // Check if device already exists
+        using (SqliteCommand checkCmd = CreateCommand("SELECT name FROM devices WHERE udid = $udid;"))
+        {
+            checkCmd.Parameters.AddWithValue("$udid", udid);
+            object? existingNameObj = checkCmd.ExecuteScalar();
+            if (existingNameObj != null)
+            {
+                // Existing device: force sync name to latest, update serial and last_seen
+                using SqliteCommand updateCmd = CreateCommand(
+                    """
+                    UPDATE devices
+                    SET name = $name,
+                        model = COALESCE($model, model),
+                        hardware_serial = COALESCE($serial, hardware_serial),
+                        device_type = COALESCE($type, device_type),
+                        last_seen = $seen
+                    WHERE udid = $udid;
+                    """);
+                updateCmd.Parameters.AddWithValue("$udid", udid);
+                updateCmd.Parameters.AddWithValue("$name", effectiveName);
+                updateCmd.Parameters.AddWithValue("$model", (object?)model ?? DBNull.Value);
+                updateCmd.Parameters.AddWithValue("$serial", (object?)hardwareSerial ?? DBNull.Value);
+                updateCmd.Parameters.AddWithValue("$type", (object?)deviceType ?? DBNull.Value);
+                updateCmd.Parameters.AddWithValue("$seen", IsoUtc(seenAt)!);
+                updateCmd.ExecuteNonQuery();
+                return effectiveName;
+            }
+        }
+
+        // New device: check for naming collisions with other devices
+        string disambiguatedName = effectiveName;
+        int suffix = 2;
+        while (true)
+        {
+            using SqliteCommand collisionCmd = CreateCommand(
+                "SELECT COUNT(*) FROM devices WHERE name = $name AND udid != $udid;");
+            collisionCmd.Parameters.AddWithValue("$name", disambiguatedName);
+            collisionCmd.Parameters.AddWithValue("$udid", udid);
+            long count = (long)(collisionCmd.ExecuteScalar() ?? 0L);
+            if (count == 0)
+            {
+                break;
+            }
+            disambiguatedName = $"{effectiveName} ({suffix++})";
+        }
+
+        using SqliteCommand insertCmd = CreateCommand(
+            """
+            INSERT INTO devices (udid, name, model, hardware_serial, device_type, first_seen, last_seen)
+            VALUES ($udid, $name, $model, $serial, $type, $seen, $seen);
+            """);
+        insertCmd.Parameters.AddWithValue("$udid", udid);
+        insertCmd.Parameters.AddWithValue("$name", disambiguatedName);
+        insertCmd.Parameters.AddWithValue("$model", (object?)model ?? DBNull.Value);
+        insertCmd.Parameters.AddWithValue("$serial", (object?)hardwareSerial ?? DBNull.Value);
+        insertCmd.Parameters.AddWithValue("$type", (object?)deviceType ?? DBNull.Value);
+        insertCmd.Parameters.AddWithValue("$seen", IsoUtc(seenAt)!);
+        insertCmd.ExecuteNonQuery();
+
+        return disambiguatedName;
+    }
+
+    /// <summary>Starts a new backup session batch for a device.</summary>
+    public long BeginBackupSession(string deviceUid, string? deviceName, string? deviceModel, DateTimeOffset startedAt)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceUid);
+        using SqliteCommand cmd = CreateCommand(
+            """
+            INSERT INTO backup_sessions (device_uid, device_name, device_model, started_at, status)
+            VALUES ($uid, $name, $model, $started, 'InFlight');
+            SELECT last_insert_rowid();
+            """);
+        cmd.Parameters.AddWithValue("$uid", deviceUid);
+        cmd.Parameters.AddWithValue("$name", (object?)deviceName ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$model", (object?)deviceModel ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$started", IsoUtc(startedAt)!);
+        return (long)(cmd.ExecuteScalar() ?? 0L);
+    }
+
+    /// <summary>Records an individual file transfer within a backup session batch (Redundant audit data).</summary>
+    public void RecordHistoryItem(
+        long sessionId,
+        string deviceSourcePath,
+        string destPath,
+        long fileSize,
+        DateTimeOffset transferredAt,
+        string? mediaType)
+    {
+        using SqliteCommand cmd = CreateCommand(
+            """
+            INSERT INTO backup_history_records (session_id, device_source_path, dest_path, file_size, transferred_at, media_type)
+            VALUES ($session, $src, $dest, $size, $transferred, $type);
+            """);
+        cmd.Parameters.AddWithValue("$session", sessionId);
+        cmd.Parameters.AddWithValue("$src", deviceSourcePath);
+        cmd.Parameters.AddWithValue("$dest", destPath);
+        cmd.Parameters.AddWithValue("$size", fileSize);
+        cmd.Parameters.AddWithValue("$transferred", IsoUtc(transferredAt)!);
+        cmd.Parameters.AddWithValue("$type", (object?)mediaType ?? DBNull.Value);
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Completes or aborts a backup session batch.</summary>
+    public void CompleteBackupSession(
+        long sessionId,
+        int filesCount,
+        long totalSizeBytes,
+        string status = "Completed",
+        string? errorMessage = null,
+        DateTimeOffset? finishedAt = null)
+    {
+        DateTimeOffset end = finishedAt ?? DateTimeOffset.UtcNow;
+        using SqliteCommand cmd = CreateCommand(
+            """
+            UPDATE backup_sessions
+            SET finished_at = $finished,
+                files_count = $count,
+                total_size_bytes = $size,
+                status = $status,
+                error_message = $err
+            WHERE id = $id;
+            """);
+        cmd.Parameters.AddWithValue("$id", sessionId);
+        cmd.Parameters.AddWithValue("$finished", IsoUtc(end)!);
+        cmd.Parameters.AddWithValue("$count", filesCount);
+        cmd.Parameters.AddWithValue("$size", totalSizeBytes);
+        cmd.Parameters.AddWithValue("$status", status);
+        cmd.Parameters.AddWithValue("$err", (object?)errorMessage ?? DBNull.Value);
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Reads all backup session batches for a specific device, newest first.</summary>
+    public IReadOnlyList<BackupSessionRecord> ReadBackupSessions(string deviceUid)
+    {
+        var list = new List<BackupSessionRecord>();
+        if (!TableExists("backup_sessions")) return list;
+
+        using SqliteCommand cmd = CreateCommand(
+            """
+            SELECT id, device_uid, device_name, device_model, started_at, finished_at, files_count, total_size_bytes, status, error_message
+            FROM backup_sessions
+            WHERE device_uid = $uid
+            ORDER BY started_at DESC;
+            """);
+        cmd.Parameters.AddWithValue("$uid", deviceUid);
+        using SqliteDataReader reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            list.Add(new BackupSessionRecord(
+                reader.GetInt64(0),
+                reader.GetString(1),
+                reader.IsDBNull(2) ? null : reader.GetString(2),
+                reader.IsDBNull(3) ? null : reader.GetString(3),
+                ParseIsoOrNull(reader.GetString(4)) ?? DateTimeOffset.UtcNow,
+                reader.IsDBNull(5) ? null : ParseIsoOrNull(reader.GetString(5)),
+                reader.GetInt32(6),
+                reader.GetInt64(7),
+                reader.GetString(8),
+                reader.IsDBNull(9) ? null : reader.GetString(9)));
+        }
+        return list;
+    }
+
+    /// <summary>Reads all file transfer items belonging to a specific backup session.</summary>
+    public IReadOnlyList<BackupHistoryItemRecord> ReadBackupHistoryItems(long sessionId)
+    {
+        var list = new List<BackupHistoryItemRecord>();
+        if (!TableExists("backup_history_records")) return list;
+
+        using SqliteCommand cmd = CreateCommand(
+            """
+            SELECT id, session_id, device_source_path, dest_path, file_size, transferred_at, media_type
+            FROM backup_history_records
+            WHERE session_id = $session
+            ORDER BY id ASC;
+            """);
+        cmd.Parameters.AddWithValue("$session", sessionId);
+        using SqliteDataReader reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            list.Add(new BackupHistoryItemRecord(
+                reader.GetInt64(0),
+                reader.GetInt64(1),
+                reader.GetString(2),
+                reader.GetString(3),
+                reader.GetInt64(4),
+                ParseIsoOrNull(reader.GetString(5)) ?? DateTimeOffset.UtcNow,
+                reader.IsDBNull(6) ? null : reader.GetString(6)));
+        }
+        return list;
+    }
+
+    /// <summary>Returns aggregated backup totals for a device (total sessions, total files, total bytes).</summary>
+    public (int TotalSessions, int TotalFiles, long TotalBytes) ReadDeviceBackupSummary(string deviceUid)
+    {
+        if (!TableExists("backup_sessions")) return (0, 0, 0);
+
+        using SqliteCommand cmd = CreateCommand(
+            """
+            SELECT COUNT(*), COALESCE(SUM(files_count), 0), COALESCE(SUM(total_size_bytes), 0)
+            FROM backup_sessions
+            WHERE device_uid = $uid AND status != 'Aborted';
+            """);
+        cmd.Parameters.AddWithValue("$uid", deviceUid);
+        using SqliteDataReader reader = cmd.ExecuteReader();
+        if (reader.Read())
+        {
+            return (reader.GetInt32(0), reader.GetInt32(1), reader.GetInt64(2));
+        }
+        return (0, 0, 0);
+    }
+
+    /// <summary>
+    /// Safely prunes redundant audit history data (sessions and file records older than the cutoff).
+    /// Does NOT touch core files/manifest tables or affect deduplication.
+    /// </summary>
+    public (int PrunedSessions, int PrunedRecords) PruneRedundantHistory(DateTimeOffset cutoffTime)
+    {
+        if (!TableExists("backup_sessions") || !TableExists("backup_history_records"))
+        {
+            return (0, 0);
+        }
+
+        string cutoffIso = IsoUtc(cutoffTime)!;
+        int prunedRecords = 0;
+        int prunedSessions = 0;
+
+        using (var transaction = connection.BeginTransaction())
+        {
+            using (SqliteCommand deleteItems = CreateCommand(
+                """
+                DELETE FROM backup_history_records
+                WHERE session_id IN (
+                    SELECT id FROM backup_sessions
+                    WHERE started_at < $cutoff AND status != 'InFlight'
+                );
+                """))
+            {
+                deleteItems.Parameters.AddWithValue("$cutoff", cutoffIso);
+                deleteItems.Transaction = transaction;
+                prunedRecords = deleteItems.ExecuteNonQuery();
+            }
+
+            using (SqliteCommand deleteSessions = CreateCommand(
+                """
+                DELETE FROM backup_sessions
+                WHERE started_at < $cutoff AND status != 'InFlight';
+                """))
+            {
+                deleteSessions.Parameters.AddWithValue("$cutoff", cutoffIso);
+                deleteSessions.Transaction = transaction;
+                prunedSessions = deleteSessions.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+        }
+
+        return (prunedSessions, prunedRecords);
+    }
+
+    /// <summary>Executes WAL checkpoint and SQLite VACUUM to reclaim physical disk space.</summary>
+    public void VacuumDatabase()
+    {
+        Execute("PRAGMA wal_checkpoint(TRUNCATE);");
+        Execute("VACUUM;");
+    }
+
+    /// <summary>Returns physical database footprint and core vs redundant record statistics.</summary>
+    public DatabaseMetricsRecord GetDatabaseMetrics()
+    {
+        long dbSize = 0;
+        long walSize = 0;
+
+        try
+        {
+            if (File.Exists(LongPath.ToExtended(DatabasePath)))
+            {
+                dbSize = new FileInfo(LongPath.ToExtended(DatabasePath)).Length;
+            }
+            string walPath = DatabasePath + "-wal";
+            if (File.Exists(LongPath.ToExtended(walPath)))
+            {
+                walSize = new FileInfo(LongPath.ToExtended(walPath)).Length;
+            }
+        }
+        catch
+        {
+            // Best effort file size reading
+        }
+
+        int coreFiles = 0;
+        int historyRecords = 0;
+        int backupSessions = 0;
+
+        if (TableExists("files"))
+        {
+            using SqliteCommand cmd = CreateCommand("SELECT COUNT(*) FROM files WHERE state = 'done';");
+            coreFiles = Convert.ToInt32(cmd.ExecuteScalar() ?? 0);
+        }
+
+        if (TableExists("backup_history_records"))
+        {
+            using SqliteCommand cmd = CreateCommand("SELECT COUNT(*) FROM backup_history_records;");
+            historyRecords = Convert.ToInt32(cmd.ExecuteScalar() ?? 0);
+        }
+
+        if (TableExists("backup_sessions"))
+        {
+            using SqliteCommand cmd = CreateCommand("SELECT COUNT(*) FROM backup_sessions;");
+            backupSessions = Convert.ToInt32(cmd.ExecuteScalar() ?? 0);
+        }
+
+        return new DatabaseMetricsRecord(dbSize, walSize, coreFiles, historyRecords, backupSessions);
+    }
+
+    /// <summary>
+    /// Scans database against local disk files to clean ghost records (files manually deleted on disk by user).
+    /// Does NOT delete or modify existing files on disk or device.
+    /// </summary>
+    public (int ScannedCount, int RemovedGhostCount) RepairDatabaseConsistency(
+        string destinationRoot,
+        IProgress<(int Scanned, int Removed)>? progress = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        if (!TableExists("files")) return (0, 0);
+
+        var ghostIds = new List<long>();
+        var itemsToCheck = new List<(long Id, string DestPath)>();
+
+        using (SqliteCommand selectCmd = CreateCommand("SELECT id, dest_path FROM files WHERE state = 'done' AND dest_path IS NOT NULL;"))
+        using (SqliteDataReader reader = selectCmd.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                itemsToCheck.Add((reader.GetInt64(0), reader.GetString(1)));
+            }
+        }
+
+        int scanned = 0;
+        int removed = 0;
+
+        foreach (var (id, relPath) in itemsToCheck)
+        {
+            scanned++;
+            string fullPath = Path.Combine(destinationRoot, relPath);
+            if (!File.Exists(LongPath.ToExtended(fullPath)))
+            {
+                ghostIds.Add(id);
+                removed++;
+            }
+
+            if (scanned % 100 == 0)
+            {
+                progress?.Report((scanned, removed));
+            }
+        }
+
+        if (ghostIds.Count > 0)
+        {
+            using var transaction = connection.BeginTransaction();
+            // Batch delete in chunks of 500
+            for (int i = 0; i < ghostIds.Count; i += 500)
+            {
+                var chunk = ghostIds.Skip(i).Take(500).ToList();
+                string inClause = string.Join(",", chunk);
+                using SqliteCommand deleteCmd = CreateCommand($"DELETE FROM files WHERE id IN ({inClause});");
+                deleteCmd.Transaction = transaction;
+                deleteCmd.ExecuteNonQuery();
+            }
+            transaction.Commit();
+        }
+
+        Execute("PRAGMA integrity_check;");
+        progress?.Report((scanned, removed));
+        return (scanned, removed);
     }
 
     /// <summary>Summarizes the run history (count, first/latest run, and the latest run's outcome).</summary>
@@ -1044,6 +1517,25 @@ public sealed class TransferJournal : IDisposable
             Execute($"ALTER TABLE {table} ADD COLUMN {column} {definition};");
         }
         catch { }
+    }
+
+    private bool ColumnExists(string table, string column)
+    {
+        if (!TableExists(table)) return false;
+        try
+        {
+            using SqliteCommand pragma = CreateCommand($"PRAGMA table_info({table});");
+            using SqliteDataReader reader = pragma.ExecuteReader();
+            while (reader.Read())
+            {
+                if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+        }
+        catch { }
+        return false;
     }
 
     private static string? IsoUtc(DateTimeOffset? value) =>
@@ -1850,6 +2342,34 @@ public sealed class TransferJournal : IDisposable
         }
     }
 
+    /// <summary>Adds destination paths to unified manual selections across all sync targets (iPhone, Android, Google Photos).</summary>
+    public void BatchAddUnifiedManualSelections(string? deviceModel, string? deviceId, IEnumerable<string> destPaths, bool isAutofilled = false)
+    {
+        var list = destPaths.ToList();
+        if (list.Count == 0) return;
+        BatchAddManualSelections(string.IsNullOrWhiteSpace(deviceModel) ? "iPhone" : deviceModel, list, isAutofilled);
+        BatchAddAndroidManualSelections(string.IsNullOrWhiteSpace(deviceId) ? "Android Device" : deviceId, list, isAutofilled);
+        BatchAddGooglePhotosManualSelections(list, isAutofilled);
+    }
+
+    /// <summary>Removes destination paths from unified manual selections across all sync targets.</summary>
+    public void BatchRemoveUnifiedManualSelections(string? deviceModel, string? deviceId, IEnumerable<string> destPaths)
+    {
+        var list = destPaths.ToList();
+        if (list.Count == 0) return;
+        BatchRemoveManualSelections(string.IsNullOrWhiteSpace(deviceModel) ? "iPhone" : deviceModel, list);
+        BatchRemoveAndroidManualSelections(string.IsNullOrWhiteSpace(deviceId) ? "Android Device" : deviceId, list);
+        BatchRemoveGooglePhotosManualSelections(list);
+    }
+
+    /// <summary>Clears unified manual selections across all sync targets.</summary>
+    public void ClearUnifiedManualSelections(string? deviceModel, string? deviceId)
+    {
+        ClearManualSelections(string.IsNullOrWhiteSpace(deviceModel) ? "iPhone" : deviceModel);
+        ClearAndroidManualSelections(string.IsNullOrWhiteSpace(deviceId) ? "Android Device" : deviceId);
+        ClearGooglePhotosManualSelections();
+    }
+
     /// <summary>Closes the underlying SQLite connection.</summary>
     public void Dispose()
     {
@@ -1927,11 +2447,56 @@ public sealed record ReorganizeEntry(
     DateTimeOffset? SourceMtime);
 
 /// <summary>A device recorded in the journal's <c>devices</c> table.</summary>
-/// <param name="Udid">Device UDID.</param>
+/// <param name="Udid">Device UDID / Unique ID.</param>
 /// <param name="Name">Device name, if known.</param>
 /// <param name="Model">Device product type/model, if known.</param>
 /// <param name="LastSeen">UTC time the device was last seen, or <see langword="null"/> when the column is empty.</param>
-public sealed record DeviceRecord(string Udid, string? Name, string? Model, DateTimeOffset? LastSeen = null);
+/// <param name="HardwareSerial">Hardware serial number, if known.</param>
+/// <param name="DeviceType">Device type category (iPhone, Android, etc.).</param>
+public sealed record DeviceRecord(
+    string Udid,
+    string? Name,
+    string? Model,
+    DateTimeOffset? LastSeen = null,
+    string? HardwareSerial = null,
+    string? DeviceType = null);
+
+/// <summary>
+/// A recorded backup session grouping files transferred together in a batch (e.g. 100 photos on 2026-10-10).
+/// </summary>
+public sealed record BackupSessionRecord(
+    long Id,
+    string DeviceUid,
+    string? DeviceName,
+    string? DeviceModel,
+    DateTimeOffset StartedAt,
+    DateTimeOffset? FinishedAt,
+    int FilesCount,
+    long TotalSizeBytes,
+    string Status,
+    string? ErrorMessage);
+
+/// <summary>
+/// A specific file transfer history item under a backup session (Redundant/Audit data, safe to prune).
+/// </summary>
+public sealed record BackupHistoryItemRecord(
+    long Id,
+    long SessionId,
+    string DeviceSourcePath,
+    string DestPath,
+    long FileSize,
+    DateTimeOffset TransferredAt,
+    string? MediaType);
+
+/// <summary>
+/// Metrics regarding database physical storage footprint and table record counts.
+/// </summary>
+public sealed record DatabaseMetricsRecord(
+    long DatabaseSizeBytes,
+    long WalSizeBytes,
+    int CoreFilesCount,
+    int HistoryRecordsCount,
+    int BackupSessionsCount);
 
 /// <summary>Summary of the journal's run history, including the latest run's outcome.</summary>
 /// <param name="TotalRuns">Number of recorded runs.</param>

@@ -33,6 +33,17 @@ public partial class ManualSelectedItemViewModel : ObservableObject
 {
     public string RelativePath { get; set; } = string.Empty;
     public string FullPath { get; set; } = string.Empty;
+
+    public string FileName => string.IsNullOrWhiteSpace(RelativePath) ? "" : Path.GetFileName(RelativePath.Replace('/', Path.DirectorySeparatorChar));
+
+    public string FormatUpper
+    {
+        get
+        {
+            string ext = Path.GetExtension(FileName);
+            return string.IsNullOrEmpty(ext) ? "" : ext.TrimStart('.').ToUpperInvariant();
+        }
+    }
     public string CapturedAt { get; set; } = string.Empty;
     public string SizeText { get; set; } = string.Empty;
     public long SizeBytes { get; set; }
@@ -276,6 +287,14 @@ public partial class IPhoneSyncViewModel : ObservableObject
 
     [ObservableProperty]
     private int copiedCount = 0;
+
+    [ObservableProperty]
+    private int remainingFilesCount = 0;
+
+    [ObservableProperty]
+    private string speedText = "--";
+
+    public double SpeedBytesPerSecond { get; private set; }
 
     [ObservableProperty]
     private int skippedCount = 0;
@@ -779,10 +798,19 @@ public partial class IPhoneSyncViewModel : ObservableObject
         return rel.Replace('\\', '/');
     }
 
+    public Action? OpenManualModalAction { get; set; }
+
     [RelayCommand]
     private void OpenManualModal()
     {
-        IsManualModalOpen = true;
+        if (OpenManualModalAction != null)
+        {
+            OpenManualModalAction();
+        }
+        else
+        {
+            IsManualModalOpen = true;
+        }
         _ = LoadThumbnailsForManualItemsAsync();
     }
 
@@ -1131,6 +1159,9 @@ public partial class IPhoneSyncViewModel : ObservableObject
             CopiedCount = s.CopiedFiles;
             SkippedCount = s.SkippedFiles;
             FailedCount = s.FailedFiles;
+            RemainingFilesCount = Math.Max(0, s.TotalFiles - s.ProcessedFiles);
+            SpeedBytesPerSecond = s.CurrentBytesPerSecond;
+            SpeedText = s.CurrentBytesPerSecond > 0 ? $"{s.CurrentBytesPerSecond / 1024d / 1024d:F1} MB/s" : "--";
             TransferredSizeText = FormatByteSize(s.ProcessedBytes);
         });
 

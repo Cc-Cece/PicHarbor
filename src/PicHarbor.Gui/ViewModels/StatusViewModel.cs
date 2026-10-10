@@ -15,12 +15,17 @@ public class DeviceHistoryItem
     public string Model { get; set; } = string.Empty;
     public string Udid { get; set; } = string.Empty;
     public string LastSeen { get; set; } = string.Empty;
+    public string? HardwareSerial { get; set; }
+    public string? DeviceType { get; set; }
 }
 
 public partial class StatusViewModel : ObservableObject
 {
     [ObservableProperty]
     private int totalFiles = 0;
+
+    [ObservableProperty]
+    private int itemCount = 0;
 
     [ObservableProperty]
     private string totalSizeText = "0 B";
@@ -40,6 +45,15 @@ public partial class StatusViewModel : ObservableObject
     public ObservableCollection<DeviceHistoryItem> Devices { get; } = new();
 
     [RelayCommand]
+    public void OpenDeviceHistory(DeviceHistoryItem? item)
+    {
+        if (item is null) return;
+        var dialog = new DeviceBackupHistoryDialog(DatabasePath, item);
+        dialog.Owner = Application.Current.MainWindow;
+        dialog.ShowDialog();
+    }
+
+    [RelayCommand]
     private async Task RefreshStatsAsync()
     {
         if (string.IsNullOrWhiteSpace(DatabasePath) || !Directory.Exists(DatabasePath))
@@ -54,6 +68,7 @@ public partial class StatusViewModel : ObservableObject
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 TotalFiles = stats.TotalFiles;
+                ItemCount = stats.ItemCount;
                 TotalSizeText = ByteSize.Humanize(stats.TotalBytes);
                 PhotosCount = stats.PhotosCount;
                 VideosCount = stats.VideosCount;
@@ -67,7 +82,9 @@ public partial class StatusViewModel : ObservableObject
                         Name = dev.Name ?? "Unknown Device",
                         Model = dev.Model ?? "Unknown Model",
                         Udid = dev.Udid,
-                        LastSeen = dev.LastSeen?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A"
+                        LastSeen = dev.LastSeen?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A",
+                        HardwareSerial = dev.HardwareSerial,
+                        DeviceType = dev.DeviceType
                     });
                 }
             });

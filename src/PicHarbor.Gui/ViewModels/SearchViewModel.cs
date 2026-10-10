@@ -8,6 +8,7 @@ using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PicHarbor.Core.Journal;
+using PicHarbor.Core.Organize;
 using PicHarbor.Core.Search;
 using PicHarbor.Core.Util;
 
@@ -27,12 +28,18 @@ public partial class MediaSearchResultItem : ObservableObject
     public string GpsCoordinates { get; set; } = string.Empty;
     public bool HasThumbnail { get; set; } = false;
     public bool IsVideo { get; set; }
+    public bool IsLivePhoto { get; set; } = false;
+    public int PixelWidth { get; set; } = 0;
+    public int PixelHeight { get; set; } = 0;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsThumbnailLoaded))]
     private ImageSource? thumbnailImage;
 
     public bool IsThumbnailLoaded => ThumbnailImage is not null;
+
+    [ObservableProperty]
+    private bool isManualSelected = false;
 
     [ObservableProperty]
     private bool isManualSelectedForIPhone = false;
@@ -45,6 +52,31 @@ public partial class MediaSearchResultItem : ObservableObject
 
     [ObservableProperty]
     private bool isSyncedToGooglePhotos = false;
+
+    public string FileName => System.IO.Path.GetFileName(RelativePath);
+
+    public string FormatUpper
+    {
+        get
+        {
+            if (IsLivePhoto) return "LIVE";
+            string ext = System.IO.Path.GetExtension(RelativePath).TrimStart('.').ToUpperInvariant();
+            return string.IsNullOrEmpty(ext) ? (IsVideo ? "MP4" : "JPG") : ext;
+        }
+    }
+
+    public string DisplayCapturedAt
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(CapturedAt)) return "—";
+            if (DateTime.TryParse(CapturedAt, out var dt))
+            {
+                return dt.ToString("yyyy-MM-dd HH:mm");
+            }
+            return CapturedAt.Replace('T', ' ');
+        }
+    }
 }
 
 
@@ -61,6 +93,11 @@ public partial class SearchViewModel : ObservableObject
     private string allCamerasLabel = "";
     private bool suppressSort;
     private bool resortRequested;
+    private bool suppressFilterSearch;
+
+    public event EventHandler? HitsUpdated;
+    public IReadOnlyList<MediaSearchHit> GetCurrentHits() => currentHits;
+    public IReadOnlyDictionary<string, (string Camera, string Gps)> GetDisplayMeta() => displayByPath;
 
     public IPhoneSyncViewModel? IPhoneSyncVM { get; set; }
     public AndroidSyncViewModel? AndroidSyncVM { get; set; }
@@ -180,8 +217,169 @@ public partial class SearchViewModel : ObservableObject
         FilterTo = "";
     }
 
+    public ObservableCollection<string> FilterTypeLabels { get; } = new()
+    {
+        "全部类型",
+        "照片",
+        "视频",
+        "实况照片",
+        "截屏"
+    };
+
+    [ObservableProperty]
+    private int selectedTypeIndex = 0;
+
+    partial void OnSelectedTypeIndexChanged(int value)
+    {
+        if (suppressFilterSearch) return;
+        SelectedType = value switch
+        {
+            1 => "photo (照片)",
+            2 => "video (视频)",
+            3 => "live (实况照片)",
+            4 => "screenshot (截图)",
+            _ => "All (全部)"
+        };
+    }
+
+    public ObservableCollection<string> DatePresetLabels { get; } = new()
+    {
+        "全部时间",
+        "本年",
+        "去年",
+        "近90天",
+        "近30天",
+        "自定义..."
+    };
+
+    [ObservableProperty]
+    private int selectedDatePresetIndex = 0;
+
+    public bool IsCustomDateRangeVisible => SelectedDatePresetIndex == 5;
+
+    partial void OnSelectedDatePresetIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsCustomDateRangeVisible));
+        if (suppressFilterSearch) return;
+
+        suppressFilterSearch = true;
+        switch (value)
+        {
+            case 0:
+                ClearDateRange();
+                break;
+            case 1:
+                SetDatePresetThisYear();
+                break;
+            case 2:
+                FilterToDate = new DateTime(DateTime.Today.Year - 1, 12, 31);
+                FilterFromDate = new DateTime(DateTime.Today.Year - 1, 1, 1);
+                break;
+            case 3:
+                SetDatePresetLast90Days();
+                break;
+            case 4:
+                SetDatePresetLast30Days();
+                break;
+            case 5:
+                break;
+        }
+        suppressFilterSearch = false;
+    }
+
     [ObservableProperty]
     private string selectedType = "All (全部)";
+
+    partial void OnSelectedTypeChanged(string value)
+    {
+    }
+
+    [ObservableProperty]
+    private int selectedViewCategory = 0;
+
+    public bool IsCategoryAll
+    {
+        get => SelectedViewCategory == 0;
+        set { if (value) SelectedViewCategory = 0; }
+    }
+
+    public bool IsCategoryVideoOnly
+    {
+        get => SelectedViewCategory == 1;
+        set { if (value) SelectedViewCategory = 1; }
+    }
+
+    public bool IsCategoryVideo
+    {
+        get => SelectedViewCategory == 1;
+        set { if (value) SelectedViewCategory = 1; }
+    }
+
+    public bool IsCategoryPhotoAndLive
+    {
+        get => SelectedViewCategory == 2;
+        set { if (value) SelectedViewCategory = 2; }
+    }
+
+    public bool IsCategoryScreenshot
+    {
+        get => SelectedViewCategory == 3;
+        set { if (value) SelectedViewCategory = 3; }
+    }
+
+    public bool IsCategoryPending
+    {
+        get => SelectedViewCategory == 4;
+        set { if (value) SelectedViewCategory = 4; }
+    }
+
+    public bool IsCategoryManual
+    {
+        get => SelectedViewCategory == 4;
+        set { if (value) SelectedViewCategory = 4; }
+    }
+
+    public bool IsCategoryExport
+    {
+        get => SelectedViewCategory == 4;
+        set { if (value) SelectedViewCategory = 4; }
+    }
+
+    public string CategoryPendingTransferLabel
+    {
+        get
+        {
+            int count = IPhoneSyncVM?.ManualSelectedItems?.Count ?? 0;
+            return count > 0 ? $"待传列表 ({count})" : "待传列表";
+        }
+    }
+
+    public void NotifyManualSelectionsChanged()
+    {
+        OnPropertyChanged(nameof(CategoryPendingTransferLabel));
+        if (SelectedViewCategory == 4)
+        {
+            _ = SearchAsync();
+        }
+    }
+
+    partial void OnSelectedViewCategoryChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsCategoryAll));
+        OnPropertyChanged(nameof(IsCategoryVideoOnly));
+        OnPropertyChanged(nameof(IsCategoryVideo));
+        OnPropertyChanged(nameof(IsCategoryPhotoAndLive));
+        OnPropertyChanged(nameof(IsCategoryScreenshot));
+        OnPropertyChanged(nameof(IsCategoryPending));
+        OnPropertyChanged(nameof(IsCategoryManual));
+        OnPropertyChanged(nameof(IsCategoryExport));
+        OnPropertyChanged(nameof(CategoryPendingTransferLabel));
+
+        if (!suppressFilterSearch)
+        {
+            _ = SearchAsync();
+        }
+    }
 
     [ObservableProperty]
     private string cameraFilter = "";
@@ -191,6 +389,10 @@ public partial class SearchViewModel : ObservableObject
 
     [ObservableProperty]
     private string selectedCameraModel = "";
+
+    partial void OnSelectedCameraModelChanged(string value)
+    {
+    }
 
     [ObservableProperty]
     private string cameraKeyword = "";
@@ -287,25 +489,79 @@ public partial class SearchViewModel : ObservableObject
     }
 
     [ObservableProperty]
+    private string searchText = "";
+
+    partial void OnSearchTextChanged(string value)
+    {
+        if (FileNameFilter != value)
+        {
+            FileNameFilter = value;
+        }
+    }
+
+    [RelayCommand]
+    public async Task ApplyFiltersAsync()
+    {
+        await SearchAsync();
+    }
+
+    [ObservableProperty]
     private string fileNameFilter = "";
+
+    partial void OnFileNameFilterChanged(string value)
+    {
+        if (SearchText != value)
+        {
+            SearchText = value;
+        }
+    }
+
+    [RelayCommand]
+    private void ClearAllFilters()
+    {
+        suppressFilterSearch = true;
+        SearchText = "";
+        FileNameFilter = "";
+        SelectedTypeIndex = 0;
+        SelectedType = "All (全部)";
+        SelectedDatePresetIndex = 0;
+        ClearDateRange();
+        SelectedCameraModel = allCamerasLabel;
+        CameraKeyword = "";
+        SelectedViewCategory = 0;
+        suppressFilterSearch = false;
+        _ = SearchAsync();
+    }
 
     [ObservableProperty]
     private bool hasGpsOnly = false;
 
     [ObservableProperty]
-    private bool includeHeic = false;
+    private bool includeHeic = true;
 
     [ObservableProperty]
-    private bool isTableView = true;
+    private bool isTableView = false;
+
+    partial void OnIsTableViewChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanLoadMoreInTableView));
+    }
 
     [ObservableProperty]
-    private bool isGalleryView = false;
+    private bool isGalleryView = true;
 
     [ObservableProperty]
     private string searchSummaryText = "";
 
     [ObservableProperty]
     private bool isSearching = false;
+
+    partial void OnIsSearchingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ApplyFilterButtonText));
+    }
+
+    public string ApplyFilterButtonText => IsSearching ? "正在筛选..." : "应用筛选";
 
     [ObservableProperty]
     private bool isPreviewOpen = false;
@@ -364,10 +620,69 @@ public partial class SearchViewModel : ObservableObject
     [ObservableProperty]
     private bool hasMoreItems = false;
 
+    [ObservableProperty]
+    private bool showAppleCodecNotice;
+
+    partial void OnHasMoreItemsChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanLoadMoreInTableView));
+    }
+
+    public bool CanLoadMoreInTableView => IsTableView && HasMoreItems;
+
     private const int BatchSize = 1000;
     private List<MediaSearchHit> currentHits = new();
     private int loadedHitIndex = 0;
     private bool isLoadingMore = false;
+    private HashSet<string> livePairKeys = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, string> liveVideoFullPathByKey = new(StringComparer.OrdinalIgnoreCase);
+
+    public bool IsLivePhotoRelativePath(string relativePath) =>
+        livePairKeys.Contains(LivePhotoDetector.PairKey(relativePath));
+
+    public string? GetLiveVideoFullPath(string relativePath)
+    {
+        liveVideoFullPathByKey.TryGetValue(LivePhotoDetector.PairKey(relativePath), out string? path);
+        return path;
+    }
+
+    private static bool IsScreenshotHit(MediaSearchHit h, string? cameraModel, string? archiveRoot)
+    {
+        // 1. Explicit core classification
+        if (h.Type == MediaType.Screenshot) return true;
+
+        // 2. Path or filename contains screenshot keywords
+        string relLower = h.RelativePath.ToLowerInvariant();
+        string nameLower = Path.GetFileName(h.RelativePath).ToLowerInvariant();
+        if (relLower.Contains("screenshot") || relLower.Contains("screen_shot") || relLower.Contains("screen-shot") ||
+            relLower.Contains("截屏") || relLower.Contains("屏幕截图") || nameLower.StartsWith("screenshot") || nameLower.StartsWith("screen"))
+        {
+            return true;
+        }
+
+        // 3. Intelligent EXIF & aspect ratio:
+        // Screenshots do NOT have a real camera model.
+        if (string.IsNullOrWhiteSpace(cameraModel) && !string.IsNullOrWhiteSpace(archiveRoot))
+        {
+            string ext = Path.GetExtension(h.RelativePath).ToLowerInvariant();
+            if (ext is ".png" or ".jpg" or ".jpeg" or ".webp")
+            {
+                string fullPath = Path.Combine(archiveRoot, h.RelativePath);
+                var dims = Util.ImageDimensionHelper.GetDimensions(fullPath);
+                if (dims.HasValue && dims.Value.Width > 0 && dims.Value.Height > 0)
+                {
+                    double ratio = Math.Max(dims.Value.Width, dims.Value.Height) / (double)Math.Min(dims.Value.Width, dims.Value.Height);
+                    // Standard mobile / tablet / desktop screen ratios are >= 1.75 (16:9, 19.5:9, 20:9, 21:9)
+                    if (ratio >= 1.75)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
 
     [RelayCommand]
     private async Task SearchAsync()
@@ -387,7 +702,8 @@ public partial class SearchViewModel : ObservableObject
 
         DateTimeOffset? fromDate = DateTimeOffset.TryParse(FilterFrom, CultureInfo.InvariantCulture, out var f) ? f : null;
         DateTimeOffset? toDate = DateTimeOffset.TryParse(FilterTo, CultureInfo.InvariantCulture, out var t) ? t : null;
-        MediaType? mediaType = ParseMediaType(SelectedType);
+        bool filterLiveOnly = SelectedType.Contains("live") || SelectedType.Contains("实况");
+        MediaType? mediaType = filterLiveOnly ? null : ParseMediaType(SelectedType);
         string camera = ResolveCameraFilter();
 
         var criteria = new MediaSearchCriteria(
@@ -404,33 +720,125 @@ public partial class SearchViewModel : ObservableObject
 
         try
         {
-            var (hits, display, models) = await Task.Run(() =>
+            string archivePathCopy = ArchivePath;
+            int category = SelectedViewCategory;
+            var manualSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (category == 4)
             {
-                using var journal = TransferJournal.OpenReadOnly(ArchivePath);
-                IReadOnlyList<ManifestSearchRow> rows = journal.ReadSearchRows();
-                return (MediaSearch.Find(rows, criteria).ToList(), BuildDisplay(rows), DistinctCameraModels(rows));
-            }, ct).ConfigureAwait(false);
+                var s1 = IPhoneSyncVM?.GetManualSelectionPathsSet();
+                var s2 = AndroidSyncVM?.GetManualSelectionPathsSet();
+                var s3 = GooglePhotosVM?.GetManualSelectionPathsSet();
+                if (s1 != null) foreach (var p in s1) manualSet.Add(p);
+                if (s2 != null) foreach (var p in s2) manualSet.Add(p);
+                if (s3 != null) foreach (var p in s3) manualSet.Add(p);
+            }
 
-            await Application.Current.Dispatcher.InvokeAsync(() =>
+            var (hits, display, models, liveKeys, videoByKey) = await Task.Run(() =>
             {
-                displayByPath = display;
-                knownCameraModels = models;
-                RefreshCameraModelItems(models);
-                currentHits = hits;
-                SortCurrentHits();
-                loadedHitIndex = 0;
-                SearchResults = new ObservableCollection<MediaSearchResultItem>();
-                GalleryRows = new ObservableCollection<GalleryRow>();
-                HasMoreItems = currentHits.Count > 0;
-            });
+                using var journal = TransferJournal.OpenReadOnly(archivePathCopy);
+                IReadOnlyList<ManifestSearchRow> rows = journal.ReadSearchRows();
+                var found = MediaSearch.Find(rows, criteria).ToList();
+
+                // 1. Purge deleted or 0-byte ghost files on disk (prevents missing placeholders)
+                if (!string.IsNullOrWhiteSpace(archivePathCopy) && Directory.Exists(archivePathCopy))
+                {
+                    found = found.Where(h =>
+                    {
+                        string p = Path.Combine(archivePathCopy, h.RelativePath);
+                        if (!File.Exists(p)) return false;
+                        try
+                        {
+                            return new FileInfo(p).Length > 0;
+                        }
+                        catch
+                        {
+                            return false;
+                        }
+                    }).ToList();
+                }
+
+                var liveKeysLocal = new HashSet<string>(
+                    LivePhotoDetector.FindLivePairKeys(rows.Select(r => r.RelativePath)),
+                    StringComparer.OrdinalIgnoreCase);
+                var videoByKeyLocal = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var row in rows)
+                {
+                    string extension = Path.GetExtension(row.RelativePath);
+                    bool isMov = extension.Equals(".mov", StringComparison.OrdinalIgnoreCase);
+                    bool isMp4 = extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase);
+                    if (!isMov && !isMp4)
+                    {
+                        continue;
+                    }
+
+                    string key = LivePhotoDetector.PairKey(row.RelativePath);
+                    if (!liveKeysLocal.Contains(key))
+                    {
+                        continue;
+                    }
+
+                    if (!videoByKeyLocal.ContainsKey(key) || isMov)
+                    {
+                        videoByKeyLocal[key] = Path.Combine(archivePathCopy, row.RelativePath);
+                    }
+                }
+
+                if (filterLiveOnly)
+                {
+                    found = found.Where(h => liveKeysLocal.Contains(LivePhotoDetector.PairKey(h.RelativePath))).ToList();
+                }
+
+                // 2. View Category Filtering
+                if (category == 0)
+                {
+                    found = found.Where(h => LivePhotoDetector.ShowInAllView(h.RelativePath, h.Type, liveKeysLocal)).ToList();
+                }
+                else if (category == 1)
+                {
+                    // 视频（不包括实况，即同名的HEIC/MOV对）
+                    found = found.Where(h => h.Type == MediaType.Video && !liveKeysLocal.Contains(LivePhotoDetector.PairKey(h.RelativePath))).ToList();
+                }
+                else if (category == 2)
+                {
+                    // 照片与实况（普通照片与实况照片，排除独立录像）
+                    found = found.Where(h => h.Type != MediaType.Video).ToList();
+                }
+                else if (category == 3)
+                {
+                    // 截图（明确是截图或根据元信息/比例等智能判断）
+                    var displayMap = BuildDisplay(rows);
+                    found = found.Where(h => IsScreenshotHit(h, displayMap.TryGetValue(h.RelativePath, out var d) ? d.Camera : null, archivePathCopy)).ToList();
+                }
+                else if (category == 4)
+                {
+                    // 待传列表
+                    found = manualSet.Count > 0
+                        ? found.Where(h => manualSet.Contains(h.RelativePath)).ToList()
+                        : new List<MediaSearchHit>();
+                }
+
+                return (found, BuildDisplay(rows), DistinctCameraModels(rows), liveKeysLocal, videoByKeyLocal);
+            }, ct);
+
+            displayByPath = display;
+            knownCameraModels = models;
+            RefreshCameraModelItems(models);
+            livePairKeys = liveKeys;
+            liveVideoFullPathByKey = videoByKey;
+            currentHits = hits;
+            SortCurrentHits();
+            loadedHitIndex = 0;
+            SearchResults = new ObservableCollection<MediaSearchResultItem>();
+            GalleryRows = new ObservableCollection<GalleryRow>();
+            HasMoreItems = currentHits.Count > 0;
+            SearchSummaryText = $"检索成功：共匹配 {currentHits.Count:N0} 项";
+            HitsUpdated?.Invoke(this, EventArgs.Empty);
 
             if (currentHits.Count == 0)
             {
-                await Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    SearchSummaryText = "检索成功：共匹配 0 项";
-                    HasMoreItems = false;
-                });
+                SearchSummaryText = "检索成功：共匹配 0 项";
+                HasMoreItems = false;
+                HitsUpdated?.Invoke(this, EventArgs.Empty);
             }
             else
             {
@@ -452,7 +860,14 @@ public partial class SearchViewModel : ObservableObject
         }
         finally
         {
-            IsSearching = false;
+            if (Application.Current?.Dispatcher != null && !Application.Current.Dispatcher.CheckAccess())
+            {
+                Application.Current.Dispatcher.Invoke(() => IsSearching = false);
+            }
+            else
+            {
+                IsSearching = false;
+            }
         }
     }
 
@@ -505,6 +920,67 @@ public partial class SearchViewModel : ObservableObject
                         gps = meta.Gps ?? "";
                     }
 
+                    int pixelWidth = 0;
+                    int pixelHeight = 0;
+                    bool isLive = false;
+
+                    if (File.Exists(fullPath))
+                    {
+                        var dims = ImageDimensionHelper.GetDimensions(fullPath);
+                        if (dims.HasValue)
+                        {
+                            pixelWidth = dims.Value.Width;
+                            pixelHeight = dims.Value.Height;
+                        }
+
+                        if (isVideo)
+                        {
+                            string? still = ImageDimensionHelper.FindLivePhotoStill(fullPath);
+                            if (still != null)
+                            {
+                                isLive = true;
+                                if (pixelWidth <= 0 || pixelHeight <= 0)
+                                {
+                                    var stillDims = ImageDimensionHelper.GetDimensions(still);
+                                    if (stillDims.HasValue)
+                                    {
+                                        pixelWidth = stillDims.Value.Width;
+                                        pixelHeight = stillDims.Value.Height;
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            string? pairedVideo = ImageDimensionHelper.FindLivePhotoVideo(fullPath);
+                            if (pairedVideo != null)
+                            {
+                                isLive = true;
+                            }
+                        }
+                    }
+
+                    // Adaptive fallback dimensions based on media type
+                    if (pixelWidth <= 0 || pixelHeight <= 0)
+                    {
+                        if (hit.Type == MediaType.Screenshot)
+                        {
+                            // Modern mobile screenshots (iPhone 14/15/16 Pro: 1179x2556, standard 9:19.5 aspect ratio)
+                            pixelWidth = 1179;
+                            pixelHeight = 2556;
+                        }
+                        else if (isVideo)
+                        {
+                            pixelWidth = 1920;
+                            pixelHeight = 1080;
+                        }
+                        else
+                        {
+                            pixelWidth = 4032;
+                            pixelHeight = 3024;
+                        }
+                    }
+
                     list.Add(new MediaSearchResultItem
                     {
                         RelativePath = hit.RelativePath,
@@ -517,6 +993,9 @@ public partial class SearchViewModel : ObservableObject
                         GpsCoordinates = gps,
                         HasThumbnail = isVideo || hit.Type is MediaType.Photo or MediaType.Screenshot,
                         IsVideo = isVideo,
+                        IsLivePhoto = isLive,
+                        PixelWidth = pixelWidth,
+                        PixelHeight = pixelHeight,
                         IsManualSelectedForIPhone = manualSet.Contains(hit.RelativePath),
                         IsManualSelectedForAndroid = androidManualSet.Contains(hit.RelativePath),
                         IsManualSelectedForGooglePhotos = googleManualSet.Contains(hit.RelativePath),
@@ -539,33 +1018,29 @@ public partial class SearchViewModel : ObservableObject
                 }
 
                 return (list, gridRows);
-            }, ct).ConfigureAwait(false);
+            }, ct);
 
             loadedHitIndex += countToTake;
             bool remaining = loadedHitIndex < currentHits.Count;
             int total = currentHits.Count;
 
-            await Application.Current.Dispatcher.InvokeAsync(() =>
+            if (Application.Current?.Dispatcher != null && !Application.Current.Dispatcher.CheckAccess())
             {
-                foreach (var item in newItems)
+                await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    SearchResults.Add(item);
-                }
-                foreach (var gRow in newGridRows)
-                {
-                    GalleryRows.Add(gRow);
-                }
-
+                    foreach (var item in newItems) SearchResults.Add(item);
+                    foreach (var gRow in newGridRows) GalleryRows.Add(gRow);
+                    HasMoreItems = remaining;
+                    SearchSummaryText = remaining ? $"检索成功：共匹配 {total:N0} 项" : $"检索成功：共匹配 {total:N0} 项 (已全加载)";
+                });
+            }
+            else
+            {
+                foreach (var item in newItems) SearchResults.Add(item);
+                foreach (var gRow in newGridRows) GalleryRows.Add(gRow);
                 HasMoreItems = remaining;
-                if (remaining)
-                {
-                    SearchSummaryText = $"检索成功：共匹配 {total:N0} 项";
-                }
-                else
-                {
-                    SearchSummaryText = $"检索成功：共匹配 {total:N0} 项 (已全加载)";
-                }
-            });
+                SearchSummaryText = remaining ? $"检索成功：共匹配 {total:N0} 项" : $"检索成功：共匹配 {total:N0} 项 (已全加载)";
+            }
 
             _ = LoadThumbnailsInBackgroundAsync(newItems, ct);
         }
@@ -612,6 +1087,7 @@ public partial class SearchViewModel : ObservableObject
         SearchResults = new ObservableCollection<MediaSearchResultItem>();
         GalleryRows = new ObservableCollection<GalleryRow>();
         HasMoreItems = currentHits.Count > 0;
+        HitsUpdated?.Invoke(this, EventArgs.Empty);
         if (HasMoreItems)
         {
             await LoadMoreItemsAsync();
@@ -707,6 +1183,11 @@ public partial class SearchViewModel : ObservableObject
                 if (!File.Exists(item.FullPath)) return;
 
                 ImageSource? thumb = LoadResultThumbnail(item);
+                if (thumb is null && item.IsVideo && !token.IsCancellationRequested)
+                {
+                    thumb = await ShellServices.GetVideoFrameAsync(item.FullPath, 200).ConfigureAwait(false);
+                }
+
                 if (thumb is not null && !token.IsCancellationRequested)
                 {
                     await Application.Current.Dispatcher.InvokeAsync(() =>
@@ -733,6 +1214,34 @@ public partial class SearchViewModel : ObservableObject
         int idx = SearchResults.IndexOf(item);
         if (idx < 0) idx = 0;
         SetPreviewIndex(idx);
+    }
+
+    [RelayCommand]
+    public void PlayLiveVideo(MediaSearchResultItem? item)
+    {
+        if (item is null) return;
+        string? videoPath = item.IsVideo ? item.FullPath : ImageDimensionHelper.FindLivePhotoVideo(item.FullPath);
+        if (!string.IsNullOrEmpty(videoPath) && File.Exists(videoPath))
+        {
+            var match = SearchResults.FirstOrDefault(x => string.Equals(x.FullPath, videoPath, StringComparison.OrdinalIgnoreCase));
+            if (match != null)
+            {
+                OpenPreview(match);
+                return;
+            }
+
+            int idx = SearchResults.IndexOf(item);
+            PreviewIndex = idx >= 0 ? idx : 0;
+            PreviewItem = item;
+            IsPreviewOpen = true;
+            IsPreviewVideo = true;
+            PreviewVideoPath = videoPath;
+            PreviewImageSource = item.ThumbnailImage;
+            PreviewDetailsText = $"{Path.GetFileName(videoPath)} (实况动图) | 拍摄时间: {item.CapturedAt}";
+            IsPreviewVideoFailed = false;
+            PreviewStatusText = "";
+            IsPreviewPlaying = false;
+        }
     }
 
     [RelayCommand]
@@ -846,6 +1355,28 @@ public partial class SearchViewModel : ObservableObject
                 Debug.WriteLine($"OpenFolder error: {ex.Message}");
             }
         }
+    }
+
+    public void PreviewFilePath(string fullPath)
+    {
+        if (string.IsNullOrWhiteSpace(fullPath) || !File.Exists(fullPath)) return;
+        var match = SearchResults.FirstOrDefault(x => string.Equals(x.FullPath, fullPath, StringComparison.OrdinalIgnoreCase));
+        if (match != null)
+        {
+            OpenPreview(match);
+            return;
+        }
+
+        string ext = Path.GetExtension(fullPath).ToLowerInvariant();
+        bool isVid = ext is ".mp4" or ".mov" or ".mkv" or ".avi" or ".wmv";
+        var tempItem = new MediaSearchResultItem
+        {
+            FullPath = fullPath,
+            RelativePath = Path.GetFileName(fullPath),
+            CapturedAt = File.GetCreationTime(fullPath).ToString("yyyy-MM-dd HH:mm:ss"),
+            IsVideo = isVid
+        };
+        OpenPreview(tempItem);
     }
 
     private static (List<string> existing, List<string> missing) FilterSelectedPaths(object? parameter)
@@ -1202,6 +1733,138 @@ public partial class SearchViewModel : ObservableObject
         return list;
     }
 
+    [RelayCommand]
+    public void AddToUnifiedSelection(object? parameter)
+    {
+        var items = ExtractMediaItems(parameter);
+        if (items.Count == 0) return;
+
+        var destPaths = items.Select(x => x.RelativePath).Where(p => !string.IsNullOrEmpty(p)).ToList();
+        if (destPaths.Count == 0) return;
+
+        string path = ArchivePath;
+        string deviceModel = IPhoneSyncVM?.DeviceModel ?? "iPhone";
+        string deviceId = AndroidSyncVM?.AndroidDeviceId ?? "Android Device";
+
+        if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
+        {
+            try
+            {
+                using var journal = TransferJournal.Open(path);
+                journal.BatchAddUnifiedManualSelections(deviceModel, deviceId, destPaths);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"BatchAddUnifiedManualSelections error: {ex.Message}");
+            }
+        }
+
+        foreach (var item in items)
+        {
+            item.IsManualSelected = true;
+            item.IsManualSelectedForIPhone = true;
+            item.IsManualSelectedForAndroid = true;
+            item.IsManualSelectedForGooglePhotos = true;
+        }
+
+        IPhoneSyncVM?.LoadManualSelectionsFromDb();
+        IPhoneSyncVM?.RecalculateScopeSummary();
+        AndroidSyncVM?.LoadManualSelectionsFromDb();
+        AndroidSyncVM?.RecalculateScopeSummary();
+        GooglePhotosVM?.LoadManualSelectionsFromDb();
+        GooglePhotosVM?.RecalculateScopeSummary();
+    }
+
+    public void AddItemsToManualSelection(IReadOnlyList<string> relativePaths) =>
+        AddItemsToManualSelection("Unified", relativePaths);
+
+    public void AddItemsToManualSelection(string type, IReadOnlyList<string> relativePaths)
+    {
+        var targets = SearchResults.Where(x => relativePaths.Contains(x.RelativePath)).ToList();
+        if (targets.Count == 0) return;
+
+        if (string.IsNullOrEmpty(type) || type.Equals("Unified", StringComparison.OrdinalIgnoreCase))
+        {
+            AddToUnifiedSelection(targets);
+        }
+        else if (type.Equals("iPhone", StringComparison.OrdinalIgnoreCase))
+        {
+            AddToIPhoneSelection(targets);
+        }
+        else if (type.Equals("Android", StringComparison.OrdinalIgnoreCase))
+        {
+            AddToAndroidSelection(targets);
+        }
+        else if (type.Equals("Google", StringComparison.OrdinalIgnoreCase))
+        {
+            AddToGooglePhotosSelection(targets);
+        }
+    }
+
+    public void RemoveItemsFromManualSelection(IReadOnlyList<string> relativePaths)
+    {
+        var targets = SearchResults.Where(x => relativePaths.Contains(x.RelativePath)).ToList();
+        if (targets.Count == 0) return;
+
+        string path = ArchivePath;
+        string deviceModel = IPhoneSyncVM?.DeviceModel ?? "iPhone";
+        string deviceId = AndroidSyncVM?.AndroidDeviceId ?? "Android Device";
+
+        if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
+        {
+            try
+            {
+                using var journal = TransferJournal.Open(path);
+                journal.BatchRemoveUnifiedManualSelections(deviceModel, deviceId, relativePaths);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"BatchRemoveUnifiedManualSelections error: {ex.Message}");
+            }
+        }
+
+        foreach (var item in targets)
+        {
+            item.IsManualSelected = false;
+            item.IsManualSelectedForIPhone = false;
+            item.IsManualSelectedForAndroid = false;
+            item.IsManualSelectedForGooglePhotos = false;
+        }
+
+        IPhoneSyncVM?.LoadManualSelectionsFromDb();
+        IPhoneSyncVM?.RecalculateScopeSummary();
+        AndroidSyncVM?.LoadManualSelectionsFromDb();
+        AndroidSyncVM?.RecalculateScopeSummary();
+        GooglePhotosVM?.LoadManualSelectionsFromDb();
+        GooglePhotosVM?.RecalculateScopeSummary();
+    }
+
+    public void ToggleItemsManualSelection(string type, IReadOnlyList<string> relativePaths)
+    {
+        var targets = SearchResults.Where(x => relativePaths.Contains(x.RelativePath)).ToList();
+        if (targets.Count == 0) return;
+
+        bool anyUnselected = targets.Any(x => !x.IsManualSelected);
+        if (anyUnselected)
+            AddToUnifiedSelection(targets);
+        else
+            RemoveItemsFromManualSelection(targets.Select(x => x.RelativePath).ToList());
+
+        NotifyManualSelectionsChanged();
+    }
+
+    [RelayCommand]
+    public void ToggleUnifiedManualSelection(MediaSearchResultItem item)
+    {
+        if (item == null) return;
+        ToggleItemsManualSelection("Unified", new[] { item.RelativePath });
+    }
+
+    [RelayCommand]
+    public void ToggleIPhoneManualSelection(MediaSearchResultItem item) => ToggleUnifiedManualSelection(item);
+
+    [RelayCommand]
+    public void ToggleAndroidManualSelection(MediaSearchResultItem item) => ToggleUnifiedManualSelection(item);
 
     private static IntPtr GetMainWindowHandle()
     {
@@ -1247,7 +1910,15 @@ public partial class SearchViewModel : ObservableObject
             return LoadVideoStill(item.FullPath, 200);
         }
 
-        return LoadFrozenThumbnail(item.FullPath, 200) ?? ShellServices.GetShellThumbnail(item.FullPath, 200, 200, thumbnailOnly: true);
+        ImageSource? frozen = LoadFrozenThumbnail(item.FullPath, 200);
+        if (frozen is not null)
+        {
+            return frozen;
+        }
+
+        return IsHeif(item.FullPath)
+            ? ShellServices.DecodeHeifStill(item.FullPath, 200) ?? ShellServices.GetShellThumbnail(item.FullPath, 200, 200, thumbnailOnly: false)
+            : ShellServices.GetShellThumbnail(item.FullPath, 200, 200, thumbnailOnly: true);
     }
 
     private async Task UpgradeVideoPosterAsync(MediaSearchResultItem item, int index)
@@ -1255,6 +1926,7 @@ public partial class SearchViewModel : ObservableObject
         try
         {
             ImageSource? poster = await Task.Run(() => LoadVideoStill(item.FullPath, 960)).ConfigureAwait(false);
+            poster ??= await ShellServices.GetVideoFrameAsync(item.FullPath, 960).ConfigureAwait(false);
             if (poster is null || Application.Current is null)
             {
                 return;
@@ -1277,6 +1949,8 @@ public partial class SearchViewModel : ObservableObject
     /// <summary>
     /// Live Photo videos share a folder and file stem with a still. HEIC/HEIF stills are decoded by the
     /// shell so orientation matches Explorer; WPF's bitmap decoder often shows those files blank or rotated.
+    /// Thumbnail-only misses a Live Photo MOV until Explorer has already cached a frame, so the video
+    /// itself is extracted with the resize flag.
     /// </summary>
     private static ImageSource? LoadVideoStill(string videoPath, int decodeWidth)
     {
@@ -1284,7 +1958,7 @@ public partial class SearchViewModel : ObservableObject
         if (still is not null)
         {
             ImageSource? fromStill = IsHeif(still)
-                ? ShellServices.GetShellThumbnail(still, decodeWidth, decodeWidth, thumbnailOnly: true) ?? LoadFrozenThumbnail(still, decodeWidth)
+                ? ShellServices.DecodeHeifStill(still, decodeWidth) ?? ShellServices.GetShellThumbnail(still, decodeWidth, decodeWidth, thumbnailOnly: false)
                 : LoadFrozenThumbnail(still, decodeWidth) ?? ShellServices.GetShellThumbnail(still, decodeWidth, decodeWidth, thumbnailOnly: true);
             if (fromStill is not null)
             {
@@ -1292,7 +1966,7 @@ public partial class SearchViewModel : ObservableObject
             }
         }
 
-        return ShellServices.GetShellThumbnail(videoPath, decodeWidth, decodeWidth, thumbnailOnly: true);
+        return ShellServices.GetShellThumbnail(videoPath, decodeWidth, decodeWidth, thumbnailOnly: false);
     }
 
     private static bool IsHeif(string path)
@@ -1415,7 +2089,9 @@ public partial class SearchViewModel : ObservableObject
             }
         }
 
+        suppressFilterSearch = true;
         SelectedCameraModel = keepSpecific ? previous : allCamerasLabel;
+        suppressFilterSearch = false;
     }
 
     private static Dictionary<string, (string Camera, string Gps)> BuildDisplay(IReadOnlyList<ManifestSearchRow> rows)

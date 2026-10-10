@@ -26,7 +26,7 @@ public sealed class GooglePhotosJournalTests : IDisposable
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "PRAGMA user_version;";
         long version = (long)cmd.ExecuteScalar()!;
-        version.ShouldBe(6);
+        version.ShouldBe(TransferJournal.SchemaVersion);
     }
 
     [Fact]

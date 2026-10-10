@@ -1,0 +1,76 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ======================================================== -->
+    <!--  PCL2 Official Theme Colors (1:1 from Application.xaml)   -->
+    <!-- ======================================================== -->
+
+    <!-- Theme Palette -->
+    <Color x:Key="ColorObject1">#343d4a</Color>
+    <Color x:Key="ColorObject2">#0b5bcb</Color>
+    <Color x:Key="ColorObject3">#1370f3</Color>
+    <Color x:Key="ColorObject4">#4890f5</Color>
+    <Color x:Key="ColorObject5">#96c0f9</Color>
+    <Color x:Key="ColorObject6">#d5e6fd</Color>
+    <Color x:Key="ColorObject7">#e0eafd</Color>
+    <Color x:Key="ColorObject8">#eaf2fe</Color>
+    <Color x:Key="ColorObjectBg0">#96c0f9</Color>
+    <Color x:Key="ColorObjectBg1">#bee0eafd</Color>
+
+    <!-- Grayscale Palette -->
+    <Color x:Key="ColorObjectGray1">#404040</Color>
+    <Color x:Key="ColorObjectGray2">#737373</Color>
+    <Color x:Key="ColorObjectGray3">#8c8c8c</Color>
+    <Color x:Key="ColorObjectGray4">#a6a6a6</Color>
+    <Color x:Key="ColorObjectGray5">#cccccc</Color>
+    <Color x:Key="ColorObjectGray6">#ebebeb</Color>
+    <Color x:Key="ColorObjectGray7">#f0f0f0</Color>
+    <Color x:Key="ColorObjectGray8">#f5f5f5</Color>
+
+    <!-- Theme Brushes -->
+    <SolidColorBrush x:Key="ColorBrush1" Color="{StaticResource ColorObject1}" />
+    <SolidColorBrush x:Key="ColorBrush2" Color="{StaticResource ColorObject2}" />
+    <SolidColorBrush x:Key="ColorBrush3" Color="{StaticResource ColorObject3}" />
+    <SolidColorBrush x:Key="ColorBrush4" Color="{StaticResource ColorObject4}" />
+    <SolidColorBrush x:Key="ColorBrush5" Color="{StaticResource ColorObject5}" />
+    <SolidColorBrush x:Key="ColorBrush6" Color="{StaticResource ColorObject6}" />
+    <SolidColorBrush x:Key="ColorBrush7" Color="{StaticResource ColorObject7}" />
+    <SolidColorBrush x:Key="ColorBrush8" Color="{StaticResource ColorObject8}" />
+    <SolidColorBrush x:Key="ColorBrushBg0" Color="{StaticResource ColorObjectBg0}" />
+    <SolidColorBrush x:Key="ColorBrushBg1" Color="{StaticResource ColorObjectBg1}" />
+
+    <!-- Grayscale Brushes -->
+    <SolidColorBrush x:Key="ColorBrushGray1" Color="{StaticResource ColorObjectGray1}" />
+    <SolidColorBrush x:Key="ColorBrushGray2" Color="{StaticResource ColorObjectGray2}" />
+    <SolidColorBrush x:Key="ColorBrushGray3" Color="{StaticResource ColorObjectGray3}" />
+    <SolidColorBrush x:Key="ColorBrushGray4" Color="{StaticResource ColorObjectGray4}" />
+    <SolidColorBrush x:Key="ColorBrushGray5" Color="{StaticResource ColorObjectGray5}" />
+    <SolidColorBrush x:Key="ColorBrushGray6" Color="{StaticResource ColorObjectGray6}" />
+    <SolidColorBrush x:Key="ColorBrushGray7" Color="{StaticResource ColorObjectGray7}" />
+    <SolidColorBrush x:Key="ColorBrushGray8" Color="{StaticResource ColorObjectGray8}" />
+
+    <!-- Functional Brushes -->
+    <SolidColorBrush x:Key="ColorBrushRedBack">#80fbdddd</SolidColorBrush>
+    <SolidColorBrush x:Key="ColorBrushRedLight">#ff4c4c</SolidColorBrush>
+    <SolidColorBrush x:Key="ColorBrushRedDark">#ce2111</SolidColorBrush>
+    <SolidColorBrush x:Key="ColorBrushHalfWhite" Color="#55ffffff" />
+    <SolidColorBrush x:Key="ColorBrushSemiWhite" Color="#bbffffff" />
+    <SolidColorBrush x:Key="ColorBrushWhite" Color="#ffffff" />
+    <SolidColorBrush x:Key="ColorBrushTransparent" Color="Transparent" />
+    <SolidColorBrush x:Key="ColorBrushSemiTransparent" Color="#01eaf2fe" />
+    <SolidColorBrush x:Key="ColorBrushBackgroundTransparentSidebar" Color="#F1FFFFFF" />
+
+    <!-- Canvas Gradient Brush -->
+    <LinearGradientBrush x:Key="ColorBrushCanvasGradient" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#EAF2FE" Offset="0.0" />
+        <GradientStop Color="#F4F8FD" Offset="1.0" />
+    </LinearGradientBrush>
+
+    <!-- Title Bar Gradient Brush (1:1 with PCL2 PanTitle) -->
+    <LinearGradientBrush x:Key="ColorBrushTitleGradient" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#1E88E5" Offset="0.0" />
+        <GradientStop Color="#1370F3" Offset="0.6" />
+        <GradientStop Color="#0B5BCB" Offset="1.0" />
+    </LinearGradientBrush>
+
+</ResourceDictionary>

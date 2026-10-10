@@ -35,4 +35,9 @@
     <Resource Include="Assets\PicHarbor.png" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="WebAssets\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 </Project>

@@ -29,6 +29,8 @@ public partial class BackupViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FullDestinationPreview))]
     [NotifyPropertyChangedFor(nameof(TargetDriveSummary))]
+    [NotifyPropertyChangedFor(nameof(TargetDriveFreeSpaceText))]
+    [NotifyPropertyChangedFor(nameof(TargetDriveSubtext))]
     private string destinationPath = MainViewModel.DefaultArchivePath;
 
     [ObservableProperty]
@@ -40,6 +42,39 @@ public partial class BackupViewModel : ObservableObject
 
     public string FullDestinationPreview =>
         Path.Combine(DestinationPath, LibraryStorageService.SanitizeDeviceFolderName(DeviceSubdir));
+
+    public string TargetDriveFreeSpaceText
+    {
+        get
+        {
+            string? root = Path.GetPathRoot(DestinationPath);
+            if (string.IsNullOrEmpty(root)) return "--";
+            try
+            {
+                var d = new DriveInfo(root);
+                if (d.IsReady)
+                {
+                    double freeGb = Math.Round(d.AvailableFreeSpace / (1024.0 * 1024.0 * 1024.0), 1);
+                    if (freeGb >= 1024)
+                    {
+                        return $"{freeGb / 1024.0:F2} TB 可用";
+                    }
+                    return $"{freeGb:F1} GB 可用";
+                }
+            }
+            catch { }
+            return "--";
+        }
+    }
+
+    public string TargetDriveSubtext
+    {
+        get
+        {
+            string? root = Path.GetPathRoot(DestinationPath);
+            return string.IsNullOrEmpty(root) ? DestinationPath : $"{root.TrimEnd('\\')} 盘可用空间 ({DestinationPath})";
+        }
+    }
 
     public string TargetDriveSummary
     {
@@ -110,6 +145,17 @@ public partial class BackupViewModel : ObservableObject
 
     [ObservableProperty]
     private int copiedCount = 0;
+
+    [ObservableProperty]
+    private int remainingFilesCount = 0;
+
+    [ObservableProperty]
+    private int totalFilesCount = 0;
+
+    [ObservableProperty]
+    private int plannedItemCount;
+
+    public double SpeedBytesPerSecond { get; private set; }
 
     [ObservableProperty]
     private int skippedCount = 0;
@@ -445,6 +491,12 @@ public partial class BackupViewModel : ObservableObject
     {
         if (IsTransferring) return;
 
+        if (ScopeMode == ScopeMode.Manual)
+        {
+            ScopeMode = ScopeMode.All;
+            NotifyScopeProperties();
+        }
+
         if (string.IsNullOrWhiteSpace(DestinationPath))
         {
             AddLog("[ERROR] Destination path cannot be empty.");
@@ -457,6 +509,10 @@ public partial class BackupViewModel : ObservableObject
 
         ProgressPercentage = 0;
         CopiedCount = 0;
+        RemainingFilesCount = 0;
+        TotalFilesCount = 0;
+        PlannedItemCount = 0;
+        SpeedBytesPerSecond = 0;
         SkippedCount = 0;
         FailedCount = 0;
         TransferredSizeText = "0 B / 0 B";
@@ -538,7 +594,9 @@ public partial class BackupViewModel : ObservableObject
                 files = IPhoneBackupScopeResolver.Filter(files, criteria);
 
                 totalBytes = files.Sum(f => f.Size);
-                AddLog($"[INFO] Found {files.Count:N0} files matching scope mode ({ByteSize.Humanize(totalBytes)}).");
+                int itemCount = LivePhotoDetector.CountDisplayedItems(files.Select(f => f.Path));
+                await Application.Current.Dispatcher.InvokeAsync(() => PlannedItemCount = itemCount);
+                AddLog($"[INFO] Found {itemCount:N0} items ({files.Count:N0} files, {ByteSize.Humanize(totalBytes)}).");
 
                 preflight.EnsureDestinationWritable(DestinationPath);
                 preflight.EnsureSufficientFreeSpace(DestinationPath, totalBytes);
@@ -547,9 +605,11 @@ public partial class BackupViewModel : ObservableObject
                 using var journal = TransferJournal.Open(DestinationPath);
                 DateTimeOffset runStartedAt = DateTimeOffset.UtcNow;
 
+                long backupSessionId = 0;
                 if (device is not null)
                 {
-                    journal.UpsertDevice(device.Udid, device.Name, device.ProductType, runStartedAt);
+                    string effectiveName = journal.RegisterOrUpdateDevice(device.Udid, device.Name, device.ProductType, device.Udid, "iPhone", runStartedAt);
+                    backupSessionId = journal.BeginBackupSession(device.Udid, effectiveName, device.ProductType, runStartedAt);
                 }
 
                 foreach (RemoteFile file in files)
@@ -636,6 +696,10 @@ public partial class BackupViewModel : ObservableObject
                                     copied++;
                                     bytesCopied += result.BytesCopied;
                                     copiedDetails.Add(detailItem);
+                                    if (backupSessionId > 0 && !string.IsNullOrWhiteSpace(relPath))
+                                    {
+                                        journal.RecordHistoryItem(backupSessionId, file.Path, relPath, file.Size, DateTimeOffset.UtcNow, Path.GetExtension(file.Path).TrimStart('.'));
+                                    }
                                     break;
                                 case CopyStatus.Skipped:
                                     skipped++;
@@ -650,6 +714,10 @@ public partial class BackupViewModel : ObservableObject
                     }
 
                     stopwatch.Stop();
+                    if (backupSessionId > 0)
+                    {
+                        journal.CompleteBackupSession(backupSessionId, copied, bytesCopied, failed > 0 ? "Partial" : "Completed");
+                    }
                     journal.RecordRun(runStartedAt, DateTimeOffset.UtcNow, "copy-gui", copied, skipped, failed, 0, device?.Udid);
 
                     new SummaryWriter().Write(
@@ -743,12 +811,16 @@ public partial class BackupViewModel : ObservableObject
             CopiedCount = snapshot.CopiedFiles;
             SkippedCount = snapshot.SkippedFiles;
             FailedCount = snapshot.FailedFiles;
+            RemainingFilesCount = Math.Max(0, snapshot.TotalFiles - snapshot.ProcessedFiles);
+            TotalFilesCount = snapshot.TotalFiles;
             TransferredSizeText = $"{FormatBytes(snapshot.ProcessedBytes)} / {FormatBytes(snapshot.TotalBytes)}";
             EtaText = snapshot.Eta is TimeSpan eta
                 ? FormatTimeSpan(eta)
                 : (snapshot.ByteFraction >= 1.0 ? App.GetString("MsgBackupCompleted", "备份完成") : App.GetString("MsgCalculating", "计算中..."));
-            ProgressText = $"{snapshot.ByteFraction * 100:F1}% ({snapshot.ProcessedFiles:N0}/{snapshot.TotalFiles:N0} 文件) - {FormatSpeed(snapshot.CurrentBytesPerSecond)}";
+            int items = PlannedItemCount > 0 ? PlannedItemCount : snapshot.TotalFiles;
+            ProgressText = $"{snapshot.ByteFraction * 100:F1}% · {items:N0} 张（文件 {snapshot.ProcessedFiles:N0}/{snapshot.TotalFiles:N0}） - {FormatSpeed(snapshot.CurrentBytesPerSecond)}";
 
+            SpeedBytesPerSecond = snapshot.CurrentBytesPerSecond;
             double mbps = snapshot.CurrentBytesPerSecond / 1024d / 1024d;
             SpeedText = $"{mbps:F1} MB/s";
             CurrentFileName = string.IsNullOrWhiteSpace(snapshot.CurrentFileName)

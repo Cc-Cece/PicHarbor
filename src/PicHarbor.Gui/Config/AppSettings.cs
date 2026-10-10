@@ -61,6 +61,9 @@ public sealed class AppConfig
     public int GooglePhotosTimeoutSeconds { get; set; } = 60;
     public int GooglePhotosAutoRetryAttempts { get; set; } = 3;
     public double GooglePhotosRetryDelaySeconds { get; set; } = 2.0;
+
+    // Preview playback. Missing values stay muted.
+    public bool PreviewMuted { get; set; } = true;
 }
 
 public static class AppSettings
@@ -102,6 +105,41 @@ public static class AppSettings
         }
 
         return new AppConfig();
+    }
+
+    public static bool LoadPreviewMuted() => Load().PreviewMuted;
+
+    public static void SavePreviewMuted(bool muted)
+    {
+        try
+        {
+            AppConfig? config;
+            if (File.Exists(ConfigPath))
+            {
+                string json = File.ReadAllText(ConfigPath);
+                config = JsonSerializer.Deserialize<AppConfig>(json, JsonOptions);
+                if (config is null)
+                {
+                    return;
+                }
+            }
+            else
+            {
+                config = new AppConfig();
+            }
+
+            if (config.PreviewMuted == muted && File.Exists(ConfigPath))
+            {
+                return;
+            }
+
+            config.PreviewMuted = muted;
+            Save(config);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to save preview mute: {ex.Message}");
+        }
     }
 
     public static void Save(AppConfig config)

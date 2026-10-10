@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PicHarbor 图库</title>
+  <link rel="stylesheet" href="./sweet-album.css">
+  <link rel="stylesheet" href="./gallery.css?v=7">
+</head>
+<body>
+  <div id="album-container"></div>
+  <div id="gallery-boot" class="gallery-boot">
+    <div class="gallery-loading-spinner"></div>
+    <span>正在载入图库...</span>
+  </div>
+  <div id="gallery-loading-pill" class="gallery-loading-pill" style="display: none;">
+    <div class="gallery-loading-spinner"></div>
+    <span>正在应用筛选与检索照片...</span>
+  </div>
+  <div id="empty-state" class="empty-state" style="display: none;">
+    <div class="empty-icon">
+      <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
+      </svg>
+    </div>
+    <div class="empty-title">当前筛选下没有归档照片</div>
+    <div class="empty-desc">请尝试调整搜索关键词、选择全部日期或连接手机备份归档</div>
+  </div>
+
+  <!-- Modern Frosted HTML5 Video Lightbox Modal -->
+  <div id="video-modal" class="video-modal" style="display: none;">
+    <div class="video-backdrop" id="video-backdrop"></div>
+    <div class="video-dialog">
+      <div class="video-header">
+        <div class="video-title" id="video-title">视频播放</div>
+        <button class="video-close-btn" id="video-close-btn" title="关闭 (Esc)">✕</button>
+      </div>
+      <div class="video-body">
+        <video id="html5-video-player" controls autoplay playsinline></video>
+        <div id="video-error-state" class="video-error-state" style="display: none;">
+          <div class="video-error-icon">🎬</div>
+          <div class="video-error-title">无法解码画面</div>
+          <div class="video-error-desc">请到「设置 → 维护工具与通用关于」按说明安装 HEIF / HEVC 扩展，然后重启本软件。</div>
+          <button class="video-error-open-btn" id="video-error-open-btn">↗ 立即使用系统默认播放器打开</button>
+        </div>
+      </div>
+      <div class="video-footer">
+        <div class="video-meta-info" id="video-meta-info"></div>
+        <div class="video-actions">
+          <button class="video-btn" id="video-btn-open-system" title="使用系统播放器打开">↗ 系统默认打开</button>
+          <button class="video-btn" id="video-btn-reveal" title="在文件夹中显示">📂 在资源管理器中显示</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./gallery.js?v=7"></script>
+</body>
+</html>

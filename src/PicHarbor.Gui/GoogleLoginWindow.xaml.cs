@@ -276,12 +276,36 @@ public partial class GoogleLoginWindow : Window
         StatusTextBlock.Text = message;
         if (isError)
         {
-            StatusTextBlock.Foreground = (System.Windows.Media.Brush)FindResource("AccentRedBrush");
+            StatusTextBlock.Foreground = (System.Windows.Media.Brush?)TryFindResource("ColorBrushRed")
+                ?? (System.Windows.Media.Brush?)TryFindResource("AccentRedBrush")
+                ?? System.Windows.Media.Brushes.Red;
         }
         else
         {
-            StatusTextBlock.Foreground = (System.Windows.Media.Brush)FindResource("TextSecondaryBrush");
+            StatusTextBlock.Foreground = (System.Windows.Media.Brush?)TryFindResource("ColorBrushGray2")
+                ?? (System.Windows.Media.Brush?)TryFindResource("TextSecondaryBrush")
+                ?? System.Windows.Media.Brushes.DarkSlateGray;
         }
+    }
+
+    private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.ButtonState == System.Windows.Input.MouseButtonState.Pressed)
+        {
+            DragMove();
+        }
+    }
+
+    private void MinimizeBtn_Click(object sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
+    }
+
+    private void CloseBtn_Click(object sender, RoutedEventArgs e)
+    {
+        _pollTimer?.Stop();
+        DialogResult = false;
+        Close();
     }
 
     private void RefreshBtn_Click(object sender, RoutedEventArgs e)

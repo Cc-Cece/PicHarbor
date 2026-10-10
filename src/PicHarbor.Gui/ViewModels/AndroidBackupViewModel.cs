@@ -6,10 +6,12 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
 using PicHarbor.Core.Android;
+using PicHarbor.Core.Device;
 using PicHarbor.Core.Journal;
 using PicHarbor.Core.Organize;
 using PicHarbor.Core.Preflight;
 using PicHarbor.Core.Progress;
+using PicHarbor.Core.Scope;
 using PicHarbor.Core.Storage;
 using PicHarbor.Core.Transfer;
 using PicHarbor.Core.Util;
@@ -18,8 +20,18 @@ using PicHarbor.Gui.Util;
 
 namespace PicHarbor.Gui.ViewModels;
 
+public enum AndroidBackupScopeMode
+{
+    Default,
+    All,
+    DateRange,
+    Advanced
+}
+
 public sealed partial class AndroidAlbumOptionViewModel : ObservableObject
 {
+    public Action? OnCheckChanged { get; set; }
+
     [ObservableProperty]
     private string displayName = string.Empty;
 
@@ -29,11 +41,37 @@ public sealed partial class AndroidAlbumOptionViewModel : ObservableObject
     [ObservableProperty]
     private string detailText = string.Empty;
 
+    private bool suppressCheckChanged = false;
+
     [ObservableProperty]
     private bool isChecked = false;
 
     [ObservableProperty]
     private bool isCustom = false;
+
+    partial void OnIsCheckedChanged(bool value)
+    {
+        if (!suppressCheckChanged)
+        {
+            OnCheckChanged?.Invoke();
+        }
+    }
+
+    public void SetIsCheckedSilently(bool value)
+    {
+        if (IsChecked != value)
+        {
+            suppressCheckChanged = true;
+            try
+            {
+                IsChecked = value;
+            }
+            finally
+            {
+                suppressCheckChanged = false;
+            }
+        }
+    }
 }
 
 public partial class AndroidBackupViewModel : ObservableObject
@@ -135,9 +173,11 @@ public partial class AndroidBackupViewModel : ObservableObject
     private string androidDeviceId = "";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HeroPillText))]
     private string connectionStatusText = "未测试连接";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HeroPillText))]
     private bool isConnectionOk = false;
 
     [ObservableProperty]
@@ -147,20 +187,290 @@ public partial class AndroidBackupViewModel : ObservableObject
     [ObservableProperty]
     private bool ignoreSmallImages = true;
 
+    partial void OnIgnoreSmallImagesChanged(bool value) => UpdateScopeSummarySentence();
+
     [ObservableProperty]
     private int minFileSizeKb = 100;
+
+    partial void OnMinFileSizeKbChanged(int value) => UpdateScopeSummarySentence();
 
     [ObservableProperty]
     private bool includePhotos = true;
 
+    partial void OnIncludePhotosChanged(bool value) => UpdateScopeSummarySentence();
+
     [ObservableProperty]
     private bool includeVideos = true;
+
+    partial void OnIncludeVideosChanged(bool value) => UpdateScopeSummarySentence();
 
     [ObservableProperty]
     private DateTime? scopeDateFrom = null;
 
+    partial void OnScopeDateFromChanged(DateTime? value) => UpdateScopeSummarySentence();
+
     [ObservableProperty]
     private DateTime? scopeDateTo = null;
+
+    partial void OnScopeDateToChanged(DateTime? value) => UpdateScopeSummarySentence();
+
+    [ObservableProperty]
+    private AndroidBackupScopeMode scopeMode = AndroidBackupScopeMode.Default;
+
+    private bool suppressCheckChanged = false;
+
+    public bool IsScopeDefault
+    {
+        get => ScopeMode == AndroidBackupScopeMode.Default;
+        set
+        {
+            if (value && ScopeMode != AndroidBackupScopeMode.Default)
+            {
+                ScopeMode = AndroidBackupScopeMode.Default;
+                ApplyScopeMode(ScopeMode);
+                NotifyScopeProperties();
+            }
+        }
+    }
+
+    public bool IsScopeAll
+    {
+        get => ScopeMode == AndroidBackupScopeMode.All;
+        set
+        {
+            if (value && ScopeMode != AndroidBackupScopeMode.All)
+            {
+                ScopeMode = AndroidBackupScopeMode.All;
+                ApplyScopeMode(ScopeMode);
+                NotifyScopeProperties();
+            }
+        }
+    }
+
+    public bool IsScopeDateRange
+    {
+        get => ScopeMode == AndroidBackupScopeMode.DateRange;
+        set
+        {
+            if (value && ScopeMode != AndroidBackupScopeMode.DateRange)
+            {
+                ScopeMode = AndroidBackupScopeMode.DateRange;
+                ApplyScopeMode(ScopeMode);
+                NotifyScopeProperties();
+            }
+        }
+    }
+
+    public bool IsScopeAdvanced
+    {
+        get => ScopeMode == AndroidBackupScopeMode.Advanced;
+        set
+        {
+            if (value && ScopeMode != AndroidBackupScopeMode.Advanced)
+            {
+                ScopeMode = AndroidBackupScopeMode.Advanced;
+                ApplyScopeMode(ScopeMode);
+                NotifyScopeProperties();
+            }
+        }
+    }
+
+    private void NotifyScopeProperties()
+    {
+        OnPropertyChanged(nameof(IsScopeDefault));
+        OnPropertyChanged(nameof(IsScopeAll));
+        OnPropertyChanged(nameof(IsScopeDateRange));
+        OnPropertyChanged(nameof(IsScopeAdvanced));
+    }
+
+    [ObservableProperty]
+    private string scopeSummarySentence = "";
+
+    public string HeroPillText
+    {
+        get
+        {
+            if (IsTransferring)
+            {
+                return $"备份中 ({ProgressPercentage:F0}%)";
+            }
+            if (CopiedCount > 0 || SkippedCount > 0 || FailedCount > 0)
+            {
+                if (FailedCount > 0)
+                    return $"完成 ({CopiedCount}传输, {FailedCount}失败)";
+                return $"完成 ({CopiedCount}传输, {SkippedCount}跳过)";
+            }
+            return IsConnectionOk ? "已连接 · 准备就绪" : "准备就绪";
+        }
+    }
+
+    private static bool IsCameraOrScreenshots(string path)
+    {
+        string p = path.ToLowerInvariant();
+        return p.Contains("camera") || p.Contains("dcim") || p.Contains("screenshot");
+    }
+
+    private void HandleAlbumCheckChanged()
+    {
+        if (suppressCheckChanged) return;
+        if (ScopeMode != AndroidBackupScopeMode.Advanced)
+        {
+            ScopeMode = AndroidBackupScopeMode.Advanced;
+            NotifyScopeProperties();
+        }
+        UpdateScopeSummarySentence();
+    }
+
+    private void ApplyScopeMode(AndroidBackupScopeMode mode)
+    {
+        suppressCheckChanged = true;
+        try
+        {
+            switch (mode)
+            {
+                case AndroidBackupScopeMode.Default:
+                    foreach (var album in Albums)
+                    {
+                        album.SetIsCheckedSilently(IsCameraOrScreenshots(album.RemotePath));
+                    }
+                    break;
+                case AndroidBackupScopeMode.All:
+                    foreach (var album in Albums)
+                    {
+                        album.SetIsCheckedSilently(true);
+                    }
+                    break;
+                case AndroidBackupScopeMode.DateRange:
+                    if (!Albums.Any(a => a.IsChecked))
+                    {
+                        foreach (var album in Albums)
+                        {
+                            album.SetIsCheckedSilently(IsCameraOrScreenshots(album.RemotePath));
+                        }
+                    }
+                    break;
+                case AndroidBackupScopeMode.Advanced:
+                    break;
+            }
+        }
+        finally
+        {
+            suppressCheckChanged = false;
+        }
+        UpdateScopeSummarySentence();
+    }
+
+    public void UpdateScopeSummarySentence()
+    {
+        var checkedAlbums = Albums.Where(a => a.IsChecked).ToList();
+        string albumPart;
+        if (checkedAlbums.Count == 0)
+        {
+            albumPart = "未选择任何相册";
+        }
+        else if (checkedAlbums.Count == Albums.Count && Albums.Count > 0)
+        {
+            albumPart = $"全部 {checkedAlbums.Count} 个相册";
+        }
+        else
+        {
+            var names = checkedAlbums.Take(2).Select(a =>
+            {
+                string name = a.DisplayName;
+                int parenIdx = name.IndexOf('(');
+                if (parenIdx > 0) name = name.Substring(0, parenIdx);
+                return name.Replace("📷", "").Replace("📱", "").Replace("💬", "").Replace("📥", "").Replace("📁", "").Trim();
+            }).ToList();
+
+            if (checkedAlbums.Count > 2)
+            {
+                albumPart = $"{string.Join("、", names)} 等 {checkedAlbums.Count} 个相册";
+            }
+            else
+            {
+                albumPart = string.Join(" 与 ", names);
+            }
+        }
+
+        string typePart = (IncludePhotos, IncludeVideos) switch
+        {
+            (true, true) => "照片与视频",
+            (true, false) => "仅照片",
+            (false, true) => "仅视频",
+            _ => "无媒体类型"
+        };
+
+        string datePart = "";
+        if (IsScopeDateRange)
+        {
+            if (ScopeDateFrom.HasValue && ScopeDateTo.HasValue)
+                datePart = $"在 {ScopeDateFrom:yyyy-MM-dd} 至 {ScopeDateTo:yyyy-MM-dd} 期间的";
+            else if (ScopeDateFrom.HasValue)
+                datePart = $"从 {ScopeDateFrom:yyyy-MM-dd} 起的";
+            else if (ScopeDateTo.HasValue)
+                datePart = $"截至 {ScopeDateTo:yyyy-MM-dd} 的";
+            else
+                datePart = "按指定日期范围的";
+        }
+
+        string filterPart = "";
+        if (IgnoreSmallImages)
+        {
+            filterPart = $"，已过滤小于 {MinFileSizeKb} KB 的小图与临时缓存";
+        }
+
+        if (checkedAlbums.Count == 0)
+        {
+            ScopeSummarySentence = "⚠️ 当前未勾选任何相册，请至少勾选一个相册进行备份。";
+        }
+        else if (IsScopeDateRange)
+        {
+            ScopeSummarySentence = $"💡 本次范围：将备份 {datePart} {albumPart} 中的{typePart}{filterPart}。";
+        }
+        else
+        {
+            ScopeSummarySentence = $"💡 本次范围：将智能备份 {albumPart} 中的全部{typePart}{filterPart}。";
+        }
+    }
+
+    public string ScopeDateFromText
+    {
+        get => ScopeDateFrom?.ToString("yyyy-MM-dd") ?? string.Empty;
+        set
+        {
+            if (DateTime.TryParse(value, out DateTime dt))
+            {
+                ScopeDateFrom = dt;
+            }
+            else if (string.IsNullOrWhiteSpace(value))
+            {
+                ScopeDateFrom = null;
+            }
+            OnPropertyChanged(nameof(ScopeDateFromText));
+        }
+    }
+
+    public string ScopeDateToText
+    {
+        get => ScopeDateTo?.ToString("yyyy-MM-dd") ?? string.Empty;
+        set
+        {
+            if (DateTime.TryParse(value, out DateTime dt))
+            {
+                ScopeDateTo = dt;
+            }
+            else if (string.IsNullOrWhiteSpace(value))
+            {
+                ScopeDateTo = null;
+            }
+            OnPropertyChanged(nameof(ScopeDateToText));
+        }
+    }
+
+    public Action? OpenManualModalAction { get; set; }
+
+    [RelayCommand]
+    private void OpenManualModal() => OpenManualModalAction?.Invoke();
 
     [ObservableProperty]
     private bool isAdvancedPanelOpen = false;
@@ -178,9 +488,11 @@ public partial class AndroidBackupViewModel : ObservableObject
 
     // Progress & Execution Properties
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HeroPillText))]
     private bool isTransferring = false;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HeroPillText))]
     private double progressPercentage = 0;
 
     [ObservableProperty]
@@ -190,12 +502,26 @@ public partial class AndroidBackupViewModel : ObservableObject
     private string speedText = "0.0 MB/s";
 
     [ObservableProperty]
+    private int plannedItemCount;
+
+    public double SpeedBytesPerSecond { get; private set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HeroPillText))]
     private int copiedCount = 0;
 
     [ObservableProperty]
+    private int remainingFilesCount = 0;
+
+    [ObservableProperty]
+    private int totalFilesCount = 0;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HeroPillText))]
     private int skippedCount = 0;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HeroPillText))]
     private int failedCount = 0;
 
     [ObservableProperty]
@@ -253,7 +579,8 @@ public partial class AndroidBackupViewModel : ObservableObject
             RemotePath = "/DCIM/Camera",
             DetailText = "核心拍摄原片与视频",
             IsChecked = true,
-            IsCustom = false
+            IsCustom = false,
+            OnCheckChanged = HandleAlbumCheckChanged
         });
         Albums.Add(new AndroidAlbumOptionViewModel
         {
@@ -261,7 +588,8 @@ public partial class AndroidBackupViewModel : ObservableObject
             RemotePath = "/Pictures/Screenshots",
             DetailText = "系统截图目录",
             IsChecked = true,
-            IsCustom = false
+            IsCustom = false,
+            OnCheckChanged = HandleAlbumCheckChanged
         });
         Albums.Add(new AndroidAlbumOptionViewModel
         {
@@ -269,7 +597,8 @@ public partial class AndroidBackupViewModel : ObservableObject
             RemotePath = "/Pictures/WeiXin",
             DetailText = "微信保存的图片与视频",
             IsChecked = false,
-            IsCustom = false
+            IsCustom = false,
+            OnCheckChanged = HandleAlbumCheckChanged
         });
         Albums.Add(new AndroidAlbumOptionViewModel
         {
@@ -277,8 +606,10 @@ public partial class AndroidBackupViewModel : ObservableObject
             RemotePath = "/Download",
             DetailText = "浏览器和下载内容",
             IsChecked = false,
-            IsCustom = false
+            IsCustom = false,
+            OnCheckChanged = HandleAlbumCheckChanged
         });
+        UpdateScopeSummarySentence();
     }
 
     private void LoadConfig()
@@ -403,22 +734,32 @@ public partial class AndroidBackupViewModel : ObservableObject
                 // Preserve checked status of existing albums
                 var checkedPaths = Albums.Where(a => a.IsChecked).Select(a => a.RemotePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-                Albums.Clear();
-                foreach (var item in discovered)
+                suppressCheckChanged = true;
+                try
                 {
-                    bool isChecked = checkedPaths.Contains(item.RemotePath) || item.IsDefaultSelected;
-                    Albums.Add(new AndroidAlbumOptionViewModel
+                    Albums.Clear();
+                    foreach (var item in discovered)
                     {
-                        DisplayName = item.DisplayName,
-                        RemotePath = item.RemotePath,
-                        DetailText = $"{item.FileCount:N0} 项 · {ByteSize.Humanize(item.TotalBytes)}",
-                        IsChecked = isChecked,
-                        IsCustom = false
-                    });
+                        bool isChecked = checkedPaths.Contains(item.RemotePath) || item.IsDefaultSelected;
+                        Albums.Add(new AndroidAlbumOptionViewModel
+                        {
+                            DisplayName = item.DisplayName,
+                            RemotePath = item.RemotePath,
+                            DetailText = $"{item.FileCount:N0} 项 · {ByteSize.Humanize(item.TotalBytes)}",
+                            IsChecked = isChecked,
+                            IsCustom = false,
+                            OnCheckChanged = HandleAlbumCheckChanged
+                        });
+                    }
+                }
+                finally
+                {
+                    suppressCheckChanged = false;
                 }
 
                 ScanStatusText = $"✅ 扫描完成：识别出 {Albums.Count} 个有效相册 (纯小图/缓存目录已自动排除)";
                 AddLog($"[SUCCESS] 识别到 {Albums.Count} 个有效相册。");
+                UpdateScopeSummarySentence();
             });
         }
         catch (Exception ex)
@@ -438,13 +779,41 @@ public partial class AndroidBackupViewModel : ObservableObject
     [RelayCommand]
     private void SelectAllAlbums()
     {
-        foreach (var a in Albums) a.IsChecked = true;
+        suppressCheckChanged = true;
+        try
+        {
+            foreach (var a in Albums) a.SetIsCheckedSilently(true);
+        }
+        finally
+        {
+            suppressCheckChanged = false;
+        }
+        if (ScopeMode != AndroidBackupScopeMode.All && ScopeMode != AndroidBackupScopeMode.Advanced)
+        {
+            ScopeMode = AndroidBackupScopeMode.All;
+            NotifyScopeProperties();
+        }
+        UpdateScopeSummarySentence();
     }
 
     [RelayCommand]
     private void DeselectAllAlbums()
     {
-        foreach (var a in Albums) a.IsChecked = false;
+        suppressCheckChanged = true;
+        try
+        {
+            foreach (var a in Albums) a.SetIsCheckedSilently(false);
+        }
+        finally
+        {
+            suppressCheckChanged = false;
+        }
+        if (ScopeMode != AndroidBackupScopeMode.Advanced)
+        {
+            ScopeMode = AndroidBackupScopeMode.Advanced;
+            NotifyScopeProperties();
+        }
+        UpdateScopeSummarySentence();
     }
 
     [RelayCommand]
@@ -463,10 +832,17 @@ public partial class AndroidBackupViewModel : ObservableObject
                 RemotePath = path,
                 DetailText = "自定义添加目录",
                 IsChecked = true,
-                IsCustom = true
+                IsCustom = true,
+                OnCheckChanged = HandleAlbumCheckChanged
             });
             CustomAlbumPath = "";
             AddLog($"[INFO] 已添加自定义相册目录: {path}");
+            if (ScopeMode != AndroidBackupScopeMode.Advanced)
+            {
+                ScopeMode = AndroidBackupScopeMode.Advanced;
+                NotifyScopeProperties();
+            }
+            UpdateScopeSummarySentence();
         }
     }
 
@@ -476,6 +852,7 @@ public partial class AndroidBackupViewModel : ObservableObject
         if (album != null)
         {
             Albums.Remove(album);
+            UpdateScopeSummarySentence();
         }
     }
 
@@ -491,6 +868,13 @@ public partial class AndroidBackupViewModel : ObservableObject
     {
         ScopeDateTo = DateTime.Today;
         ScopeDateFrom = DateTime.Today.AddDays(-90);
+    }
+
+    [RelayCommand]
+    private void SetDatePresetLast1Year()
+    {
+        ScopeDateTo = DateTime.Today;
+        ScopeDateFrom = DateTime.Today.AddYears(-1);
     }
 
     [RelayCommand]
@@ -569,6 +953,10 @@ public partial class AndroidBackupViewModel : ObservableObject
         skippedDetails.Clear();
         failedDetails.Clear();
         CopiedCount = 0;
+        RemainingFilesCount = 0;
+        TotalFilesCount = 0;
+        PlannedItemCount = 0;
+        SpeedBytesPerSecond = 0;
         SkippedCount = 0;
         FailedCount = 0;
         ProgressPercentage = 0;
@@ -603,8 +991,13 @@ public partial class AndroidBackupViewModel : ObservableObject
                     IncludeVideos = IncludeVideos
                 };
 
+                DateTime? fromDate = IsScopeDateRange ? ScopeDateFrom : null;
+                DateTime? toDate = IsScopeDateRange ? ScopeDateTo : null;
+
                 AddLog("[INFO] 正在枚举选定相册中的媒体文件...");
-                var files = await client.EnumerateFilesAsync(selectedAlbums, filterOptions, ScopeDateFrom, ScopeDateTo, ct).ConfigureAwait(false);
+                var files = await client.EnumerateFilesAsync(selectedAlbums, filterOptions, fromDate, toDate, ct).ConfigureAwait(false);
+                int itemCount = LivePhotoDetector.CountDisplayedItems(files.Select(f => f.Path));
+                await Application.Current.Dispatcher.InvokeAsync(() => PlannedItemCount = itemCount);
 
                 if (files.Count == 0)
                 {
@@ -618,7 +1011,7 @@ public partial class AndroidBackupViewModel : ObservableObject
                 }
 
                 long totalBytes = files.Sum(f => f.Size);
-                AddLog($"[INFO] 共发现 {files.Count:N0} 个媒体文件，总计 {ByteSize.Humanize(totalBytes)}。");
+                AddLog($"[INFO] 共发现 {itemCount:N0} 张（文件 {files.Count:N0}），总计 {ByteSize.Humanize(totalBytes)}。");
 
                 preflight.EnsureDestinationWritable(DestinationPath);
                 preflight.EnsureSufficientFreeSpace(DestinationPath, totalBytes);
@@ -627,9 +1020,11 @@ public partial class AndroidBackupViewModel : ObservableObject
                 using var journal = TransferJournal.Open(DestinationPath);
                 DateTimeOffset runStartedAt = DateTimeOffset.UtcNow;
 
+                long backupSessionId = 0;
                 if (client.Device is not null)
                 {
-                    journal.UpsertDevice(client.Device.Udid, client.Device.Name, client.Device.ProductType, runStartedAt);
+                    string effectiveName = journal.RegisterOrUpdateDevice(client.Device.Udid, client.Device.Name, client.Device.ProductType, client.Device.Udid, "Android", runStartedAt);
+                    backupSessionId = journal.BeginBackupSession(client.Device.Udid, effectiveName, client.Device.ProductType, runStartedAt);
                 }
 
                 foreach (var file in files)
@@ -714,6 +1109,10 @@ public partial class AndroidBackupViewModel : ObservableObject
                                     copied++;
                                     bytesCopied += result.BytesCopied;
                                     copiedDetails.Add(detailItem);
+                                    if (backupSessionId > 0 && !string.IsNullOrWhiteSpace(detailItem.TargetPath))
+                                    {
+                                        journal.RecordHistoryItem(backupSessionId, file.Path, detailItem.TargetPath, file.Size, DateTimeOffset.UtcNow, Path.GetExtension(file.Path).TrimStart('.'));
+                                    }
                                     break;
                                 case CopyStatus.Skipped:
                                     skipped++;
@@ -732,7 +1131,10 @@ public partial class AndroidBackupViewModel : ObservableObject
                     }
 
                     stopwatch.Stop();
-
+                    if (backupSessionId > 0)
+                    {
+                        journal.CompleteBackupSession(backupSessionId, copied, bytesCopied, failed > 0 ? "Partial" : "Completed");
+                    }
                     journal.RecordRun(runStartedAt, DateTimeOffset.UtcNow, "copy", copied, skipped, failed, exitCode: 0, client.Device?.Udid);
 
                     await Application.Current.Dispatcher.InvokeAsync(() =>
@@ -789,12 +1191,16 @@ public partial class AndroidBackupViewModel : ObservableObject
             CopiedCount = snapshot.CopiedFiles;
             SkippedCount = snapshot.SkippedFiles;
             FailedCount = snapshot.FailedFiles;
+            RemainingFilesCount = Math.Max(0, snapshot.TotalFiles - snapshot.ProcessedFiles);
+            TotalFilesCount = snapshot.TotalFiles;
             TransferredSizeText = $"{ByteSize.Humanize(snapshot.ProcessedBytes)} / {ByteSize.Humanize(snapshot.TotalBytes)}";
             EtaText = snapshot.Eta.HasValue
                 ? $"{snapshot.Eta.Value.Minutes}m {snapshot.Eta.Value.Seconds}s"
                 : (snapshot.ByteFraction >= 1.0 ? "备份完成" : "计算中...");
-            ProgressText = $"{snapshot.ByteFraction * 100:F1}% ({snapshot.ProcessedFiles:N0}/{snapshot.TotalFiles:N0} 文件)";
+            int items = PlannedItemCount > 0 ? PlannedItemCount : snapshot.TotalFiles;
+            ProgressText = $"{snapshot.ByteFraction * 100:F1}% · {items:N0} 张（文件 {snapshot.ProcessedFiles:N0}/{snapshot.TotalFiles:N0}）";
 
+            SpeedBytesPerSecond = snapshot.CurrentBytesPerSecond;
             double mbps = snapshot.CurrentBytesPerSecond / 1024d / 1024d;
             SpeedText = $"{mbps:F1} MB/s";
             CurrentFileName = string.IsNullOrWhiteSpace(snapshot.CurrentFileName)
