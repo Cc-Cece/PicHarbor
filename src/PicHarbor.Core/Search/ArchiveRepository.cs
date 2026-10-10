@@ -17,6 +17,7 @@ namespace PicHarbor.Core.Search;
 /// <param name="OtherCount">Count of other media files.</param>
 /// <param name="LastBackupTime">Timestamp of the most recent backup run, if any.</param>
 /// <param name="Devices">History of connected devices recorded in this archive.</param>
+/// <param name="ItemCount">Displayed items. A live pair (still plus motion clip) counts as one.</param>
 public sealed record ArchiveSummaryStats(
     int TotalFiles,
     long TotalBytes,
@@ -25,7 +26,8 @@ public sealed record ArchiveSummaryStats(
     int ScreenshotsCount,
     int OtherCount,
     DateTimeOffset? LastBackupTime,
-    IReadOnlyList<DeviceRecord> Devices);
+    IReadOnlyList<DeviceRecord> Devices,
+    int ItemCount);
 
 /// <summary>
 /// High-level read-only API helper for querying existing PicHarbor archives.
@@ -87,6 +89,7 @@ public static class ArchiveRepository
                 }
             }
 
+            int itemCount = LivePhotoDetector.CountDisplayedItems(rows.Select(row => row.RelativePath));
             return new ArchiveSummaryStats(
                 totalFiles,
                 totalBytes,
@@ -95,7 +98,8 @@ public static class ArchiveRepository
                 screenshots,
                 other,
                 runsSummary.LatestRunAt,
-                devices);
+                devices,
+                itemCount);
         }, cancellationToken);
     }
 

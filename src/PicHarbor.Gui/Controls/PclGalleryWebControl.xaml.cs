@@ -10,6 +10,7 @@ using System.Threading;
 using System.Web;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -17,6 +18,7 @@ using Microsoft.Web.WebView2.Core;
 using PicHarbor.Core;
 using PicHarbor.Core.Search;
 using PicHarbor.Core.Util;
+using PicHarbor.Gui.Config;
 using PicHarbor.Gui.Util;
 using PicHarbor.Gui.ViewModels;
 
@@ -36,14 +38,57 @@ public partial class PclGalleryWebControl : UserControl
     private static readonly string DiskCacheFolder = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "PicHarbor", "Cache", "Thumbnails");
+    // Real 240px frames in this cache start around 2 KB. The 631-byte files are 1×1 JPEGs
+    // that Windows returned before the HEVC thumbnail handler could decode, and any length > 0
+    // used to count as a hit, so they were never generated again.
+    private const int MinimumThumbnailBytes = 1024;
+    private const string MediaUrlRevision = "3";
+    private const string PlaceholderResponseHeaders =
+        "Content-Type: image/svg+xml\r\nAccess-Control-Allow-Origin: *\r\nCache-Control: no-store";
+    private static int diskCacheScrubbed;
     private static CoreWebView2Environment? sharedEnvironment;
     private static readonly SemaphoreSlim envLock = new(1, 1);
     private SearchViewModel? currentSearchVM;
     private string? lastPushedFingerprint;
+    private readonly DispatcherTimer playerClock;
+    private bool nativePlayerOpen;
+    private PreviewKind previewKind;
+    private bool nativeClosing;
+    private bool pendingPlay;
+    private bool playing;
+    private bool clockWriting;
+    private string? currentVideoPath;
+    private string? currentStillPath;
+    private string? currentItemPath;
+    // HEIC decode stays off the UI thread. A finish from the previous item must not replace the still.
+    private int stillLoadGeneration;
+    private readonly List<PreviewEntry> previewEntries = new();
+    private int previewIndex = -1;
+    private double viewScale = 1;
+    private int mediaPixelWidth;
+    private int mediaPixelHeight;
+    private double panX;
+    private double panY;
+    private double rotationDegrees;
+    private bool panning;
+    private bool panMoved;
+    private Point panStart;
+    private double panStartX;
+    private double panStartY;
+    private const double ZoomStep = 1.25;
+    private const double MinViewScale = 0.2;
+    private const double MaxViewScale = 8;
+    private Window? playerKeyWindow;
+    private SystemVideoFramePlayer? framePlayer;
+    private bool previewMuted = true;
+    private bool fullStillReady;
+    private readonly DispatcherTimer previewSpinnerTimer;
 
     public PclGalleryWebControl()
     {
         InitializeComponent();
+        previewMuted = AppSettings.LoadPreviewMuted();
+        ApplyMuteChrome();
 
         pushDebounceTimer = new DispatcherTimer
         {
@@ -51,12 +96,21 @@ public partial class PclGalleryWebControl : UserControl
         };
         pushDebounceTimer.Tick += PushDebounceTimer_Tick;
 
-        PclModalHost.HasAnyModalOpenChanged += (s, hasAny) =>
+        playerClock = new DispatcherTimer
         {
-            Dispatcher.Invoke(() =>
-            {
-                AlbumWebView.Visibility = hasAny ? Visibility.Hidden : Visibility.Visible;
-            });
+            Interval = TimeSpan.FromMilliseconds(200)
+        };
+        playerClock.Tick += PlayerClock_Tick;
+
+        previewSpinnerTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(160)
+        };
+        previewSpinnerTimer.Tick += PreviewSpinnerTimer_Tick;
+
+        PclModalHost.HasAnyModalOpenChanged += (_, _) =>
+        {
+            Dispatcher.Invoke(ApplyWebViewVisibility);
         };
 
         DataContextChanged += PclGalleryWebControl_DataContextChanged;
@@ -73,9 +127,9 @@ public partial class PclGalleryWebControl : UserControl
         if (DataContext is MainViewModel main)
         {
             vm = main.SearchVM;
-            if (main.IsAnyModalOpen)
+            if (main.IsAnyModalOpen || nativePlayerOpen)
             {
-                AlbumWebView.Visibility = Visibility.Hidden;
+                ApplyWebViewVisibility();
             }
         }
         else if (DataContext is SearchViewModel directVM)
@@ -123,9 +177,16 @@ public partial class PclGalleryWebControl : UserControl
             return;
         }
 
-        if (e.PropertyName == nameof(SearchViewModel.IsGalleryView) && currentSearchVM?.IsGalleryView == true)
+        if (e.PropertyName == nameof(SearchViewModel.IsGalleryView))
         {
-            TriggerPush();
+            if (currentSearchVM?.IsGalleryView == true)
+            {
+                TriggerPush();
+            }
+            else
+            {
+                CloseNativePlayer();
+            }
         }
         else if (e.PropertyName == nameof(SearchViewModel.IsSearching))
         {
@@ -185,6 +246,7 @@ public partial class PclGalleryWebControl : UserControl
     private void UserControl_Unloaded(object sender, RoutedEventArgs e)
     {
         pushDebounceTimer.Stop();
+        CloseNativePlayer();
     }
 
     private static async Task<CoreWebView2Environment> GetOrCreateSharedEnvironmentAsync()
@@ -197,16 +259,21 @@ public partial class PclGalleryWebControl : UserControl
             string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             string userDataDir = Path.Combine(localAppData, "PicHarbor", "WebView2", "Gallery");
             Directory.CreateDirectory(userDataDir);
+            var options = new CoreWebView2EnvironmentOptions
+            {
+                // Live Photo and iPhone video are HEVC. WebView2 uses the installed Media Foundation decoder.
+                AdditionalBrowserArguments = "--enable-features=PlatformHEVCDecoderSupport"
+            };
             try
             {
-                sharedEnvironment = await CoreWebView2Environment.CreateAsync(null, userDataDir);
+                sharedEnvironment = await CoreWebView2Environment.CreateAsync(null, userDataDir, options);
                 return sharedEnvironment;
             }
             catch (Exception ex) when (ex.HResult == unchecked((int)0x800700AA) || ex.Message.Contains("0x800700AA"))
             {
                 string fallbackDir = Path.Combine(Path.GetTempPath(), "PicHarbor_WV2_" + Environment.ProcessId);
                 Directory.CreateDirectory(fallbackDir);
-                sharedEnvironment = await CoreWebView2Environment.CreateAsync(null, fallbackDir);
+                sharedEnvironment = await CoreWebView2Environment.CreateAsync(null, fallbackDir, options);
                 return sharedEnvironment;
             }
         }
@@ -225,6 +292,7 @@ public partial class PclGalleryWebControl : UserControl
             return;
         }
 
+        AlbumWebView.DefaultBackgroundColor = System.Drawing.Color.FromArgb(0xF8, 0xFA, 0xFC);
         if (AlbumWebView.CoreWebView2 == null)
         {
             try
@@ -236,7 +304,13 @@ public partial class PclGalleryWebControl : UserControl
             {
                 string fallbackDir = Path.Combine(Path.GetTempPath(), "PicHarbor_WV2_" + Environment.ProcessId + "_" + Guid.NewGuid().ToString("N")[..6]);
                 Directory.CreateDirectory(fallbackDir);
-                var fallbackEnv = await CoreWebView2Environment.CreateAsync(null, fallbackDir);
+                var fallbackEnv = await CoreWebView2Environment.CreateAsync(
+                    null,
+                    fallbackDir,
+                    new CoreWebView2EnvironmentOptions
+                    {
+                        AdditionalBrowserArguments = "--enable-features=PlatformHEVCDecoderSupport"
+                    });
                 await AlbumWebView.EnsureCoreWebView2Async(fallbackEnv);
             }
         }
@@ -270,7 +344,21 @@ public partial class PclGalleryWebControl : UserControl
         // Bridge messages from JS to C#
         core.WebMessageReceived += CoreWebView2_WebMessageReceived;
 
-        core.Navigate("https://gallery.local/index.html");
+        core.NavigationCompleted += (_, args) =>
+        {
+            if (args.IsSuccess || isWebReady)
+            {
+                return;
+            }
+
+            if (core.Source?.Contains("gallery.local", StringComparison.OrdinalIgnoreCase) != true)
+            {
+                return;
+            }
+
+            ShowError("图库页面没有载入完成");
+        };
+        core.Navigate("https://gallery.local/index.html?v=7");
     }
 
     private static string GetThumbnailCacheKey(string filePath)
@@ -304,7 +392,7 @@ public partial class PclGalleryWebControl : UserControl
                     new MemoryStream(placeholder),
                     200,
                     "OK",
-                    "Content-Type: image/svg+xml\r\nAccess-Control-Allow-Origin: *\r\nCache-Control: public, max-age=3600");
+                    PlaceholderResponseHeaders);
                 return;
             }
 
@@ -395,7 +483,7 @@ public partial class PclGalleryWebControl : UserControl
                                     ms,
                                     200,
                                     "OK",
-                                    "Content-Type: image/svg+xml\r\nAccess-Control-Allow-Origin: *\r\nCache-Control: public, max-age=3600");
+                                    PlaceholderResponseHeaders);
                             }
                         }
                         else
@@ -478,11 +566,57 @@ public partial class PclGalleryWebControl : UserControl
         }
     }
 
+    private static string GalleryMediaUrl(string kind, string path)
+        => $"https://media.gallery.local/{kind}?path={Uri.EscapeDataString(path)}&v={MediaUrlRevision}";
+
+    private static bool IsUsableThumbnail(byte[]? bytes)
+        => bytes is { Length: >= MinimumThumbnailBytes };
+
+    private static void ScrubTinyThumbnailCache()
+    {
+        if (Interlocked.Exchange(ref diskCacheScrubbed, 1) != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!Directory.Exists(DiskCacheFolder))
+            {
+                return;
+            }
+
+            foreach (string file in Directory.EnumerateFiles(DiskCacheFolder, "*.jpg"))
+            {
+                try
+                {
+                    if (new FileInfo(file).Length < MinimumThumbnailBytes)
+                    {
+                        File.Delete(file);
+                    }
+                }
+                catch
+                {
+                }
+            }
+        }
+        catch
+        {
+        }
+    }
+
     private static async Task<byte[]?> GetOrCreateThumbnailBytesAsync(string filePath)
     {
+        ScrubTinyThumbnailCache();
+
         if (ThumbnailCache.TryGetValue(filePath, out var cached))
         {
-            return cached;
+            if (IsUsableThumbnail(cached))
+            {
+                return cached;
+            }
+
+            ThumbnailCache.TryRemove(filePath, out _);
         }
 
         string cacheKey = GetThumbnailCacheKey(filePath);
@@ -494,7 +628,7 @@ public partial class PclGalleryWebControl : UserControl
             if (File.Exists(diskCacheFile))
             {
                 byte[] diskBytes = await File.ReadAllBytesAsync(diskCacheFile).ConfigureAwait(false);
-                if (diskBytes.Length > 0)
+                if (IsUsableThumbnail(diskBytes) && !ShellServices.IsJpegShellFileIcon(diskBytes, filePath))
                 {
                     if (ThumbnailCache.Count < 3000)
                     {
@@ -502,6 +636,8 @@ public partial class PclGalleryWebControl : UserControl
                     }
                     return diskBytes;
                 }
+
+                try { File.Delete(diskCacheFile); } catch { }
             }
         }
         catch { }
@@ -518,7 +654,12 @@ public partial class PclGalleryWebControl : UserControl
                 string? pairedStill = ImageDimensionHelper.FindLivePhotoStill(filePath);
                 if (pairedStill != null)
                 {
-                    img = LoadFrozenBitmap(pairedStill, 240) ?? ShellServices.GetShellThumbnail(pairedStill, 240, 240, thumbnailOnly: false);
+                    string stillExt = Path.GetExtension(pairedStill);
+                    bool heifStill = stillExt.Equals(".heic", StringComparison.OrdinalIgnoreCase)
+                        || stillExt.Equals(".heif", StringComparison.OrdinalIgnoreCase);
+                    img = heifStill
+                        ? ShellServices.DecodeHeifStill(pairedStill, 240) ?? ShellServices.GetShellThumbnail(pairedStill, 240, 240, thumbnailOnly: false)
+                        : LoadFrozenBitmap(pairedStill, 240) ?? ShellServices.GetShellThumbnail(pairedStill, 240, 240, thumbnailOnly: false);
                 }
 
                 if (img == null)
@@ -533,7 +674,7 @@ public partial class PclGalleryWebControl : UserControl
                             using var ms = new MemoryStream();
                             await winrtStream.CopyToAsync(ms).ConfigureAwait(false);
                             byte[] rawBytes = ms.ToArray();
-                            if (rawBytes.Length > 0)
+                            if (IsUsableThumbnail(rawBytes) && !ShellServices.IsJpegShellFileIcon(rawBytes, filePath))
                             {
                                 if (ThumbnailCache.Count < 3000) ThumbnailCache[filePath] = rawBytes;
                                 _ = Task.Run(async () =>
@@ -551,12 +692,14 @@ public partial class PclGalleryWebControl : UserControl
                     }
                     catch { }
 
-                    img = ShellServices.GetShellThumbnail(filePath, 240, 240, thumbnailOnly: false);
+                    img = ShellServices.GetShellThumbnail(filePath, 240, 240, thumbnailOnly: false)
+                        ?? await ShellServices.GetVideoFrameAsync(filePath, 240).ConfigureAwait(false);
                 }
             }
             else if (ext is ".heic" or ".heif")
             {
-                img = ShellServices.GetShellThumbnail(filePath, 240, 240, thumbnailOnly: false);
+                img = ShellServices.DecodeHeifStill(filePath, 240)
+                    ?? ShellServices.GetShellThumbnail(filePath, 240, 240, thumbnailOnly: false);
             }
             else
             {
@@ -564,7 +707,7 @@ public partial class PclGalleryWebControl : UserControl
                 img ??= ShellServices.GetShellThumbnail(filePath, 240, 240, thumbnailOnly: false);
             }
 
-            if (img is BitmapSource bs)
+            if (img is BitmapSource bs && bs.PixelWidth >= 8 && bs.PixelHeight >= 8)
             {
                 using var ms = new MemoryStream();
                 var encoder = new JpegBitmapEncoder { QualityLevel = 75 };
@@ -645,7 +788,11 @@ public partial class PclGalleryWebControl : UserControl
     {
         try
         {
-            var img = ShellServices.GetShellThumbnail(filePath, 1920, 1920, thumbnailOnly: false);
+            string ext = Path.GetExtension(filePath);
+            bool heif = ext.Equals(".heic", StringComparison.OrdinalIgnoreCase) || ext.Equals(".heif", StringComparison.OrdinalIgnoreCase);
+            var img = heif
+                ? ShellServices.DecodeHeifStill(filePath, 1920) ?? ShellServices.GetShellThumbnail(filePath, 1920, 1920, thumbnailOnly: false)
+                : ShellServices.GetShellThumbnail(filePath, 1920, 1920, thumbnailOnly: false);
             if (img is BitmapSource bs)
             {
                 using var ms = new MemoryStream();
@@ -699,11 +846,12 @@ public partial class PclGalleryWebControl : UserControl
                     Dispatcher.Invoke(() =>
                     {
                         isWebReady = true;
-                        LoadingOverlay.Visibility = Visibility.Collapsed;
                         if (currentSearchVM != null)
                         {
                             PushPhotosToWeb();
                         }
+
+                        ApplyWebViewVisibility();
                     });
                     break;
 
@@ -786,6 +934,15 @@ public partial class PclGalleryWebControl : UserControl
                         {
                             Dispatcher.Invoke(() => ShellServices.ShowProperties(new[] { path }, GetMainWindowHandle()));
                         }
+                    }
+                    break;
+
+                case "playNative":
+                case "openNativePreview":
+                    {
+                        int index = ReadJsonInt(obj, "index");
+                        string stillPath = obj["path"]?.GetValue<string>() ?? "";
+                        Dispatcher.Invoke(() => OpenNativePreview(index, stillPath));
                     }
                     break;
 
@@ -874,7 +1031,7 @@ public partial class PclGalleryWebControl : UserControl
                      + (currentSearchVM.AndroidSyncVM?.GetManualSelectionPathsSet().Count ?? 0)
                      + (currentSearchVM.GooglePhotosVM?.GetManualSelectionPathsSet().Count ?? 0);
         string archivePath = currentSearchVM.ArchivePath;
-        string fingerprint = $"{totalCount}:{firstId}:{lastId}:{selCount}:{archivePath}";
+        string fingerprint = $"{totalCount}:{firstId}:{lastId}:{selCount}:{archivePath}:{currentSearchVM.SortModeIndex}:{currentSearchVM.SortDescending}";
 
         if (fingerprint == lastPushedFingerprint)
         {
@@ -883,6 +1040,7 @@ public partial class PclGalleryWebControl : UserControl
         lastPushedFingerprint = fingerprint;
 
         var photosList = new List<object>(totalCount);
+        var entries = new List<PreviewEntry>(Math.Max(totalCount, 0));
 
         if (hits.Count > 0)
         {
@@ -891,30 +1049,17 @@ public partial class PclGalleryWebControl : UserControl
             var androidSet = currentSearchVM.AndroidSyncVM?.GetManualSelectionPathsSet() ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var googleSet = currentSearchVM.GooglePhotosVM?.GetManualSelectionPathsSet() ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            var videoStems = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var stillStems = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var h in hits)
-            {
-                string ext = Path.GetExtension(h.RelativePath).ToLowerInvariant();
-                string stem = Path.ChangeExtension(h.RelativePath, null);
-                if (ext is ".mov" or ".mp4")
-                {
-                    videoStems.Add(stem);
-                }
-                else if (ext is ".heic" or ".jpg" or ".jpeg")
-                {
-                    stillStems.Add(stem);
-                }
-            }
-
             foreach (var hit in hits)
             {
                 string rel = hit.RelativePath;
                 string full = Path.Combine(archivePath, rel);
                 string ext = Path.GetExtension(rel).TrimStart('.').ToUpperInvariant();
                 bool isVideo = hit.Type == MediaType.Video || ext is "MP4" or "MOV" or "M4V" or "AVI" or "MKV";
-                string stem = Path.ChangeExtension(rel, null);
-                bool isLive = isVideo ? stillStems.Contains(stem) : videoStems.Contains(stem);
+                bool isLive = currentSearchVM.IsLivePhotoRelativePath(rel);
+                string? liveVideoFullPath = isLive && !isVideo ? currentSearchVM.GetLiveVideoFullPath(rel) : null;
+                string? liveVideoUrl = string.IsNullOrEmpty(liveVideoFullPath)
+                    ? null
+                    : GalleryMediaUrl("image", liveVideoFullPath);
 
                 if (string.IsNullOrWhiteSpace(ext)) ext = isVideo ? "MP4" : "JPG";
 
@@ -954,12 +1099,14 @@ public partial class PclGalleryWebControl : UserControl
                     width = w,
                     height = h,
                     takenAt = dateStr,
-                    thumbUrl = $"https://media.gallery.local/thumb?path={Uri.EscapeDataString(full)}",
-                    url = $"https://media.gallery.local/image?path={Uri.EscapeDataString(full)}",
+                    thumbUrl = GalleryMediaUrl("thumb", full),
+                    url = GalleryMediaUrl("image", full),
                     fullPath = full,
                     relativePath = rel,
                     isVideo = isVideo,
                     isLivePhoto = isLive,
+                    liveVideoUrl,
+                    liveVideoPath = liveVideoFullPath,
                     format = ext,
                     mediaType = hit.Type.ToString().ToLowerInvariant(),
                     isPending = iphoneSet.Contains(rel) || androidSet.Contains(rel) || googleSet.Contains(rel),
@@ -968,6 +1115,13 @@ public partial class PclGalleryWebControl : UserControl
                     isGooglePhotos = googleSet.Contains(rel),
                     sizeText = ByteSize.Humanize(hit.SizeBytes),
                     cameraModel = camera
+                });
+                entries.Add(new PreviewEntry
+                {
+                    ItemId = rel,
+                    FullPath = full,
+                    IsVideo = isVideo,
+                    LiveVideoPath = liveVideoFullPath
                 });
             }
         }
@@ -986,6 +1140,12 @@ public partial class PclGalleryWebControl : UserControl
 
                 string ext = Path.GetExtension(item.FullPath ?? "").TrimStart('.').ToUpperInvariant();
                 if (string.IsNullOrWhiteSpace(ext)) ext = item.IsVideo ? "MP4" : "JPG";
+                string? fallbackLiveVideo = item.IsLivePhoto && !item.IsVideo
+                    ? currentSearchVM.GetLiveVideoFullPath(item.RelativePath ?? "")
+                    : null;
+                string? fallbackLiveVideoUrl = string.IsNullOrEmpty(fallbackLiveVideo)
+                    ? null
+                    : GalleryMediaUrl("image", fallbackLiveVideo);
 
                 photosList.Add(new
                 {
@@ -993,12 +1153,14 @@ public partial class PclGalleryWebControl : UserControl
                     width = w,
                     height = h,
                     takenAt = dateStr,
-                    thumbUrl = $"https://media.gallery.local/thumb?path={Uri.EscapeDataString(item.FullPath ?? "")}",
-                    url = $"https://media.gallery.local/image?path={Uri.EscapeDataString(item.FullPath ?? "")}",
+                    thumbUrl = GalleryMediaUrl("thumb", item.FullPath ?? ""),
+                    url = GalleryMediaUrl("image", item.FullPath ?? ""),
                     fullPath = item.FullPath,
                     relativePath = item.RelativePath,
                     isVideo = item.IsVideo,
                     isLivePhoto = item.IsLivePhoto,
+                    liveVideoUrl = fallbackLiveVideoUrl,
+                    liveVideoPath = fallbackLiveVideo,
                     format = ext,
                     mediaType = item.MediaType,
                     isPending = item.IsManualSelectedForIPhone || item.IsManualSelectedForAndroid || item.IsManualSelectedForGooglePhotos,
@@ -1008,13 +1170,24 @@ public partial class PclGalleryWebControl : UserControl
                     sizeText = item.SizeText,
                     cameraModel = item.CameraModel
                 });
+                entries.Add(new PreviewEntry
+                {
+                    ItemId = item.RelativePath ?? "",
+                    FullPath = item.FullPath ?? "",
+                    IsVideo = item.IsVideo,
+                    LiveVideoPath = fallbackLiveVideo
+                });
             }
         }
+
+        ReplacePreviewEntries(entries);
 
         var payload = new
         {
             action = "setPhotos",
-            photos = photosList
+            photos = photosList,
+            sortMode = currentSearchVM.SortModeIndex,
+            sortDescending = currentSearchVM.SortDescending
         };
 
         string json = JsonSerializer.Serialize(payload);
@@ -1038,6 +1211,1292 @@ public partial class PclGalleryWebControl : UserControl
             ErrorOverlay.Visibility = Visibility.Visible;
             ErrorDetails.Text = details;
         });
+    }
+
+    /// <summary>
+    /// WebView2 owns an HWND, so the native player can only be seen while that control is collapsed.
+    /// </summary>
+    private void ApplyWebViewVisibility()
+    {
+        if (nativePlayerOpen)
+        {
+            AlbumWebView.Visibility = Visibility.Collapsed;
+            LoadingOverlay.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        if (!isWebReady)
+        {
+            AlbumWebView.Visibility = Visibility.Hidden;
+            if (ErrorOverlay.Visibility != Visibility.Visible)
+            {
+                LoadingOverlay.Visibility = Visibility.Visible;
+            }
+
+            return;
+        }
+
+        LoadingOverlay.Visibility = Visibility.Collapsed;
+
+        bool modal = PclModalHost.HasAnyModalOpen
+            || DataContext is MainViewModel main && main.IsAnyModalOpen;
+        AlbumWebView.Visibility = modal ? Visibility.Hidden : Visibility.Visible;
+    }
+
+    private void OpenNativePreview(int index, string? path)
+    {
+        if (previewEntries.Count == 0)
+        {
+            return;
+        }
+
+        bool indexMatches = index >= 0
+            && index < previewEntries.Count
+            && (string.IsNullOrWhiteSpace(path)
+                || string.Equals(previewEntries[index].FullPath, path, StringComparison.OrdinalIgnoreCase));
+        if (!indexMatches)
+        {
+            index = string.IsNullOrWhiteSpace(path)
+                ? -1
+                : previewEntries.FindIndex(entry => string.Equals(entry.FullPath, path, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (index < 0)
+        {
+            return;
+        }
+
+        ShowPreviewEntry(index);
+    }
+
+    private void ShowPreviewEntry(int index)
+    {
+        if ((uint)index >= (uint)previewEntries.Count)
+        {
+            return;
+        }
+
+        PreviewEntry entry = previewEntries[index];
+        previewIndex = index;
+        currentItemPath = entry.FullPath;
+        ResetView();
+
+        bool video = entry.IsVideo && File.Exists(entry.FullPath);
+        bool live = !entry.IsVideo
+            && !string.IsNullOrWhiteSpace(entry.LiveVideoPath)
+            && File.Exists(entry.LiveVideoPath);
+        if (video)
+        {
+            ShowPreviewSurface(PreviewKind.Video, entry.FullPath, entry.FullPath);
+        }
+        else if (live)
+        {
+            ShowPreviewSurface(PreviewKind.Live, entry.FullPath, entry.LiveVideoPath!);
+        }
+        else
+        {
+            ShowPreviewSurface(PreviewKind.Still, entry.FullPath, "");
+        }
+
+        if (index >= previewEntries.Count - 8
+            && currentSearchVM?.LoadMoreItemsCommand.CanExecute(null) == true)
+        {
+            currentSearchVM.LoadMoreItemsCommand.Execute(null);
+        }
+    }
+
+    private void ShowAdjacent(int delta)
+    {
+        ShowPreviewEntry(previewIndex + delta);
+    }
+
+    private void ShowPreviewSurface(PreviewKind kind, string itemPath, string videoPath)
+    {
+        bool motion = kind != PreviewKind.Still;
+        StopPlayerMedia();
+        nativePlayerOpen = true;
+        previewKind = kind;
+        currentVideoPath = motion ? videoPath : null;
+        int loadGeneration = ++stillLoadGeneration;
+        currentStillPath = kind == PreviewKind.Video ? null : itemPath;
+        pendingPlay = motion;
+        playing = false;
+        PlayerStatus.Visibility = Visibility.Collapsed;
+        fullStillReady = false;
+        ArmPreviewSpinner();
+
+        PlayerStill.Source = kind == PreviewKind.Video ? null : TryCachedThumbnail(itemPath);
+        PlayerStill.Visibility = kind == PreviewKind.Video ? Visibility.Collapsed : Visibility.Visible;
+        PlayerFrames.Source = null;
+        PlayerFrames.Visibility = Visibility.Collapsed;
+        PlayerReplay.Visibility = Visibility.Collapsed;
+        bool videoBar = kind == PreviewKind.Video;
+        PlayerTransport.Visibility = videoBar ? Visibility.Visible : Visibility.Collapsed;
+        PlayerTools.Visibility = videoBar ? Visibility.Collapsed : Visibility.Visible;
+        PlayerPlayGlyph.Text = "\uE769";
+        if (kind == PreviewKind.Video)
+        {
+            clockWriting = true;
+            PlayerScrub.Minimum = 0;
+            PlayerScrub.Maximum = 1;
+            PlayerScrub.Value = 0;
+            clockWriting = false;
+            PlayerTime.Text = "0:00 / 0:00";
+        }
+
+        ApplyMediaLayout();
+        ApplyMuteChrome();
+        UpdatePreviewChrome();
+        NativePlayer.Visibility = Visibility.Visible;
+        ApplyWebViewVisibility();
+        HookWindowKeys();
+        if (kind != PreviewKind.Video)
+        {
+            BeginStillLoad(itemPath, loadGeneration);
+        }
+
+        if (motion)
+        {
+            framePlayer = new SystemVideoFramePlayer(Dispatcher, previewMuted);
+            framePlayer.Opened += FramePlayer_Opened;
+            framePlayer.FrameUpdated += FramePlayer_FrameUpdated;
+            framePlayer.Ended += FramePlayer_Ended;
+            framePlayer.Failed += FramePlayer_Failed;
+            framePlayer.Open(videoPath);
+        }
+
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(FocusNativePlayer));
+    }
+
+    private void BeginStillLoad(string still, int generation)
+    {
+        _ = Task.Run(() =>
+        {
+            BitmapSource? full = LoadPlayerStill(still);
+            if (full != null && !full.IsFrozen)
+            {
+                full.Freeze();
+            }
+
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (generation != stillLoadGeneration || !nativePlayerOpen)
+                {
+                    return;
+                }
+
+                if (!string.Equals(currentStillPath, still, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                if (full == null)
+                {
+                    HidePreviewSpinner();
+                    if (PlayerStill.Source == null)
+                    {
+                        PlayerStatus.Visibility = Visibility.Visible;
+                    }
+
+                    return;
+                }
+
+                fullStillReady = true;
+                HidePreviewSpinner();
+                PlayerStatus.Visibility = Visibility.Collapsed;
+                PlayerStill.Source = full;
+                PlayerStill.Visibility = Visibility.Visible;
+                if (PlayerFrames.Visibility != Visibility.Visible)
+                {
+                    ApplyMediaLayout();
+                }
+            });
+        });
+    }
+
+    private void CloseNativePlayer()
+    {
+        if (!nativePlayerOpen && NativePlayer.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        stillLoadGeneration++;
+        nativePlayerOpen = false;
+        previewKind = PreviewKind.None;
+        previewIndex = -1;
+        currentVideoPath = null;
+        currentStillPath = null;
+        currentItemPath = null;
+        ResetView();
+        StopPlayerMedia();
+        PlayerStill.Source = null;
+        PlayerFrames.Source = null;
+        PlayerFrames.Visibility = Visibility.Collapsed;
+        PlayerReplay.Visibility = Visibility.Collapsed;
+        PlayerTransport.Visibility = Visibility.Collapsed;
+        PlayerTools.Visibility = Visibility.Visible;
+        PlayerStatus.Visibility = Visibility.Collapsed;
+        HidePreviewSpinner();
+        NativePlayer.Visibility = Visibility.Collapsed;
+        UnhookWindowKeys();
+        ApplyWebViewVisibility();
+    }
+
+    private void StopPlayerMedia()
+    {
+        nativeClosing = true;
+        pendingPlay = false;
+        playing = false;
+        playerClock.Stop();
+        SystemVideoFramePlayer? current = framePlayer;
+        framePlayer = null;
+        current?.Dispose();
+        nativeClosing = false;
+    }
+
+    private void ArmPreviewSpinner()
+    {
+        PlayerLoading.Visibility = Visibility.Collapsed;
+        previewSpinnerTimer.Stop();
+        previewSpinnerTimer.Start();
+    }
+
+    private void HidePreviewSpinner()
+    {
+        previewSpinnerTimer.Stop();
+        PlayerLoading.Visibility = Visibility.Collapsed;
+    }
+
+    private void PreviewSpinnerTimer_Tick(object? sender, EventArgs e)
+    {
+        previewSpinnerTimer.Stop();
+        if (!nativePlayerOpen || IsPreviewVisualReady())
+        {
+            return;
+        }
+
+        PlayerLoading.Visibility = Visibility.Visible;
+    }
+
+    private bool IsPreviewVisualReady()
+    {
+        if (PlayerFrames.Visibility == Visibility.Visible && PlayerFrames.Source != null)
+        {
+            return true;
+        }
+
+        return fullStillReady;
+    }
+
+    private void FocusNativePlayer()
+    {
+        if (!nativePlayerOpen)
+        {
+            return;
+        }
+
+        NativePlayer.Focus();
+        Keyboard.Focus(NativePlayer);
+    }
+
+    private static BitmapSource? LoadPlayerStill(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            return null;
+        }
+
+        string ext = Path.GetExtension(path).ToLowerInvariant();
+        if (ext is ".heic" or ".heif")
+        {
+            return ShellServices.DecodeHeifStill(path, 1920);
+        }
+
+        return LoadFrozenBitmap(path, 0);
+    }
+
+    private void TogglePlayback()
+    {
+        if (!nativePlayerOpen || previewKind != PreviewKind.Video)
+        {
+            return;
+        }
+
+        if (framePlayer == null)
+        {
+            return;
+        }
+
+        if (playing)
+        {
+            framePlayer.Pause();
+            playing = false;
+            PlayerPlayGlyph.Text = "\uE768";
+            return;
+        }
+
+        if (framePlayer.Duration > TimeSpan.Zero
+            && framePlayer.Duration - framePlayer.Position <= TimeSpan.FromMilliseconds(80))
+        {
+            framePlayer.Position = TimeSpan.Zero;
+        }
+
+        framePlayer.Play();
+        playing = true;
+        PlayerPlayGlyph.Text = "\uE769";
+    }
+
+    private void ReplayLive()
+    {
+        if (!nativePlayerOpen || previewKind != PreviewKind.Live)
+        {
+            return;
+        }
+
+        PlayerReplay.Visibility = Visibility.Collapsed;
+        PlayerFrames.Visibility = Visibility.Visible;
+        if (framePlayer == null)
+        {
+            return;
+        }
+
+        framePlayer.Position = TimeSpan.Zero;
+        framePlayer.Play();
+        playing = true;
+    }
+
+    private void SeekTo(TimeSpan position)
+    {
+        if (!nativePlayerOpen || previewKind != PreviewKind.Video || nativeClosing)
+        {
+            return;
+        }
+
+        if (framePlayer == null)
+        {
+            return;
+        }
+
+        if (framePlayer.Duration > TimeSpan.Zero)
+        {
+            if (position < TimeSpan.Zero)
+            {
+                position = TimeSpan.Zero;
+            }
+            else if (position > framePlayer.Duration)
+            {
+                position = framePlayer.Duration;
+            }
+        }
+
+        framePlayer.Position = position;
+    }
+
+    private void HookWindowKeys()
+    {
+        Window? window = Window.GetWindow(this);
+        if (window == null || ReferenceEquals(playerKeyWindow, window))
+        {
+            return;
+        }
+
+        UnhookWindowKeys();
+        playerKeyWindow = window;
+        playerKeyWindow.PreviewKeyDown += PlayerHost_PreviewKeyDown;
+    }
+
+    private void UnhookWindowKeys()
+    {
+        if (playerKeyWindow == null)
+        {
+            return;
+        }
+
+        playerKeyWindow.PreviewKeyDown -= PlayerHost_PreviewKeyDown;
+        playerKeyWindow = null;
+    }
+
+    private void PlayerHost_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (!nativePlayerOpen)
+        {
+            return;
+        }
+
+        if (e.Key == Key.Escape)
+        {
+            CloseNativePlayer();
+            e.Handled = true;
+            return;
+        }
+
+        if (Keyboard.FocusedElement is TextBox || e.OriginalSource is Slider)
+        {
+            return;
+        }
+
+        if (e.Key == Key.Left)
+        {
+            ShowAdjacent(1);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Right)
+        {
+            ShowAdjacent(-1);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key is Key.OemPlus or Key.Add)
+        {
+            ZoomAt(StageCenter(), ZoomStep);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key is Key.OemMinus or Key.Subtract)
+        {
+            ZoomAt(StageCenter(), 1 / ZoomStep);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key is Key.D0 or Key.NumPad0)
+        {
+            FitView();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key is Key.D1 or Key.NumPad1)
+        {
+            ActualSize();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key != Key.Space)
+        {
+            return;
+        }
+
+        if (e.OriginalSource is not DependencyObject source || !IsInsidePlayer(source))
+        {
+            return;
+        }
+
+        if (previewKind == PreviewKind.Live)
+        {
+            ReplayLive();
+        }
+        else if (previewKind == PreviewKind.Video)
+        {
+            TogglePlayback();
+        }
+        else
+        {
+            return;
+        }
+
+        e.Handled = true;
+    }
+
+    private bool IsInsidePlayer(DependencyObject source)
+    {
+        return ReferenceEquals(source, NativePlayer) || NativePlayer.IsAncestorOf(source);
+    }
+
+    private void PlayerClock_Tick(object? sender, EventArgs e)
+    {
+        if (!nativePlayerOpen || previewKind != PreviewKind.Video || clockWriting || nativeClosing)
+        {
+            return;
+        }
+
+        if (framePlayer == null || framePlayer.Duration <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        TimeSpan duration = framePlayer.Duration;
+        TimeSpan position = framePlayer.Position;
+
+        clockWriting = true;
+        PlayerScrub.Maximum = Math.Max(duration.TotalSeconds, 0.1);
+        PlayerScrub.Value = Math.Clamp(position.TotalSeconds, PlayerScrub.Minimum, PlayerScrub.Maximum);
+        clockWriting = false;
+        PlayerTime.Text = $"{FormatClock(position)} / {FormatClock(duration)}";
+    }
+
+    private void FramePlayer_Opened(TimeSpan duration)
+    {
+        if (!nativePlayerOpen || framePlayer == null)
+        {
+            return;
+        }
+
+        if (previewKind == PreviewKind.Video && duration > TimeSpan.Zero)
+        {
+            clockWriting = true;
+            PlayerScrub.Maximum = Math.Max(duration.TotalSeconds, 0.1);
+            clockWriting = false;
+            playerClock.Start();
+        }
+
+        if (!pendingPlay)
+        {
+            return;
+        }
+
+        pendingPlay = false;
+        framePlayer.Play();
+        playing = true;
+        if (previewKind == PreviewKind.Video)
+        {
+            PlayerPlayGlyph.Text = "\uE769";
+        }
+    }
+
+    private void FramePlayer_FrameUpdated()
+    {
+        if (!nativePlayerOpen || framePlayer?.Frame == null)
+        {
+            return;
+        }
+
+        bool firstFrame = PlayerFrames.Visibility != Visibility.Visible
+            || !ReferenceEquals(PlayerFrames.Source, framePlayer.Frame);
+        if (!ReferenceEquals(PlayerFrames.Source, framePlayer.Frame))
+        {
+            PlayerFrames.Source = framePlayer.Frame;
+        }
+
+        PlayerFrames.Visibility = Visibility.Visible;
+        if (firstFrame)
+        {
+            HidePreviewSpinner();
+            ApplyMediaLayout();
+        }
+    }
+
+    private void FramePlayer_Ended()
+    {
+        if (!nativePlayerOpen || nativeClosing)
+        {
+            return;
+        }
+
+        playing = false;
+        framePlayer?.Pause();
+        if (previewKind == PreviewKind.Live)
+        {
+            PlayerFrames.Visibility = Visibility.Collapsed;
+            PlayerReplay.Visibility = Visibility.Visible;
+            ApplyMediaLayout();
+            return;
+        }
+
+        if (framePlayer != null && framePlayer.Duration > TimeSpan.Zero)
+        {
+            clockWriting = true;
+            PlayerScrub.Value = PlayerScrub.Maximum;
+            clockWriting = false;
+            TimeSpan duration = framePlayer.Duration;
+            PlayerTime.Text = $"{FormatClock(duration)} / {FormatClock(duration)}";
+        }
+
+        PlayerPlayGlyph.Text = "\uE768";
+    }
+
+    private void FramePlayer_Failed()
+    {
+        if (nativeClosing || !nativePlayerOpen)
+        {
+            return;
+        }
+
+        string? path = currentVideoPath;
+        CloseNativePlayer();
+        if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+        {
+            ShellServices.OpenWith(path, GetMainWindowHandle());
+        }
+    }
+
+    private static BitmapSource? TryCachedThumbnail(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !ThumbnailCache.TryGetValue(path, out byte[]? jpeg) || jpeg.Length < MinimumThumbnailBytes)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var stream = new MemoryStream(jpeg, writable: false);
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.StreamSource = stream;
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            return bitmap;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private void NativePlayer_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!nativePlayerOpen || e.Handled || IsInsideButton(e.OriginalSource as DependencyObject))
+        {
+            return;
+        }
+
+        if (IsOverElement(PlayerPrev, e) || IsOverElement(PlayerNext, e) || IsOverElement(PlayerClose, e))
+        {
+            return;
+        }
+
+        Point stagePoint = e.GetPosition(PlayerStage);
+        bool insideStage = stagePoint.X >= 0 && stagePoint.Y >= 0
+            && stagePoint.X <= PlayerStage.ActualWidth
+            && stagePoint.Y <= PlayerStage.ActualHeight;
+        if (insideStage && IsOverMedia(stagePoint))
+        {
+            return;
+        }
+
+        CloseNativePlayer();
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// True when the wheel should zoom the open preview instead of scrolling the page.
+    /// The page scroller sees the wheel first.
+    /// </summary>
+    internal bool PreviewConsumesWheel(DependencyObject source)
+    {
+        if (!nativePlayerOpen || NativePlayer.Visibility != Visibility.Visible)
+        {
+            return false;
+        }
+
+        for (DependencyObject? node = source; node != null; node = VisualTreeHelper.GetParent(node))
+        {
+            if (ReferenceEquals(node, NativePlayer))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void NativePlayer_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (!nativePlayerOpen)
+        {
+            return;
+        }
+
+        ZoomAt(e.GetPosition(PlayerStage), e.Delta > 0 ? ZoomStep : 1 / ZoomStep);
+        e.Handled = true;
+    }
+
+    private void NativePlayer_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (!nativePlayerOpen)
+        {
+            return;
+        }
+
+        ApplyMediaLayout();
+    }
+
+    private void PlayerStage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!nativePlayerOpen || IsInsideButton(e.OriginalSource as DependencyObject))
+        {
+            return;
+        }
+
+        Point point = e.GetPosition(PlayerStage);
+        if (!IsOverMedia(point))
+        {
+            return;
+        }
+
+        if (e.ClickCount >= 2 && previewKind == PreviewKind.Still)
+        {
+            if (Math.Abs(viewScale - 1) < 0.02 && Math.Abs(panX) < 0.5 && Math.Abs(panY) < 0.5)
+            {
+                ActualSize();
+            }
+            else
+            {
+                FitView();
+            }
+
+            e.Handled = true;
+            return;
+        }
+
+        panStart = point;
+        panStartX = panX;
+        panStartY = panY;
+        panMoved = false;
+        panning = true;
+        PlayerStage.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void PlayerStage_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!panning)
+        {
+            return;
+        }
+
+        Point point = e.GetPosition(PlayerStage);
+        double dx = point.X - panStart.X;
+        double dy = point.Y - panStart.Y;
+        if (!panMoved && dx * dx + dy * dy < 16)
+        {
+            return;
+        }
+
+        panMoved = true;
+        panX = panStartX + dx;
+        panY = panStartY + dy;
+        ApplyMediaTransform();
+    }
+
+    private void PlayerStage_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!panning)
+        {
+            return;
+        }
+
+        bool moved = panMoved;
+        panning = false;
+        if (PlayerStage.IsMouseCaptured)
+        {
+            PlayerStage.ReleaseMouseCapture();
+        }
+
+        if (!moved)
+        {
+            if (previewKind == PreviewKind.Live && PlayerFrames.Visibility != Visibility.Visible)
+            {
+                ReplayLive();
+            }
+            else if (previewKind == PreviewKind.Video)
+            {
+                TogglePlayback();
+            }
+        }
+
+        e.Handled = true;
+    }
+
+    private void PlayerStage_LostMouseCapture(object sender, MouseEventArgs e)
+    {
+        panning = false;
+    }
+
+    private void PlayerChrome_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+    }
+
+    private void PlayerClose_Click(object sender, RoutedEventArgs e)
+    {
+        CloseNativePlayer();
+        e.Handled = true;
+    }
+
+    private void PlayerReplay_Click(object sender, RoutedEventArgs e)
+    {
+        ReplayLive();
+        e.Handled = true;
+    }
+
+    private void PlayerPrev_Click(object sender, RoutedEventArgs e)
+    {
+        ShowAdjacent(-1);
+        e.Handled = true;
+    }
+
+    private void PlayerNext_Click(object sender, RoutedEventArgs e)
+    {
+        ShowAdjacent(1);
+        e.Handled = true;
+    }
+
+    private void PlayerRotateLeft_Click(object sender, RoutedEventArgs e)
+    {
+        RotateBy(-90);
+        e.Handled = true;
+    }
+
+    private void PlayerRotateRight_Click(object sender, RoutedEventArgs e)
+    {
+        RotateBy(90);
+        e.Handled = true;
+    }
+
+    private void PlayerZoomOut_Click(object sender, RoutedEventArgs e)
+    {
+        ZoomAt(StageCenter(), 1 / ZoomStep);
+        e.Handled = true;
+    }
+
+    private void PlayerZoomIn_Click(object sender, RoutedEventArgs e)
+    {
+        ZoomAt(StageCenter(), ZoomStep);
+        e.Handled = true;
+    }
+
+    private void PlayerActualSize_Click(object sender, RoutedEventArgs e)
+    {
+        ActualSize();
+        e.Handled = true;
+    }
+
+    private void PlayerFit_Click(object sender, RoutedEventArgs e)
+    {
+        FitView();
+        e.Handled = true;
+    }
+
+    private void PlayerOpenWith_Click(object sender, RoutedEventArgs e)
+    {
+        OpenCurrentWithSystem();
+        e.Handled = true;
+    }
+
+    private void PlayerReveal_Click(object sender, RoutedEventArgs e)
+    {
+        RevealCurrentInExplorer();
+        e.Handled = true;
+    }
+
+    private void NativePlayer_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!nativePlayerOpen || Resources["PlayerContextMenu"] is not ContextMenu menu)
+        {
+            return;
+        }
+
+        bool hasFile = !string.IsNullOrWhiteSpace(currentItemPath) && File.Exists(currentItemPath);
+        bool hasId = CurrentPreviewEntry() is { ItemId.Length: > 0 } && currentSearchVM != null;
+        var commands = menu.Items.OfType<MenuItem>().ToArray();
+        if (commands.Length >= 6)
+        {
+            commands[0].IsEnabled = hasId;
+            commands[1].IsEnabled = hasId;
+            commands[2].IsEnabled = hasFile;
+            commands[3].IsEnabled = hasFile;
+            commands[4].IsEnabled = hasFile;
+            commands[5].IsEnabled = hasFile;
+        }
+
+        menu.PlacementTarget = NativePlayer;
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (nativePlayerOpen)
+            {
+                menu.IsOpen = true;
+            }
+        });
+        e.Handled = true;
+    }
+
+    private void PlayerMenuAddPending_Click(object sender, RoutedEventArgs e)
+    {
+        if (CurrentPreviewEntry() is { ItemId.Length: > 0 } entry && currentSearchVM != null)
+        {
+            currentSearchVM.AddItemsToManualSelection("Unified", new[] { entry.ItemId });
+        }
+
+        e.Handled = true;
+    }
+
+    private void PlayerMenuRemovePending_Click(object sender, RoutedEventArgs e)
+    {
+        if (CurrentPreviewEntry() is { ItemId.Length: > 0 } entry && currentSearchVM != null)
+        {
+            currentSearchVM.RemoveItemsFromManualSelection(new[] { entry.ItemId });
+        }
+
+        e.Handled = true;
+    }
+
+    private void PlayerMenuReveal_Click(object sender, RoutedEventArgs e)
+    {
+        RevealCurrentInExplorer();
+        e.Handled = true;
+    }
+
+    private void PlayerMenuOpen_Click(object sender, RoutedEventArgs e)
+    {
+        OpenCurrentWithSystem();
+        e.Handled = true;
+    }
+
+    private void PlayerMenuCopy_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrWhiteSpace(currentItemPath) && File.Exists(currentItemPath))
+        {
+            ShellServices.CopyFilesToClipboard(new[] { currentItemPath });
+        }
+
+        e.Handled = true;
+    }
+
+    private void PlayerMenuProperties_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrWhiteSpace(currentItemPath) && File.Exists(currentItemPath))
+        {
+            ShellServices.ShowProperties(new[] { currentItemPath }, GetMainWindowHandle());
+        }
+
+        e.Handled = true;
+    }
+
+    private PreviewEntry? CurrentPreviewEntry()
+    {
+        if (previewIndex < 0 || previewIndex >= previewEntries.Count)
+        {
+            return null;
+        }
+
+        return previewEntries[previewIndex];
+    }
+
+    private void OpenCurrentWithSystem()
+    {
+        if (!string.IsNullOrWhiteSpace(currentItemPath) && File.Exists(currentItemPath))
+        {
+            ShellServices.OpenWith(currentItemPath, GetMainWindowHandle());
+        }
+    }
+
+    private void RevealCurrentInExplorer()
+    {
+        if (!string.IsNullOrWhiteSpace(currentItemPath) && File.Exists(currentItemPath))
+        {
+            ShellServices.ShowInExplorer(new[] { currentItemPath });
+        }
+    }
+
+    private void PlayerPlayPause_Click(object sender, RoutedEventArgs e)
+    {
+        TogglePlayback();
+        e.Handled = true;
+    }
+
+    private void PlayerMute_Click(object sender, RoutedEventArgs e)
+    {
+        previewMuted = !previewMuted;
+        framePlayer?.SetMuted(previewMuted);
+        ApplyMuteChrome();
+        AppSettings.SavePreviewMuted(previewMuted);
+        e.Handled = true;
+    }
+
+    private void ApplyMuteChrome()
+    {
+        string glyph = previewMuted ? "\uE74F" : "\uE767";
+        string tip = previewMuted ? "取消静音" : "静音";
+        PlayerToolsMuteGlyph.Text = glyph;
+        PlayerTransportMuteGlyph.Text = glyph;
+        PlayerToolsMute.ToolTip = tip;
+        PlayerTransportMute.ToolTip = tip;
+        PlayerToolsMute.Visibility = previewKind == PreviewKind.Live
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void PlayerScrub_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (clockWriting || !nativePlayerOpen || previewKind != PreviewKind.Video)
+        {
+            return;
+        }
+
+        SeekTo(TimeSpan.FromSeconds(e.NewValue));
+    }
+
+    private void ReplacePreviewEntries(List<PreviewEntry> entries)
+    {
+        previewEntries.Clear();
+        previewEntries.AddRange(entries);
+        if (!nativePlayerOpen)
+        {
+            return;
+        }
+
+        int found = string.IsNullOrWhiteSpace(currentItemPath)
+            ? -1
+            : previewEntries.FindIndex(entry => string.Equals(entry.FullPath, currentItemPath, StringComparison.OrdinalIgnoreCase));
+        if (found < 0)
+        {
+            CloseNativePlayer();
+            return;
+        }
+
+        previewIndex = found;
+        UpdatePreviewChrome();
+    }
+
+    private void UpdatePreviewChrome()
+    {
+        int count = previewEntries.Count;
+        PlayerCounter.Text = previewIndex >= 0 && count > 0 ? $"{previewIndex + 1} / {count}" : "";
+        PlayerPrev.IsEnabled = previewIndex > 0;
+        PlayerNext.IsEnabled = previewIndex >= 0 && previewIndex < count - 1;
+    }
+
+    private void ResetView()
+    {
+        viewScale = 1;
+        panX = 0;
+        panY = 0;
+        rotationDegrees = 0;
+        panning = false;
+        panMoved = false;
+        if (PlayerStage.IsMouseCaptured)
+        {
+            PlayerStage.ReleaseMouseCapture();
+        }
+    }
+
+    private void ApplyMediaLayout()
+    {
+        BitmapSource? shown = null;
+        if (PlayerFrames.Visibility == Visibility.Visible
+            && PlayerFrames.Source is BitmapSource frames
+            && frames.PixelWidth > 0
+            && frames.PixelHeight > 0)
+        {
+            shown = frames;
+        }
+        else if (PlayerStill.Visibility == Visibility.Visible
+            && PlayerStill.Source is BitmapSource still
+            && still.PixelWidth > 0
+            && still.PixelHeight > 0)
+        {
+            shown = still;
+        }
+
+        if (shown == null)
+        {
+            mediaPixelWidth = 0;
+            mediaPixelHeight = 0;
+            PlayerMedia.ClearValue(WidthProperty);
+            PlayerMedia.ClearValue(HeightProperty);
+        }
+        else
+        {
+            mediaPixelWidth = shown.PixelWidth;
+            mediaPixelHeight = shown.PixelHeight;
+        }
+
+        ApplyMediaTransform();
+    }
+
+    private void ApplyMediaTransform()
+    {
+        MediaScale.ScaleX = viewScale;
+        MediaScale.ScaleY = viewScale;
+        MediaRotate.Angle = rotationDegrees;
+        MediaPan.X = panX;
+        MediaPan.Y = panY;
+        if (!TryFittedBox(out double boxWidth, out double boxHeight, out double fit))
+        {
+            return;
+        }
+
+        if (double.IsNaN(PlayerMedia.Width) || Math.Abs(PlayerMedia.Width - boxWidth) > 0.5)
+        {
+            PlayerMedia.Width = boxWidth;
+        }
+
+        if (double.IsNaN(PlayerMedia.Height) || Math.Abs(PlayerMedia.Height - boxHeight) > 0.5)
+        {
+            PlayerMedia.Height = boxHeight;
+        }
+
+        PlayerZoomText.Text = $"{Math.Round(viewScale * fit * 100)}%";
+    }
+
+    // The box is already contained in the stage, including after a quarter turn.
+    // Scale stays at 1 for that fit, so ClipToBounds does not cut the unscaled picture.
+    private bool TryFittedBox(out double boxWidth, out double boxHeight, out double fit)
+    {
+        boxWidth = 0;
+        boxHeight = 0;
+        fit = 1;
+        if (mediaPixelWidth <= 1 || mediaPixelHeight <= 1)
+        {
+            return false;
+        }
+
+        double stageWidth = PlayerStage.ActualWidth;
+        double stageHeight = PlayerStage.ActualHeight;
+        if (stageWidth <= 1 || stageHeight <= 1)
+        {
+            return false;
+        }
+
+        bool quarterTurn = Math.Abs(rotationDegrees % 180) == 90;
+        fit = quarterTurn
+            ? Math.Min(stageWidth / mediaPixelHeight, stageHeight / mediaPixelWidth)
+            : Math.Min(stageWidth / mediaPixelWidth, stageHeight / mediaPixelHeight);
+        if (fit <= 0 || double.IsInfinity(fit))
+        {
+            return false;
+        }
+
+        boxWidth = mediaPixelWidth * fit;
+        boxHeight = mediaPixelHeight * fit;
+        return true;
+    }
+
+    private void ZoomAt(Point stagePoint, double factor)
+    {
+        if (!nativePlayerOpen || factor <= 0)
+        {
+            return;
+        }
+
+        double next = Math.Clamp(viewScale * factor, MinViewScale, MaxViewScale);
+        if (Math.Abs(next - viewScale) < 0.0001)
+        {
+            return;
+        }
+
+        double ratio = next / viewScale;
+        double centerX = PlayerStage.ActualWidth / 2;
+        double centerY = PlayerStage.ActualHeight / 2;
+        double offsetX = stagePoint.X - centerX - panX;
+        double offsetY = stagePoint.Y - centerY - panY;
+        panX = stagePoint.X - centerX - offsetX * ratio;
+        panY = stagePoint.Y - centerY - offsetY * ratio;
+        viewScale = next;
+        ApplyMediaTransform();
+    }
+
+    private void FitView()
+    {
+        viewScale = 1;
+        panX = 0;
+        panY = 0;
+        ApplyMediaTransform();
+    }
+
+    private void ActualSize()
+    {
+        if (!TryFittedBox(out _, out _, out double fit) || fit <= 0.0001)
+        {
+            return;
+        }
+
+        viewScale = Math.Clamp(1 / fit, MinViewScale, MaxViewScale);
+        panX = 0;
+        panY = 0;
+        ApplyMediaTransform();
+    }
+
+    private void RotateBy(double delta)
+    {
+        rotationDegrees = (rotationDegrees + delta) % 360;
+        if (rotationDegrees < 0)
+        {
+            rotationDegrees += 360;
+        }
+
+        panX = 0;
+        panY = 0;
+        ApplyMediaTransform();
+    }
+
+    private Point StageCenter() => new(PlayerStage.ActualWidth / 2, PlayerStage.ActualHeight / 2);
+
+    private bool IsOverMedia(Point stagePoint)
+    {
+        if (mediaPixelWidth <= 1 || mediaPixelHeight <= 1 || PlayerMedia.ActualWidth <= 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            GeneralTransform transform = PlayerStage.TransformToVisual(PlayerMedia);
+            Point local = transform.Transform(stagePoint);
+            return local.X >= 0 && local.Y >= 0
+                && local.X <= PlayerMedia.ActualWidth
+                && local.Y <= PlayerMedia.ActualHeight;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsOverElement(FrameworkElement element, MouseEventArgs e)
+    {
+        if (element.ActualWidth <= 0 || element.ActualHeight <= 0)
+        {
+            return false;
+        }
+
+        Point point = e.GetPosition(element);
+        return point.X >= 0 && point.Y >= 0 && point.X <= element.ActualWidth && point.Y <= element.ActualHeight;
+    }
+
+    private static bool IsInsideButton(DependencyObject? source)
+    {
+        while (source != null)
+        {
+            if (source is Button)
+            {
+                return true;
+            }
+
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return false;
+    }
+
+    private static int ReadJsonInt(JsonObject obj, string name)
+    {
+        if (obj[name] is JsonValue value && value.TryGetValue(out int parsed))
+        {
+            return parsed;
+        }
+
+        return -1;
+    }
+
+    private static string FormatClock(TimeSpan value)
+    {
+        if (value < TimeSpan.Zero)
+        {
+            value = TimeSpan.Zero;
+        }
+
+        return value.TotalHours >= 1
+            ? $"{(int)value.TotalHours}:{value.Minutes:00}:{value.Seconds:00}"
+            : $"{(int)value.TotalMinutes}:{value.Seconds:00}";
     }
 
     private static string ResolveWebAssetsPath()
@@ -1064,22 +2523,41 @@ public partial class PclGalleryWebControl : UserControl
         return window is not null ? new System.Windows.Interop.WindowInteropHelper(window).Handle : IntPtr.Zero;
     }
 
+    private enum PreviewKind
+    {
+        None,
+        Still,
+        Live,
+        Video
+    }
+
+    private sealed class PreviewEntry
+    {
+        public required string ItemId { get; init; }
+        public required string FullPath { get; init; }
+        public required bool IsVideo { get; init; }
+        public string? LiveVideoPath { get; init; }
+    }
+
     private sealed class BoundedStream : Stream
     {
         private readonly Stream _inner;
+        private readonly long _length;
         private long _remaining;
+        private long _position;
 
         public BoundedStream(Stream inner, long length)
         {
             _inner = inner;
+            _length = length;
             _remaining = length;
         }
 
         public override bool CanRead => _inner.CanRead;
         public override bool CanSeek => false;
         public override bool CanWrite => false;
-        public override long Length => _remaining;
-        public override long Position { get => 0; set => throw new NotSupportedException(); }
+        public override long Length => _length;
+        public override long Position { get => _position; set => throw new NotSupportedException(); }
         public override void Flush() => _inner.Flush();
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
         public override void SetLength(long value) => throw new NotSupportedException();
@@ -1091,6 +2569,7 @@ public partial class PclGalleryWebControl : UserControl
             int toRead = (int)Math.Min(count, _remaining);
             int read = _inner.Read(buffer, offset, toRead);
             _remaining -= read;
+            _position += read;
             return read;
         }
 

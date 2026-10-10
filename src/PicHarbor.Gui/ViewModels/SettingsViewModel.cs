@@ -1,11 +1,13 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PicHarbor.Core.Journal;
 using PicHarbor.Core.Organize;
 using PicHarbor.Core.Storage;
+using PicHarbor.Gui.Util;
 
 namespace PicHarbor.Gui.ViewModels;
 
@@ -121,11 +123,135 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string syncStatusMessage = "";
 
+    [ObservableProperty]
+    private bool heifInstalled;
+
+    [ObservableProperty]
+    private bool hevcInstalled;
+
+    [ObservableProperty]
+    private bool codecProbeCompleted;
+
+    [ObservableProperty]
+    private string codecStatusText = "正在检测 HEIF / HEVC 扩展…";
+
+    [ObservableProperty]
+    private string copyFeedbackText = "";
+
+    public bool CodecReady => CodecProbeCompleted && HeifInstalled && HevcInstalled;
+
+    public bool CodecMissing => CodecProbeCompleted && !(HeifInstalled && HevcInstalled);
+
+    private CancellationTokenSource? copyNoticeCts;
+
     public SettingsViewModel(Action<string>? onArchivePathChanged = null)
     {
         this.onArchivePathChanged = onArchivePathChanged;
         LoadConfig();
         RefreshVolumes();
+        _ = RecheckCodecs();
+    }
+
+    partial void OnHeifInstalledChanged(bool value) => NotifyCodecStatus();
+
+    partial void OnHevcInstalledChanged(bool value) => NotifyCodecStatus();
+
+    partial void OnCodecProbeCompletedChanged(bool value) => NotifyCodecStatus();
+
+    private void NotifyCodecStatus()
+    {
+        if (!CodecProbeCompleted)
+        {
+            CodecStatusText = "正在检测 HEIF / HEVC 扩展…";
+        }
+        else if (HeifInstalled && HevcInstalled)
+        {
+            CodecStatusText = "HEIF 与 HEVC 扩展都已安装。若缩略图仍是占位图，请重启本软件。";
+        }
+        else if (!HeifInstalled && !HevcInstalled)
+        {
+            CodecStatusText = "尚未检测到 HEIF 图像扩展和 HEVC 视频扩展。";
+        }
+        else if (!HeifInstalled)
+        {
+            CodecStatusText = "尚未检测到 HEIF 图像扩展。";
+        }
+        else
+        {
+            CodecStatusText = "尚未检测到 HEVC 视频扩展。";
+        }
+
+        OnPropertyChanged(nameof(CodecReady));
+        OnPropertyChanged(nameof(CodecMissing));
+    }
+
+    [RelayCommand]
+    private async Task RecheckCodecs()
+    {
+        CodecProbeCompleted = false;
+        AppleCodecStatus status = await Task.Run(AppleCodecProbe.Probe);
+        HeifInstalled = status.HeifInstalled;
+        HevcInstalled = status.HevcInstalled;
+        CodecProbeCompleted = true;
+    }
+
+    [RelayCommand]
+    private void OpenHeifStore() => OpenUrl(AppleCodecLinks.HeifStoreUrl);
+
+    [RelayCommand]
+    private void OpenHevcPaidStore() => OpenUrl(AppleCodecLinks.HevcPaidStoreUrl);
+
+    [RelayCommand]
+    private void OpenHevcFreeStore() => OpenUrl(AppleCodecLinks.HevcFreeStoreUrl);
+
+    [RelayCommand]
+    private void OpenPackageDownload() => OpenUrl(AppleCodecLinks.PackageDownloadUrl);
+
+    [RelayCommand]
+    private void OpenLinkGenerator() => OpenUrl(AppleCodecLinks.LinkGeneratorUrl);
+
+    [RelayCommand]
+    private Task CopyPackagePassword() => CopyTextAsync(AppleCodecLinks.PackagePassword);
+
+    [RelayCommand]
+    private Task CopyHeifProductLink() => CopyTextAsync(AppleCodecLinks.HeifStoreUrl);
+
+    [RelayCommand]
+    private Task CopyHevcProductLink() => CopyTextAsync(AppleCodecLinks.HevcFreeStoreUrl);
+
+    private static void OpenUrl(string url)
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = url,
+            UseShellExecute = true
+        });
+    }
+
+    private async Task CopyTextAsync(string text)
+    {
+        try
+        {
+            Clipboard.SetText(text);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Copy codec text failed: {ex.Message}");
+            return;
+        }
+
+        copyNoticeCts?.Cancel();
+        copyNoticeCts = new CancellationTokenSource();
+        CancellationToken token = copyNoticeCts.Token;
+        CopyFeedbackText = "已复制";
+        try
+        {
+            await Task.Delay(2000, token);
+            CopyFeedbackText = "";
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 
     [RelayCommand]

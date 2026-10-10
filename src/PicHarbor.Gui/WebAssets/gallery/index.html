@@ -5,10 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>PicHarbor 图库</title>
   <link rel="stylesheet" href="./sweet-album.css">
-  <link rel="stylesheet" href="./gallery.css">
+  <link rel="stylesheet" href="./gallery.css?v=7">
 </head>
 <body>
   <div id="album-container"></div>
+  <div id="gallery-boot" class="gallery-boot">
+    <div class="gallery-loading-spinner"></div>
+    <span>正在载入图库...</span>
+  </div>
   <div id="gallery-loading-pill" class="gallery-loading-pill" style="display: none;">
     <div class="gallery-loading-spinner"></div>
     <span>正在应用筛选与检索照片...</span>
@@ -37,8 +41,8 @@
         <video id="html5-video-player" controls autoplay playsinline></video>
         <div id="video-error-state" class="video-error-state" style="display: none;">
           <div class="video-error-icon">🎬</div>
-          <div class="video-error-title">该视频格式无法在内置网页播放器中直接播放</div>
-          <div class="video-error-desc">（可能因特殊格式或系统缺少解码器，如某些 MOV / MKV / AVI）</div>
+          <div class="video-error-title">无法解码画面</div>
+          <div class="video-error-desc">请到「设置 → 维护工具与通用关于」按说明安装 HEIF / HEVC 扩展，然后重启本软件。</div>
           <button class="video-error-open-btn" id="video-error-open-btn">↗ 立即使用系统默认播放器打开</button>
         </div>
       </div>
@@ -52,6 +56,6 @@
     </div>
   </div>
 
-  <script type="module" src="./gallery.js"></script>
+  <script type="module" src="./gallery.js?v=7"></script>
 </body>
 </html>

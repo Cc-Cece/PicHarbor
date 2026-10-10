@@ -8,6 +8,7 @@ using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PicHarbor.Core.Journal;
+using PicHarbor.Core.Organize;
 using PicHarbor.Core.Search;
 using PicHarbor.Core.Util;
 
@@ -619,6 +620,9 @@ public partial class SearchViewModel : ObservableObject
     [ObservableProperty]
     private bool hasMoreItems = false;
 
+    [ObservableProperty]
+    private bool showAppleCodecNotice;
+
     partial void OnHasMoreItemsChanged(bool value)
     {
         OnPropertyChanged(nameof(CanLoadMoreInTableView));
@@ -630,6 +634,17 @@ public partial class SearchViewModel : ObservableObject
     private List<MediaSearchHit> currentHits = new();
     private int loadedHitIndex = 0;
     private bool isLoadingMore = false;
+    private HashSet<string> livePairKeys = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, string> liveVideoFullPathByKey = new(StringComparer.OrdinalIgnoreCase);
+
+    public bool IsLivePhotoRelativePath(string relativePath) =>
+        livePairKeys.Contains(LivePhotoDetector.PairKey(relativePath));
+
+    public string? GetLiveVideoFullPath(string relativePath)
+    {
+        liveVideoFullPathByKey.TryGetValue(LivePhotoDetector.PairKey(relativePath), out string? path);
+        return path;
+    }
 
     private static bool IsScreenshotHit(MediaSearchHit h, string? cameraModel, string? archiveRoot)
     {
@@ -718,7 +733,7 @@ public partial class SearchViewModel : ObservableObject
                 if (s3 != null) foreach (var p in s3) manualSet.Add(p);
             }
 
-            var (hits, display, models) = await Task.Run(() =>
+            var (hits, display, models, liveKeys, videoByKey) = await Task.Run(() =>
             {
                 using var journal = TransferJournal.OpenReadOnly(archivePathCopy);
                 IReadOnlyList<ManifestSearchRow> rows = journal.ReadSearchRows();
@@ -742,28 +757,46 @@ public partial class SearchViewModel : ObservableObject
                     }).ToList();
                 }
 
-                // Identify Live Photos (must have both still and motion video)
-                var stillStems = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                var videoStems = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var r in rows)
+                var liveKeysLocal = new HashSet<string>(
+                    LivePhotoDetector.FindLivePairKeys(rows.Select(r => r.RelativePath)),
+                    StringComparer.OrdinalIgnoreCase);
+                var videoByKeyLocal = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var row in rows)
                 {
-                    string ext = Path.GetExtension(r.RelativePath).ToLowerInvariant();
-                    string stem = Path.ChangeExtension(r.RelativePath, null);
-                    if (ext is ".mov" or ".mp4") videoStems.Add(stem);
-                    else if (ext is ".heic" or ".jpg" or ".jpeg") stillStems.Add(stem);
+                    string extension = Path.GetExtension(row.RelativePath);
+                    bool isMov = extension.Equals(".mov", StringComparison.OrdinalIgnoreCase);
+                    bool isMp4 = extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase);
+                    if (!isMov && !isMp4)
+                    {
+                        continue;
+                    }
+
+                    string key = LivePhotoDetector.PairKey(row.RelativePath);
+                    if (!liveKeysLocal.Contains(key))
+                    {
+                        continue;
+                    }
+
+                    if (!videoByKeyLocal.ContainsKey(key) || isMov)
+                    {
+                        videoByKeyLocal[key] = Path.Combine(archivePathCopy, row.RelativePath);
+                    }
                 }
-                var liveStems = stillStems.Intersect(videoStems).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
                 if (filterLiveOnly)
                 {
-                    found = found.Where(h => liveStems.Contains(Path.ChangeExtension(h.RelativePath, null))).ToList();
+                    found = found.Where(h => liveKeysLocal.Contains(LivePhotoDetector.PairKey(h.RelativePath))).ToList();
                 }
 
                 // 2. View Category Filtering
-                if (category == 1)
+                if (category == 0)
+                {
+                    found = found.Where(h => LivePhotoDetector.ShowInAllView(h.RelativePath, h.Type, liveKeysLocal)).ToList();
+                }
+                else if (category == 1)
                 {
                     // 视频（不包括实况，即同名的HEIC/MOV对）
-                    found = found.Where(h => h.Type == MediaType.Video && !liveStems.Contains(Path.ChangeExtension(h.RelativePath, null))).ToList();
+                    found = found.Where(h => h.Type == MediaType.Video && !liveKeysLocal.Contains(LivePhotoDetector.PairKey(h.RelativePath))).ToList();
                 }
                 else if (category == 2)
                 {
@@ -784,12 +817,14 @@ public partial class SearchViewModel : ObservableObject
                         : new List<MediaSearchHit>();
                 }
 
-                return (found, BuildDisplay(rows), DistinctCameraModels(rows));
+                return (found, BuildDisplay(rows), DistinctCameraModels(rows), liveKeysLocal, videoByKeyLocal);
             }, ct);
 
             displayByPath = display;
             knownCameraModels = models;
             RefreshCameraModelItems(models);
+            livePairKeys = liveKeys;
+            liveVideoFullPathByKey = videoByKey;
             currentHits = hits;
             SortCurrentHits();
             loadedHitIndex = 0;
@@ -1052,6 +1087,7 @@ public partial class SearchViewModel : ObservableObject
         SearchResults = new ObservableCollection<MediaSearchResultItem>();
         GalleryRows = new ObservableCollection<GalleryRow>();
         HasMoreItems = currentHits.Count > 0;
+        HitsUpdated?.Invoke(this, EventArgs.Empty);
         if (HasMoreItems)
         {
             await LoadMoreItemsAsync();
@@ -1147,6 +1183,11 @@ public partial class SearchViewModel : ObservableObject
                 if (!File.Exists(item.FullPath)) return;
 
                 ImageSource? thumb = LoadResultThumbnail(item);
+                if (thumb is null && item.IsVideo && !token.IsCancellationRequested)
+                {
+                    thumb = await ShellServices.GetVideoFrameAsync(item.FullPath, 200).ConfigureAwait(false);
+                }
+
                 if (thumb is not null && !token.IsCancellationRequested)
                 {
                     await Application.Current.Dispatcher.InvokeAsync(() =>
@@ -1869,7 +1910,15 @@ public partial class SearchViewModel : ObservableObject
             return LoadVideoStill(item.FullPath, 200);
         }
 
-        return LoadFrozenThumbnail(item.FullPath, 200) ?? ShellServices.GetShellThumbnail(item.FullPath, 200, 200, thumbnailOnly: true);
+        ImageSource? frozen = LoadFrozenThumbnail(item.FullPath, 200);
+        if (frozen is not null)
+        {
+            return frozen;
+        }
+
+        return IsHeif(item.FullPath)
+            ? ShellServices.DecodeHeifStill(item.FullPath, 200) ?? ShellServices.GetShellThumbnail(item.FullPath, 200, 200, thumbnailOnly: false)
+            : ShellServices.GetShellThumbnail(item.FullPath, 200, 200, thumbnailOnly: true);
     }
 
     private async Task UpgradeVideoPosterAsync(MediaSearchResultItem item, int index)
@@ -1877,6 +1926,7 @@ public partial class SearchViewModel : ObservableObject
         try
         {
             ImageSource? poster = await Task.Run(() => LoadVideoStill(item.FullPath, 960)).ConfigureAwait(false);
+            poster ??= await ShellServices.GetVideoFrameAsync(item.FullPath, 960).ConfigureAwait(false);
             if (poster is null || Application.Current is null)
             {
                 return;
@@ -1899,6 +1949,8 @@ public partial class SearchViewModel : ObservableObject
     /// <summary>
     /// Live Photo videos share a folder and file stem with a still. HEIC/HEIF stills are decoded by the
     /// shell so orientation matches Explorer; WPF's bitmap decoder often shows those files blank or rotated.
+    /// Thumbnail-only misses a Live Photo MOV until Explorer has already cached a frame, so the video
+    /// itself is extracted with the resize flag.
     /// </summary>
     private static ImageSource? LoadVideoStill(string videoPath, int decodeWidth)
     {
@@ -1906,7 +1958,7 @@ public partial class SearchViewModel : ObservableObject
         if (still is not null)
         {
             ImageSource? fromStill = IsHeif(still)
-                ? ShellServices.GetShellThumbnail(still, decodeWidth, decodeWidth, thumbnailOnly: true) ?? LoadFrozenThumbnail(still, decodeWidth)
+                ? ShellServices.DecodeHeifStill(still, decodeWidth) ?? ShellServices.GetShellThumbnail(still, decodeWidth, decodeWidth, thumbnailOnly: false)
                 : LoadFrozenThumbnail(still, decodeWidth) ?? ShellServices.GetShellThumbnail(still, decodeWidth, decodeWidth, thumbnailOnly: true);
             if (fromStill is not null)
             {
@@ -1914,7 +1966,7 @@ public partial class SearchViewModel : ObservableObject
             }
         }
 
-        return ShellServices.GetShellThumbnail(videoPath, decodeWidth, decodeWidth, thumbnailOnly: true);
+        return ShellServices.GetShellThumbnail(videoPath, decodeWidth, decodeWidth, thumbnailOnly: false);
     }
 
     private static bool IsHeif(string path)

@@ -153,6 +153,11 @@ public partial class BackupViewModel : ObservableObject
     private int totalFilesCount = 0;
 
     [ObservableProperty]
+    private int plannedItemCount;
+
+    public double SpeedBytesPerSecond { get; private set; }
+
+    [ObservableProperty]
     private int skippedCount = 0;
 
     [ObservableProperty]
@@ -486,6 +491,12 @@ public partial class BackupViewModel : ObservableObject
     {
         if (IsTransferring) return;
 
+        if (ScopeMode == ScopeMode.Manual)
+        {
+            ScopeMode = ScopeMode.All;
+            NotifyScopeProperties();
+        }
+
         if (string.IsNullOrWhiteSpace(DestinationPath))
         {
             AddLog("[ERROR] Destination path cannot be empty.");
@@ -500,6 +511,8 @@ public partial class BackupViewModel : ObservableObject
         CopiedCount = 0;
         RemainingFilesCount = 0;
         TotalFilesCount = 0;
+        PlannedItemCount = 0;
+        SpeedBytesPerSecond = 0;
         SkippedCount = 0;
         FailedCount = 0;
         TransferredSizeText = "0 B / 0 B";
@@ -581,7 +594,9 @@ public partial class BackupViewModel : ObservableObject
                 files = IPhoneBackupScopeResolver.Filter(files, criteria);
 
                 totalBytes = files.Sum(f => f.Size);
-                AddLog($"[INFO] Found {files.Count:N0} files matching scope mode ({ByteSize.Humanize(totalBytes)}).");
+                int itemCount = LivePhotoDetector.CountDisplayedItems(files.Select(f => f.Path));
+                await Application.Current.Dispatcher.InvokeAsync(() => PlannedItemCount = itemCount);
+                AddLog($"[INFO] Found {itemCount:N0} items ({files.Count:N0} files, {ByteSize.Humanize(totalBytes)}).");
 
                 preflight.EnsureDestinationWritable(DestinationPath);
                 preflight.EnsureSufficientFreeSpace(DestinationPath, totalBytes);
@@ -792,8 +807,10 @@ public partial class BackupViewModel : ObservableObject
             EtaText = snapshot.Eta is TimeSpan eta
                 ? FormatTimeSpan(eta)
                 : (snapshot.ByteFraction >= 1.0 ? App.GetString("MsgBackupCompleted", "备份完成") : App.GetString("MsgCalculating", "计算中..."));
-            ProgressText = $"{snapshot.ByteFraction * 100:F1}% ({snapshot.ProcessedFiles:N0}/{snapshot.TotalFiles:N0} 文件) - {FormatSpeed(snapshot.CurrentBytesPerSecond)}";
+            int items = PlannedItemCount > 0 ? PlannedItemCount : snapshot.TotalFiles;
+            ProgressText = $"{snapshot.ByteFraction * 100:F1}% · {items:N0} 张（文件 {snapshot.ProcessedFiles:N0}/{snapshot.TotalFiles:N0}） - {FormatSpeed(snapshot.CurrentBytesPerSecond)}";
 
+            SpeedBytesPerSecond = snapshot.CurrentBytesPerSecond;
             double mbps = snapshot.CurrentBytesPerSecond / 1024d / 1024d;
             SpeedText = $"{mbps:F1} MB/s";
             CurrentFileName = string.IsNullOrWhiteSpace(snapshot.CurrentFileName)

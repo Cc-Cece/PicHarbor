@@ -158,19 +158,42 @@
         </Setter>
     </Style>
 
-    <!-- Modern DatePicker Style -->
+    <Style x:Key="LightCalendarStyle" TargetType="Calendar">
+        <Setter Property="Background" Value="#F7FBFF" />
+        <Setter Property="Foreground" Value="#343D4A" />
+        <Setter Property="BorderBrush" Value="#D5E6FD" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Style.Resources>
+            <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#F7FBFF" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#343D4A" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#F7FBFF" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#343D4A" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.ControlLightBrushKey}" Color="#F8FAFC" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.ControlLightLightBrushKey}" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.ControlDarkBrushKey}" Color="#D5E6FD" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.GrayTextBrushKey}" Color="#94A3B8" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#0B5BCB" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#E0EAFD" />
+            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#343D4A" />
+        </Style.Resources>
+    </Style>
+
+    <!-- Light date field and calendar popup. Overrides the dark input brush and system calendar colors. -->
     <Style TargetType="DatePicker">
-        <Setter Property="Background" Value="{StaticResource InputBgBrush}" />
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}" />
+        <Setter Property="Background" Value="#F8FAFC" />
+        <Setter Property="Foreground" Value="#343D4A" />
+        <Setter Property="BorderBrush" Value="#D5E6FD" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="4,2" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="CalendarStyle" Value="{StaticResource LightCalendarStyle}" />
     </Style>
 
     <Style TargetType="DatePickerTextBox">
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="Background" Value="#F8FAFC" />
+        <Setter Property="Foreground" Value="#343D4A" />
+        <Setter Property="CaretBrush" Value="#343D4A" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>

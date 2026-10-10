@@ -48,6 +48,16 @@ window.setGalleryLoading = function(loading) {
   }
 };
 
+function requestNativePreview(item, index) {
+  if (!item) return;
+  postToHost({
+    action: 'openNativePreview',
+    index: Number.isInteger(index) ? index : -1,
+    path: item.fullPath || '',
+    id: item.id || ''
+  });
+}
+
 function openVideoModal(item) {
   if (!item) return;
   currentPlayingItem = item;
@@ -64,7 +74,7 @@ function openVideoModal(item) {
   title.textContent = item.relativePath || item.id || '视频播放';
   meta.textContent = `${(item.format || 'MP4').toUpperCase()} · ${item.takenAt || ''} · ${item.sizeText || ''}`;
 
-  const videoUrl = item.url || `https://media.gallery.local/image?path=${encodeURIComponent(item.fullPath)}`;
+  const videoUrl = item.liveVideoUrl || item.url || `https://media.gallery.local/image?path=${encodeURIComponent(item.fullPath)}&v=3`;
   video.src = videoUrl;
 
   video.onerror = () => {
@@ -112,11 +122,30 @@ function arePhotosIdentical(a, b) {
   return true;
 }
 
-function initAlbum(photos) {
+let lastSortKey = '0:d';
+
+function albumSortOptions(sortMode, sortDescending) {
+  const mode = Number(sortMode) || 0;
+  const descending = sortDescending !== false;
+  const flat = mode !== 0;
+  return {
+    key: mode + ':' + (descending ? 'd' : 'a'),
+    order: flat ? 'keep' : (descending ? 'desc' : 'asc'),
+    headerHeight: flat ? 0 : 40,
+    groupSpacing: flat ? 8 : 18
+  };
+}
+
+function initAlbum(photos, sortMode, sortDescending) {
+  const boot = document.getElementById('gallery-boot');
+  if (boot) boot.style.display = 'none';
+
+  const sort = albumSortOptions(sortMode, sortDescending);
   const newPhotos = photos || [];
-  if (albumInstance && arePhotosIdentical(newPhotos, currentPhotos)) {
+  if (albumInstance && arePhotosIdentical(newPhotos, currentPhotos) && lastSortKey === sort.key) {
     return;
   }
+  lastSortKey = sort.key;
 
   const isDifferentQuery = currentPhotos.length === 0 || 
     (newPhotos.length > 0 && newPhotos[0].id !== currentPhotos[0]?.id);
@@ -128,6 +157,11 @@ function initAlbum(photos) {
     if (isDifferentQuery && albumInstance.scroller) {
       albumInstance.scroller.scrollTop = 0;
     }
+    albumInstance.setOptions({
+      order: sort.order,
+      headerHeight: sort.headerHeight,
+      groupSpacing: sort.groupSpacing
+    });
     albumInstance.setData(currentPhotos);
     return;
   }
@@ -137,13 +171,13 @@ function initAlbum(photos) {
 
   albumInstance = new SweetAlbum(container, {
     data: currentPhotos,
-    order: 'desc',
+    order: sort.order,
     locale: 'zh-CN',
     theme: 'light',
     gap: 6,
     targetRowHeight: 200,
-    headerHeight: 40,
-    groupSpacing: 18,
+    headerHeight: sort.headerHeight,
+    groupSpacing: sort.groupSpacing,
     favorite: false,
 
     // Custom Badges on Corners
@@ -255,76 +289,15 @@ function initAlbum(photos) {
       }
     ],
 
-    // Fullscreen Viewer Configuration
-    viewer: {
-      initialFit: 'contain',
-      maxScale: 8,
-      zoomStep: 1.25,
-      arrows: true,
-      closeOnBackdrop: true,
-      actions: [
-        'rotateLeft',
-        'rotateRight',
-        'divider',
-        'zoomOut',
-        'zoomLevel',
-        'zoomIn',
-        'divider',
-        'actualSize',
-        'fit',
-        'divider',
-        {
-          id: 'viewer-play-video',
-          title: '播放视频',
-          icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/></svg>',
-          onClick: ({ state }) => {
-            if (state && state.item) {
-              const fmt = (state.item.format || '').toLowerCase();
-              if (fmt === 'mp4') {
-                openVideoModal(state.item);
-              } else {
-                postToHost({ action: 'openWith', path: state.item.fullPath });
-              }
-            }
-          }
-        },
-        {
-          id: 'viewer-external',
-          title: '在系统默认应用中打开',
-          icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
-          onClick: ({ state }) => {
-            if (state && state.item && state.item.fullPath) {
-              postToHost({ action: 'openWith', path: state.item.fullPath });
-            }
-          }
-        },
-        {
-          id: 'viewer-explorer',
-          title: '在资源管理器中显示',
-          icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
-          onClick: ({ state }) => {
-            if (state && state.item && state.item.fullPath) {
-              postToHost({ action: 'revealInExplorer', path: state.item.fullPath });
-            }
-          }
-        }
-      ]
-    },
+    // Fullscreen preview is the native layer. The HTML viewer cannot sit on the same HWND.
+    viewer: false,
 
     onItemClick: (rawItem, index, ev) => {
-      if (rawItem && rawItem.isVideo) {
-        if (ev) {
-          ev.preventDefault();
-        }
-        const fmt = (rawItem.format || '').toLowerCase();
-        if (fmt === 'mp4') {
-          openVideoModal(rawItem);
-        } else {
-          // MOV and other formats not natively supported in Chromium -> open with system default player
-          postToHost({ action: 'openWith', path: rawItem.fullPath });
-        }
-        return;
+      if (!rawItem) return;
+      if (ev) {
+        ev.preventDefault();
       }
+      requestNativePreview(rawItem, index);
     },
 
     onSelectionChange: (ids, items) => {
@@ -354,7 +327,7 @@ function onHostMessage(event) {
 
     switch (data.action) {
       case 'setPhotos':
-        initAlbum(data.photos || []);
+        initAlbum(data.photos || [], data.sortMode, data.sortDescending);
         break;
 
       case 'updateItems':
@@ -395,28 +368,30 @@ window.addEventListener('DOMContentLoaded', () => {
   if (closeBtn) closeBtn.addEventListener('click', closeVideoModal);
   if (backdrop) backdrop.addEventListener('click', closeVideoModal);
 
+  function playingFilePath(item) {
+    if (!item) return '';
+    return item.liveVideoPath || item.fullPath || '';
+  }
+
   if (openSystemBtn) {
     openSystemBtn.addEventListener('click', () => {
-      if (currentPlayingItem && currentPlayingItem.fullPath) {
-        postToHost({ action: 'openWith', path: currentPlayingItem.fullPath });
-      }
+      const path = playingFilePath(currentPlayingItem);
+      if (path) postToHost({ action: 'openWith', path });
     });
   }
 
   const errorOpenBtn = document.getElementById('video-error-open-btn');
   if (errorOpenBtn) {
     errorOpenBtn.addEventListener('click', () => {
-      if (currentPlayingItem && currentPlayingItem.fullPath) {
-        postToHost({ action: 'openWith', path: currentPlayingItem.fullPath });
-      }
+      const path = playingFilePath(currentPlayingItem);
+      if (path) postToHost({ action: 'openWith', path });
     });
   }
 
   if (revealBtn) {
     revealBtn.addEventListener('click', () => {
-      if (currentPlayingItem && currentPlayingItem.fullPath) {
-        postToHost({ action: 'revealInExplorer', path: currentPlayingItem.fullPath });
-      }
+      const path = playingFilePath(currentPlayingItem);
+      if (path) postToHost({ action: 'revealInExplorer', path });
     });
   }
 

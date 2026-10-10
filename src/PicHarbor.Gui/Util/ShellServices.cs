@@ -1,7 +1,11 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using Windows.Media.Editing;
 using Windows.Storage;
 using Windows.Storage.Search;
 using Windows.System;
@@ -287,7 +291,10 @@ public static class ShellServices
 
     #region Shell Thumbnail Integration
 
-    [Guid("bcc82b79-4808-4161-967d-098852779423")]
+    // IID_IShellItemImageFactory in shobjidl_core.h. The other published value
+    // bcc82b79-4808-4161-967d-098852779423 is not this interface: shell returns E_NOINTERFACE
+    // and every HEIC or MOV thumbnail becomes the gallery placeholder.
+    [Guid("bcc18b79-ba16-442f-80c4-8a59c30c463b")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IShellItemImageFactory
     {
@@ -324,44 +331,338 @@ public static class ShellServices
     [DllImport("gdi32.dll", SetLastError = true)]
     private static extern bool DeleteObject(IntPtr hObject);
 
+    // Shell returns the file-type icon when many thumbnail requests run at once.
+    // Two at a time keeps the handler on the real frame instead of that icon.
+    private static readonly SemaphoreSlim ThumbnailSlots = new(2, 2);
+    private static readonly ConcurrentDictionary<string, byte[]?> FileIconSamples = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// Attempts to retrieve a native Windows Explorer thumbnail image for the specified file.
     /// Supports HEIC, MOV, MP4, RAW and standard images using registered shell thumbnail handlers.
+    /// A per-type file icon is treated as no thumbnail, so the gallery does not cache it.
     /// </summary>
-    public static System.Windows.Media.ImageSource? GetShellThumbnail(string filePath, int width = 160, int height = 160, bool thumbnailOnly = false)
+    public static ImageSource? GetShellThumbnail(string filePath, int width = 160, int height = 160, bool thumbnailOnly = false)
     {
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
             return null;
 
+        bool limit = Application.Current?.Dispatcher.CheckAccess() != true;
+        if (limit)
+        {
+            ThumbnailSlots.Wait();
+        }
+
+        try
+        {
+            ImageSource? image = GetShellImage(filePath, width, height, thumbnailOnly ? SIIGBF.SIIGBF_THUMBNAILONLY : 0);
+            if (image is BitmapSource bitmap && IsFileIcon(bitmap, filePath))
+            {
+                return null;
+            }
+
+            return image;
+        }
+        finally
+        {
+            if (limit)
+            {
+                ThumbnailSlots.Release();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Decodes a HEIC or HEIF still with the system image codec and scales it down.
+    /// Unlike the shell image factory, this never substitutes the Windows file icon.
+    /// </summary>
+    public static BitmapSource? DecodeHeifStill(string filePath, int decodeWidth)
+    {
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+        {
+            return null;
+        }
+
+        bool limit = Application.Current?.Dispatcher.CheckAccess() != true;
+        if (limit)
+        {
+            ThumbnailSlots.Wait();
+        }
+
+        try
+        {
+            using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.IgnoreColorProfile, BitmapCacheOption.OnLoad);
+            if (decoder.Frames.Count == 0)
+            {
+                return null;
+            }
+
+            BitmapSource source = decoder.Frames[0];
+            source = ApplyExifOrientation(source, ReadExifOrientation(source));
+            if (decodeWidth > 0 && source.PixelWidth > decodeWidth)
+            {
+                double scale = (double)decodeWidth / source.PixelWidth;
+                source = new TransformedBitmap(source, new ScaleTransform(scale, scale));
+            }
+
+            if (source.CanFreeze)
+            {
+                source.Freeze();
+            }
+
+            return source;
+        }
+        catch
+        {
+            return null;
+        }
+        finally
+        {
+            if (limit)
+            {
+                ThumbnailSlots.Release();
+            }
+        }
+    }
+
+    /// <summary>
+    /// One frame from the system video pipeline. Shell's image factory returns the file icon for these
+    /// HEVC clips, so the gallery uses this when that icon is rejected.
+    /// </summary>
+    public static async Task<BitmapSource?> GetVideoFrameAsync(string filePath, int decodeWidth)
+    {
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath) || decodeWidth <= 0)
+        {
+            return null;
+        }
+
+        await ThumbnailSlots.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            StorageFile file = await StorageFile.GetFileFromPathAsync(filePath);
+            MediaClip clip = await MediaClip.CreateFromFileAsync(file);
+            var composition = new MediaComposition();
+            composition.Clips.Add(clip);
+            TimeSpan at = TimeSpan.FromMilliseconds(400);
+            if (clip.OriginalDuration > TimeSpan.Zero && at >= clip.OriginalDuration)
+            {
+                at = TimeSpan.FromMilliseconds(clip.OriginalDuration.TotalMilliseconds / 2);
+            }
+
+            using var thumb = await composition.GetThumbnailAsync(at, decodeWidth, decodeWidth, VideoFramePrecision.NearestFrame);
+            if (thumb == null || thumb.Size == 0)
+            {
+                return null;
+            }
+
+            using var stream = thumb.AsStreamForRead();
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.StreamSource = stream;
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            return bitmap;
+        }
+        catch
+        {
+            return null;
+        }
+        finally
+        {
+            ThumbnailSlots.Release();
+        }
+    }
+
+    public static bool IsJpegShellFileIcon(byte[] jpeg, string filePath)
+    {
+        string extension = Path.GetExtension(filePath);
+        if (!UsesShellThumbnail(extension))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var stream = new MemoryStream(jpeg, writable: false);
+            var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.IgnoreColorProfile, BitmapCacheOption.OnLoad);
+            if (decoder.Frames.Count == 0)
+            {
+                return false;
+            }
+
+            BitmapFrame frame = decoder.Frames[0];
+            if (frame.CanFreeze)
+            {
+                frame.Freeze();
+            }
+
+            return IsFileIcon(frame, filePath);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool UsesShellThumbnail(string extension)
+    {
+        return extension.Equals(".heic", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".heif", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".mov", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".m4v", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".avi", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".mkv", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static ImageSource? GetShellImage(string filePath, int width, int height, SIIGBF extraFlags)
+    {
         try
         {
             Guid uuid = typeof(IShellItemImageFactory).GUID;
             int hr = SHCreateItemFromParsingName(filePath, IntPtr.Zero, ref uuid, out var factory);
-            if (hr == 0 && factory != null)
+            if (hr != 0 || factory == null)
             {
-                SIIGBF flags = SIIGBF.SIIGBF_RESIZETOFIT;
-                if (thumbnailOnly)
-                {
-                    flags |= SIIGBF.SIIGBF_THUMBNAILONLY;
-                }
+                return null;
+            }
 
-                hr = factory.GetImage(new SIZE(width, height), flags, out IntPtr hBitmap);
-                if (hr == 0 && hBitmap != IntPtr.Zero)
-                {
-                    try
-                    {
-                        return BitmapSourceFromShellBitmap(hBitmap);
-                    }
-                    finally
-                    {
-                        DeleteObject(hBitmap);
-                    }
-                }
+            SIIGBF flags = SIIGBF.SIIGBF_RESIZETOFIT | extraFlags;
+            hr = factory.GetImage(new SIZE(width, height), flags, out IntPtr hBitmap);
+            if (hr != 0 || hBitmap == IntPtr.Zero)
+            {
+                return null;
+            }
+
+            try
+            {
+                return BitmapSourceFromShellBitmap(hBitmap);
+            }
+            finally
+            {
+                DeleteObject(hBitmap);
             }
         }
-        catch { }
+        catch
+        {
+            return null;
+        }
+    }
 
-        return null;
+    private static bool IsFileIcon(BitmapSource image, string filePath)
+    {
+        int score = IconDifference(image, filePath);
+        return score >= 0 && score < 18;
+    }
+
+    private static int IconDifference(BitmapSource image, string filePath)
+    {
+        if (!UsesShellThumbnail(Path.GetExtension(filePath)))
+        {
+            return -1;
+        }
+
+        byte[]? icon = FileIconSamples.GetOrAdd(Path.GetExtension(filePath).ToLowerInvariant(), _ => CaptureIconSample(filePath));
+        if (icon == null)
+        {
+            return -1;
+        }
+
+        byte[] sample = SampleGray(image);
+        if (sample.Length != icon.Length || sample.Length == 0)
+        {
+            return -1;
+        }
+
+        int difference = 0;
+        for (int i = 0; i < sample.Length; i++)
+        {
+            difference += Math.Abs(sample[i] - icon[i]);
+        }
+
+        return difference / sample.Length;
+    }
+
+    private static byte[]? CaptureIconSample(string filePath)
+    {
+        if (GetShellImage(filePath, 240, 240, SIIGBF.SIIGBF_ICONONLY) is not BitmapSource icon)
+        {
+            return null;
+        }
+
+        return SampleGray(icon);
+    }
+
+    private static byte[] SampleGray(BitmapSource source)
+    {
+        const int cells = 16;
+        BitmapSource pixels = source.Format == PixelFormats.Bgra32
+            ? source
+            : new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+        int width = pixels.PixelWidth;
+        int height = pixels.PixelHeight;
+        if (width <= 0 || height <= 0)
+        {
+            return [];
+        }
+
+        int stride = width * 4;
+        byte[] buffer = new byte[stride * height];
+        pixels.CopyPixels(buffer, stride, 0);
+        byte[] sample = new byte[cells * cells];
+        for (int y = 0; y < cells; y++)
+        {
+            int py = Math.Min(height - 1, y * height / cells);
+            for (int x = 0; x < cells; x++)
+            {
+                int px = Math.Min(width - 1, x * width / cells);
+                int index = py * stride + px * 4;
+                sample[y * cells + x] = (byte)((buffer[index] + buffer[index + 1] + buffer[index + 2]) / 3);
+            }
+        }
+
+        return sample;
+    }
+
+    private static int ReadExifOrientation(BitmapSource source)
+    {
+        if (source.Metadata is not BitmapMetadata metadata)
+        {
+            return 1;
+        }
+
+        try
+        {
+            return metadata.GetQuery("/app1/ifd/{ushort=274}") is ushort orientation ? orientation : 1;
+        }
+        catch
+        {
+            return 1;
+        }
+    }
+
+    private static BitmapSource ApplyExifOrientation(BitmapSource source, int orientation)
+    {
+        Transform? transform = orientation switch
+        {
+            2 => new ScaleTransform(-1, 1),
+            3 => new RotateTransform(180),
+            6 => new RotateTransform(90),
+            8 => new RotateTransform(270),
+            _ => null
+        };
+        if (transform == null)
+        {
+            return source;
+        }
+
+        var oriented = new TransformedBitmap(source, transform);
+        if (oriented.CanFreeze)
+        {
+            oriented.Freeze();
+        }
+
+        return oriented;
     }
 
     /// <summary>

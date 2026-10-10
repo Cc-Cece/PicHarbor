@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -71,6 +72,62 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool isTaskManagerOpen = false;
 
+    public ObservableCollection<TransferTaskCardViewModel> TaskCards { get; } = new();
+
+    public bool HasVisibleTaskCard => TaskCards.Any(card => card.IsShown);
+
+    public bool ShowTaskBall => SelectedTabIndex == 0 || HasVisibleTaskCard;
+
+    public string TotalSpeedText
+    {
+        get
+        {
+            double bytes = 0;
+            if (BackupVM.IsTransferring) bytes += BackupVM.SpeedBytesPerSecond;
+            if (AndroidBackupVM.IsTransferring) bytes += AndroidBackupVM.SpeedBytesPerSecond;
+            if (GooglePhotosVM.IsSyncing) bytes += GooglePhotosVM.SpeedBytesPerSecond;
+            if (IPhoneSyncVM.IsExporting) bytes += IPhoneSyncVM.SpeedBytesPerSecond;
+            if (AndroidSyncVM.IsSyncing) bytes += AndroidSyncVM.SpeedBytesPerSecond;
+            return FormatTotalSpeed(bytes);
+        }
+    }
+
+    public string TotalRemainingFilesText
+    {
+        get
+        {
+            int remaining = 0;
+            bool any = false;
+            if (BackupVM.IsTransferring)
+            {
+                any = true;
+                remaining += Math.Max(0, BackupVM.RemainingFilesCount);
+            }
+            if (AndroidBackupVM.IsTransferring)
+            {
+                any = true;
+                remaining += Math.Max(0, AndroidBackupVM.RemainingFilesCount);
+            }
+            if (GooglePhotosVM.IsSyncing)
+            {
+                any = true;
+                remaining += Math.Max(0, GooglePhotosVM.RemainingFilesCount);
+            }
+            if (IPhoneSyncVM.IsExporting)
+            {
+                any = true;
+                remaining += Math.Max(0, IPhoneSyncVM.RemainingFilesCount);
+            }
+            if (AndroidSyncVM.IsSyncing)
+            {
+                any = true;
+                remaining += Math.Max(0, AndroidSyncVM.RemainingFilesCount);
+            }
+
+            return any ? remaining.ToString("N0") : "--";
+        }
+    }
+
     [ObservableProperty]
     private string deviceCustomName = "";
 
@@ -132,6 +189,15 @@ public partial class MainViewModel : ObservableObject
             SettingsSubTabIndex = 2; // Jump directly to Engine & Network sub-tab
         };
         GooglePhotosVM.NavigateToSearchAction = () => SelectedTabIndex = 1;
+        SettingsVM.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(SettingsViewModel.HeifInstalled)
+                or nameof(SettingsViewModel.HevcInstalled)
+                or nameof(SettingsViewModel.CodecProbeCompleted))
+            {
+                SearchVM.ShowAppleCodecNotice = SettingsVM.CodecMissing;
+            }
+        };
 
         // Keep Android FTP connection parameters synchronized between Backup and Sync
         AndroidBackupVM.PropertyChanged += (s, e) =>
@@ -153,6 +219,8 @@ public partial class MainViewModel : ObservableObject
             if (e.PropertyName == nameof(SettingsViewModel.GooglePhotosProxy)) GooglePhotosVM.Proxy = SettingsVM.GooglePhotosProxy;
         };
 
+        CreateTaskCards();
+
 
 
         BackupVM.PropertyChanged += (s, e) =>
@@ -170,19 +238,19 @@ public partial class MainViewModel : ObservableObject
         GooglePhotosVM.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName is nameof(GooglePhotosSyncViewModel.IsDetailModalOpen) or nameof(GooglePhotosSyncViewModel.IsManualModalOpen)) NotifyModalChanged();
-            if (e.PropertyName is nameof(GooglePhotosSyncViewModel.IsSyncing) or nameof(GooglePhotosSyncViewModel.ProgressValue) or nameof(GooglePhotosSyncViewModel.SpeedText) or nameof(GooglePhotosSyncViewModel.RemainingFilesCount) or nameof(GooglePhotosSyncViewModel.CurrentFile) or nameof(GooglePhotosSyncViewModel.UploadedCount) or nameof(GooglePhotosSyncViewModel.SkippedCount) or nameof(GooglePhotosSyncViewModel.FailedCount))
+            if (e.PropertyName is nameof(GooglePhotosSyncViewModel.IsSyncing) or nameof(GooglePhotosSyncViewModel.ProgressValue) or nameof(GooglePhotosSyncViewModel.ProgressText) or nameof(GooglePhotosSyncViewModel.SpeedText) or nameof(GooglePhotosSyncViewModel.RemainingFilesCount) or nameof(GooglePhotosSyncViewModel.CurrentFile) or nameof(GooglePhotosSyncViewModel.UploadedCount) or nameof(GooglePhotosSyncViewModel.SkippedCount) or nameof(GooglePhotosSyncViewModel.FailedCount))
                 NotifyTaskChanged();
         };
         AndroidSyncVM.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName is nameof(AndroidSyncViewModel.IsDetailModalOpen) or nameof(AndroidSyncViewModel.IsPreflightModalOpen) or nameof(AndroidSyncViewModel.IsManualModalOpen)) NotifyModalChanged();
-            if (e.PropertyName is nameof(AndroidSyncViewModel.IsSyncing) or nameof(AndroidSyncViewModel.ProgressValue) or nameof(AndroidSyncViewModel.SpeedText) or nameof(AndroidSyncViewModel.RemainingFilesCount) or nameof(AndroidSyncViewModel.CopiedCount) or nameof(AndroidSyncViewModel.SkippedCount) or nameof(AndroidSyncViewModel.FailedCount))
+            if (e.PropertyName is nameof(AndroidSyncViewModel.IsSyncing) or nameof(AndroidSyncViewModel.ProgressValue) or nameof(AndroidSyncViewModel.ProgressText) or nameof(AndroidSyncViewModel.SpeedText) or nameof(AndroidSyncViewModel.RemainingFilesCount) or nameof(AndroidSyncViewModel.CopiedCount) or nameof(AndroidSyncViewModel.SkippedCount) or nameof(AndroidSyncViewModel.FailedCount))
                 NotifyTaskChanged();
         };
         IPhoneSyncVM.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName is nameof(IPhoneSyncViewModel.IsPreflightModalOpen) or nameof(IPhoneSyncViewModel.IsManualModalOpen)) NotifyModalChanged();
-            if (e.PropertyName is nameof(IPhoneSyncViewModel.IsExporting) or nameof(IPhoneSyncViewModel.ProgressValue) or nameof(IPhoneSyncViewModel.SpeedText) or nameof(IPhoneSyncViewModel.RemainingFilesCount))
+            if (e.PropertyName is nameof(IPhoneSyncViewModel.IsExporting) or nameof(IPhoneSyncViewModel.ProgressValue) or nameof(IPhoneSyncViewModel.ProgressText) or nameof(IPhoneSyncViewModel.SpeedText) or nameof(IPhoneSyncViewModel.RemainingFilesCount) or nameof(IPhoneSyncViewModel.CopiedCount) or nameof(IPhoneSyncViewModel.SkippedCount) or nameof(IPhoneSyncViewModel.FailedCount))
                 NotifyTaskChanged();
         };
 
@@ -228,9 +296,22 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsAnyModalOpen));
     }
 
+    partial void OnSelectedTabIndexChanged(int value) => OnPropertyChanged(nameof(ShowTaskBall));
+
     public void NotifyTaskChanged()
     {
+        if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
+        {
+            dispatcher.InvokeAsync(NotifyTaskChanged);
+            return;
+        }
+
+        RefreshTaskCards();
         OnPropertyChanged(nameof(IsAnyTaskRunning));
+        OnPropertyChanged(nameof(TotalSpeedText));
+        OnPropertyChanged(nameof(TotalRemainingFilesText));
+        OnPropertyChanged(nameof(HasVisibleTaskCard));
+        OnPropertyChanged(nameof(ShowTaskBall));
         OnPropertyChanged(nameof(HasPreviousTaskRun));
         OnPropertyChanged(nameof(HasActiveOrPreviousTask));
         OnPropertyChanged(nameof(ShowEmptyTaskWaitingPrompt));
@@ -251,6 +332,13 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ActiveTaskCopiedCount));
         OnPropertyChanged(nameof(ActiveTaskSkippedCount));
         OnPropertyChanged(nameof(ActiveTaskFailedCount));
+    }
+
+    [RelayCommand]
+    private void OpenCodecSettings()
+    {
+        SelectedTabIndex = 3;
+        SettingsSubTabIndex = 3;
     }
 
     partial void OnDestinationPathChanged(string value)
@@ -605,6 +693,140 @@ public partial class MainViewModel : ObservableObject
     {
         NotifyTaskChanged();
         IsTaskManagerOpen = true;
+    }
+
+    private void CreateTaskCards()
+    {
+        TaskCards.Add(MakeCard(
+            "iphone-backup",
+            true,
+            () => { if (BackupVM.IsTransferring) BackupVM.StopBackupCommand.Execute(null); },
+            () => BackupVM.ShowCopiedDetailsCommand.Execute(null),
+            () => BackupVM.ShowSkippedDetailsCommand.Execute(null),
+            () => BackupVM.ShowFailedDetailsCommand.Execute(null)));
+        TaskCards.Add(MakeCard(
+            "android-backup",
+            true,
+            () => { if (AndroidBackupVM.IsTransferring) AndroidBackupVM.CancelBackupCommand.Execute(null); },
+            () => AndroidBackupVM.ShowCopiedDetailsCommand.Execute(null),
+            () => AndroidBackupVM.ShowSkippedDetailsCommand.Execute(null),
+            () => AndroidBackupVM.ShowFailedDetailsCommand.Execute(null)));
+        TaskCards.Add(MakeCard(
+            "google",
+            true,
+            () => { if (GooglePhotosVM.IsSyncing) GooglePhotosVM.CancelSyncCommand.Execute(null); },
+            () => GooglePhotosVM.ShowUploadedDetailsCommand.Execute(null),
+            () => GooglePhotosVM.ShowSkippedDetailsCommand.Execute(null),
+            () => GooglePhotosVM.ShowFailedDetailsCommand.Execute(null)));
+        TaskCards.Add(MakeCard(
+            "iphone-sync",
+            false,
+            () => { if (IPhoneSyncVM.IsExporting) IPhoneSyncVM.CancelExportCommand.Execute(null); },
+            null,
+            null,
+            null));
+        TaskCards.Add(MakeCard(
+            "android-sync",
+            true,
+            () => { if (AndroidSyncVM.IsSyncing) AndroidSyncVM.CancelSyncCommand.Execute(null); },
+            () => AndroidSyncVM.ShowCopiedDetailsCommand.Execute(null),
+            () => AndroidSyncVM.ShowSkippedDetailsCommand.Execute(null),
+            () => AndroidSyncVM.ShowFailedDetailsCommand.Execute(null)));
+    }
+
+    private TransferTaskCardViewModel MakeCard(
+        string key,
+        bool hasDetails,
+        Action stop,
+        Action? copied,
+        Action? skipped,
+        Action? failed)
+    {
+        TransferTaskCardViewModel card = null!;
+        card = new TransferTaskCardViewModel(
+            key,
+            hasDetails,
+            stop,
+            copied is null ? null : () => { copied(); NotifyModalChanged(); },
+            skipped is null ? null : () => { skipped(); NotifyModalChanged(); },
+            failed is null ? null : () => { failed(); NotifyModalChanged(); },
+            () => DismissTaskCard(card));
+        return card;
+    }
+
+    private void DismissTaskCard(TransferTaskCardViewModel card)
+    {
+        if (card.IsRunning)
+        {
+            return;
+        }
+
+        card.Dismissed = true;
+        card.IsShown = false;
+        OnPropertyChanged(nameof(HasVisibleTaskCard));
+        OnPropertyChanged(nameof(ShowTaskBall));
+    }
+
+    private void RefreshTaskCards()
+    {
+        if (TaskCards.Count < 5)
+        {
+            return;
+        }
+
+        string iphoneName = string.IsNullOrWhiteSpace(BackupVM.DetectedDeviceModel) ? "iPhone" : BackupVM.DetectedDeviceModel;
+        string androidName = string.IsNullOrWhiteSpace(AndroidBackupVM.DetectedDeviceModel) ? "Android" : AndroidBackupVM.DetectedDeviceModel;
+        ApplyCard(TaskCards[0], BackupVM.IsTransferring, $"{iphoneName} 备份", BackupVM.ProgressPercentage, BackupVM.ProgressText, BackupVM.SpeedText, BackupVM.CopiedCount, BackupVM.SkippedCount, BackupVM.FailedCount, "已复制");
+        ApplyCard(TaskCards[1], AndroidBackupVM.IsTransferring, $"{androidName} 备份", AndroidBackupVM.ProgressPercentage, AndroidBackupVM.ProgressText, AndroidBackupVM.SpeedText, AndroidBackupVM.CopiedCount, AndroidBackupVM.SkippedCount, AndroidBackupVM.FailedCount, "已复制");
+        ApplyCard(TaskCards[2], GooglePhotosVM.IsSyncing, "Google 相册", GooglePhotosVM.ProgressValue, GooglePhotosVM.ProgressText, GooglePhotosVM.SpeedText, GooglePhotosVM.UploadedCount, GooglePhotosVM.SkippedCount, GooglePhotosVM.FailedCount, "已上传");
+        ApplyCard(TaskCards[3], IPhoneSyncVM.IsExporting, "同步到 iPhone", IPhoneSyncVM.ProgressValue, IPhoneSyncVM.ProgressText, IPhoneSyncVM.SpeedText, IPhoneSyncVM.CopiedCount, IPhoneSyncVM.SkippedCount, IPhoneSyncVM.FailedCount, "已复制");
+        ApplyCard(TaskCards[4], AndroidSyncVM.IsSyncing, "同步到 Android", AndroidSyncVM.ProgressValue, AndroidSyncVM.ProgressText, AndroidSyncVM.SpeedText, AndroidSyncVM.CopiedCount, AndroidSyncVM.SkippedCount, AndroidSyncVM.FailedCount, "已复制");
+        OnPropertyChanged(nameof(HasVisibleTaskCard));
+        OnPropertyChanged(nameof(ShowTaskBall));
+    }
+
+    private static void ApplyCard(
+        TransferTaskCardViewModel card,
+        bool running,
+        string title,
+        double progress,
+        string progressText,
+        string speedText,
+        int copied,
+        int skipped,
+        int failed,
+        string copiedLabel)
+    {
+        if (running)
+        {
+            card.HasRun = true;
+            card.Dismissed = false;
+        }
+
+        card.IsRunning = running;
+        card.IsShown = running || (card.HasRun && !card.Dismissed);
+        card.Title = title;
+        card.Progress = progress;
+        card.ProgressText = string.IsNullOrWhiteSpace(progressText) ? "" : progressText;
+        card.SpeedText = running ? (string.IsNullOrWhiteSpace(speedText) ? "--" : speedText) : "--";
+        card.StateText = running ? "进行中" : failed > 0 ? "已结束，有失败" : "已结束";
+        card.ResultText = $"{copiedLabel} {copied:N0} · 已跳过 {skipped:N0} · 失败 {failed:N0}";
+    }
+
+    private static string FormatTotalSpeed(double bytesPerSecond)
+    {
+        if (bytesPerSecond <= 0)
+        {
+            return "0.0 MB/s";
+        }
+
+        double megabytes = bytesPerSecond / 1024d / 1024d;
+        if (megabytes >= 0.05)
+        {
+            return $"{megabytes:F1} MB/s";
+        }
+
+        return $"{bytesPerSecond / 1024d:F0} KB/s";
     }
 
     [RelayCommand]

@@ -514,7 +514,8 @@ const N = (h) => h < 10 ? `0${h}` : String(h);
 function ot(h) {
   return `${h.year}-${N(h.month)}-${N(h.day)}`;
 }
-function rt(h) {
+function rt(h, flat) {
+  if (flat) return h.length ? [{ key: "flat", year: 0, month: 0, day: 0, photos: h }] : [];
   const t = [];
   let e = null;
   for (const s of h) {
@@ -589,8 +590,10 @@ function ht(h, t = "desc") {
       index: 0
     });
   }
-  const o = t === "asc" ? 1 : -1;
-  e.sort((n, a) => n.time !== a.time ? (n.time - a.time) * o : n.key < a.key ? -1 : n.key > a.key ? 1 : 0);
+  if (t !== "keep") {
+    const o = t === "asc" ? 1 : -1;
+    e.sort((n, a) => n.time !== a.time ? (n.time - a.time) * o : n.key < a.key ? -1 : n.key > a.key ? 1 : 0);
+  }
   const r = /* @__PURE__ */ new Map();
   return e.forEach((n, a) => {
     n.index = a, r.set(n.key, a);
@@ -602,7 +605,7 @@ class at {
   }
   setData(t, e) {
     const s = ht(t, e);
-    this.photos = s.photos, this.byKey = s.byKey, this.rejected = s.rejected, this.groups = rt(s.photos), this.favorites.clear();
+    this.photos = s.photos, this.byKey = s.byKey, this.rejected = s.rejected, this.groups = rt(s.photos, e === "keep"), this.favorites.clear();
     for (const i of s.photos)
       i.raw.favorite && this.favorites.add(i.key);
     for (const i of [...this.selection])

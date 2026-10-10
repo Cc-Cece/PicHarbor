@@ -474,6 +474,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         FailedCount = 0;
         ProgressValue = 0;
         TransferredSizeText = "0 B / 0 B";
+        SpeedBytesPerSecond = 0;
         SpeedText = "--";
         EtaText = "--";
         CurrentFile = "--";
@@ -554,6 +555,8 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
 
     [ObservableProperty]
     private string speedText = "--";
+
+    public double SpeedBytesPerSecond { get; private set; }
 
     [ObservableProperty]
     private int remainingFilesCount = 0;
@@ -1383,6 +1386,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         failedDetails.Clear();
         DetailItems.Clear();
         ProgressText = "正在准备上传...";
+        SpeedBytesPerSecond = 0;
         SpeedText = "--";
         EtaText = "--";
         CurrentFile = "--";
@@ -1400,6 +1404,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             RemainingFilesCount = Math.Max(0, s.TotalFiles - (s.UploadedFiles + s.SkippedFiles + s.FailedFiles));
             activePlanUploadedBytes = s.UploadedBytes;
             TransferredSizeText = $"{FormatSize(s.UploadedBytes)} / {FormatSize(s.TotalBytes)}";
+            SpeedBytesPerSecond = s.SpeedBytesPerSecond;
             SpeedText = s.SpeedBytesPerSecond > 0 ? $"{FormatSize((long)s.SpeedBytesPerSecond)}/s" : "--";
             CurrentFile = s.CurrentFile;
             CurrentPhase = s.CurrentPhase;
@@ -1519,6 +1524,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         isPauseRequested = false;
         CurrentPhase = App.GetString("GooglePhotosResumingPhase", "继续上传中...");
         ProgressText = $"正在继续上传，剩余 {remainingFiles.Count} 项...";
+        SpeedBytesPerSecond = 0;
         SpeedText = "--";
         EtaText = "--";
         CurrentFile = "--";
@@ -1562,6 +1568,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             RemainingFilesCount = Math.Max(0, s.TotalFiles - (s.UploadedFiles + s.SkippedFiles + s.FailedFiles));
             activePlanUploadedBytes = s.UploadedBytes;
             TransferredSizeText = $"{FormatSize(s.UploadedBytes)} / {FormatSize(s.TotalBytes)}";
+            SpeedBytesPerSecond = s.SpeedBytesPerSecond;
             SpeedText = s.SpeedBytesPerSecond > 0 ? $"{FormatSize((long)s.SpeedBytesPerSecond)}/s" : "--";
             CurrentFile = s.CurrentFile;
             CurrentPhase = s.CurrentPhase;
@@ -1724,6 +1731,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         isPauseRequested = false;
         ProgressValue = 0;
         ProgressText = $"正在重试 {retryTargetFiles.Count} 个失败文件...";
+        SpeedBytesPerSecond = 0;
         SpeedText = "--";
         EtaText = "--";
         CurrentFile = "--";
@@ -1758,6 +1766,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             ProgressValue = s.OverallPercent;
             RemainingFilesCount = Math.Max(0, s.TotalFiles - (s.UploadedFiles + s.SkippedFiles + s.FailedFiles));
             TransferredSizeText = $"{FormatSize(s.UploadedBytes)} / {FormatSize(s.TotalBytes)}";
+            SpeedBytesPerSecond = s.SpeedBytesPerSecond;
             SpeedText = s.SpeedBytesPerSecond > 0 ? $"{FormatSize((long)s.SpeedBytesPerSecond)}/s" : "--";
             CurrentFile = s.CurrentFile;
             CurrentPhase = s.CurrentPhase;

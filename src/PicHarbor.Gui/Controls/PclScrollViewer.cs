@@ -40,12 +40,19 @@ public class PclScrollViewer : ScrollViewer
             return;
         }
 
-        // Do not intercept if inside open dropdowns
+        // The gallery preview sits inside this scroller. Its wheel handler is bubbling,
+        // so it never runs once this preview handler marks the event handled.
+        // A maximized window often has nothing left to scroll, which is why zoom worked only then.
         if (e.OriginalSource is DependencyObject dep)
         {
             if (FindParent<ComboBox>(dep) is { IsDropDownOpen: true })
             {
                 base.OnPreviewMouseWheel(e);
+                return;
+            }
+
+            if (FindParent<PclGalleryWebControl>(dep)?.PreviewConsumesWheel(dep) == true)
+            {
                 return;
             }
         }

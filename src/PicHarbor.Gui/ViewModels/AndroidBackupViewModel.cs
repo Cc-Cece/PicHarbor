@@ -502,6 +502,11 @@ public partial class AndroidBackupViewModel : ObservableObject
     private string speedText = "0.0 MB/s";
 
     [ObservableProperty]
+    private int plannedItemCount;
+
+    public double SpeedBytesPerSecond { get; private set; }
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HeroPillText))]
     private int copiedCount = 0;
 
@@ -866,6 +871,13 @@ public partial class AndroidBackupViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void SetDatePresetLast1Year()
+    {
+        ScopeDateTo = DateTime.Today;
+        ScopeDateFrom = DateTime.Today.AddYears(-1);
+    }
+
+    [RelayCommand]
     private void SetDatePresetThisYear()
     {
         ScopeDateTo = DateTime.Today;
@@ -943,6 +955,8 @@ public partial class AndroidBackupViewModel : ObservableObject
         CopiedCount = 0;
         RemainingFilesCount = 0;
         TotalFilesCount = 0;
+        PlannedItemCount = 0;
+        SpeedBytesPerSecond = 0;
         SkippedCount = 0;
         FailedCount = 0;
         ProgressPercentage = 0;
@@ -982,6 +996,8 @@ public partial class AndroidBackupViewModel : ObservableObject
 
                 AddLog("[INFO] 正在枚举选定相册中的媒体文件...");
                 var files = await client.EnumerateFilesAsync(selectedAlbums, filterOptions, fromDate, toDate, ct).ConfigureAwait(false);
+                int itemCount = LivePhotoDetector.CountDisplayedItems(files.Select(f => f.Path));
+                await Application.Current.Dispatcher.InvokeAsync(() => PlannedItemCount = itemCount);
 
                 if (files.Count == 0)
                 {
@@ -995,7 +1011,7 @@ public partial class AndroidBackupViewModel : ObservableObject
                 }
 
                 long totalBytes = files.Sum(f => f.Size);
-                AddLog($"[INFO] 共发现 {files.Count:N0} 个媒体文件，总计 {ByteSize.Humanize(totalBytes)}。");
+                AddLog($"[INFO] 共发现 {itemCount:N0} 张（文件 {files.Count:N0}），总计 {ByteSize.Humanize(totalBytes)}。");
 
                 preflight.EnsureDestinationWritable(DestinationPath);
                 preflight.EnsureSufficientFreeSpace(DestinationPath, totalBytes);
@@ -1172,8 +1188,10 @@ public partial class AndroidBackupViewModel : ObservableObject
             EtaText = snapshot.Eta.HasValue
                 ? $"{snapshot.Eta.Value.Minutes}m {snapshot.Eta.Value.Seconds}s"
                 : (snapshot.ByteFraction >= 1.0 ? "备份完成" : "计算中...");
-            ProgressText = $"{snapshot.ByteFraction * 100:F1}% ({snapshot.ProcessedFiles:N0}/{snapshot.TotalFiles:N0} 文件)";
+            int items = PlannedItemCount > 0 ? PlannedItemCount : snapshot.TotalFiles;
+            ProgressText = $"{snapshot.ByteFraction * 100:F1}% · {items:N0} 张（文件 {snapshot.ProcessedFiles:N0}/{snapshot.TotalFiles:N0}）";
 
+            SpeedBytesPerSecond = snapshot.CurrentBytesPerSecond;
             double mbps = snapshot.CurrentBytesPerSecond / 1024d / 1024d;
             SpeedText = $"{mbps:F1} MB/s";
             CurrentFileName = string.IsNullOrWhiteSpace(snapshot.CurrentFileName)

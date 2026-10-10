@@ -5,25 +5,198 @@
              xmlns:controls="clr-namespace:PicHarbor.Gui.Controls"
              Loaded="UserControl_Loaded"
              Unloaded="UserControl_Unloaded">
+    <UserControl.Resources>
+        <Style x:Key="PlayerIconButton" TargetType="Button">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="#33FFFFFF" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="18">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#55FFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#88FFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.35" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="PlayerBarButton" TargetType="Button" BasedOn="{StaticResource PlayerIconButton}">
+            <Setter Property="Foreground" Value="#343D4A" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="18">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E0EAFD" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#D5E6FD" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PlayerTextButton" TargetType="Button" BasedOn="{StaticResource PlayerBarButton}">
+            <Setter Property="Width" Value="44" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+        <Style x:Key="PlayerFloatButton" TargetType="Button" BasedOn="{StaticResource PlayerBarButton}">
+            <Setter Property="Background" Value="#F7FBFF" />
+            <Setter Property="BorderBrush" Value="#D5E6FD" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="18">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E0EAFD" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#D5E6FD" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PlayerMenuItem" TargetType="MenuItem">
+            <Setter Property="Foreground" Value="#343D4A" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="Bd"
+                                Background="Transparent"
+                                CornerRadius="6"
+                                Margin="0,1"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#EAF2FE" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <ContextMenu x:Key="PlayerContextMenu"
+                     Placement="MousePoint"
+                     FontFamily="Segoe UI">
+            <ContextMenu.Template>
+                <ControlTemplate TargetType="ContextMenu">
+                    <Border Background="#FFFFFF"
+                            BorderBrush="#D5E6FD"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="6">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="16" ShadowDepth="2" Direction="270" Color="#0B5BCB" Opacity="0.12" />
+                        </Border.Effect>
+                        <StackPanel IsItemsHost="True" />
+                    </Border>
+                </ControlTemplate>
+            </ContextMenu.Template>
+            <MenuItem Header="📌 加入待传列表 (1)"
+                      Style="{StaticResource PlayerMenuItem}"
+                      Click="PlayerMenuAddPending_Click" />
+            <MenuItem Header="✖ 从待传列表中移除 (1)"
+                      Style="{StaticResource PlayerMenuItem}"
+                      Click="PlayerMenuRemovePending_Click" />
+            <Separator>
+                <Separator.Template>
+                    <ControlTemplate TargetType="Separator">
+                        <Border Height="1" Margin="4,5" Background="#D5E6FD" />
+                    </ControlTemplate>
+                </Separator.Template>
+            </Separator>
+            <MenuItem Header="📂 在资源管理器中显示"
+                      Style="{StaticResource PlayerMenuItem}"
+                      Click="PlayerMenuReveal_Click" />
+            <MenuItem Header="↗ 在默认应用中打开"
+                      Style="{StaticResource PlayerMenuItem}"
+                      Click="PlayerMenuOpen_Click" />
+            <MenuItem Header="📋 复制文件"
+                      Style="{StaticResource PlayerMenuItem}"
+                      Click="PlayerMenuCopy_Click" />
+            <MenuItem Header="ℹ 属性"
+                      Style="{StaticResource PlayerMenuItem}"
+                      Click="PlayerMenuProperties_Click" />
+        </ContextMenu>
+    </UserControl.Resources>
     <Grid Background="#F8FAFC">
         <!-- WebView2 Web Gallery Container -->
         <wv2:WebView2 x:Name="AlbumWebView"
+                      Visibility="Hidden"
                       HorizontalAlignment="Stretch"
                       VerticalAlignment="Stretch" />
 
-        <!-- Loading Overlay with PCL2 Theme -->
+        <!-- Stays above the WebView until the page is ready. The WebView HWND would otherwise cover this and show black. -->
         <Border x:Name="LoadingOverlay"
                 Background="#F8FAFC"
                 Visibility="Visible">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <ProgressBar IsIndeterminate="True"
-                             Width="180" Height="4"
-                             Margin="0,0,0,12"
-                             Foreground="{DynamicResource ColorBrush3}"
-                             Background="#E2E8F0"
-                             BorderThickness="0" />
-                <TextBlock Text="正在载入现代图库视图..."
-                           Foreground="{DynamicResource ColorBrushGray2}"
+                <Grid Width="28" Height="28" HorizontalAlignment="Center" Margin="0,0,0,12" RenderTransformOrigin="0.5,0.5">
+                    <Grid.RenderTransform>
+                        <RotateTransform x:Name="GalleryBootSpin" />
+                    </Grid.RenderTransform>
+                    <Ellipse Stroke="#D5E6FD" StrokeThickness="3" />
+                    <Ellipse Stroke="#0B5BCB" StrokeThickness="3" StrokeDashArray="1.6 2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                    <Grid.Triggers>
+                        <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                            <BeginStoryboard>
+                                <Storyboard RepeatBehavior="Forever">
+                                    <DoubleAnimation Storyboard.TargetName="GalleryBootSpin"
+                                                     Storyboard.TargetProperty="Angle"
+                                                     From="0" To="360" Duration="0:0:0.8" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                    </Grid.Triggers>
+                </Grid>
+                <TextBlock Text="正在载入图库..."
+                           Foreground="#343D4A"
                            FontSize="12"
                            HorizontalAlignment="Center" />
             </StackPanel>
@@ -53,5 +226,323 @@
                                     Padding="16,0" />
             </StackPanel>
         </Border>
+
+        <!--
+          WebView2 is an HWND, so this layer replaces it instead of drawing on top.
+          The photo fills the layer. Arrows, close, and one bottom bar float above it.
+        -->
+        <Grid x:Name="NativePlayer"
+              Visibility="Collapsed"
+              Background="#F8FAFC"
+              Focusable="True"
+              MouseLeftButtonDown="NativePlayer_MouseLeftButtonDown"
+              MouseWheel="NativePlayer_MouseWheel"
+              PreviewMouseRightButtonUp="NativePlayer_PreviewMouseRightButtonUp"
+              SizeChanged="NativePlayer_SizeChanged">
+            <Grid x:Name="PlayerStage"
+                  ClipToBounds="True"
+                  Background="#F8FAFC"
+                  MouseLeftButtonDown="PlayerStage_MouseLeftButtonDown"
+                  MouseMove="PlayerStage_MouseMove"
+                  MouseLeftButtonUp="PlayerStage_MouseLeftButtonUp"
+                  LostMouseCapture="PlayerStage_LostMouseCapture">
+                <Grid x:Name="PlayerMedia"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center"
+                      RenderTransformOrigin="0.5,0.5"
+                      IsHitTestVisible="True">
+                    <Grid.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform x:Name="MediaScale" />
+                            <RotateTransform x:Name="MediaRotate" />
+                            <TranslateTransform x:Name="MediaPan" />
+                        </TransformGroup>
+                    </Grid.RenderTransform>
+                    <Image x:Name="PlayerStill" Stretch="Uniform" />
+                    <Image x:Name="PlayerFrames"
+                           Stretch="Uniform"
+                           Visibility="Collapsed" />
+                </Grid>
+                <TextBlock x:Name="PlayerStatus"
+                           Text="这张照片无法显示"
+                           Foreground="#343D4A"
+                           FontSize="14"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Visibility="Collapsed"
+                           IsHitTestVisible="False" />
+                <Border x:Name="PlayerLoading"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Padding="16,12"
+                        Background="#F7FBFF"
+                        BorderBrush="#D5E6FD"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Visibility="Collapsed"
+                        IsHitTestVisible="False">
+                    <StackPanel>
+                        <Grid Width="22" Height="22" HorizontalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                            <Grid.RenderTransform>
+                                <RotateTransform x:Name="PlayerLoadingSpin" />
+                            </Grid.RenderTransform>
+                            <Ellipse Stroke="#D5E6FD" StrokeThickness="3" />
+                            <Ellipse Stroke="#0B5BCB" StrokeThickness="3" StrokeDashArray="1.6 2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                            <Grid.Triggers>
+                                <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <DoubleAnimation Storyboard.TargetName="PlayerLoadingSpin"
+                                                             Storyboard.TargetProperty="Angle"
+                                                             From="0" To="360" Duration="0:0:0.8" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Grid.Triggers>
+                        </Grid>
+                        <TextBlock Text="正在载入"
+                                   Margin="0,8,0,0"
+                                   Foreground="#343D4A"
+                                   FontSize="12"
+                                   HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+                <Border HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        Margin="0,12,0,0"
+                        Padding="10,4"
+                        Background="#F4F8FD"
+                        BorderBrush="#D5E6FD"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        IsHitTestVisible="False">
+                    <TextBlock x:Name="PlayerCounter"
+                               Foreground="#343D4A"
+                               FontSize="12" />
+                </Border>
+                <Button x:Name="PlayerReplay"
+                        Width="64"
+                        Height="64"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Visibility="Collapsed"
+                        Cursor="Hand"
+                        ToolTip="重播"
+                        Click="PlayerReplay_Click">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Grid>
+                                <Ellipse x:Name="Disc" Fill="#B3000000" />
+                                <TextBlock Text="&#xE768;"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           FontSize="22"
+                                           Foreground="White"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Margin="3,0,0,0"
+                                           IsHitTestVisible="False" />
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Disc" Property="Fill" Value="#E6000000" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </Grid>
+
+            <Grid x:Name="PlayerChrome"
+                  Height="56"
+                  Margin="76,0,76,16"
+                  VerticalAlignment="Bottom"
+                  Background="Transparent"
+                  MouseLeftButtonDown="PlayerChrome_MouseLeftButtonDown">
+            <Border x:Name="PlayerTools"
+                    Padding="8,6"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="#F7FBFF"
+                    BorderBrush="#D5E6FD"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="PlayerToolsMute"
+                            Style="{StaticResource PlayerBarButton}"
+                            ToolTip="取消静音"
+                            Margin="2,0,8,0"
+                            Visibility="Collapsed"
+                            Click="PlayerMute_Click">
+                        <TextBlock x:Name="PlayerToolsMuteGlyph"
+                                   Text="&#xE74F;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="12"
+                                   Foreground="#343D4A"
+                                   IsHitTestVisible="False" />
+                    </Button>
+                    <Button Style="{StaticResource PlayerBarButton}"
+                            ToolTip="向左旋转"
+                            Margin="2,0"
+                            Click="PlayerRotateLeft_Click">
+                        <TextBlock Text="&#xE7AD;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="12"
+                                   Foreground="#343D4A"
+                                   RenderTransformOrigin="0.5,0.5"
+                                   IsHitTestVisible="False">
+                            <TextBlock.RenderTransform>
+                                <ScaleTransform ScaleX="-1" />
+                            </TextBlock.RenderTransform>
+                        </TextBlock>
+                    </Button>
+                    <Button Style="{StaticResource PlayerBarButton}"
+                            Content="&#xE7AD;"
+                            ToolTip="向右旋转"
+                            Margin="2,0"
+                            Click="PlayerRotateRight_Click" />
+                    <Button Style="{StaticResource PlayerBarButton}"
+                            Content="&#xE71F;"
+                            ToolTip="缩小"
+                            Margin="10,0,2,0"
+                            Click="PlayerZoomOut_Click" />
+                    <TextBlock x:Name="PlayerZoomText"
+                               Text="100%"
+                               MinWidth="52"
+                               Margin="4,0"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"
+                               Foreground="#343D4A"
+                               FontSize="12" />
+                    <Button Style="{StaticResource PlayerBarButton}"
+                            Content="&#xE8A3;"
+                            ToolTip="放大"
+                            Margin="2,0"
+                            Click="PlayerZoomIn_Click" />
+                    <Button Style="{StaticResource PlayerTextButton}"
+                            Content="1:1"
+                            ToolTip="实际像素"
+                            Margin="10,0,2,0"
+                            Click="PlayerActualSize_Click" />
+                    <Button Style="{StaticResource PlayerTextButton}"
+                            Content="适应"
+                            ToolTip="适应窗口"
+                            Margin="2,0"
+                            Click="PlayerFit_Click" />
+                    <Button Style="{StaticResource PlayerBarButton}"
+                            Content="&#xE8A7;"
+                            ToolTip="在系统默认应用中打开"
+                            Margin="10,0,2,0"
+                            Click="PlayerOpenWith_Click" />
+                    <Button Style="{StaticResource PlayerBarButton}"
+                            Content="&#xE838;"
+                            ToolTip="在资源管理器中显示"
+                            Margin="2,0"
+                            Click="PlayerReveal_Click" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="PlayerTransport"
+                    Visibility="Collapsed"
+                    Padding="10,8"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Center"
+                    Background="#F7FBFF"
+                    BorderBrush="#D5E6FD"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="PlayerPlayPause"
+                            Style="{StaticResource PlayerBarButton}"
+                            ToolTip="播放或暂停"
+                            Click="PlayerPlayPause_Click">
+                        <TextBlock x:Name="PlayerPlayGlyph"
+                                   Text="&#xE768;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="12"
+                                   Foreground="#343D4A"
+                                   IsHitTestVisible="False" />
+                    </Button>
+                    <Button x:Name="PlayerTransportMute"
+                            Grid.Column="1"
+                            Style="{StaticResource PlayerBarButton}"
+                            ToolTip="取消静音"
+                            Margin="2,0,0,0"
+                            Click="PlayerMute_Click">
+                        <TextBlock x:Name="PlayerTransportMuteGlyph"
+                                   Text="&#xE74F;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="12"
+                                   Foreground="#343D4A"
+                                   IsHitTestVisible="False" />
+                    </Button>
+                    <Slider x:Name="PlayerScrub"
+                            Grid.Column="2"
+                            Margin="12,0"
+                            VerticalAlignment="Center"
+                            Minimum="0"
+                            Maximum="1"
+                            IsMoveToPointEnabled="True"
+                            ValueChanged="PlayerScrub_ValueChanged" />
+                    <TextBlock x:Name="PlayerTime"
+                               Grid.Column="3"
+                               Text="0:00 / 0:00"
+                               MinWidth="92"
+                               Margin="0,0,8,0"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Right"
+                               Foreground="#343D4A"
+                               FontSize="12" />
+                    <Button Grid.Column="4"
+                            Style="{StaticResource PlayerBarButton}"
+                            Content="&#xE8A7;"
+                            ToolTip="在系统默认应用中打开"
+                            Margin="2,0"
+                            Click="PlayerOpenWith_Click" />
+                    <Button Grid.Column="5"
+                            Style="{StaticResource PlayerBarButton}"
+                            Content="&#xE838;"
+                            ToolTip="在资源管理器中显示"
+                            Margin="2,0,0,0"
+                            Click="PlayerReveal_Click" />
+                </Grid>
+            </Border>
+            </Grid>
+
+            <Button x:Name="PlayerNext"
+                    Style="{StaticResource PlayerFloatButton}"
+                    Content="&#xE76B;"
+                    ToolTip="后一张"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    Margin="14,0,0,0"
+                    Click="PlayerNext_Click" />
+
+            <Button x:Name="PlayerPrev"
+                    Style="{StaticResource PlayerFloatButton}"
+                    Content="&#xE76C;"
+                    ToolTip="前一张"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Margin="0,0,14,0"
+                    Click="PlayerPrev_Click" />
+
+            <Button x:Name="PlayerClose"
+                    Style="{StaticResource PlayerFloatButton}"
+                    Content="&#xE711;"
+                    ToolTip="关闭"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Margin="0,12,14,0"
+                    Click="PlayerClose_Click" />
+        </Grid>
     </Grid>
 </UserControl>

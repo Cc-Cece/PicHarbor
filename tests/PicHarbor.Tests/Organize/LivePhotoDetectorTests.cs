@@ -1,4 +1,5 @@
 using PicHarbor.Core.Organize;
+using PicHarbor.Core.Search;
 using Shouldly;
 using Xunit;
 
@@ -71,5 +72,49 @@ public sealed class LivePhotoDetectorTests
         ];
 
         LivePhotoDetector.FindPairs(paths).Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public void All_view_hides_paired_mov_and_keeps_the_still_and_standalone_video()
+    {
+        string[] paths =
+        [
+            Path.Combine("2024", "2024-08", "IMG_1.HEIC"),
+            Path.Combine("2024", "2024-08", "IMG_1.MOV"),
+            Path.Combine("2024", "2024-08", "VID_9.MOV"),
+            Path.Combine("2024", "2024-09", "IMG_1.MOV"),
+        ];
+
+        var keys = LivePhotoDetector.FindLivePairKeys(paths);
+
+        LivePhotoDetector.ShowInAllView(paths[0], MediaType.Photo, keys).ShouldBeTrue();
+        LivePhotoDetector.ShowInAllView(paths[1], MediaType.Video, keys).ShouldBeFalse();
+        LivePhotoDetector.ShowInAllView(paths[2], MediaType.Video, keys).ShouldBeTrue();
+        LivePhotoDetector.ShowInAllView(paths[3], MediaType.Video, keys).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void All_view_hides_paired_mp4_with_jpg()
+    {
+        string still = Path.Combine("2024", "2024-08", "IMG_9.JPG");
+        string video = Path.Combine("2024", "2024-08", "IMG_9.MP4");
+        var keys = LivePhotoDetector.FindLivePairKeys([still, video]);
+
+        LivePhotoDetector.ShowInAllView(still, MediaType.Photo, keys).ShouldBeTrue();
+        LivePhotoDetector.ShowInAllView(video, MediaType.Video, keys).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Displayed_item_count_folds_a_live_pair_into_one()
+    {
+        string[] paths =
+        [
+            Path.Combine("2024", "2024-08", "IMG_1.HEIC"),
+            Path.Combine("2024", "2024-08", "IMG_1.MOV"),
+            Path.Combine("2024", "2024-08", "VID_9.MOV"),
+            Path.Combine("2024", "2024-09", "IMG_2.JPG"),
+        ];
+
+        LivePhotoDetector.CountDisplayedItems(paths).ShouldBe(3);
     }
 }

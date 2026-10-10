@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Windows.Media.Imaging;
+using PicHarbor.Core.Util;
 
 namespace PicHarbor.Gui.Util;
 
@@ -54,11 +55,11 @@ public static class ImageDimensionHelper
                     }
                 }
 
-                // Standalone video: extract dimensions from shell thumbnail
-                var thumb = ShellServices.GetShellThumbnail(filePath, 240, 240, thumbnailOnly: false);
-                if (thumb is BitmapSource bs && bs.PixelWidth > 0 && bs.PixelHeight > 0)
+                // Header only. Extracting a shell frame here blocks the video category:
+                // the first page asks for dimensions of every clip before the gallery can finish loading.
+                if (IsoBmffDimensions.TryReadDisplaySize(filePath, out int videoWidth, out int videoHeight))
                 {
-                    var videoDims = (bs.PixelWidth, bs.PixelHeight);
+                    var videoDims = (videoWidth, videoHeight);
                     Cache[filePath] = videoDims;
                     return videoDims;
                 }

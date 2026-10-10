@@ -402,6 +402,102 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ManualListItem_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (TryResolveManualItem(sender, out _, out string path))
+        {
+            ShellServices.OpenFiles([path]);
+            e.Handled = true;
+        }
+    }
+
+    private void ManualListItem_Open_Click(object sender, RoutedEventArgs e)
+    {
+        if (TryResolveManualItem(sender, out _, out string path))
+        {
+            ShellServices.OpenFiles([path]);
+        }
+    }
+
+    private void ManualListItem_Reveal_Click(object sender, RoutedEventArgs e)
+    {
+        if (TryResolveManualItem(sender, out _, out string path))
+        {
+            ShellServices.ShowInExplorer([path]);
+        }
+    }
+
+    private void ManualListItem_Toggle_Click(object sender, RoutedEventArgs e)
+    {
+        if (TryGetManualItem(sender, out ManualSelectedItemViewModel item) &&
+            DataContext is MainViewModel main)
+        {
+            main.RemoveUnifiedManualItemCommand.Execute(item);
+        }
+    }
+
+    private bool TryResolveManualItem(object sender, out ManualSelectedItemViewModel item, out string path)
+    {
+        item = null!;
+        path = "";
+        if (!TryGetManualItem(sender, out ManualSelectedItemViewModel selected))
+        {
+            return false;
+        }
+
+        item = selected;
+        if (!string.IsNullOrWhiteSpace(selected.FullPath) && File.Exists(selected.FullPath))
+        {
+            path = selected.FullPath;
+            return true;
+        }
+
+        if (DataContext is MainViewModel main &&
+            !string.IsNullOrWhiteSpace(main.DestinationPath) &&
+            !string.IsNullOrWhiteSpace(selected.RelativePath))
+        {
+            string combined = Path.Combine(main.DestinationPath, selected.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+            if (File.Exists(combined))
+            {
+                path = combined;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryGetManualItem(object sender, out ManualSelectedItemViewModel item)
+    {
+        item = null!;
+        if (sender is not FrameworkElement element)
+        {
+            return false;
+        }
+
+        if (element.DataContext is ManualSelectedItemViewModel direct)
+        {
+            item = direct;
+            return true;
+        }
+
+        DependencyObject? current = element;
+        while (current != null)
+        {
+            if (current is ContextMenu menu &&
+                menu.PlacementTarget is FrameworkElement target &&
+                target.DataContext is ManualSelectedItemViewModel placed)
+            {
+                item = placed;
+                return true;
+            }
+
+            current = LogicalTreeHelper.GetParent(current) ?? VisualTreeHelper.GetParent(current);
+        }
+
+        return false;
+    }
+
     private void CloseTaskManager_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is MainViewModel mainVM)

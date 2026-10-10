@@ -23,6 +23,9 @@ public partial class StatusViewModel : ObservableObject
     private int totalFiles = 0;
 
     [ObservableProperty]
+    private int itemCount = 0;
+
+    [ObservableProperty]
     private string totalSizeText = "0 B";
 
     [ObservableProperty]
@@ -54,6 +57,7 @@ public partial class StatusViewModel : ObservableObject
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 TotalFiles = stats.TotalFiles;
+                ItemCount = stats.ItemCount;
                 TotalSizeText = ByteSize.Humanize(stats.TotalBytes);
                 PhotosCount = stats.PhotosCount;
                 VideosCount = stats.VideosCount;
