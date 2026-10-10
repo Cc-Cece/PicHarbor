@@ -121,4 +121,89 @@ public static class ArchiveRepository
             return reorganizer.Plan(targetScheme);
         }, cancellationToken);
     }
+
+    /// <summary>Reads database physical storage metrics and record statistics.</summary>
+    public static Task<DatabaseMetricsRecord> GetDatabaseMetricsAsync(string destinationRoot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        return Task.Run(() =>
+        {
+            using var journal = TransferJournal.OpenReadOnly(destinationRoot);
+            return journal.GetDatabaseMetrics();
+        });
+    }
+
+    /// <summary>Reads all backup session batches for a specific device.</summary>
+    public static Task<IReadOnlyList<BackupSessionRecord>> GetBackupSessionsAsync(string destinationRoot, string deviceUid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceUid);
+        return Task.Run(() =>
+        {
+            using var journal = TransferJournal.OpenReadOnly(destinationRoot);
+            return journal.ReadBackupSessions(deviceUid);
+        });
+    }
+
+    /// <summary>Reads file transfer items belonging to a backup session batch.</summary>
+    public static Task<IReadOnlyList<BackupHistoryItemRecord>> GetBackupHistoryItemsAsync(string destinationRoot, long sessionId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        return Task.Run(() =>
+        {
+            using var journal = TransferJournal.OpenReadOnly(destinationRoot);
+            return journal.ReadBackupHistoryItems(sessionId);
+        });
+    }
+
+    /// <summary>Reads aggregated totals (sessions, files, bytes) for a device.</summary>
+    public static Task<(int TotalSessions, int TotalFiles, long TotalBytes)> GetDeviceBackupSummaryAsync(string destinationRoot, string deviceUid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceUid);
+        return Task.Run(() =>
+        {
+            using var journal = TransferJournal.OpenReadOnly(destinationRoot);
+            return journal.ReadDeviceBackupSummary(deviceUid);
+        });
+    }
+
+    /// <summary>Prunes redundant audit history data older than cutoff time and vacuums database.</summary>
+    public static Task<(int PrunedSessions, int PrunedRecords)> PruneRedundantHistoryAsync(string destinationRoot, DateTimeOffset cutoffTime)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        return Task.Run(() =>
+        {
+            using var journal = TransferJournal.Open(destinationRoot);
+            var res = journal.PruneRedundantHistory(cutoffTime);
+            journal.VacuumDatabase();
+            return res;
+        });
+    }
+
+    /// <summary>Runs WAL checkpoint and VACUUM to reclaim space.</summary>
+    public static Task VacuumDatabaseAsync(string destinationRoot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        return Task.Run(() =>
+        {
+            using var journal = TransferJournal.Open(destinationRoot);
+            journal.VacuumDatabase();
+        });
+    }
+
+    /// <summary>Scans archive database against disk to safely clean ghost records.</summary>
+    public static Task<(int Scanned, int Removed)> RepairDatabaseConsistencyAsync(
+        string destinationRoot,
+        IProgress<(int Scanned, int Removed)>? progress = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        return Task.Run(() =>
+        {
+            using var journal = TransferJournal.Open(destinationRoot);
+            var result = journal.RepairDatabaseConsistency(destinationRoot, progress);
+            journal.VacuumDatabase();
+            return result;
+        });
+    }
 }

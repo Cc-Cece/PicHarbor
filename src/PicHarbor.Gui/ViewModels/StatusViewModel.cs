@@ -15,6 +15,8 @@ public class DeviceHistoryItem
     public string Model { get; set; } = string.Empty;
     public string Udid { get; set; } = string.Empty;
     public string LastSeen { get; set; } = string.Empty;
+    public string? HardwareSerial { get; set; }
+    public string? DeviceType { get; set; }
 }
 
 public partial class StatusViewModel : ObservableObject
@@ -41,6 +43,15 @@ public partial class StatusViewModel : ObservableObject
     private string databasePath = MainViewModel.DefaultArchivePath;
 
     public ObservableCollection<DeviceHistoryItem> Devices { get; } = new();
+
+    [RelayCommand]
+    public void OpenDeviceHistory(DeviceHistoryItem? item)
+    {
+        if (item is null) return;
+        var dialog = new DeviceBackupHistoryDialog(DatabasePath, item);
+        dialog.Owner = Application.Current.MainWindow;
+        dialog.ShowDialog();
+    }
 
     [RelayCommand]
     private async Task RefreshStatsAsync()
@@ -71,7 +82,9 @@ public partial class StatusViewModel : ObservableObject
                         Name = dev.Name ?? "Unknown Device",
                         Model = dev.Model ?? "Unknown Model",
                         Udid = dev.Udid,
-                        LastSeen = dev.LastSeen?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A"
+                        LastSeen = dev.LastSeen?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A",
+                        HardwareSerial = dev.HardwareSerial,
+                        DeviceType = dev.DeviceType
                     });
                 }
             });

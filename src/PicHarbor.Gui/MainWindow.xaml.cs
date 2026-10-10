@@ -742,5 +742,16 @@ public partial class MainWindow : Window
         if (parentObject is T parent) return parent;
         return FindParent<T>(parentObject);
     }
+
+    private void DeviceGridRow_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is DataGridRow row && row.Item is DeviceHistoryItem item)
+        {
+            if (DataContext is MainViewModel mainVM)
+            {
+                mainVM.StatusVM.OpenDeviceHistory(item);
+            }
+        }
+    }
 }
 

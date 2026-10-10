@@ -605,9 +605,11 @@ public partial class BackupViewModel : ObservableObject
                 using var journal = TransferJournal.Open(DestinationPath);
                 DateTimeOffset runStartedAt = DateTimeOffset.UtcNow;
 
+                long backupSessionId = 0;
                 if (device is not null)
                 {
-                    journal.UpsertDevice(device.Udid, device.Name, device.ProductType, runStartedAt);
+                    string effectiveName = journal.RegisterOrUpdateDevice(device.Udid, device.Name, device.ProductType, device.Udid, "iPhone", runStartedAt);
+                    backupSessionId = journal.BeginBackupSession(device.Udid, effectiveName, device.ProductType, runStartedAt);
                 }
 
                 foreach (RemoteFile file in files)
@@ -694,6 +696,10 @@ public partial class BackupViewModel : ObservableObject
                                     copied++;
                                     bytesCopied += result.BytesCopied;
                                     copiedDetails.Add(detailItem);
+                                    if (backupSessionId > 0 && !string.IsNullOrWhiteSpace(relPath))
+                                    {
+                                        journal.RecordHistoryItem(backupSessionId, file.Path, relPath, file.Size, DateTimeOffset.UtcNow, Path.GetExtension(file.Path).TrimStart('.'));
+                                    }
                                     break;
                                 case CopyStatus.Skipped:
                                     skipped++;
@@ -708,6 +714,10 @@ public partial class BackupViewModel : ObservableObject
                     }
 
                     stopwatch.Stop();
+                    if (backupSessionId > 0)
+                    {
+                        journal.CompleteBackupSession(backupSessionId, copied, bytesCopied, failed > 0 ? "Partial" : "Completed");
+                    }
                     journal.RecordRun(runStartedAt, DateTimeOffset.UtcNow, "copy-gui", copied, skipped, failed, 0, device?.Udid);
 
                     new SummaryWriter().Write(

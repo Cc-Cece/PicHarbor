@@ -8,6 +8,11 @@ namespace PicHarbor.Core.Android;
 public static class AndroidDeviceDetector
 {
     /// <summary>
+    /// The dedicated hardware serial credential filename on the Android device.
+    /// </summary>
+    public const string SerialFileName = ".picharbor-serial";
+
+    /// <summary>
     /// The default filename used to store the unique Android device identifier on the FTP server.
     /// </summary>
     public const string DeviceIdFileName = ".picharbor-device-id";
@@ -18,14 +23,66 @@ public static class AndroidDeviceDetector
     public const string LegacyDeviceIdFileName = ".getandsee-device-id";
 
     /// <summary>
-    /// Verifies or initializes the Android device ID file on the FTP server.
+    /// Attempts to read the factory hardware serial credential (.picharbor-serial) from the FTP server.
     /// </summary>
-    /// <param name="ftp">An open <see cref="SimpleFtpClient"/>.</param>
-    /// <param name="remoteTargetDir">The remote target directory on the FTP server (e.g. /DCIM/PicHarbor/iPhone 15 Pro/).</param>
-    /// <param name="configuredDeviceId">The expected device ID from app settings, or empty for auto-pairing.</param>
-    /// <param name="deviceName">The display name for the device (e.g. Pixel 8).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The verified or newly generated Android <c>device_id</c>.</returns>
+    public static async Task<string?> TryReadDeviceSerialAsync(
+        SimpleFtpClient ftp,
+        string remoteTargetDir,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(ftp);
+        string normalizedDir = remoteTargetDir.Replace('\\', '/').TrimEnd('/');
+        string serialFilePath = $"{normalizedDir}/{SerialFileName}";
+
+        try
+        {
+            string? content = await ftp.DownloadTextAsync(serialFilePath, cancellationToken).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(content))
+            {
+                string[] lines = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                if (lines.Length > 0 && !string.IsNullOrWhiteSpace(lines[0]))
+                {
+                    return lines[0].Trim();
+                }
+            }
+        }
+        catch
+        {
+            // Not found
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Writes the factory hardware serial number to the Android device (.picharbor-serial).
+    /// </summary>
+    public static async Task WriteDeviceSerialAsync(
+        SimpleFtpClient ftp,
+        string remoteTargetDir,
+        string hardwareSerial,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(ftp);
+        ArgumentException.ThrowIfNullOrWhiteSpace(hardwareSerial);
+        await ftp.EnsureDirectoryExistsAsync(remoteTargetDir, cancellationToken).ConfigureAwait(false);
+
+        string normalizedDir = remoteTargetDir.Replace('\\', '/').TrimEnd('/');
+        string serialFilePath = $"{normalizedDir}/{SerialFileName}";
+
+        string content =
+            $"""
+            {hardwareSerial.Trim()}
+            PicHarbor Android Factory Hardware Serial Credential.
+            Do NOT delete or edit this file.
+            (设备硬件出厂序列号凭据，请勿修改或删除)
+            """;
+
+        await ftp.UploadTextAsync(serialFilePath, content, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Verifies or initializes the Android device ID file on the FTP server, prioritizing hardware serial credentials.
+    /// </summary>
     public static async Task<string> IdentifyOrPairDeviceAsync(
         SimpleFtpClient ftp,
         string remoteTargetDir,
@@ -39,8 +96,16 @@ public static class AndroidDeviceDetector
         await ftp.EnsureDirectoryExistsAsync(remoteTargetDir, cancellationToken).ConfigureAwait(false);
 
         string normalizedDir = remoteTargetDir.Replace('\\', '/').TrimEnd('/');
-        string idFilePath = $"{normalizedDir}/{DeviceIdFileName}";
 
+        // 1. Check for modern hardware serial credential first (.picharbor-serial)
+        string? serial = await TryReadDeviceSerialAsync(ftp, remoteTargetDir, cancellationToken).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(serial))
+        {
+            return serial;
+        }
+
+        // 2. Check for legacy identification files
+        string idFilePath = $"{normalizedDir}/{DeviceIdFileName}";
         string? existingContent = await ftp.DownloadTextAsync(idFilePath, cancellationToken).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(existingContent))
         {
@@ -50,7 +115,6 @@ public static class AndroidDeviceDetector
 
         if (!string.IsNullOrWhiteSpace(existingContent))
         {
-            // Extract device ID from first line
             string[] lines = existingContent.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
             string foundId = lines.Length > 0 ? lines[0].Trim() : string.Empty;
 
@@ -64,23 +128,12 @@ public static class AndroidDeviceDetector
             return string.IsNullOrWhiteSpace(foundId) ? configuredDeviceId : foundId;
         }
 
-        // New Device: generate or use configured ID
+        // 3. New device: if a configured hardware serial or ID was provided, write to .picharbor-serial
         string deviceId = string.IsNullOrWhiteSpace(configuredDeviceId)
             ? $"PH-{Guid.NewGuid():N}"[..12].ToUpperInvariant()
-            : configuredDeviceId;
+            : configuredDeviceId.Trim();
 
-        string newFileText =
-            $"""
-            {deviceId}
-            PicHarbor device identification file.
-            Please do NOT delete or modify this file.
-            Deleting or modifying it may prevent PicHarbor
-            from correctly identifying this Android device
-            and may affect incremental synchronization.
-            (设备标识文件，请勿修改或删除)
-            """;
-
-        await ftp.UploadTextAsync(idFilePath, newFileText, cancellationToken).ConfigureAwait(false);
+        await WriteDeviceSerialAsync(ftp, remoteTargetDir, deviceId, cancellationToken).ConfigureAwait(false);
         return deviceId;
     }
 }

@@ -1020,9 +1020,11 @@ public partial class AndroidBackupViewModel : ObservableObject
                 using var journal = TransferJournal.Open(DestinationPath);
                 DateTimeOffset runStartedAt = DateTimeOffset.UtcNow;
 
+                long backupSessionId = 0;
                 if (client.Device is not null)
                 {
-                    journal.UpsertDevice(client.Device.Udid, client.Device.Name, client.Device.ProductType, runStartedAt);
+                    string effectiveName = journal.RegisterOrUpdateDevice(client.Device.Udid, client.Device.Name, client.Device.ProductType, client.Device.Udid, "Android", runStartedAt);
+                    backupSessionId = journal.BeginBackupSession(client.Device.Udid, effectiveName, client.Device.ProductType, runStartedAt);
                 }
 
                 foreach (var file in files)
@@ -1107,6 +1109,10 @@ public partial class AndroidBackupViewModel : ObservableObject
                                     copied++;
                                     bytesCopied += result.BytesCopied;
                                     copiedDetails.Add(detailItem);
+                                    if (backupSessionId > 0 && !string.IsNullOrWhiteSpace(detailItem.TargetPath))
+                                    {
+                                        journal.RecordHistoryItem(backupSessionId, file.Path, detailItem.TargetPath, file.Size, DateTimeOffset.UtcNow, Path.GetExtension(file.Path).TrimStart('.'));
+                                    }
                                     break;
                                 case CopyStatus.Skipped:
                                     skipped++;
@@ -1125,7 +1131,10 @@ public partial class AndroidBackupViewModel : ObservableObject
                     }
 
                     stopwatch.Stop();
-
+                    if (backupSessionId > 0)
+                    {
+                        journal.CompleteBackupSession(backupSessionId, copied, bytesCopied, failed > 0 ? "Partial" : "Completed");
+                    }
                     journal.RecordRun(runStartedAt, DateTimeOffset.UtcNow, "copy", copied, skipped, failed, exitCode: 0, client.Device?.Udid);
 
                     await Application.Current.Dispatcher.InvokeAsync(() =>

@@ -6,7 +6,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PicHarbor.Core.Journal;
 using PicHarbor.Core.Organize;
+using PicHarbor.Core.Search;
 using PicHarbor.Core.Storage;
+using PicHarbor.Core.Util;
 using PicHarbor.Gui.Util;
 
 namespace PicHarbor.Gui.ViewModels;
@@ -504,6 +506,169 @@ public partial class SettingsViewModel : ObservableObject
         finally
         {
             IsSyncing = false;
+        }
+    }
+
+    // ==========================================
+    // 数据库健康管理、冗余清理与自愈修复
+    // ==========================================
+
+    [ObservableProperty]
+    private string dbSizeText = "0 B";
+
+    [ObservableProperty]
+    private string dbWalSizeText = "0 B";
+
+    [ObservableProperty]
+    private int coreFilesCount = 0;
+
+    [ObservableProperty]
+    private int historyRecordsCount = 0;
+
+    [ObservableProperty]
+    private int backupSessionsCount = 0;
+
+    [ObservableProperty]
+    private string dbMetricsSummaryText = "点击刷新查看数据库体积与记录统计";
+
+    public ObservableCollection<string> RetentionPolicies { get; } = new()
+    {
+        "永久保留所有历史（默认）",
+        "清理 180 天前的冗余历史记录",
+        "清理 90 天前的冗余历史记录",
+        "清理 30 天前的冗余历史记录",
+        "清理所有历史备份流水记录"
+    };
+
+    [ObservableProperty]
+    private int selectedRetentionIndex = 0;
+
+    [ObservableProperty]
+    private string pruneStatusMessage = "";
+
+    [ObservableProperty]
+    private bool isPruning = false;
+
+    [ObservableProperty]
+    private bool isRepairing = false;
+
+    [ObservableProperty]
+    private double repairProgressPercentage = 0;
+
+    [ObservableProperty]
+    private string repairProgressOverlayText = "0.0%";
+
+    [ObservableProperty]
+    private string repairProgressDetailText = "";
+
+    [ObservableProperty]
+    private string repairStatusMessage = "";
+
+    [RelayCommand]
+    public async Task RefreshDbMetricsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
+        {
+            DbMetricsSummaryText = "归档目录无效或未就绪";
+            return;
+        }
+
+        try
+        {
+            var metrics = await ArchiveRepository.GetDatabaseMetricsAsync(ArchivePath);
+            DbSizeText = ByteSize.Humanize(metrics.DatabaseSizeBytes);
+            DbWalSizeText = ByteSize.Humanize(metrics.WalSizeBytes);
+            CoreFilesCount = metrics.CoreFilesCount;
+            HistoryRecordsCount = metrics.HistoryRecordsCount;
+            BackupSessionsCount = metrics.BackupSessionsCount;
+            DbMetricsSummaryText = $"数据库实体: {DbSizeText} (WAL: {DbWalSizeText})  |  核心媒体索引: {CoreFilesCount:N0} 条  |  历史追溯流水: {HistoryRecordsCount:N0} 条";
+        }
+        catch (Exception ex)
+        {
+            DbMetricsSummaryText = $"读取数据库指标失败: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    public async Task PruneRedundantDataAsync()
+    {
+        if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
+        {
+            PruneStatusMessage = "未指定有效的归档目录。";
+            return;
+        }
+
+        if (SelectedRetentionIndex == 0)
+        {
+            PruneStatusMessage = "当前策略为【永久保留所有历史】，无需清理。若需清理请在下拉框选择保留期限。";
+            return;
+        }
+
+        IsPruning = true;
+        PruneStatusMessage = "正在清理过期冗余审计数据并压缩数据库碎片...";
+
+        try
+        {
+            DateTimeOffset cutoff;
+            switch (SelectedRetentionIndex)
+            {
+                case 1: cutoff = DateTimeOffset.UtcNow.AddDays(-180); break;
+                case 2: cutoff = DateTimeOffset.UtcNow.AddDays(-90); break;
+                case 3: cutoff = DateTimeOffset.UtcNow.AddDays(-30); break;
+                case 4: cutoff = DateTimeOffset.UtcNow.AddMinutes(1); break; // All finished
+                default: cutoff = DateTimeOffset.UtcNow.AddDays(-90); break;
+            }
+
+            var (prunedSessions, prunedRecords) = await ArchiveRepository.PruneRedundantHistoryAsync(ArchivePath, cutoff);
+            await RefreshDbMetricsAsync();
+            PruneStatusMessage = $"✅ 清理完成！已安全清理 {prunedSessions} 个过期批次共 {prunedRecords:N0} 条历史流水记录，物理空间已整理并回收。";
+        }
+        catch (Exception ex)
+        {
+            PruneStatusMessage = $"❌ 清理失败: {ex.Message}";
+        }
+        finally
+        {
+            IsPruning = false;
+        }
+    }
+
+    [RelayCommand]
+    public async Task RepairDatabaseAsync()
+    {
+        if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
+        {
+            RepairStatusMessage = "未指定有效的归档目录。";
+            return;
+        }
+
+        IsRepairing = true;
+        RepairProgressPercentage = 0;
+        RepairProgressOverlayText = "0.0%";
+        RepairProgressDetailText = "正在扫描归档索引与磁盘文件真实性...";
+        RepairStatusMessage = "";
+
+        try
+        {
+            var progress = new Progress<(int Scanned, int Removed)>(p =>
+            {
+                RepairProgressDetailText = $"已比对: {p.Scanned:N0} 项，发现并标记幽灵文件: {p.Removed:N0} 项";
+            });
+
+            var (scanned, removed) = await ArchiveRepository.RepairDatabaseConsistencyAsync(ArchivePath, progress);
+            await RefreshDbMetricsAsync();
+
+            RepairProgressPercentage = 100;
+            RepairProgressOverlayText = "100.0%";
+            RepairStatusMessage = $"✅ 自愈扫描修复完成！共深度比对 {scanned:N0} 个归档文件索引，安全剔除 {removed:N0} 个磁盘已被手动删除的失效幽灵记录。数据库已恢复真实一致，物理碎片已收敛。";
+        }
+        catch (Exception ex)
+        {
+            RepairStatusMessage = $"❌ 修复失败: {ex.Message}";
+        }
+        finally
+        {
+            IsRepairing = false;
         }
     }
 }

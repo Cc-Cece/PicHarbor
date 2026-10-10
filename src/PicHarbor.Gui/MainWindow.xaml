@@ -596,19 +596,37 @@
 
                                     <!-- Card 3: 已连接设备历史清单 -->
                                     <controls:PclCard Title="已连接设备历史清单" CanSwap="False">
-                                        <DataGrid ItemsSource="{Binding Devices}"
-                                                  Style="{StaticResource PclDataGrid}"
-                                                  MaxHeight="320"
-                                                  AutoGenerateColumns="False"
-                                                  IsReadOnly="True"
-                                                  HeadersVisibility="Column">
-                                            <DataGrid.Columns>
-                                                <DataGridTextColumn Header="设备名称" Binding="{Binding Name}" Width="160" />
-                                                <DataGridTextColumn Header="型号规格" Binding="{Binding Model}" Width="130" />
-                                                <DataGridTextColumn Header="唯一标识 (UDID)" Binding="{Binding Udid}" Width="2*" />
-                                                <DataGridTextColumn Header="最后连接时间" Binding="{Binding LastSeen}" Width="150" />
-                                            </DataGrid.Columns>
-                                        </DataGrid>
+                                        <StackPanel>
+                                            <TextBlock Text="💡 提示：双击下方任意设备行，可打开该设备的历史备份全景档案（按批次查看传输明细与来源）。"
+                                                       FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,10" />
+                                            <DataGrid x:Name="DevicesHistoryDataGrid"
+                                                      ItemsSource="{Binding Devices}"
+                                                      Style="{StaticResource PclDataGrid}"
+                                                      MaxHeight="320"
+                                                      AutoGenerateColumns="False"
+                                                      IsReadOnly="True"
+                                                      HeadersVisibility="Column">
+                                                <DataGrid.RowStyle>
+                                                    <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                                        <EventSetter Event="MouseDoubleClick" Handler="DeviceGridRow_MouseDoubleClick" />
+                                                        <Setter Property="ToolTip" Value="双击查看该设备的历史备份全景档案" />
+                                                    </Style>
+                                                </DataGrid.RowStyle>
+                                                <DataGrid.ContextMenu>
+                                                    <ContextMenu>
+                                                        <MenuItem Header="📱 查看设备历史备份全景档案..."
+                                                                  Command="{Binding OpenDeviceHistoryCommand}"
+                                                                  CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                    </ContextMenu>
+                                                </DataGrid.ContextMenu>
+                                                <DataGrid.Columns>
+                                                    <DataGridTextColumn Header="设备名称" Binding="{Binding Name}" Width="160" />
+                                                    <DataGridTextColumn Header="型号规格" Binding="{Binding Model}" Width="130" />
+                                                    <DataGridTextColumn Header="唯一标识 (UDID / SN)" Binding="{Binding Udid}" Width="2*" />
+                                                    <DataGridTextColumn Header="最后连接时间" Binding="{Binding LastSeen}" Width="150" />
+                                                </DataGrid.Columns>
+                                            </DataGrid>
+                                        </StackPanel>
                                     </controls:PclCard>
                                 </StackPanel>
                             </controls:PclPageHost>
@@ -1606,6 +1624,92 @@
                                 </Style>
                             </controls:PclPageHost.Style>
                             <StackPanel>
+
+                                <!-- Card 0: 数据库与存储库健康管理 (SettingsVM) -->
+                                <controls:PclCard Title="数据库健康管理与冗余清理" CanSwap="False" DataContext="{Binding SettingsVM}">
+                                    <StackPanel>
+                                        <TextBlock Text="监控 SQLite 核心索引库体积，按期清理追溯审计流水以释放磁盘空间，并支持智能自愈扫描（修复电脑端手动删除导致的脱节幽灵索引）。"
+                                                   FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,12" TextWrapping="Wrap" />
+
+                                        <!-- Metrics Overview Boxes -->
+                                        <Grid Margin="0,0,0,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Box 1: Storage Size -->
+                                            <Border Grid.Column="0" Background="#F8FAFC" CornerRadius="6" Padding="12,10" Margin="0,0,6,0" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
+                                                <StackPanel>
+                                                    <TextBlock Text="数据库物理体积 (含 WAL 缓存)" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" />
+                                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                        <TextBlock Text="{Binding DbSizeText}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" />
+                                                        <TextBlock Text="{Binding DbWalSizeText, StringFormat=' (WAL: {0})'}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Bottom" Margin="4,0,0,2" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!-- Box 2: Records Breakdown -->
+                                            <Border Grid.Column="1" Background="#F8FAFC" CornerRadius="6" Padding="12,10" Margin="6,0,0,0" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
+                                                <StackPanel>
+                                                    <TextBlock Text="记录指标构成 (核心索引 vs 审计流水)" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" />
+                                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                        <TextBlock Text="{Binding CoreFilesCount, StringFormat='核心: {0:N0} 项'}" FontSize="14" FontWeight="Bold" Foreground="#10B981" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                                        <TextBlock Text="{Binding HistoryRecordsCount, StringFormat='流水: {0:N0} 项'}" FontSize="14" FontWeight="Bold" Foreground="#EA580C" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                                            <controls:PclButton Content="🔄 刷新数据库指标" Command="{Binding RefreshDbMetricsCommand}" Height="28" Padding="12,0" />
+                                            <TextBlock Text="{Binding DbMetricsSummaryText}" FontSize="11.5" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="12,0,0,0" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+
+                                        <Border Height="1" Background="{DynamicResource ColorBrush6}" Margin="0,0,0,14" />
+
+                                        <!-- Section A: 冗余历史清理 -->
+                                        <TextBlock Text="1. 冗余审计历史清理（安全回收空间）" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,6" />
+                                        <TextBlock Text="历史传输明细仅用于在设备卡片中回溯以前哪台手机传了什么照片。清理冗余历史绝对不会影响电脑上的真实照片，手机下次插入也依然能秒级跳过已备份文件。"
+                                                   FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,10" TextWrapping="Wrap" />
+
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="保留时长策略:" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                            <controls:PclComboBox Grid.Column="1" ItemsSource="{Binding RetentionPolicies}" SelectedIndex="{Binding SelectedRetentionIndex, Mode=TwoWay}" Height="28" />
+                                            <controls:PclButton Grid.Column="2" Content="立即执行清理与整理" Command="{Binding PruneRedundantDataCommand}" IsEnabled="{Binding IsPruning, Converter={StaticResource InverseBooleanConverter}}" Height="28" Margin="8,0,0,0" Padding="14,0" />
+                                        </Grid>
+
+                                        <TextBlock Text="{Binding PruneStatusMessage}" Foreground="#10B981" FontSize="12" Margin="0,0,0,14" TextWrapping="Wrap"
+                                                   Visibility="{Binding PruneStatusMessage, Converter={x:Static controls:StringNotEmptyToVisibilityConverter.Instance}}" />
+
+                                        <Border Height="1" Background="{DynamicResource ColorBrush6}" Margin="0,0,0,14" />
+
+                                        <!-- Section B: 数据库自愈与一致性修复 -->
+                                        <TextBlock Text="2. 智能自愈与一致性修复（修复电脑手动删文件）" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,6" />
+                                        <TextBlock Text="若您曾手动在电脑归档目录中删除了某些照片导致数据库残留失效索引，可在此进行一键自愈。系统将安全剔除幽灵记录，绝不主动删除任何电脑或手机上的真实有效文件。"
+                                                   FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,10" TextWrapping="Wrap" />
+
+                                        <controls:PclHint HintType="Info" Margin="0,0,0,12">
+                                            <TextBlock Text="安全红线：自愈修复只清理数据库中指向已不存在文件的失效索引，使图库与磁盘保持真实一致，绝不修改或删除任何尚存的媒体文件。" FontSize="12" Foreground="{DynamicResource ColorBrush1}" TextWrapping="Wrap" />
+                                        </controls:PclHint>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                            <controls:PclButton Content="⚡ 一键扫描并自愈修复" Command="{Binding RepairDatabaseCommand}" ButtonType="Hero" IsEnabled="{Binding IsRepairing, Converter={StaticResource InverseBooleanConverter}}" Height="34" Padding="18,0" />
+                                        </StackPanel>
+
+                                        <StackPanel Visibility="{Binding IsRepairing, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,0,10">
+                                            <TextBlock Text="{Binding RepairProgressDetailText}" Foreground="{DynamicResource ColorBrush1}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,6" />
+                                        </StackPanel>
+
+                                        <TextBlock Text="{Binding RepairStatusMessage}" Foreground="#10B981" FontSize="12" Margin="0,0,0,6" TextWrapping="Wrap"
+                                                   Visibility="{Binding RepairStatusMessage, Converter={x:Static controls:StringNotEmptyToVisibilityConverter.Instance}}" />
+                                    </StackPanel>
+                                </controls:PclCard>
 
                                 <!-- Card 1: EXIF 拍摄时间批量系统校准 (SettingsVM) -->
                                 <controls:PclCard Title="EXIF 拍摄时间批量系统校准" CanSwap="False" DataContext="{Binding SettingsVM}">
