@@ -116,6 +116,11 @@ public partial class AndroidBackupViewModel : ObservableObject
         }
     }
 
+    public void RefreshDriveSpace()
+    {
+        OnPropertyChanged(nameof(TargetDriveSummary));
+    }
+
     [RelayCommand]
     private void NavigateToSettings() => NavigateToSettingsAction?.Invoke();
 

@@ -48,17 +48,17 @@
                     </StackPanel>
 
                     <!-- Close Button -->
-                    <Button Grid.Column="1" Click="CloseButton_Click"
-                            Width="32" Height="32"
-                            Style="{StaticResource PclHeroMiniBtn}"
-                            Content="✕" FontSize="13" FontWeight="Bold"
-                            ToolTip="关闭" />
+                    <controls:PclIconButton Grid.Column="1" Click="CloseButton_Click"
+                                            Logo="{StaticResource PclIconClose}"
+                                            IconTheme="Close"
+                                            WindowChrome.IsHitTestVisibleInChrome="True"
+                                            ToolTip="关闭" />
                 </Grid>
             </Border>
 
             <!-- 2. Device Meta Summary Card -->
             <Border Grid.Row="1" Background="{DynamicResource ColorBrushCardBackground}"
-                    BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="0,0,0,1}"
+                    BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="0,0,0,1"
                     Padding="20,12">
                 <Grid>
                     <Grid.ColumnDefinitions>

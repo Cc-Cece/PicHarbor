@@ -564,29 +564,50 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string repairStatusMessage = "";
 
+    [ObservableProperty]
+    private bool isRefreshingDbMetrics = false;
+
     [RelayCommand]
     public async Task RefreshDbMetricsAsync()
     {
+        if (IsRefreshingDbMetrics) return;
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
         {
             DbMetricsSummaryText = "归档目录无效或未就绪";
             return;
         }
 
+        IsRefreshingDbMetrics = true;
         try
         {
-            var metrics = await ArchiveRepository.GetDatabaseMetricsAsync(ArchivePath);
-            DbSizeText = ByteSize.Humanize(metrics.DatabaseSizeBytes);
-            DbWalSizeText = ByteSize.Humanize(metrics.WalSizeBytes);
-            CoreFilesCount = metrics.CoreFilesCount;
-            HistoryRecordsCount = metrics.HistoryRecordsCount;
-            BackupSessionsCount = metrics.BackupSessionsCount;
-            DbMetricsSummaryText = $"数据库实体: {DbSizeText} (WAL: {DbWalSizeText})  |  核心媒体索引: {CoreFilesCount:N0} 条  |  历史追溯流水: {HistoryRecordsCount:N0} 条";
+            var metrics = await ArchiveRepository.GetDatabaseMetricsAsync(ArchivePath).ConfigureAwait(false);
+            if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
+            {
+                await dispatcher.InvokeAsync(() => ApplyDbMetrics(metrics));
+            }
+            else
+            {
+                ApplyDbMetrics(metrics);
+            }
         }
         catch (Exception ex)
         {
             DbMetricsSummaryText = $"读取数据库指标失败: {ex.Message}";
         }
+        finally
+        {
+            IsRefreshingDbMetrics = false;
+        }
+    }
+
+    private void ApplyDbMetrics(DatabaseMetricsRecord metrics)
+    {
+        DbSizeText = ByteSize.Humanize(metrics.DatabaseSizeBytes);
+        DbWalSizeText = ByteSize.Humanize(metrics.WalSizeBytes);
+        CoreFilesCount = metrics.CoreFilesCount;
+        HistoryRecordsCount = metrics.HistoryRecordsCount;
+        BackupSessionsCount = metrics.BackupSessionsCount;
+        DbMetricsSummaryText = $"数据库实体: {DbSizeText} (WAL: {DbWalSizeText})  |  核心媒体索引: {CoreFilesCount:N0} 条  |  历史追溯流水: {HistoryRecordsCount:N0} 条";
     }
 
     [RelayCommand]

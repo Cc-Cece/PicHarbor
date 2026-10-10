@@ -227,31 +227,61 @@ public partial class MainViewModel : ObservableObject
         {
             if (e.PropertyName == nameof(BackupViewModel.IsDetailModalOpen)) NotifyModalChanged();
             if (e.PropertyName is nameof(BackupViewModel.IsTransferring) or nameof(BackupViewModel.ProgressPercentage) or nameof(BackupViewModel.SpeedText) or nameof(BackupViewModel.RemainingFilesCount) or nameof(BackupViewModel.CurrentFileName) or nameof(BackupViewModel.CopiedCount) or nameof(BackupViewModel.SkippedCount) or nameof(BackupViewModel.FailedCount))
+            {
                 NotifyTaskChanged();
+                if (e.PropertyName == nameof(BackupViewModel.IsTransferring) && !BackupVM.IsTransferring)
+                {
+                    OnTransferFinished();
+                }
+            }
         };
         AndroidBackupVM.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName == nameof(AndroidBackupViewModel.IsDetailModalOpen)) NotifyModalChanged();
             if (e.PropertyName is nameof(AndroidBackupViewModel.IsTransferring) or nameof(AndroidBackupViewModel.ProgressPercentage) or nameof(AndroidBackupViewModel.SpeedText) or nameof(AndroidBackupViewModel.RemainingFilesCount) or nameof(AndroidBackupViewModel.CurrentFileName) or nameof(AndroidBackupViewModel.CopiedCount) or nameof(AndroidBackupViewModel.SkippedCount) or nameof(AndroidBackupViewModel.FailedCount))
+            {
                 NotifyTaskChanged();
+                if (e.PropertyName == nameof(AndroidBackupViewModel.IsTransferring) && !AndroidBackupVM.IsTransferring)
+                {
+                    OnTransferFinished();
+                }
+            }
         };
         GooglePhotosVM.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName is nameof(GooglePhotosSyncViewModel.IsDetailModalOpen) or nameof(GooglePhotosSyncViewModel.IsManualModalOpen)) NotifyModalChanged();
             if (e.PropertyName is nameof(GooglePhotosSyncViewModel.IsSyncing) or nameof(GooglePhotosSyncViewModel.ProgressValue) or nameof(GooglePhotosSyncViewModel.ProgressText) or nameof(GooglePhotosSyncViewModel.SpeedText) or nameof(GooglePhotosSyncViewModel.RemainingFilesCount) or nameof(GooglePhotosSyncViewModel.CurrentFile) or nameof(GooglePhotosSyncViewModel.UploadedCount) or nameof(GooglePhotosSyncViewModel.SkippedCount) or nameof(GooglePhotosSyncViewModel.FailedCount))
+            {
                 NotifyTaskChanged();
+                if (e.PropertyName == nameof(GooglePhotosSyncViewModel.IsSyncing) && !GooglePhotosVM.IsSyncing)
+                {
+                    OnTransferFinished();
+                }
+            }
         };
         AndroidSyncVM.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName is nameof(AndroidSyncViewModel.IsDetailModalOpen) or nameof(AndroidSyncViewModel.IsPreflightModalOpen) or nameof(AndroidSyncViewModel.IsManualModalOpen)) NotifyModalChanged();
             if (e.PropertyName is nameof(AndroidSyncViewModel.IsSyncing) or nameof(AndroidSyncViewModel.ProgressValue) or nameof(AndroidSyncViewModel.ProgressText) or nameof(AndroidSyncViewModel.SpeedText) or nameof(AndroidSyncViewModel.RemainingFilesCount) or nameof(AndroidSyncViewModel.CopiedCount) or nameof(AndroidSyncViewModel.SkippedCount) or nameof(AndroidSyncViewModel.FailedCount))
+            {
                 NotifyTaskChanged();
+                if (e.PropertyName == nameof(AndroidSyncViewModel.IsSyncing) && !AndroidSyncVM.IsSyncing)
+                {
+                    OnTransferFinished();
+                }
+            }
         };
         IPhoneSyncVM.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName is nameof(IPhoneSyncViewModel.IsPreflightModalOpen) or nameof(IPhoneSyncViewModel.IsManualModalOpen)) NotifyModalChanged();
             if (e.PropertyName is nameof(IPhoneSyncViewModel.IsExporting) or nameof(IPhoneSyncViewModel.ProgressValue) or nameof(IPhoneSyncViewModel.ProgressText) or nameof(IPhoneSyncViewModel.SpeedText) or nameof(IPhoneSyncViewModel.RemainingFilesCount) or nameof(IPhoneSyncViewModel.CopiedCount) or nameof(IPhoneSyncViewModel.SkippedCount) or nameof(IPhoneSyncViewModel.FailedCount))
+            {
                 NotifyTaskChanged();
+                if (e.PropertyName == nameof(IPhoneSyncViewModel.IsExporting) && !IPhoneSyncVM.IsExporting)
+                {
+                    OnTransferFinished();
+                }
+            }
         };
 
         // Wire unified manual selection modal across all devices
@@ -288,6 +318,17 @@ public partial class MainViewModel : ObservableObject
         _ = ProbeDeviceStatusAsync();
     }
 
+    private void OnTransferFinished()
+    {
+        _ = StatusVM.RefreshStatsCommand.ExecuteAsync(null);
+        BackupVM.RefreshDriveSpace();
+        AndroidBackupVM.RefreshDriveSpace();
+        if (SelectedTabIndex == 3 && SettingsSubTabIndex == 3)
+        {
+            _ = SettingsVM.RefreshDbMetricsCommand.ExecuteAsync(null);
+        }
+    }
+
     public void NotifyModalChanged()
     {
         OnPropertyChanged(nameof(IsDetailModalOpen));
@@ -296,7 +337,42 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsAnyModalOpen));
     }
 
-    partial void OnSelectedTabIndexChanged(int value) => OnPropertyChanged(nameof(ShowTaskBall));
+    partial void OnSelectedTabIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(ShowTaskBall));
+        if (value == 0)
+        {
+            _ = StatusVM.RefreshStatsCommand.ExecuteAsync(null);
+            BackupVM.RefreshDriveSpace();
+            AndroidBackupVM.RefreshDriveSpace();
+        }
+        else if (value == 3 && SettingsSubTabIndex == 3)
+        {
+            _ = SettingsVM.RefreshDbMetricsCommand.ExecuteAsync(null);
+        }
+    }
+
+    partial void OnBackupSubTabIndexChanged(int value)
+    {
+        _ = StatusVM.RefreshStatsCommand.ExecuteAsync(null);
+        BackupVM.RefreshDriveSpace();
+        AndroidBackupVM.RefreshDriveSpace();
+    }
+
+    partial void OnSettingsSubTabIndexChanged(int value)
+    {
+        if (value == 3 && SelectedTabIndex == 3)
+        {
+            _ = SettingsVM.RefreshDbMetricsCommand.ExecuteAsync(null);
+        }
+    }
+
+    partial void OnSelectedDeviceIndexChanged(int value)
+    {
+        _ = StatusVM.RefreshStatsCommand.ExecuteAsync(null);
+        BackupVM.RefreshDriveSpace();
+        AndroidBackupVM.RefreshDriveSpace();
+    }
 
     public void NotifyTaskChanged()
     {
@@ -380,6 +456,12 @@ public partial class MainViewModel : ObservableObject
         {
             _ = StatusVM.RefreshStatsCommand.ExecuteAsync(null);
             _ = SearchVM.SearchCommand.ExecuteAsync(null);
+            BackupVM.RefreshDriveSpace();
+            AndroidBackupVM.RefreshDriveSpace();
+            if (SelectedTabIndex == 3 && SettingsSubTabIndex == 3)
+            {
+                _ = SettingsVM.RefreshDbMetricsCommand.ExecuteAsync(null);
+            }
         }
     }
 

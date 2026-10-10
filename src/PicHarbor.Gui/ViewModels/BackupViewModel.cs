@@ -96,6 +96,13 @@ public partial class BackupViewModel : ObservableObject
         }
     }
 
+    public void RefreshDriveSpace()
+    {
+        OnPropertyChanged(nameof(TargetDriveFreeSpaceText));
+        OnPropertyChanged(nameof(TargetDriveSummary));
+        OnPropertyChanged(nameof(TargetDriveSubtext));
+    }
+
     [RelayCommand]
     private void NavigateToSettings() => NavigateToSettingsAction?.Invoke();
 

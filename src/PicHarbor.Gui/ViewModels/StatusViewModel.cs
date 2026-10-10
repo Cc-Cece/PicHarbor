@@ -53,41 +53,31 @@ public partial class StatusViewModel : ObservableObject
         dialog.ShowDialog();
     }
 
+    [ObservableProperty]
+    private bool isRefreshing = false;
+
     [RelayCommand]
-    private async Task RefreshStatsAsync()
+    public async Task RefreshStatsAsync()
     {
+        if (IsRefreshing) return;
         if (string.IsNullOrWhiteSpace(DatabasePath) || !Directory.Exists(DatabasePath))
         {
             return;
         }
 
+        IsRefreshing = true;
         try
         {
             ArchiveSummaryStats stats = await ArchiveRepository.GetStatsAsync(DatabasePath).ConfigureAwait(false);
 
-            await Application.Current.Dispatcher.InvokeAsync(() =>
+            if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
             {
-                TotalFiles = stats.TotalFiles;
-                ItemCount = stats.ItemCount;
-                TotalSizeText = ByteSize.Humanize(stats.TotalBytes);
-                PhotosCount = stats.PhotosCount;
-                VideosCount = stats.VideosCount;
-                LastBackupTime = stats.LastBackupTime?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A";
-
-                Devices.Clear();
-                foreach (DeviceRecord dev in stats.Devices)
-                {
-                    Devices.Add(new DeviceHistoryItem
-                    {
-                        Name = dev.Name ?? "Unknown Device",
-                        Model = dev.Model ?? "Unknown Model",
-                        Udid = dev.Udid,
-                        LastSeen = dev.LastSeen?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A",
-                        HardwareSerial = dev.HardwareSerial,
-                        DeviceType = dev.DeviceType
-                    });
-                }
-            });
+                await dispatcher.InvokeAsync(() => ApplyStats(stats));
+            }
+            else
+            {
+                ApplyStats(stats);
+            }
         }
         catch (FileNotFoundException)
         {
@@ -96,6 +86,34 @@ public partial class StatusViewModel : ObservableObject
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error reading archive stats: {ex.Message}");
+        }
+        finally
+        {
+            IsRefreshing = false;
+        }
+    }
+
+    private void ApplyStats(ArchiveSummaryStats stats)
+    {
+        TotalFiles = stats.TotalFiles;
+        ItemCount = stats.ItemCount;
+        TotalSizeText = ByteSize.Humanize(stats.TotalBytes);
+        PhotosCount = stats.PhotosCount;
+        VideosCount = stats.VideosCount;
+        LastBackupTime = stats.LastBackupTime?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A";
+
+        Devices.Clear();
+        foreach (DeviceRecord dev in stats.Devices)
+        {
+            Devices.Add(new DeviceHistoryItem
+            {
+                Name = dev.Name ?? "Unknown Device",
+                Model = dev.Model ?? "Unknown Model",
+                Udid = dev.Udid,
+                LastSeen = dev.LastSeen?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A",
+                HardwareSerial = dev.HardwareSerial,
+                DeviceType = dev.DeviceType
+            });
         }
     }
 }
