@@ -41,6 +41,10 @@ public sealed partial class AndroidAlbumOptionViewModel : ObservableObject
     [ObservableProperty]
     private string detailText = string.Empty;
 
+    public int ListedFileCount { get; set; } = -1;
+
+    public long ListedBytes { get; set; }
+
     private bool suppressCheckChanged = false;
 
     [ObservableProperty]
@@ -84,6 +88,7 @@ public partial class AndroidBackupViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FullDestinationPreview))]
     [NotifyPropertyChangedFor(nameof(TargetDriveSummary))]
+    [NotifyPropertyChangedFor(nameof(DestinationSubtitle))]
     private string destinationPath = MainViewModel.DefaultArchivePath;
 
     [ObservableProperty]
@@ -91,10 +96,17 @@ public partial class AndroidBackupViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FullDestinationPreview))]
+    [NotifyPropertyChangedFor(nameof(DestinationSubtitle))]
     private string deviceSubdir = "Pixel 8";
 
     public string FullDestinationPreview =>
         Path.Combine(DestinationPath, LibraryStorageService.SanitizeDeviceFolderName(DeviceSubdir));
+
+    public string DestinationSubtitle =>
+        string.Format(App.GetString("FmtTargetPath", "目标: {0}"), FullDestinationPreview);
+
+    public string TransferringSubtitle =>
+        string.Format(App.GetString("FmtTransferring", "正在传输 · {0}"), SpeedText);
 
     public string TargetDriveSummary
     {
@@ -108,7 +120,7 @@ public partial class AndroidBackupViewModel : ObservableObject
                 if (d.IsReady)
                 {
                     double freeGb = Math.Round(d.AvailableFreeSpace / (1024.0 * 1024.0 * 1024.0), 1);
-                    return $"{root.TrimEnd('\\')} ({DestinationPath}) - 可用: {freeGb} GB";
+                    return string.Format(App.GetString("FmtDriveSummary", "{0} ({1}) - 可用: {2:F1} GB"), root.TrimEnd('\\'), DestinationPath, freeGb);
                 }
             }
             catch { }
@@ -119,6 +131,28 @@ public partial class AndroidBackupViewModel : ObservableObject
     public void RefreshDriveSpace()
     {
         OnPropertyChanged(nameof(TargetDriveSummary));
+    }
+
+    public void OnLanguageChanged()
+    {
+        OnPropertyChanged(nameof(DestinationSubtitle));
+        OnPropertyChanged(nameof(TransferringSubtitle));
+        OnPropertyChanged(nameof(HeroPillText));
+        RefreshDriveSpace();
+        RefreshAlbumLabels();
+        ApplyConnectionStatus();
+        ApplyScanStatus();
+        UpdateScopeSummarySentence();
+        ApplyFileStatus();
+        ApplyEta();
+        if (!IsTransferring && CopiedCount == 0 && SkippedCount == 0 && FailedCount == 0)
+        {
+            ProgressText = progressSticky.Set("MsgReady", "准备就绪");
+        }
+        else if (progressSticky.HasValue)
+        {
+            ProgressText = progressSticky.Current;
+        }
     }
 
     [RelayCommand]
@@ -297,15 +331,20 @@ public partial class AndroidBackupViewModel : ObservableObject
         {
             if (IsTransferring)
             {
-                return $"备份中 ({ProgressPercentage:F0}%)";
+                return string.Format(App.GetString("FmtBackupRunning", "备份中 ({0:F0}%)"), ProgressPercentage);
             }
             if (CopiedCount > 0 || SkippedCount > 0 || FailedCount > 0)
             {
                 if (FailedCount > 0)
-                    return $"完成 ({CopiedCount}传输, {FailedCount}失败)";
-                return $"完成 ({CopiedCount}传输, {SkippedCount}跳过)";
+                {
+                    return string.Format(App.GetString("FmtBackupDoneFailed", "完成 ({0}传输, {1}失败)"), CopiedCount, FailedCount);
+                }
+
+                return string.Format(App.GetString("FmtBackupDoneSkipped", "完成 ({0}传输, {1}跳过)"), CopiedCount, SkippedCount);
             }
-            return IsConnectionOk ? "已连接 · 准备就绪" : "准备就绪";
+            return IsConnectionOk
+                ? App.GetString("AndroidConnectedReady", "已连接 · 准备就绪")
+                : App.GetString("MsgReady", "准备就绪");
         }
     }
 
@@ -371,11 +410,11 @@ public partial class AndroidBackupViewModel : ObservableObject
         string albumPart;
         if (checkedAlbums.Count == 0)
         {
-            albumPart = "未选择任何相册";
+            albumPart = App.GetString("AlbumNoneSelected", "未选择任何相册");
         }
         else if (checkedAlbums.Count == Albums.Count && Albums.Count > 0)
         {
-            albumPart = $"全部 {checkedAlbums.Count} 个相册";
+            albumPart = string.Format(App.GetString("FmtAlbumAllCount", "全部 {0} 个相册"), checkedAlbums.Count);
         }
         else
         {
@@ -389,52 +428,55 @@ public partial class AndroidBackupViewModel : ObservableObject
 
             if (checkedAlbums.Count > 2)
             {
-                albumPart = $"{string.Join("、", names)} 等 {checkedAlbums.Count} 个相册";
+                albumPart = string.Format(
+                    App.GetString("FmtAlbumListed", "{0} 等 {1} 个相册"),
+                    string.Join(App.GetString("AlbumNameSeparator", "、"), names),
+                    checkedAlbums.Count);
             }
             else
             {
-                albumPart = string.Join(" 与 ", names);
+                albumPart = string.Join(App.GetString("AlbumNameJoiner", " 与 "), names);
             }
         }
 
         string typePart = (IncludePhotos, IncludeVideos) switch
         {
-            (true, true) => "照片与视频",
-            (true, false) => "仅照片",
-            (false, true) => "仅视频",
-            _ => "无媒体类型"
+            (true, true) => App.GetString("TypePhotoAndVideo", "照片与视频"),
+            (true, false) => App.GetString("TypePhotoOnly", "仅照片"),
+            (false, true) => App.GetString("TypeVideoOnly", "仅视频"),
+            _ => App.GetString("TypeNoMedia", "无媒体类型")
         };
 
         string datePart = "";
         if (IsScopeDateRange)
         {
             if (ScopeDateFrom.HasValue && ScopeDateTo.HasValue)
-                datePart = $"在 {ScopeDateFrom:yyyy-MM-dd} 至 {ScopeDateTo:yyyy-MM-dd} 期间的";
+                datePart = string.Format(App.GetString("FmtDateBetween", "在 {0:yyyy-MM-dd} 至 {1:yyyy-MM-dd} 期间的"), ScopeDateFrom.Value, ScopeDateTo.Value);
             else if (ScopeDateFrom.HasValue)
-                datePart = $"从 {ScopeDateFrom:yyyy-MM-dd} 起的";
+                datePart = string.Format(App.GetString("FmtDateFrom", "从 {0:yyyy-MM-dd} 起的"), ScopeDateFrom.Value);
             else if (ScopeDateTo.HasValue)
-                datePart = $"截至 {ScopeDateTo:yyyy-MM-dd} 的";
+                datePart = string.Format(App.GetString("FmtDateUntil", "截至 {0:yyyy-MM-dd} 的"), ScopeDateTo.Value);
             else
-                datePart = "按指定日期范围的";
+                datePart = App.GetString("DateCustomRange", "按指定日期范围的");
         }
 
         string filterPart = "";
         if (IgnoreSmallImages)
         {
-            filterPart = $"，已过滤小于 {MinFileSizeKb} KB 的小图与临时缓存";
+            filterPart = string.Format(App.GetString("FmtFilterSmall", "，已过滤小于 {0} KB 的小图与临时缓存"), MinFileSizeKb);
         }
 
         if (checkedAlbums.Count == 0)
         {
-            ScopeSummarySentence = "⚠️ 当前未勾选任何相册，请至少勾选一个相册进行备份。";
+            ScopeSummarySentence = App.GetString("ScopeNoAlbum", "⚠️ 当前未勾选任何相册，请至少勾选一个相册进行备份。");
         }
         else if (IsScopeDateRange)
         {
-            ScopeSummarySentence = $"💡 本次范围：将备份 {datePart} {albumPart} 中的{typePart}{filterPart}。";
+            ScopeSummarySentence = string.Format(App.GetString("FmtScopeBackupRange", "💡 本次范围：将备份 {0} {1} 中的{2}{3}。"), datePart, albumPart, typePart, filterPart);
         }
         else
         {
-            ScopeSummarySentence = $"💡 本次范围：将智能备份 {albumPart} 中的全部{typePart}{filterPart}。";
+            ScopeSummarySentence = string.Format(App.GetString("FmtScopeBackupSmart", "💡 本次范围：将智能备份 {0} 中的全部{1}{2}。"), albumPart, typePart, filterPart);
         }
     }
 
@@ -504,6 +546,7 @@ public partial class AndroidBackupViewModel : ObservableObject
     private string currentFileName = "Ready";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TransferringSubtitle))]
     private string speedText = "0.0 MB/s";
 
     [ObservableProperty]
@@ -536,7 +579,11 @@ public partial class AndroidBackupViewModel : ObservableObject
     private string etaText = "--";
 
     [ObservableProperty]
-    private string progressText = "准备就绪";
+    private string progressText = App.GetString("MsgReady", "准备就绪");
+    private readonly StickyText progressSticky = new();
+    private string? fileStatusKey;
+    private string? etaKey;
+    private TimeSpan? etaSpan;
 
     // Modal Details Properties
     [ObservableProperty]
@@ -578,43 +625,170 @@ public partial class AndroidBackupViewModel : ObservableObject
     private void InitDefaultAlbums()
     {
         Albums.Clear();
-        Albums.Add(new AndroidAlbumOptionViewModel
-        {
-            DisplayName = "📷 相机胶卷 (Camera)",
-            RemotePath = "/DCIM/Camera",
-            DetailText = "核心拍摄原片与视频",
-            IsChecked = true,
-            IsCustom = false,
-            OnCheckChanged = HandleAlbumCheckChanged
-        });
-        Albums.Add(new AndroidAlbumOptionViewModel
-        {
-            DisplayName = "📱 屏幕截图 (Screenshots)",
-            RemotePath = "/Pictures/Screenshots",
-            DetailText = "系统截图目录",
-            IsChecked = true,
-            IsCustom = false,
-            OnCheckChanged = HandleAlbumCheckChanged
-        });
-        Albums.Add(new AndroidAlbumOptionViewModel
-        {
-            DisplayName = "💬 微信相册 (WeChat)",
-            RemotePath = "/Pictures/WeiXin",
-            DetailText = "微信保存的图片与视频",
-            IsChecked = false,
-            IsCustom = false,
-            OnCheckChanged = HandleAlbumCheckChanged
-        });
-        Albums.Add(new AndroidAlbumOptionViewModel
-        {
-            DisplayName = "📥 下载内容 (Download)",
-            RemotePath = "/Download",
-            DetailText = "浏览器和下载内容",
-            IsChecked = false,
-            IsCustom = false,
-            OnCheckChanged = HandleAlbumCheckChanged
-        });
+        Albums.Add(MakePresetAlbum("/DCIM/Camera", "AlbumCamera", "📷 相机胶卷 (Camera)", "AlbumCameraDetail", "核心拍摄原片与视频", true));
+        Albums.Add(MakePresetAlbum("/Pictures/Screenshots", "AlbumScreenshots", "📱 屏幕截图 (Screenshots)", "AlbumScreenshotsDetail", "系统截图目录", true));
+        Albums.Add(MakePresetAlbum("/Pictures/WeiXin", "AlbumWeChat", "💬 微信相册 (WeChat)", "AlbumWeChatDetail", "微信保存的图片与视频", false));
+        Albums.Add(MakePresetAlbum("/Download", "AlbumDownloads", "📥 下载内容 (Download)", "AlbumDownloadsDetail", "浏览器和下载内容", false));
         UpdateScopeSummarySentence();
+    }
+
+    private AndroidAlbumOptionViewModel MakePresetAlbum(string remotePath, string nameKey, string nameFallback, string detailKey, string detailFallback, bool isChecked)
+    {
+        return new AndroidAlbumOptionViewModel
+        {
+            DisplayName = App.GetString(nameKey, nameFallback),
+            RemotePath = remotePath,
+            DetailText = App.GetString(detailKey, detailFallback),
+            IsChecked = isChecked,
+            IsCustom = false,
+            OnCheckChanged = HandleAlbumCheckChanged
+        };
+    }
+
+    private void RefreshAlbumLabels()
+    {
+        foreach (AndroidAlbumOptionViewModel album in Albums)
+        {
+            if (LocalizeAlbumName(album.RemotePath) is string name)
+            {
+                album.DisplayName = name;
+            }
+
+            if (album.ListedFileCount >= 0)
+            {
+                album.DetailText = string.Format(App.GetString("FmtAlbumCount", "{0:N0} 项 · {1}"), album.ListedFileCount, ByteSize.Humanize(album.ListedBytes));
+            }
+            else if (album.IsCustom)
+            {
+                album.DetailText = App.GetString("AlbumCustomDetail", "自定义添加目录");
+            }
+            else if (LocalizeAlbumDetail(album.RemotePath) is string detail)
+            {
+                album.DetailText = detail;
+            }
+        }
+    }
+
+    private static string? LocalizeAlbumName(string remotePath) => AlbumKind(remotePath) switch
+    {
+        "camera" => App.GetString("AlbumCamera", "📷 相机胶卷 (Camera)"),
+        "screenshots" => App.GetString("AlbumScreenshots", "📱 屏幕截图 (Screenshots)"),
+        "screenrecord" => App.GetString("AlbumScreenRecord", "📹 屏幕录制 (Screen Recordings)"),
+        "wechat" => App.GetString("AlbumWeChat", "💬 微信相册 (WeChat)"),
+        "qq" => App.GetString("AlbumQq", "🐧 QQ相册 (QQ)"),
+        "douyin" => App.GetString("AlbumDouyin", "🎵 抖音/TikTok"),
+        "download" => App.GetString("AlbumDownloads", "📥 下载内容 (Download)"),
+        "raw" => App.GetString("AlbumRaw", "🎞️ RAW 原片 (Raw)"),
+        "lightroom" => App.GetString("AlbumLightroom", "🎨 Lightroom 导出"),
+        "wallpapers" => App.GetString("AlbumWallpapers", "🖼️ 壁纸 (Wallpapers)"),
+        _ => null
+    };
+
+    private static string? LocalizeAlbumDetail(string remotePath) => AlbumKind(remotePath) switch
+    {
+        "camera" => App.GetString("AlbumCameraDetail", "核心拍摄原片与视频"),
+        "screenshots" => App.GetString("AlbumScreenshotsDetail", "系统截图目录"),
+        "wechat" => App.GetString("AlbumWeChatDetail", "微信保存的图片与视频"),
+        "download" => App.GetString("AlbumDownloadsDetail", "浏览器和下载内容"),
+        _ => null
+    };
+
+    private static string AlbumKind(string remotePath)
+    {
+        string norm = remotePath.TrimEnd('/', '\\').Replace('\\', '/');
+        if (norm.EndsWith("/DCIM/Camera", StringComparison.OrdinalIgnoreCase)) return "camera";
+        if (norm.EndsWith("/Screenshots", StringComparison.OrdinalIgnoreCase) || norm.EndsWith("/ScreenCapture", StringComparison.OrdinalIgnoreCase)) return "screenshots";
+        if (norm.EndsWith("/ScreenRecorder", StringComparison.OrdinalIgnoreCase)) return "screenrecord";
+        if (norm.EndsWith("/WeiXin", StringComparison.OrdinalIgnoreCase) || norm.EndsWith("/WeChat", StringComparison.OrdinalIgnoreCase)) return "wechat";
+        if (norm.EndsWith("/QQ", StringComparison.OrdinalIgnoreCase)) return "qq";
+        if (norm.EndsWith("/Douyin", StringComparison.OrdinalIgnoreCase) || norm.EndsWith("/TikTok", StringComparison.OrdinalIgnoreCase)) return "douyin";
+        if (norm.EndsWith("/Download", StringComparison.OrdinalIgnoreCase)) return "download";
+        if (norm.EndsWith("/Raw", StringComparison.OrdinalIgnoreCase)) return "raw";
+        if (norm.EndsWith("/Lightroom", StringComparison.OrdinalIgnoreCase)) return "lightroom";
+        if (norm.EndsWith("/Wallpapers", StringComparison.OrdinalIgnoreCase)) return "wallpapers";
+        return "";
+    }
+
+    private string connectionKey = "AndroidConnUntested";
+    private string connectionFallback = "未测试连接";
+    private object[] connectionArgs = Array.Empty<object>();
+    private string scanKey = "";
+    private string scanFallback = "";
+    private object[] scanArgs = Array.Empty<object>();
+
+    private void SetConnection(string key, string fallback, params object[] args)
+    {
+        connectionKey = key;
+        connectionFallback = fallback;
+        connectionArgs = args;
+        ApplyConnectionStatus();
+    }
+
+    private void ApplyConnectionStatus()
+    {
+        ConnectionStatusText = connectionArgs.Length == 0
+            ? App.GetString(connectionKey, connectionFallback)
+            : string.Format(App.GetString(connectionKey, connectionFallback), connectionArgs);
+    }
+
+    private void SetFileStatus(string key, string fallback)
+    {
+        fileStatusKey = key;
+        CurrentFileName = App.GetString(key, fallback);
+    }
+
+    private void ApplyFileStatus()
+    {
+        if (fileStatusKey is not null)
+        {
+            CurrentFileName = App.GetString(fileStatusKey, "");
+        }
+    }
+
+    private void SetEtaKey(string key, string fallback)
+    {
+        etaKey = key;
+        etaSpan = null;
+        EtaText = App.GetString(key, fallback);
+    }
+
+    private void SetEtaSpan(TimeSpan span)
+    {
+        etaKey = null;
+        etaSpan = span;
+        EtaText = UiText.Duration(span);
+    }
+
+    private void ApplyEta()
+    {
+        if (etaKey is not null)
+        {
+            EtaText = App.GetString(etaKey, "");
+        }
+        else if (etaSpan is TimeSpan span)
+        {
+            EtaText = UiText.Duration(span);
+        }
+    }
+
+    private void SetScan(string key, string fallback, params object[] args)
+    {
+        scanKey = key;
+        scanFallback = fallback;
+        scanArgs = args;
+        ApplyScanStatus();
+    }
+
+    private void ApplyScanStatus()
+    {
+        if (string.IsNullOrEmpty(scanKey))
+        {
+            return;
+        }
+
+        ScanStatusText = scanArgs.Length == 0
+            ? App.GetString(scanKey, scanFallback)
+            : string.Format(App.GetString(scanKey, scanFallback), scanArgs);
     }
 
     private void LoadConfig()
@@ -663,7 +837,7 @@ public partial class AndroidBackupViewModel : ObservableObject
     {
         var dialog = new OpenFolderDialog
         {
-            Title = "选择备份归档目标目录",
+            Title = App.GetString("AndroidBrowseTitle", "选择备份归档目标目录"),
             InitialDirectory = Directory.Exists(DestinationPath) ? DestinationPath : Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)
         };
 
@@ -679,7 +853,7 @@ public partial class AndroidBackupViewModel : ObservableObject
     private async Task TestConnectionAsync()
     {
         IsTestingConnection = true;
-        ConnectionStatusText = "正在连接 FTP 服务器...";
+        SetConnection("AndroidConnTesting", "正在连接 FTP 服务器...");
         AddLog($"[INFO] 正在测试连接到 {AndroidFtpHost}:{AndroidFtpPort}...");
 
         try
@@ -691,7 +865,7 @@ public partial class AndroidBackupViewModel : ObservableObject
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 IsConnectionOk = true;
-                ConnectionStatusText = $"✅ 连接成功 ({AndroidFtpHost}:{AndroidFtpPort})";
+                SetConnection("FmtAndroidConnOk", "✅ 连接成功 ({0}:{1})", AndroidFtpHost, AndroidFtpPort);
                 AddLog($"[SUCCESS] 成功连接至 Android FTP 服务器。");
                 SaveConfig();
             });
@@ -701,7 +875,7 @@ public partial class AndroidBackupViewModel : ObservableObject
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 IsConnectionOk = false;
-                ConnectionStatusText = $"❌ 连接失败: {ex.Message}";
+                SetConnection("FmtAndroidConnFail", "❌ 连接失败: {0}", ex.Message);
                 AddLog($"[ERROR] 连接失败: {ex.Message}");
             });
         }
@@ -715,7 +889,7 @@ public partial class AndroidBackupViewModel : ObservableObject
     private async Task ScanAlbumsAsync()
     {
         IsScanningAlbums = true;
-        ScanStatusText = "正在扫描手机相册并进行智能过滤...";
+        SetScan("AndroidScanRunning", "正在扫描手机相册并进行智能过滤...");
         AddLog("[INFO] 开始深度扫描手机公共相册目录 (DCIM, Pictures, Download, Movies)...");
 
         try
@@ -748,9 +922,11 @@ public partial class AndroidBackupViewModel : ObservableObject
                         bool isChecked = checkedPaths.Contains(item.RemotePath) || item.IsDefaultSelected;
                         Albums.Add(new AndroidAlbumOptionViewModel
                         {
-                            DisplayName = item.DisplayName,
+                            DisplayName = LocalizeAlbumName(item.RemotePath) ?? item.DisplayName,
                             RemotePath = item.RemotePath,
-                            DetailText = $"{item.FileCount:N0} 项 · {ByteSize.Humanize(item.TotalBytes)}",
+                            ListedFileCount = item.FileCount,
+                            ListedBytes = item.TotalBytes,
+                            DetailText = string.Format(App.GetString("FmtAlbumCount", "{0:N0} 项 · {1}"), item.FileCount, ByteSize.Humanize(item.TotalBytes)),
                             IsChecked = isChecked,
                             IsCustom = false,
                             OnCheckChanged = HandleAlbumCheckChanged
@@ -762,7 +938,7 @@ public partial class AndroidBackupViewModel : ObservableObject
                     suppressCheckChanged = false;
                 }
 
-                ScanStatusText = $"✅ 扫描完成：识别出 {Albums.Count} 个有效相册 (纯小图/缓存目录已自动排除)";
+                SetScan("FmtAndroidScanDone", "✅ 扫描完成：识别出 {0} 个有效相册 (纯小图/缓存目录已自动排除)", Albums.Count);
                 AddLog($"[SUCCESS] 识别到 {Albums.Count} 个有效相册。");
                 UpdateScopeSummarySentence();
             });
@@ -771,7 +947,7 @@ public partial class AndroidBackupViewModel : ObservableObject
         {
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                ScanStatusText = $"❌ 扫描失败: {ex.Message}";
+                SetScan("FmtAndroidScanFail", "❌ 扫描失败: {0}", ex.Message);
                 AddLog($"[ERROR] 相册扫描出错: {ex.Message}");
             });
         }
@@ -835,7 +1011,7 @@ public partial class AndroidBackupViewModel : ObservableObject
             {
                 DisplayName = $"📁 {Path.GetFileName(path.TrimEnd('/'))}",
                 RemotePath = path,
-                DetailText = "自定义添加目录",
+                DetailText = App.GetString("AlbumCustomDetail", "自定义添加目录"),
                 IsChecked = true,
                 IsCustom = true,
                 OnCheckChanged = HandleAlbumCheckChanged
@@ -899,7 +1075,7 @@ public partial class AndroidBackupViewModel : ObservableObject
     [RelayCommand]
     private void ShowCopiedDetails()
     {
-        DetailModalTitle = "🤖 Android 备份 已传输文件明细 (Copied)";
+        DetailModalTitle = App.GetString("AndroidDetailCopied", "🤖 Android 备份 已传输文件明细 (Copied)");
         DetailItems = new ObservableCollection<TransferItemDetail>(copiedDetails);
         IsDetailModalOpen = true;
     }
@@ -907,7 +1083,7 @@ public partial class AndroidBackupViewModel : ObservableObject
     [RelayCommand]
     private void ShowSkippedDetails()
     {
-        DetailModalTitle = "🤖 Android 备份 已跳过文件明细 (Skipped - 增量已存在)";
+        DetailModalTitle = App.GetString("AndroidDetailSkipped", "🤖 Android 备份 已跳过文件明细 (Skipped - 增量已存在)");
         DetailItems = new ObservableCollection<TransferItemDetail>(skippedDetails);
         IsDetailModalOpen = true;
     }
@@ -915,7 +1091,7 @@ public partial class AndroidBackupViewModel : ObservableObject
     [RelayCommand]
     private void ShowFailedDetails()
     {
-        DetailModalTitle = "⚠️ Android 备份 失败文件明细 (Failed)";
+        DetailModalTitle = App.GetString("AndroidDetailFailed", "⚠️ Android 备份 失败文件明细 (Failed)");
         DetailItems = new ObservableCollection<TransferItemDetail>(failedDetails);
         IsDetailModalOpen = true;
     }
@@ -944,7 +1120,7 @@ public partial class AndroidBackupViewModel : ObservableObject
         var selectedAlbums = Albums.Where(a => a.IsChecked).Select(a => a.RemotePath).ToList();
         if (selectedAlbums.Count == 0)
         {
-            MessageBox.Show("请至少勾选一个要备份的相册文件夹。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(App.GetString("AndroidPickAlbumWarning", "请至少勾选一个要备份的相册文件夹。"), App.GetString("MsgBoxTitle", "提示"), MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -965,8 +1141,8 @@ public partial class AndroidBackupViewModel : ObservableObject
         SkippedCount = 0;
         FailedCount = 0;
         ProgressPercentage = 0;
-        CurrentFileName = "正在扫描文件...";
-        ProgressText = "正在扫描 Android 设备上的媒体文件...";
+        SetFileStatus("StatusScanning", "正在扫描文件...");
+        ProgressText = progressSticky.Set("AndroidBackupInit", "正在扫描 Android 设备上的媒体文件...");
         SpeedText = "0.0 MB/s";
         EtaText = "--";
 
@@ -1008,8 +1184,8 @@ public partial class AndroidBackupViewModel : ObservableObject
                 {
                     await Application.Current.Dispatcher.InvokeAsync(() =>
                     {
-                        ProgressText = "未发现需要备份的媒体文件。";
-                        CurrentFileName = "完成";
+                        ProgressText = progressSticky.Set("AndroidBackupNone", "未发现需要备份的媒体文件。");
+                        SetFileStatus("StatusDoneShort", "完成");
                         AddLog("[INFO] 未发现符合筛选条件的媒体文件。");
                     });
                     return;
@@ -1103,7 +1279,7 @@ public partial class AndroidBackupViewModel : ObservableObject
                             FullPath = fullDestPath,
                             FileSizeText = ByteSize.Humanize(file.Size),
                             StatusText = result.Status.ToString(),
-                            Details = result.Error ?? (result.Status == CopyStatus.Skipped ? "已存在 / 增量跳过" : "成功")
+                            Details = result.Error ?? (result.Status == CopyStatus.Skipped ? App.GetString("MsgStatusSkipped", "已存在 / 增量跳过") : App.GetString("MsgStatusSuccess", "成功"))
                         };
 
                         await Application.Current.Dispatcher.InvokeAsync(() =>
@@ -1145,10 +1321,10 @@ public partial class AndroidBackupViewModel : ObservableObject
                     await Application.Current.Dispatcher.InvokeAsync(() =>
                     {
                         ProgressPercentage = 100;
-                        ProgressText = $"🎉 增量备份完成: {copied} 已传输, {skipped} 增量跳过, {failed} 失败";
-                        CurrentFileName = "备份结束";
+                        ProgressText = progressSticky.Set("FmtAndroidBackupDone", "🎉 增量备份完成: {0} 已传输, {1} 增量跳过, {2} 失败", copied, skipped, failed);
+                        SetFileStatus("AndroidEtaDone", "已完成");
                         SpeedText = "0.0 MB/s";
-                        EtaText = "已完成";
+                        SetEtaKey("AndroidEtaDone", "已完成");
                         AddLog($"[SUMMARY] 备份完成！传输: {copied} 项 ({ByteSize.Humanize(bytesCopied)})，跳过: {skipped} 项，耗时: {stopwatch.Elapsed:mm\\:ss}");
                     });
                 }
@@ -1164,8 +1340,8 @@ public partial class AndroidBackupViewModel : ObservableObject
             {
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    ProgressText = "⚠️ 备份已由用户取消。";
-                    CurrentFileName = "已取消";
+                    ProgressText = progressSticky.Set("AndroidBackupCancelled", "⚠️ 备份已由用户取消。");
+                    SetFileStatus("StatusCancelledShort", "已取消");
                     AddLog("[WARN] 备份过程被用户取消。");
                 });
             }
@@ -1173,8 +1349,8 @@ public partial class AndroidBackupViewModel : ObservableObject
             {
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    ProgressText = $"❌ 备份出错: {ex.Message}";
-                    CurrentFileName = "异常中断";
+                    ProgressText = progressSticky.Set("FmtAndroidBackupError", "❌ 备份出错: {0}", ex.Message);
+                    SetFileStatus("StatusAborted", "异常中断");
                     AddLog($"[ERROR] 备份异常: {ex.Message}");
                 });
             }
@@ -1199,18 +1375,39 @@ public partial class AndroidBackupViewModel : ObservableObject
             RemainingFilesCount = Math.Max(0, snapshot.TotalFiles - snapshot.ProcessedFiles);
             TotalFilesCount = snapshot.TotalFiles;
             TransferredSizeText = $"{ByteSize.Humanize(snapshot.ProcessedBytes)} / {ByteSize.Humanize(snapshot.TotalBytes)}";
-            EtaText = snapshot.Eta.HasValue
-                ? $"{snapshot.Eta.Value.Minutes}m {snapshot.Eta.Value.Seconds}s"
-                : (snapshot.ByteFraction >= 1.0 ? "备份完成" : "计算中...");
+            if (snapshot.Eta.HasValue)
+            {
+                SetEtaSpan(snapshot.Eta.Value);
+            }
+            else if (snapshot.ByteFraction >= 1.0)
+            {
+                SetEtaKey("MsgBackupCompleted", "备份完成");
+            }
+            else
+            {
+                SetEtaKey("MsgCalculating", "计算中...");
+            }
             int items = PlannedItemCount > 0 ? PlannedItemCount : snapshot.TotalFiles;
-            ProgressText = $"{snapshot.ByteFraction * 100:F1}% · {items:N0} 张（文件 {snapshot.ProcessedFiles:N0}/{snapshot.TotalFiles:N0}）";
+            ProgressText = progressSticky.Set(
+                "FmtBackupProgressShort",
+                "{0:F1}% · {1:N0} 张（文件 {2:N0}/{3:N0}）",
+                snapshot.ByteFraction * 100,
+                items,
+                snapshot.ProcessedFiles,
+                snapshot.TotalFiles);
 
             SpeedBytesPerSecond = snapshot.CurrentBytesPerSecond;
             double mbps = snapshot.CurrentBytesPerSecond / 1024d / 1024d;
             SpeedText = $"{mbps:F1} MB/s";
-            CurrentFileName = string.IsNullOrWhiteSpace(snapshot.CurrentFileName)
-                ? "进行中..."
-                : snapshot.CurrentFileName;
+            if (string.IsNullOrWhiteSpace(snapshot.CurrentFileName))
+            {
+                SetFileStatus("StatusInProgress", "进行中...");
+            }
+            else
+            {
+                fileStatusKey = null;
+                CurrentFileName = snapshot.CurrentFileName;
+            }
         });
     }
 

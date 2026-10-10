@@ -24,9 +24,13 @@ public partial class App : Application
             }
             catch { }
             string detail = args.Exception.InnerException != null
-                ? $"{args.Exception.Message}\n原因: {args.Exception.InnerException.Message}"
+                ? string.Format(GetString("FmtUnhandledCause", "{0}\n原因: {1}"), args.Exception.Message, args.Exception.InnerException.Message)
                 : args.Exception.Message;
-            MessageBox.Show($"程序运行遇到异常:\n{detail}", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(
+                string.Format(GetString("FmtUnhandledException", "程序运行遇到异常:\n{0}"), detail),
+                GetString("MsgBoxTitle", "提示"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
             args.Handled = true;
         };
 

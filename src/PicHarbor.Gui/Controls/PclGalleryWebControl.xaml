@@ -138,10 +138,10 @@
                     </Border>
                 </ControlTemplate>
             </ContextMenu.Template>
-            <MenuItem Header="📌 加入待传列表 (1)"
+            <MenuItem Header="{DynamicResource MenuAddPendingOne}"
                       Style="{StaticResource PlayerMenuItem}"
                       Click="PlayerMenuAddPending_Click" />
-            <MenuItem Header="✖ 从待传列表中移除 (1)"
+            <MenuItem Header="{DynamicResource MenuRemovePendingOne}"
                       Style="{StaticResource PlayerMenuItem}"
                       Click="PlayerMenuRemovePending_Click" />
             <Separator>
@@ -151,16 +151,16 @@
                     </ControlTemplate>
                 </Separator.Template>
             </Separator>
-            <MenuItem Header="📂 在资源管理器中显示"
+            <MenuItem Header="{DynamicResource MenuDetailShowInExplorer}"
                       Style="{StaticResource PlayerMenuItem}"
                       Click="PlayerMenuReveal_Click" />
-            <MenuItem Header="↗ 在默认应用中打开"
+            <MenuItem Header="{DynamicResource MenuDetailOpenExternal}"
                       Style="{StaticResource PlayerMenuItem}"
                       Click="PlayerMenuOpen_Click" />
-            <MenuItem Header="📋 复制文件"
+            <MenuItem Header="{DynamicResource MenuDetailCopyFile}"
                       Style="{StaticResource PlayerMenuItem}"
                       Click="PlayerMenuCopy_Click" />
-            <MenuItem Header="ℹ 属性"
+            <MenuItem Header="{DynamicResource MenuDetailProperties}"
                       Style="{StaticResource PlayerMenuItem}"
                       Click="PlayerMenuProperties_Click" />
         </ContextMenu>
@@ -195,7 +195,7 @@
                         </EventTrigger>
                     </Grid.Triggers>
                 </Grid>
-                <TextBlock Text="正在载入图库..."
+                <TextBlock Text="{DynamicResource GalleryLoading}"
                            Foreground="#343D4A"
                            FontSize="12"
                            HorizontalAlignment="Center" />
@@ -208,19 +208,19 @@
                 Visibility="Collapsed"
                 Padding="24">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <TextBlock Text="无法加载 Web 图库引擎"
+                <TextBlock Text="{DynamicResource GalleryEngineFailed}"
                            FontSize="14"
                            FontWeight="Bold"
                            Foreground="{DynamicResource ColorBrush1}"
                            HorizontalAlignment="Center"
                            Margin="0,0,0,8" />
                 <TextBlock x:Name="ErrorDetails"
-                           Text="当前环境暂未就绪"
+                           Text="{DynamicResource GalleryEnvNotReady}"
                            FontSize="12"
                            Foreground="{DynamicResource ColorBrushGray2}"
                            HorizontalAlignment="Center"
                            Margin="0,0,0,16" />
-                <controls:PclButton Content="切换到表格列表"
+                <controls:PclButton Content="{DynamicResource GallerySwitchToList}"
                                     Click="FallbackToList_Click"
                                     Height="32"
                                     Padding="16,0" />
@@ -264,7 +264,7 @@
                            Visibility="Collapsed" />
                 </Grid>
                 <TextBlock x:Name="PlayerStatus"
-                           Text="这张照片无法显示"
+                           Text="{DynamicResource GalleryPhotoUnavailable}"
                            Foreground="#343D4A"
                            FontSize="14"
                            HorizontalAlignment="Center"
@@ -300,7 +300,7 @@
                                 </EventTrigger>
                             </Grid.Triggers>
                         </Grid>
-                        <TextBlock Text="正在载入"
+                        <TextBlock Text="{DynamicResource GalleryLoadingShort}"
                                    Margin="0,8,0,0"
                                    Foreground="#343D4A"
                                    FontSize="12"
@@ -327,7 +327,7 @@
                         VerticalAlignment="Center"
                         Visibility="Collapsed"
                         Cursor="Hand"
-                        ToolTip="重播"
+                        ToolTip="{DynamicResource PlayerReplay}"
                         Click="PlayerReplay_Click">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
@@ -369,7 +369,7 @@
                 <StackPanel Orientation="Horizontal">
                     <Button x:Name="PlayerToolsMute"
                             Style="{StaticResource PlayerBarButton}"
-                            ToolTip="取消静音"
+                            ToolTip="{DynamicResource PlayerUnmute}"
                             Margin="2,0,8,0"
                             Visibility="Collapsed"
                             Click="PlayerMute_Click">
@@ -381,7 +381,7 @@
                                    IsHitTestVisible="False" />
                     </Button>
                     <Button Style="{StaticResource PlayerBarButton}"
-                            ToolTip="向左旋转"
+                            ToolTip="{DynamicResource PlayerRotateLeft}"
                             Margin="2,0"
                             Click="PlayerRotateLeft_Click">
                         <TextBlock Text="&#xE7AD;"
@@ -397,12 +397,12 @@
                     </Button>
                     <Button Style="{StaticResource PlayerBarButton}"
                             Content="&#xE7AD;"
-                            ToolTip="向右旋转"
+                            ToolTip="{DynamicResource PlayerRotateRight}"
                             Margin="2,0"
                             Click="PlayerRotateRight_Click" />
                     <Button Style="{StaticResource PlayerBarButton}"
                             Content="&#xE71F;"
-                            ToolTip="缩小"
+                            ToolTip="{DynamicResource PlayerZoomOut}"
                             Margin="10,0,2,0"
                             Click="PlayerZoomOut_Click" />
                     <TextBlock x:Name="PlayerZoomText"
@@ -416,27 +416,27 @@
                                FontSize="12" />
                     <Button Style="{StaticResource PlayerBarButton}"
                             Content="&#xE8A3;"
-                            ToolTip="放大"
+                            ToolTip="{DynamicResource PlayerZoomIn}"
                             Margin="2,0"
                             Click="PlayerZoomIn_Click" />
                     <Button Style="{StaticResource PlayerTextButton}"
                             Content="1:1"
-                            ToolTip="实际像素"
+                            ToolTip="{DynamicResource PlayerActualPixels}"
                             Margin="10,0,2,0"
                             Click="PlayerActualSize_Click" />
                     <Button Style="{StaticResource PlayerTextButton}"
-                            Content="适应"
-                            ToolTip="适应窗口"
+                            Content="{DynamicResource PlayerFit}"
+                            ToolTip="{DynamicResource PlayerFitTip}"
                             Margin="2,0"
                             Click="PlayerFit_Click" />
                     <Button Style="{StaticResource PlayerBarButton}"
                             Content="&#xE8A7;"
-                            ToolTip="在系统默认应用中打开"
+                            ToolTip="{DynamicResource PlayerOpenSystem}"
                             Margin="10,0,2,0"
                             Click="PlayerOpenWith_Click" />
                     <Button Style="{StaticResource PlayerBarButton}"
                             Content="&#xE838;"
-                            ToolTip="在资源管理器中显示"
+                            ToolTip="{DynamicResource PlayerReveal}"
                             Margin="2,0"
                             Click="PlayerReveal_Click" />
                 </StackPanel>
@@ -462,7 +462,7 @@
                     </Grid.ColumnDefinitions>
                     <Button x:Name="PlayerPlayPause"
                             Style="{StaticResource PlayerBarButton}"
-                            ToolTip="播放或暂停"
+                            ToolTip="{DynamicResource PlayerPlayPause}"
                             Click="PlayerPlayPause_Click">
                         <TextBlock x:Name="PlayerPlayGlyph"
                                    Text="&#xE768;"
@@ -474,7 +474,7 @@
                     <Button x:Name="PlayerTransportMute"
                             Grid.Column="1"
                             Style="{StaticResource PlayerBarButton}"
-                            ToolTip="取消静音"
+                            ToolTip="{DynamicResource PlayerUnmute}"
                             Margin="2,0,0,0"
                             Click="PlayerMute_Click">
                         <TextBlock x:Name="PlayerTransportMuteGlyph"
@@ -504,13 +504,13 @@
                     <Button Grid.Column="4"
                             Style="{StaticResource PlayerBarButton}"
                             Content="&#xE8A7;"
-                            ToolTip="在系统默认应用中打开"
+                            ToolTip="{DynamicResource PlayerOpenSystem}"
                             Margin="2,0"
                             Click="PlayerOpenWith_Click" />
                     <Button Grid.Column="5"
                             Style="{StaticResource PlayerBarButton}"
                             Content="&#xE838;"
-                            ToolTip="在资源管理器中显示"
+                            ToolTip="{DynamicResource PlayerReveal}"
                             Margin="2,0,0,0"
                             Click="PlayerReveal_Click" />
                 </Grid>
@@ -520,7 +520,7 @@
             <Button x:Name="PlayerNext"
                     Style="{StaticResource PlayerFloatButton}"
                     Content="&#xE76B;"
-                    ToolTip="前一张"
+                    ToolTip="{DynamicResource PlayerPrevPhoto}"
                     HorizontalAlignment="Left"
                     VerticalAlignment="Center"
                     Margin="14,0,0,0"
@@ -529,7 +529,7 @@
             <Button x:Name="PlayerPrev"
                     Style="{StaticResource PlayerFloatButton}"
                     Content="&#xE76C;"
-                    ToolTip="后一张"
+                    ToolTip="{DynamicResource PlayerNextPhoto}"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Center"
                     Margin="0,0,14,0"
@@ -538,7 +538,7 @@
             <Button x:Name="PlayerClose"
                     Style="{StaticResource PlayerFloatButton}"
                     Content="&#xE711;"
-                    ToolTip="关闭"
+                    ToolTip="{DynamicResource CloseBtn}"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
                     Margin="0,12,14,0"

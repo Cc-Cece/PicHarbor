@@ -89,6 +89,8 @@ public partial class PclGalleryWebControl : UserControl
         InitializeComponent();
         previewMuted = AppSettings.LoadPreviewMuted();
         ApplyMuteChrome();
+        LocalizationService.LanguageChanged += OnAppLanguageChanged;
+        Unloaded += (_, _) => LocalizationService.LanguageChanged -= OnAppLanguageChanged;
 
         pushDebounceTimer = new DispatcherTimer
         {
@@ -288,7 +290,7 @@ public partial class PclGalleryWebControl : UserControl
         string webAssetsDir = ResolveWebAssetsPath();
         if (!Directory.Exists(webAssetsDir) || !File.Exists(Path.Combine(webAssetsDir, "index.html")))
         {
-            ShowError($"找不到图库资源目录: {webAssetsDir}");
+            ShowError(string.Format(App.GetString("FmtGalleryAssetsMissing", "找不到图库资源目录: {0}"), webAssetsDir));
             return;
         }
 
@@ -317,7 +319,7 @@ public partial class PclGalleryWebControl : UserControl
 
         if (AlbumWebView.CoreWebView2 is null)
         {
-            ShowError("无法创建 CoreWebView2 实例");
+            ShowError(App.GetString("GalleryNoWebView", "无法创建 CoreWebView2 实例"));
             return;
         }
 
@@ -356,9 +358,9 @@ public partial class PclGalleryWebControl : UserControl
                 return;
             }
 
-            ShowError("图库页面没有载入完成");
+            ShowError(App.GetString("GalleryPageNotLoaded", "图库页面没有载入完成"));
         };
-        core.Navigate("https://gallery.local/index.html?v=7");
+        core.Navigate($"https://gallery.local/index.html?v=8&lang={GalleryLocaleCode}");
     }
 
     private static string GetThumbnailCacheKey(string filePath)
@@ -744,6 +746,7 @@ public partial class PclGalleryWebControl : UserControl
     private static byte[] GetPlaceholderTileBytes(string fileName, bool isVideo = false)
     {
         string safeName = System.Security.SecurityElement.Escape(fileName);
+        string videoLabel = System.Security.SecurityElement.Escape(App.GetString("GalleryPlaceholderVideo", "视频媒体"));
         string svg = isVideo ? $"""
             <svg xmlns="http://www.w3.org/2000/svg" width="400" height="225" viewBox="0 0 400 225">
               <defs>
@@ -759,7 +762,7 @@ public partial class PclGalleryWebControl : UserControl
                 {safeName}
               </text>
               <text x="200" y="172" font-family="-apple-system, Segoe UI, sans-serif" font-size="11" fill="#94A3B8" text-anchor="middle">
-                视频媒体
+                {videoLabel}
               </text>
             </svg>
             """ : $"""
@@ -846,6 +849,7 @@ public partial class PclGalleryWebControl : UserControl
                     Dispatcher.Invoke(() =>
                     {
                         isWebReady = true;
+                        PostGalleryLocale();
                         if (currentSearchVM != null)
                         {
                             PushPhotosToWeb();
@@ -1187,7 +1191,8 @@ public partial class PclGalleryWebControl : UserControl
             action = "setPhotos",
             photos = photosList,
             sortMode = currentSearchVM.SortModeIndex,
-            sortDescending = currentSearchVM.SortDescending
+            sortDescending = currentSearchVM.SortDescending,
+            locale = GalleryLocaleCode
         };
 
         string json = JsonSerializer.Serialize(payload);
@@ -1201,6 +1206,40 @@ public partial class PclGalleryWebControl : UserControl
             currentSearchVM.IsTableView = true;
             currentSearchVM.IsGalleryView = false;
         }
+    }
+
+    private void OnAppLanguageChanged(string _)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.Invoke(() => OnAppLanguageChanged(_));
+            return;
+        }
+
+        ApplyMuteChrome();
+        PostGalleryLocale();
+    }
+
+    private static string GalleryLocaleCode => LocalizationService.CurrentLanguageCode switch
+    {
+        "en-US" => "en",
+        "zh-HK" => "zh-HK",
+        _ => "zh-CN"
+    };
+
+    private void PostGalleryLocale()
+    {
+        if (!isWebReady || AlbumWebView.CoreWebView2 == null)
+        {
+            return;
+        }
+
+        string json = JsonSerializer.Serialize(new
+        {
+            action = "setLocale",
+            locale = GalleryLocaleCode
+        });
+        AlbumWebView.CoreWebView2.PostWebMessageAsJson(json);
     }
 
     private void ShowError(string details)
@@ -2214,7 +2253,9 @@ public partial class PclGalleryWebControl : UserControl
     private void ApplyMuteChrome()
     {
         string glyph = previewMuted ? "\uE74F" : "\uE767";
-        string tip = previewMuted ? "取消静音" : "静音";
+        string tip = previewMuted
+            ? App.GetString("PlayerUnmute", "取消静音")
+            : App.GetString("PlayerMute", "静音");
         PlayerToolsMuteGlyph.Text = glyph;
         PlayerTransportMuteGlyph.Text = glyph;
         PlayerToolsMute.ToolTip = tip;

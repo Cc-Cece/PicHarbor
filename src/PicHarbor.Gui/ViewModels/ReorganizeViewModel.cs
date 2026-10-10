@@ -7,6 +7,7 @@ using PicHarbor.Core.Journal;
 using PicHarbor.Core.Organize;
 using PicHarbor.Core.Reorganize;
 using PicHarbor.Core.Search;
+using PicHarbor.Gui;
 
 namespace PicHarbor.Gui.ViewModels;
 
@@ -36,7 +37,11 @@ public partial class ReorganizeViewModel : ObservableObject
     };
 
     [ObservableProperty]
-    private string reorgSummaryText = "";
+    private string reorgSummaryText = App.GetString("ReorgSummaryInitial", "点击“模拟预览”分析目录结构重排变动。");
+
+    private int lastMoveCount = -1;
+
+    private const int ReorgPreviewCap = 1000;
 
     [ObservableProperty]
     private ObservableCollection<ReorganizeItem> previewItems = new();
@@ -55,7 +60,7 @@ public partial class ReorganizeViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
         {
-            CurrentScheme = "未就绪";
+            CurrentScheme = App.GetString("ReorgNotReady", "未就绪");
             return;
         }
 
@@ -78,13 +83,14 @@ public partial class ReorganizeViewModel : ObservableObject
         {
             ReorgSummaryText = App.GetString("MsgTargetDirNotExist", "目标归档路径不存在");
             PreviewItems = new();
+            lastMoveCount = -1;
             return;
         }
 
         try
         {
             OrganizeScheme scheme = ParseSchemeToken(TargetScheme);
-            var (items, summary, currentSchemeDisplay) = await Task.Run(() =>
+            var (items, summary, currentSchemeDisplay, moveCount) = await Task.Run(() =>
             {
                 using var journal = TransferJournal.OpenReadOnly(ArchivePath);
                 OrganizeScheme? existingScheme = journal.GetOrganizeScheme();
@@ -93,8 +99,7 @@ public partial class ReorganizeViewModel : ObservableObject
                 var reorganizer = new Reorganizer(journal, new DateFolderOrganizer(), ArchivePath);
                 ReorganizePlan plan = reorganizer.Plan(scheme);
 
-                const int maxDisplay = 1000;
-                int countToTake = Math.Min(plan.Moves.Count, maxDisplay);
+                int countToTake = Math.Min(plan.Moves.Count, ReorgPreviewCap);
                 var list = new List<ReorganizeItem>(countToTake);
 
                 for (int i = 0; i < countToTake; i++)
@@ -107,24 +112,23 @@ public partial class ReorganizeViewModel : ObservableObject
                     });
                 }
 
-                string summaryText = plan.Moves.Count > maxDisplay
-                    ? $"需要移动重构 {plan.Moves.Count:N0} 项 (仅预览前 {maxDisplay:N0} 项)"
-                    : $"需要移动重构 {plan.Moves.Count:N0} 项";
+                string summaryText = FormatMoveSummary(plan.Moves.Count);
 
-                return (list, summaryText, currentDisplay);
+                return (list, summaryText, currentDisplay, plan.Moves.Count);
             }).ConfigureAwait(false);
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 CurrentScheme = currentSchemeDisplay;
                 PreviewItems = new ObservableCollection<ReorganizeItem>(items);
+                lastMoveCount = moveCount;
                 ReorgSummaryText = summary;
             });
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Reorganize preview error: {ex.Message}");
-            ReorgSummaryText = $"预览失败: {ex.Message}";
+            ReorgSummaryText = string.Format(App.GetString("FmtReorgPreviewFailed", "预览失败: {0}"), ex.Message);
         }
     }
 
@@ -158,6 +162,21 @@ public partial class ReorganizeViewModel : ObservableObject
         {
             System.Diagnostics.Debug.WriteLine($"Reorganize execute error: {ex.Message}");
         }
+    }
+
+    public void OnLanguageChanged()
+    {
+        RefreshCurrentScheme();
+        ReorgSummaryText = lastMoveCount < 0
+            ? App.GetString("ReorgSummaryInitial", "点击“模拟预览”分析目录结构重排变动。")
+            : FormatMoveSummary(lastMoveCount);
+    }
+
+    private static string FormatMoveSummary(int moveCount)
+    {
+        return moveCount > ReorgPreviewCap
+            ? string.Format(App.GetString("FmtReorgMoveCountPreview", "需要移动重构 {0:N0} 项 (仅预览前 {1:N0} 项)"), moveCount, ReorgPreviewCap)
+            : string.Format(App.GetString("FmtReorgMoveCount", "需要移动重构 {0:N0} 项"), moveCount);
     }
 
     private static string FormatSchemeName(OrganizeScheme scheme) => scheme switch

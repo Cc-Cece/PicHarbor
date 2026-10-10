@@ -70,7 +70,9 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(ProxyDisplayText))]
     private string proxy = "";
 
-    public string ProxyDisplayText => !string.IsNullOrWhiteSpace(Proxy) ? $"{Proxy} (已配置)" : "直连 (未配置代理)";
+    public string ProxyDisplayText => !string.IsNullOrWhiteSpace(Proxy)
+        ? $"{Proxy} {App.GetString("ProxyConfiguredSuffix", "(已配置)")}"
+        : App.GetString("ProxyDirect", "直连 (未配置代理)");
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotTestingProxy))]
@@ -589,13 +591,123 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
 
     public void OnLanguageChanged()
     {
-        RecalculateScopeSummary();
+        OnPropertyChanged(nameof(ProxyDisplayText));
+        RefreshAccountLabel();
         UpdateConnectionStatusDisplay();
+        RefreshManualTexts();
+        RecalculateScopeSummary();
         if (IsPaused)
         {
             UpdatePausedBanner();
         }
+
+        RefreshPhaseLabel();
+        if (progressSticky.HasValue)
+        {
+            ProgressText = progressSticky.Current;
+        }
+        else if (!IsSyncing)
+        {
+            ProgressText = App.GetString("MsgReady", "准备就绪");
+        }
+
+        if (testSticky.HasValue)
+        {
+            TestStatusText = testSticky.Current;
+        }
     }
+
+    private bool suppressAccountSave;
+    private string? accountLabelKey;
+    private string accountLabelFallback = "";
+    private string phaseToken = "";
+    private readonly StickyText progressSticky = new();
+    private readonly StickyText testSticky = new();
+
+    private void SetAccountLabel(string key, string fallback)
+    {
+        accountLabelKey = key;
+        accountLabelFallback = fallback;
+        suppressAccountSave = true;
+        AccountEmail = App.GetString(key, fallback);
+        suppressAccountSave = false;
+    }
+
+    private void RefreshAccountLabel()
+    {
+        if (accountLabelKey is not null)
+        {
+            SetAccountLabel(accountLabelKey, accountLabelFallback);
+        }
+    }
+
+    private void RefreshManualTexts()
+    {
+        ManualSelectionCountText = string.Format(App.GetString("ScopeManualCountText", "已选择 {0} 项媒体"), ManualSelectionCount);
+        ManualSelectionModalBtnText = string.Format(App.GetString("GooglePhotosViewEditListBtn", "👁️ 查看/编辑上传清单 ({0})"), ManualSelectionCount);
+    }
+
+    private void SetPhase(string token, string key, string fallback)
+    {
+        phaseToken = token;
+        CurrentPhase = App.GetString(key, fallback);
+    }
+
+    private void RefreshPhaseLabel()
+    {
+        switch (phaseToken)
+        {
+            case "starting":
+                SetPhase("starting", "GoogleStarting", "启动中...");
+                break;
+            case "resuming":
+                SetPhase("resuming", "GooglePhotosResumingPhase", "继续上传中...");
+                break;
+            case "retry":
+                SetPhase("retry", "GoogleRetryPrep", "准备重试...");
+                break;
+            case "paused":
+                SetPhase("paused", "GooglePhotosPausedPhase", "已暂停");
+                break;
+            case "pausing":
+                SetPhase("pausing", "GooglePhotosPausingPhase", "正在暂停...");
+                break;
+            case "stopped":
+                SetPhase("stopped", "GoogleStopped", "已停止");
+                break;
+            case "failed":
+                SetPhase("failed", "GooglePhaseFailed", "失败");
+                break;
+            case "ended":
+                SetPhase("ended", "GooglePhaseEnded", "已结束");
+                break;
+        }
+    }
+
+    private bool EnsureCredential()
+    {
+        string credential = AuthMethod == GooglePhotosAuthMethod.OAuthCookie
+            ? (!string.IsNullOrWhiteSpace(AuthData) ? AuthData : OAuthCookie)
+            : AuthData;
+        if (!string.IsNullOrWhiteSpace(credential))
+        {
+            return true;
+        }
+
+        string msg = AuthMethod == GooglePhotosAuthMethod.OAuthCookie
+            ? App.GetString("GoogleNeedCookieBody", "请先配置 Google oauth_token Cookie 凭据后方可上传。")
+            : App.GetString("GoogleNeedAuthBody", "请先配置 Google auth_data 凭据后方可上传。");
+        MessageBox.Show(msg, App.GetString("GoogleCredentialTitle", "凭据未设置"), MessageBoxButton.OK, MessageBoxImage.Warning);
+        return false;
+    }
+
+    private static string EffectiveAlbumName(GooglePhotosSyncConfig config) => config.AlbumMode switch
+    {
+        GooglePhotosAlbumMode.CustomName => !string.IsNullOrWhiteSpace(config.CustomAlbumName) ? config.CustomAlbumName : "Google Photos",
+        GooglePhotosAlbumMode.AlbumId => !string.IsNullOrWhiteSpace(config.AlbumId) ? config.AlbumId : "Google Photos",
+        GooglePhotosAlbumMode.AutoParentDir => App.GetString("GoogleSmartAlbum", "Google Photos (智能相册)"),
+        _ => "Google Photos"
+    };
 
     private void LoadConfig()
     {
@@ -674,7 +786,13 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         TryExtractEmailFromAuthData();
     }
 
-    partial void OnAccountEmailChanged(string value) => SaveConfig();
+    partial void OnAccountEmailChanged(string value)
+    {
+        if (!suppressAccountSave)
+        {
+            SaveConfig();
+        }
+    }
     partial void OnProxyChanged(string value) => SaveConfig();
     partial void OnCustomAlbumNameChanged(string value) => SaveConfig();
     partial void OnAlbumIdChanged(string value) => SaveConfig();
@@ -701,7 +819,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         {
             if (string.IsNullOrWhiteSpace(OAuthCookie))
             {
-                AccountEmail = "未配置凭据";
+                SetAccountLabel("GoogleAccountNoCredential", "未配置凭据");
                 IsConnected = false;
             }
             UpdateConnectionStatusDisplay();
@@ -715,6 +833,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
                 if (part.StartsWith("Email=", StringComparison.OrdinalIgnoreCase))
                 {
                     string email = part.Substring("Email=".Length).Replace("%40", "@");
+                    accountLabelKey = null;
                     AccountEmail = email;
                     IsConnected = true;
                     UpdateConnectionStatusDisplay();
@@ -724,7 +843,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         }
         catch { }
 
-        AccountEmail = "已配置凭据 (未检测到明文邮箱)";
+        SetAccountLabel("GoogleCredentialNoEmail", "已配置凭据 (未检测到明文邮箱)");
         IsConnected = true;
         UpdateConnectionStatusDisplay();
     }
@@ -737,17 +856,17 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
 
         if (IsConnected)
         {
-            ConnectionStatusText = $"● 账号已就绪: {AccountEmail}";
+            ConnectionStatusText = string.Format(App.GetString("FmtGoogleAccountReady", "● 账号已就绪: {0}"), AccountEmail);
         }
         else if (hasCredential)
         {
-            ConnectionStatusText = "● 凭据已输入 (待测试验证)";
+            ConnectionStatusText = App.GetString("GoogleCredentialPending", "● 凭据已输入 (待测试验证)");
         }
         else
         {
             ConnectionStatusText = AuthMethod == GooglePhotosAuthMethod.OAuthCookie
-                ? "未配置 Cookie (请填入 oauth_token)"
-                : "未配置凭据 (请填入 auth_data)";
+                ? App.GetString("GoogleCookieMissing", "未配置 Cookie (请填入 oauth_token)")
+                : App.GetString("GoogleAuthDataMissing", "未配置凭据 (请填入 auth_data)");
         }
     }
 
@@ -773,7 +892,11 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         catch (Exception ex)
         {
             LogEntries.Add($"[ERROR] 打开登录窗口失败: {ex.Message}");
-            MessageBox.Show($"打开登录窗口失败:\n{ex.Message}", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(
+                string.Format(App.GetString("FmtGoogleOpenLoginFailed", "打开登录窗口失败:\n{0}"), ex.Message),
+                App.GetString("MsgBoxTitle", "提示"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
         }
     }
 
@@ -792,7 +915,11 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         catch (Exception ex)
         {
             LogEntries.Add($"[ERROR] 打开浏览器失败: {ex.Message}");
-            MessageBox.Show("无法自动打开浏览器，请手动访问:\nhttps://accounts.google.com/EmbeddedSetup", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(
+                App.GetString("GoogleBrowserManual", "无法自动打开浏览器，请手动访问:\nhttps://accounts.google.com/EmbeddedSetup"),
+                App.GetString("MsgBoxTitle", "提示"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
     }
 
@@ -835,7 +962,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         catch (Exception ex)
         {
             ProxyStatusColor = "#EF4444";
-            ProxyStatusText = $"❌ 代理测试异常: {ex.Message}";
+            ProxyStatusText = string.Format(App.GetString("FmtGoogleProxyError", "❌ 代理测试异常: {0}"), ex.Message);
             LogEntries.Add($"[ERROR] 代理测试异常: {ex.Message}");
         }
         finally
@@ -852,14 +979,16 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             : AuthData;
         if (string.IsNullOrWhiteSpace(credential))
         {
-            TestStatusText = AuthMethod == GooglePhotosAuthMethod.OAuthCookie
-                ? "❌ 请先填入从浏览器获取的 oauth_token Cookie。"
-                : "❌ 请先在凭据输入框填入 auth_data。";
+            TestStatusText = testSticky.Set(
+                AuthMethod == GooglePhotosAuthMethod.OAuthCookie ? "GoogleNeedCookie" : "GoogleNeedAuthData",
+                AuthMethod == GooglePhotosAuthMethod.OAuthCookie
+                    ? "❌ 请先填入从浏览器获取的 oauth_token Cookie。"
+                    : "❌ 请先在凭据输入框填入 auth_data。");
             return;
         }
 
         IsTestingConnection = true;
-        TestStatusText = "⏳ 正在连接 Google API 验证凭据与网络...";
+        TestStatusText = testSticky.Set("GoogleTestingCreds", "⏳ 正在连接 Google API 验证凭据与网络...");
 
         var config = new GooglePhotosSyncConfig
         {
@@ -880,6 +1009,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
                 IsConnected = true;
                 if (!string.IsNullOrWhiteSpace(result.Email))
                 {
+                    accountLabelKey = null;
                     AccountEmail = result.Email;
                 }
                 if (!string.IsNullOrWhiteSpace(result.ExchangedAuthData))
@@ -887,19 +1017,19 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
                     AuthData = result.ExchangedAuthData;
                 }
                 SaveConfig();
-                TestStatusText = $"✅ 验证成功! 账号: {AccountEmail}";
+                TestStatusText = testSticky.Set("FmtGoogleVerifyOk", "✅ 验证成功! 账号: {0}", AccountEmail);
                 UpdateConnectionStatusDisplay();
                 LogEntries.Add($"[INFO] 凭据测试成功，Google 账号: {AccountEmail}");
             }
             else
             {
-                TestStatusText = $"❌ 验证失败: {result.ErrorMessage}";
+                TestStatusText = testSticky.Set("FmtGoogleVerifyFail", "❌ 验证失败: {0}", result.ErrorMessage ?? "");
                 LogEntries.Add($"[ERROR] 凭据测试失败: {result.ErrorMessage}");
             }
         }
         catch (Exception ex)
         {
-            TestStatusText = $"❌ 验证出错: {ex.Message}";
+            TestStatusText = testSticky.Set("FmtGoogleVerifyError", "❌ 验证出错: {0}", ex.Message);
             LogEntries.Add($"[ERROR] 验证出错: {ex.Message}");
         }
         finally
@@ -913,9 +1043,10 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     {
         OAuthCookie = string.Empty;
         AuthData = string.Empty;
-        AccountEmail = "未登录 / 未设置凭据";
+        SetAccountLabel("GoogleSignedOut", "未登录 / 未设置凭据");
         IsConnected = false;
-        ConnectionStatusText = "未配置凭据";
+        ConnectionStatusText = App.GetString("GoogleAccountNoCredential", "未配置凭据");
+        testSticky.Clear();
         TestStatusText = string.Empty;
 
         var config = AppSettings.Load();
@@ -938,7 +1069,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     {
         var dialog = new OpenFolderDialog
         {
-            Title = "选择要上传的文件夹"
+            Title = App.GetString("GooglePickUploadFolder", "选择要上传的文件夹")
         };
         if (dialog.ShowDialog() == true)
         {
@@ -951,7 +1082,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     {
         var dialog = new OpenFileDialog
         {
-            Title = "选择 Python 解释器 (python.exe)",
+            Title = App.GetString("GooglePickPython", "选择 Python 解释器 (python.exe)"),
             Filter = "Python (python*.exe)|python*.exe|All Executables (*.exe)|*.exe|All Files (*.*)|*.*"
         };
         if (dialog.ShowDialog() == true)
@@ -965,7 +1096,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     {
         var dialog = new OpenFolderDialog
         {
-            Title = "选择 gpmc 仓库根目录"
+            Title = App.GetString("GooglePickGpmc", "选择 gpmc 仓库根目录")
         };
         if (dialog.ShowDialog() == true)
         {
@@ -1014,8 +1145,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
         {
             ManualSelectionCount = 0;
-            ManualSelectionCountText = "已选择 0 项媒体";
-            ManualSelectionModalBtnText = string.Format(App.GetString("GooglePhotosViewEditListBtn", "👁️ 查看/编辑上传清单 ({0})"), 0);
+            RefreshManualTexts();
             return;
         }
 
@@ -1054,8 +1184,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             }
 
             ManualSelectionCount = ManualSelectedItems.Count;
-            ManualSelectionCountText = $"已选择 {ManualSelectionCount} 项媒体";
-            ManualSelectionModalBtnText = string.Format(App.GetString("GooglePhotosViewEditListBtn", "👁️ 查看/编辑上传清单 ({0})"), ManualSelectionCount);
+            RefreshManualTexts();
             OnPropertyChanged(nameof(HasManualSelections));
             OnPropertyChanged(nameof(HasNoManualSelections));
         }
@@ -1073,8 +1202,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             ManualSelectedItems.Add(item);
         }
         ManualSelectionCount = ManualSelectedItems.Count;
-        ManualSelectionCountText = $"已选择 {ManualSelectionCount} 项媒体";
-        ManualSelectionModalBtnText = string.Format(App.GetString("GooglePhotosViewEditListBtn", "👁️ 查看/编辑上传清单 ({0})"), ManualSelectionCount);
+        RefreshManualTexts();
         OnPropertyChanged(nameof(HasManualSelections));
         OnPropertyChanged(nameof(HasNoManualSelections));
         RecalculateScopeSummary();
@@ -1101,29 +1229,29 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         {
             if (string.IsNullOrWhiteSpace(CustomTargetPath))
             {
-                ScopeSummaryText = "📊 请选择外部目录或文件路径";
+                ScopeSummaryText = App.GetString("GoogleScopePickExternal", "📊 请选择外部目录或文件路径");
             }
             else if (Directory.Exists(CustomTargetPath))
             {
                 var files = Directory.GetFiles(CustomTargetPath, "*.*", SearchOption.AllDirectories);
                 long size = files.Sum(f => new FileInfo(f).Length);
-                ScopeSummaryText = $"📊 外部目录: 共 {files.Length:N0} 个文件，约 {FormatSize(size)}";
+                ScopeSummaryText = string.Format(App.GetString("FmtGoogleScopeDir", "📊 外部目录: 共 {0:N0} 个文件，约 {1}"), files.Length, FormatSize(size));
             }
             else if (File.Exists(CustomTargetPath))
             {
                 long size = new FileInfo(CustomTargetPath).Length;
-                ScopeSummaryText = $"📊 外部单文件: 1 个文件，约 {FormatSize(size)}";
+                ScopeSummaryText = string.Format(App.GetString("FmtGoogleScopeFile", "📊 外部单文件: 1 个文件，约 {0}"), FormatSize(size));
             }
             else
             {
-                ScopeSummaryText = "❌ 指定的路径不存在";
+                ScopeSummaryText = App.GetString("GoogleScopeMissing", "❌ 指定的路径不存在");
             }
             return;
         }
 
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
         {
-            ScopeSummaryText = "📊 归档路径无效";
+            ScopeSummaryText = App.GetString("GoogleScopeArchiveInvalid", "📊 归档路径无效");
             return;
         }
 
@@ -1151,11 +1279,11 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             int photos = filtered.Count(f => IsPhoto(f.DestPath));
             int videos = filtered.Count(f => !IsPhoto(f.DestPath));
 
-            ScopeSummaryText = $"📊 预计上传 {filtered.Count:N0} 项 (照片 {photos:N0}，视频 {videos:N0})，约 {FormatSize(totalBytes)}";
+            ScopeSummaryText = string.Format(App.GetString("FmtGoogleScopeUpload", "📊 预计上传 {0:N0} 项 (照片 {1:N0}，视频 {2:N0})，约 {3}"), filtered.Count, photos, videos, FormatSize(totalBytes));
         }
         catch (Exception ex)
         {
-            ScopeSummaryText = $"📊 统计出错: {ex.Message}";
+            ScopeSummaryText = string.Format(App.GetString("FmtGoogleScopeError", "📊 统计出错: {0}"), ex.Message);
         }
     }
 
@@ -1316,15 +1444,8 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             LogEntries.Add("[INFO] 已结束前一个暂停方案，正在初始化新方案...");
         }
 
-        string credential = AuthMethod == GooglePhotosAuthMethod.OAuthCookie
-            ? (!string.IsNullOrWhiteSpace(AuthData) ? AuthData : OAuthCookie)
-            : AuthData;
-        if (string.IsNullOrWhiteSpace(credential))
+        if (!EnsureCredential())
         {
-            string msg = AuthMethod == GooglePhotosAuthMethod.OAuthCookie
-                ? "请先配置 Google oauth_token Cookie 凭据后方可上传。"
-                : "请先配置 Google auth_data 凭据后方可上传。";
-            MessageBox.Show(msg, "凭据未设置", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -1364,13 +1485,21 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"解析上传目标文件失败: {ex.Message}", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(
+                string.Format(App.GetString("FmtGoogleResolveFailed", "解析上传目标文件失败: {0}"), ex.Message),
+                App.GetString("MsgBoxTitle", "提示"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
             return;
         }
 
         if (activePlanCandidateFiles.Count == 0 && config.ScopeMode != GooglePhotosScopeMode.CustomTarget)
         {
-            MessageBox.Show("当前选定范围内未找到符合条件的媒体文件。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(
+                App.GetString("GoogleNoMedia", "当前选定范围内未找到符合条件的媒体文件。"),
+                App.GetString("MsgBoxTitle", "提示"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
             return;
         }
 
@@ -1385,12 +1514,12 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         skippedDetails.Clear();
         failedDetails.Clear();
         DetailItems.Clear();
-        ProgressText = "正在准备上传...";
+        ProgressText = progressSticky.Set("GooglePreparing", "正在准备上传...");
         SpeedBytesPerSecond = 0;
         SpeedText = "--";
         EtaText = "--";
         CurrentFile = "--";
-        CurrentPhase = "启动中...";
+        SetPhase("starting", "GoogleStarting", "启动中...");
         CurrentFilePercent = 0;
 
         cts = new CancellationTokenSource();
@@ -1407,16 +1536,17 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             SpeedBytesPerSecond = s.SpeedBytesPerSecond;
             SpeedText = s.SpeedBytesPerSecond > 0 ? $"{FormatSize((long)s.SpeedBytesPerSecond)}/s" : "--";
             CurrentFile = s.CurrentFile;
+            phaseToken = "engine";
             CurrentPhase = s.CurrentPhase;
             CurrentFilePercent = s.CurrentFilePercent;
-            ProgressText = $"进度: {s.OverallPercent:F1}% ({s.UploadedFiles + s.SkippedFiles + s.FailedFiles}/{s.TotalFiles})";
+            ProgressText = progressSticky.Set("FmtGoogleProgress", "进度: {0:F1}% ({1}/{2})", s.OverallPercent, s.UploadedFiles + s.SkippedFiles + s.FailedFiles, s.TotalFiles);
 
             if (s.SpeedBytesPerSecond > 1024 && s.TotalBytes > s.UploadedBytes)
             {
                 long remainBytes = s.TotalBytes - s.UploadedBytes;
                 double seconds = remainBytes / s.SpeedBytesPerSecond;
                 var ts = TimeSpan.FromSeconds(seconds);
-                EtaText = ts.TotalHours >= 1 ? $"{(int)ts.TotalHours}时{ts.Minutes}分" : $"{ts.Minutes}分{ts.Seconds}秒";
+                EtaText = UiText.Eta(ts);
             }
         });
 
@@ -1426,7 +1556,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             {
                 GooglePhotosAlbumMode.CustomName => !string.IsNullOrWhiteSpace(config.CustomAlbumName) ? config.CustomAlbumName : "Google Photos",
                 GooglePhotosAlbumMode.AlbumId => !string.IsNullOrWhiteSpace(config.AlbumId) ? config.AlbumId : "Google Photos",
-                GooglePhotosAlbumMode.AutoParentDir => "Google Photos (智能相册)",
+                GooglePhotosAlbumMode.AutoParentDir => App.GetString("GoogleSmartAlbum", "Google Photos (智能相册)"),
                 _ => "Google Photos"
             };
 
@@ -1442,7 +1572,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
                 );
             });
 
-            ProgressText = $"同步完成: 上传 {result.UploadedCount}, 跳过 {result.SkippedCount}, 失败 {result.FailedCount}";
+            ProgressText = progressSticky.Set("FmtGoogleSyncDone", "同步完成: 上传 {0}, 跳过 {1}, 失败 {2}", result.UploadedCount, result.SkippedCount, result.FailedCount);
             ProgressValue = 100;
             IsPaused = false;
         }
@@ -1451,25 +1581,29 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             if (isPauseRequested)
             {
                 IsPaused = true;
-                CurrentPhase = App.GetString("GooglePhotosPausedPhase", "已暂停");
+                SetPhase("paused", "GooglePhotosPausedPhase", "已暂停");
                 UpdatePausedBanner();
-                ProgressText = $"已暂停上传 ({UploadedCount + SkippedCount}/{activePlanTotalFiles} 项已处理)";
+                ProgressText = progressSticky.Set("FmtGooglePaused", "已暂停上传 ({0}/{1} 项已处理)", UploadedCount + SkippedCount, activePlanTotalFiles);
                 LogEntries.Add($"[INFO] 上传已成功暂停。进度已保留 ({UploadedCount} 已上传, {SkippedCount} 已跳过, {FailedCount} 失败)。");
                 LogEntries.Add("[INFO] 您可以随时点击【继续上传】恢复剩余进度，或点击【重试失败文件】重新上传失败项。");
             }
             else
             {
-                ProgressText = "用户已停止上传。";
-                CurrentPhase = "已停止";
+                ProgressText = progressSticky.Set("GoogleUserStopped", "用户已停止上传。");
+                SetPhase("stopped", "GoogleStopped", "已停止");
                 LogEntries.Add("[INFO] 上传已停止。");
             }
         }
         catch (Exception ex)
         {
-            ProgressText = $"同步失败: {ex.Message}";
-            CurrentPhase = "失败";
+            ProgressText = progressSticky.Set("FmtGoogleSyncFailed", "同步失败: {0}", ex.Message);
+            SetPhase("failed", "GooglePhaseFailed", "失败");
             LogEntries.Add($"[ERROR] 同步失败: {ex.Message}");
-            MessageBox.Show($"上传出错: {ex.Message}", "Google 相册同步错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                string.Format(App.GetString("FmtGoogleUploadError", "上传出错: {0}"), ex.Message),
+                App.GetString("GoogleSyncErrorTitle", "Google 相册同步错误"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
         finally
         {
@@ -1477,9 +1611,9 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             isPauseRequested = false;
             cts?.Dispose();
             cts = null;
-            if (!IsPaused && CurrentPhase is "启动中..." or "正在准备...")
+            if (!IsPaused && phaseToken is "starting")
             {
-                CurrentPhase = "已结束";
+                SetPhase("ended", "GooglePhaseEnded", "已结束");
             }
         }
     }
@@ -1489,15 +1623,8 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     {
         if (IsSyncing || !IsPaused) return;
 
-        string credential = AuthMethod == GooglePhotosAuthMethod.OAuthCookie
-            ? (!string.IsNullOrWhiteSpace(AuthData) ? AuthData : OAuthCookie)
-            : AuthData;
-        if (string.IsNullOrWhiteSpace(credential))
+        if (!EnsureCredential())
         {
-            string msg = AuthMethod == GooglePhotosAuthMethod.OAuthCookie
-                ? "请先配置 Google oauth_token Cookie 凭据后方可上传。"
-                : "请先配置 Google auth_data 凭据后方可上传。";
-            MessageBox.Show(msg, "凭据未设置", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -1512,9 +1639,13 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
 
         if (remainingFiles.Count == 0)
         {
-            MessageBox.Show("当前方案的所有目标文件均已上传或跳过，无需继续上传。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(
+                App.GetString("GoogleAllDoneInfo", "当前方案的所有目标文件均已上传或跳过，无需继续上传。"),
+                App.GetString("MsgBoxTitle", "提示"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
             IsPaused = false;
-            ProgressText = $"全部已完成: 上传 {UploadedCount}, 跳过 {SkippedCount}, 失败 {FailedCount}";
+            ProgressText = progressSticky.Set("FmtGoogleAllDone", "全部已完成: 上传 {0}, 跳过 {1}, 失败 {2}", UploadedCount, SkippedCount, FailedCount);
             ProgressValue = 100;
             return;
         }
@@ -1522,8 +1653,8 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         IsSyncing = true;
         IsPaused = false;
         isPauseRequested = false;
-        CurrentPhase = App.GetString("GooglePhotosResumingPhase", "继续上传中...");
-        ProgressText = $"正在继续上传，剩余 {remainingFiles.Count} 项...";
+        SetPhase("resuming", "GooglePhotosResumingPhase", "继续上传中...");
+        ProgressText = progressSticky.Set("FmtGoogleResume", "正在继续上传，剩余 {0} 项...", remainingFiles.Count);
         SpeedBytesPerSecond = 0;
         SpeedText = "--";
         EtaText = "--";
@@ -1571,16 +1702,17 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             SpeedBytesPerSecond = s.SpeedBytesPerSecond;
             SpeedText = s.SpeedBytesPerSecond > 0 ? $"{FormatSize((long)s.SpeedBytesPerSecond)}/s" : "--";
             CurrentFile = s.CurrentFile;
+            phaseToken = "engine";
             CurrentPhase = s.CurrentPhase;
             CurrentFilePercent = s.CurrentFilePercent;
-            ProgressText = $"进度: {s.OverallPercent:F1}% ({s.UploadedFiles + s.SkippedFiles + s.FailedFiles}/{s.TotalFiles})";
+            ProgressText = progressSticky.Set("FmtGoogleProgress", "进度: {0:F1}% ({1}/{2})", s.OverallPercent, s.UploadedFiles + s.SkippedFiles + s.FailedFiles, s.TotalFiles);
 
             if (s.SpeedBytesPerSecond > 1024 && s.TotalBytes > s.UploadedBytes)
             {
                 long remainBytes = s.TotalBytes - s.UploadedBytes;
                 double seconds = remainBytes / s.SpeedBytesPerSecond;
                 var ts = TimeSpan.FromSeconds(seconds);
-                EtaText = ts.TotalHours >= 1 ? $"{(int)ts.TotalHours}时{ts.Minutes}分" : $"{ts.Minutes}分{ts.Seconds}秒";
+                EtaText = UiText.Eta(ts);
             }
         });
 
@@ -1590,7 +1722,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             {
                 GooglePhotosAlbumMode.CustomName => !string.IsNullOrWhiteSpace(config.CustomAlbumName) ? config.CustomAlbumName : "Google Photos",
                 GooglePhotosAlbumMode.AlbumId => !string.IsNullOrWhiteSpace(config.AlbumId) ? config.AlbumId : "Google Photos",
-                GooglePhotosAlbumMode.AutoParentDir => "Google Photos (智能相册)",
+                GooglePhotosAlbumMode.AutoParentDir => App.GetString("GoogleSmartAlbum", "Google Photos (智能相册)"),
                 _ => "Google Photos"
             };
 
@@ -1606,7 +1738,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
                 );
             });
 
-            ProgressText = $"同步完成: 上传 {result.UploadedCount}, 跳过 {result.SkippedCount}, 失败 {result.FailedCount}";
+            ProgressText = progressSticky.Set("FmtGoogleSyncDone", "同步完成: 上传 {0}, 跳过 {1}, 失败 {2}", result.UploadedCount, result.SkippedCount, result.FailedCount);
             ProgressValue = 100;
             IsPaused = false;
         }
@@ -1615,25 +1747,29 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             if (isPauseRequested)
             {
                 IsPaused = true;
-                CurrentPhase = App.GetString("GooglePhotosPausedPhase", "已暂停");
+                SetPhase("paused", "GooglePhotosPausedPhase", "已暂停");
                 UpdatePausedBanner();
-                ProgressText = $"已暂停上传 ({UploadedCount + SkippedCount}/{activePlanTotalFiles} 项已处理)";
+                ProgressText = progressSticky.Set("FmtGooglePaused", "已暂停上传 ({0}/{1} 项已处理)", UploadedCount + SkippedCount, activePlanTotalFiles);
                 LogEntries.Add($"[INFO] 上传已成功暂停。进度已保留 ({UploadedCount} 已上传, {SkippedCount} 已跳过, {FailedCount} 失败)。");
                 LogEntries.Add("[INFO] 您可以随时点击【继续上传】恢复剩余进度，或点击【重试失败文件】重新上传失败项。");
             }
             else
             {
-                ProgressText = "用户已停止上传。";
-                CurrentPhase = "已停止";
+                ProgressText = progressSticky.Set("GoogleUserStopped", "用户已停止上传。");
+                SetPhase("stopped", "GoogleStopped", "已停止");
                 LogEntries.Add("[INFO] 上传已停止。");
             }
         }
         catch (Exception ex)
         {
-            ProgressText = $"继续上传失败: {ex.Message}";
-            CurrentPhase = "失败";
+            ProgressText = progressSticky.Set("FmtGoogleResumeFailed", "继续上传失败: {0}", ex.Message);
+            SetPhase("failed", "GooglePhaseFailed", "失败");
             LogEntries.Add($"[ERROR] 继续上传失败: {ex.Message}");
-            MessageBox.Show($"上传出错: {ex.Message}", "Google 相册同步错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                string.Format(App.GetString("FmtGoogleUploadError", "上传出错: {0}"), ex.Message),
+                App.GetString("GoogleSyncErrorTitle", "Google 相册同步错误"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
         finally
         {
@@ -1641,9 +1777,9 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             isPauseRequested = false;
             cts?.Dispose();
             cts = null;
-            if (!IsPaused && CurrentPhase is "继续上传中...")
+            if (!IsPaused && phaseToken is "resuming")
             {
-                CurrentPhase = "已结束";
+                SetPhase("ended", "GooglePhaseEnded", "已结束");
             }
         }
     }
@@ -1654,8 +1790,8 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         if (cts != null && !cts.IsCancellationRequested)
         {
             isPauseRequested = true;
-            ProgressText = "正在暂停上传...";
-            CurrentPhase = App.GetString("GooglePhotosPausingPhase", "正在暂停...");
+            ProgressText = progressSticky.Set("GooglePausingText", "正在暂停上传...");
+            SetPhase("pausing", "GooglePhotosPausingPhase", "正在暂停...");
             LogEntries.Add("[INFO] 正在暂停上传，等待底层任务安全挂起...");
             cts.Cancel();
         }
@@ -1678,7 +1814,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         {
             TerminateCurrentPlan();
             LogEntries.Add("[INFO] 用户已手动结束当前方案。");
-            ProgressText = "方案已结束。已就绪新任务。";
+            ProgressText = progressSticky.Set("GooglePlanEnded", "方案已结束。已就绪新任务。");
             CurrentPhase = "--";
         }
     }
@@ -1692,21 +1828,14 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         {
             MessageBox.Show(
                 App.GetString("GooglePhotosNoFailedToRetry", "暂无失败文件需要重试。"),
-                "提示",
+                App.GetString("MsgBoxTitle", "提示"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
             return;
         }
 
-        string credential = AuthMethod == GooglePhotosAuthMethod.OAuthCookie
-            ? (!string.IsNullOrWhiteSpace(AuthData) ? AuthData : OAuthCookie)
-            : AuthData;
-        if (string.IsNullOrWhiteSpace(credential))
+        if (!EnsureCredential())
         {
-            string msg = AuthMethod == GooglePhotosAuthMethod.OAuthCookie
-                ? "请先配置 Google oauth_token Cookie 凭据后方可上传。"
-                : "请先配置 Google auth_data 凭据后方可上传。";
-            MessageBox.Show(msg, "凭据未设置", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -1719,8 +1848,8 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         if (retryTargetFiles.Count == 0)
         {
             MessageBox.Show(
-                "所有记录的失败文件在本地磁盘上均已不存在，无法重试。",
-                "提示",
+                App.GetString("GoogleRetryMissing", "所有记录的失败文件在本地磁盘上均已不存在，无法重试。"),
+                App.GetString("MsgBoxTitle", "提示"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
             return;
@@ -1730,12 +1859,12 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         IsSyncing = true;
         isPauseRequested = false;
         ProgressValue = 0;
-        ProgressText = $"正在重试 {retryTargetFiles.Count} 个失败文件...";
+        ProgressText = progressSticky.Set("FmtGoogleRetrying", "正在重试 {0} 个失败文件...", retryTargetFiles.Count);
         SpeedBytesPerSecond = 0;
         SpeedText = "--";
         EtaText = "--";
         CurrentFile = "--";
-        CurrentPhase = "准备重试...";
+        SetPhase("retry", "GoogleRetryPrep", "准备重试...");
         CurrentFilePercent = 0;
 
         cts = new CancellationTokenSource();
@@ -1769,16 +1898,17 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             SpeedBytesPerSecond = s.SpeedBytesPerSecond;
             SpeedText = s.SpeedBytesPerSecond > 0 ? $"{FormatSize((long)s.SpeedBytesPerSecond)}/s" : "--";
             CurrentFile = s.CurrentFile;
+            phaseToken = "engine";
             CurrentPhase = s.CurrentPhase;
             CurrentFilePercent = s.CurrentFilePercent;
-            ProgressText = $"重试进度: {s.OverallPercent:F1}% ({s.UploadedFiles + s.SkippedFiles + s.FailedFiles}/{s.TotalFiles})";
+            ProgressText = progressSticky.Set("FmtGoogleRetryProgress", "重试进度: {0:F1}% ({1}/{2})", s.OverallPercent, s.UploadedFiles + s.SkippedFiles + s.FailedFiles, s.TotalFiles);
 
             if (s.SpeedBytesPerSecond > 1024 && s.TotalBytes > s.UploadedBytes)
             {
                 long remainBytes = s.TotalBytes - s.UploadedBytes;
                 double seconds = remainBytes / s.SpeedBytesPerSecond;
                 var ts = TimeSpan.FromSeconds(seconds);
-                EtaText = ts.TotalHours >= 1 ? $"{(int)ts.TotalHours}时{ts.Minutes}分" : $"{ts.Minutes}分{ts.Seconds}秒";
+                EtaText = UiText.Eta(ts);
             }
         });
 
@@ -1788,7 +1918,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             {
                 GooglePhotosAlbumMode.CustomName => !string.IsNullOrWhiteSpace(config.CustomAlbumName) ? config.CustomAlbumName : "Google Photos",
                 GooglePhotosAlbumMode.AlbumId => !string.IsNullOrWhiteSpace(config.AlbumId) ? config.AlbumId : "Google Photos",
-                GooglePhotosAlbumMode.AutoParentDir => "Google Photos (智能相册)",
+                GooglePhotosAlbumMode.AutoParentDir => App.GetString("GoogleSmartAlbum", "Google Photos (智能相册)"),
                 _ => "Google Photos"
             };
 
@@ -1804,21 +1934,25 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
                 );
             });
 
-            ProgressText = $"重试完成: 成功上传 {result.UploadedCount}, 跳过 {result.SkippedCount}, 仍失败 {result.FailedCount}";
+            ProgressText = progressSticky.Set("FmtGoogleRetryDone", "重试完成: 成功上传 {0}, 跳过 {1}, 仍失败 {2}", result.UploadedCount, result.SkippedCount, result.FailedCount);
             ProgressValue = 100;
         }
         catch (OperationCanceledException)
         {
-            ProgressText = "重试操作已停止。";
-            CurrentPhase = "已停止";
+            ProgressText = progressSticky.Set("GoogleRetryStopped", "重试操作已停止。");
+            SetPhase("stopped", "GoogleStopped", "已停止");
             LogEntries.Add("[INFO] 重试操作已停止。");
         }
         catch (Exception ex)
         {
-            ProgressText = $"重试失败: {ex.Message}";
-            CurrentPhase = "失败";
+            ProgressText = progressSticky.Set("FmtGoogleRetryFailed", "重试失败: {0}", ex.Message);
+            SetPhase("failed", "GooglePhaseFailed", "失败");
             LogEntries.Add($"[ERROR] 重试异常: {ex.Message}");
-            MessageBox.Show($"重试出错: {ex.Message}", "Google 相册重试错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                string.Format(App.GetString("FmtGoogleRetryError", "重试出错: {0}"), ex.Message),
+                App.GetString("GoogleRetryErrorTitle", "Google 相册重试错误"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
         finally
         {
@@ -1829,12 +1963,12 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             {
                 IsPaused = true;
                 UpdatePausedBanner();
-                CurrentPhase = App.GetString("GooglePhotosPausedPhase", "已暂停");
-                ProgressText = $"已暂停 ({UploadedCount + SkippedCount}/{activePlanTotalFiles} 项已处理，剩余失败 {FailedCount} 项)";
+                SetPhase("paused", "GooglePhotosPausedPhase", "已暂停");
+                ProgressText = progressSticky.Set("FmtGooglePausedRemain", "已暂停 ({0}/{1} 项已处理，剩余失败 {2} 项)", UploadedCount + SkippedCount, activePlanTotalFiles, FailedCount);
             }
-            else if (CurrentPhase is "准备重试...")
+            else if (phaseToken is "retry")
             {
-                CurrentPhase = "已结束";
+                SetPhase("ended", "GooglePhaseEnded", "已结束");
             }
         }
     }
@@ -2080,7 +2214,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         if (missing.Count > 0)
         {
             MessageBox.Show(
-                $"有 {missing.Count} 个选中的文件在磁盘上不存在:\n{string.Join(Environment.NewLine, missing.Take(3))}{(missing.Count > 3 ? "\n..." : "")}",
+                UiText.MissingFiles(missing.Count, missing),
                 App.GetString("MsgFileNotFound", "文件不存在"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 

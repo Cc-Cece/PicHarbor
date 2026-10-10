@@ -42,6 +42,8 @@ public partial class DeviceBackupHistoryDialog : Window
     public DeviceBackupHistoryDialog(string destinationRoot, DeviceHistoryItem deviceItem)
     {
         InitializeComponent();
+        TotalSessionsText.Text = string.Format(App.GetString("FmtSessionCount", "{0} 次"), 0);
+        TotalFilesAndSizeText.Text = string.Format(App.GetString("FmtFilesAndSize", "{0:N0} 张 ({1})"), 0, "0 B");
         this.destinationRoot = destinationRoot;
         this.deviceItem = deviceItem;
 
@@ -87,8 +89,8 @@ public partial class DeviceBackupHistoryDialog : Window
         {
             // 1. Load summary
             var summary = await ArchiveRepository.GetDeviceBackupSummaryAsync(destinationRoot, deviceItem.Udid);
-            TotalSessionsText.Text = $"{summary.TotalSessions} 次";
-            TotalFilesAndSizeText.Text = $"{summary.TotalFiles:N0} 张 ({ByteSize.Humanize(summary.TotalBytes)})";
+            TotalSessionsText.Text = string.Format(App.GetString("FmtSessionCount", "{0} 次"), summary.TotalSessions);
+            TotalFilesAndSizeText.Text = string.Format(App.GetString("FmtFilesAndSize", "{0:N0} 张 ({1})"), summary.TotalFiles, ByteSize.Humanize(summary.TotalBytes));
 
             // 2. Load sessions
             var sessionRecords = await ArchiveRepository.GetBackupSessionsAsync(destinationRoot, deviceItem.Udid);
@@ -101,14 +103,16 @@ public partial class DeviceBackupHistoryDialog : Window
                     FormattedStartedAt = s.StartedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"),
                     FilesCount = s.FilesCount,
                     FormattedSize = ByteSize.Humanize(s.TotalSizeBytes),
-                    Status = s.Status == "Completed" ? "全部完成" : (s.Status == "Partial" ? "部分完成" : s.Status)
+                    Status = s.Status == "Completed"
+                        ? App.GetString("HistStatusComplete", "全部完成")
+                        : (s.Status == "Partial" ? App.GetString("HistStatusPartial", "部分完成") : s.Status)
                 });
             }
 
             if (sessions.Count == 0)
             {
                 EmptySessionsNotice.Visibility = Visibility.Visible;
-                SessionHeaderTitle.Text = "该设备尚未产生任何历史备份批次记录";
+                SessionHeaderTitle.Text = App.GetString("FmtHistNoSessions", "该设备尚未产生任何历史备份批次记录");
             }
             else
             {
@@ -118,7 +122,7 @@ public partial class DeviceBackupHistoryDialog : Window
         }
         catch (Exception ex)
         {
-            SessionHeaderTitle.Text = $"加载失败: {ex.Message}";
+            SessionHeaderTitle.Text = string.Format(App.GetString("FmtHistLoadFailed", "加载失败: {0}"), ex.Message);
         }
     }
 
@@ -132,7 +136,7 @@ public partial class DeviceBackupHistoryDialog : Window
             return;
         }
 
-        SessionHeaderTitle.Text = $"批次: {selected.FormattedStartedAt}（共 {selected.FilesCount:N0} 张，{selected.FormattedSize}）";
+        SessionHeaderTitle.Text = string.Format(App.GetString("FmtHistBatch", "批次: {0}（共 {1:N0} 张，{2}）"), selected.FormattedStartedAt, selected.FilesCount, selected.FormattedSize);
 
         try
         {
@@ -154,7 +158,7 @@ public partial class DeviceBackupHistoryDialog : Window
         }
         catch (Exception ex)
         {
-            SessionHeaderTitle.Text = $"加载明细失败: {ex.Message}";
+            SessionHeaderTitle.Text = string.Format(App.GetString("FmtHistLoadItemsFailed", "加载明细失败: {0}"), ex.Message);
         }
     }
 
@@ -191,7 +195,7 @@ public partial class DeviceBackupHistoryDialog : Window
         }
         else
         {
-            MessageBox.Show(this, $"该文件在电脑本地磁盘中已不存在：\n{fullPath}", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(this, string.Format(App.GetString("FmtHistFileMissing", "该文件在电脑本地磁盘中已不存在：\n{0}"), fullPath), App.GetString("MsgBoxTitle", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 

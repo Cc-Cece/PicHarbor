@@ -271,6 +271,8 @@ public partial class AndroidSyncViewModel : ObservableObject
 
     [ObservableProperty]
     private string progressText = App.GetString("MsgReady", "准备就绪");
+    private readonly StickyText progressSticky = new();
+    private readonly StickyText ftpTestSticky = new();
 
     [ObservableProperty]
     private int copiedCount = 0;
@@ -563,7 +565,7 @@ public partial class AndroidSyncViewModel : ObservableObject
         }
         catch
         {
-            ScopeSummaryText = "📊 当前筛选结果: 预计恢复 0 项";
+            ScopeSummaryText = App.GetString("ScopeSummaryZero", "📊 当前筛选结果: 预计恢复 0 项");
         }
     }
 
@@ -617,7 +619,7 @@ public partial class AndroidSyncViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            NotificationMessage = $"❌ 过程出现错误: {ex.Message}";
+            NotificationMessage = string.Format(App.GetString("FmtProcessError", "❌ 过程出现错误: {0}"), ex.Message);
         }
 
         LoadManualSelectionsFromDb();
@@ -656,7 +658,9 @@ public partial class AndroidSyncViewModel : ObservableObject
         {
             if (autoAddedCount > 0)
             {
-                string sampleText = autoAddedCount == 1 ? "1 项配对" : $"{autoAddedCount} 项配对";
+                string sampleText = autoAddedCount == 1
+                    ? App.GetString("FmtPairOne", "1 项配对")
+                    : string.Format(App.GetString("FmtPairMany", "{0} 项配对"), autoAddedCount);
                 NotificationMessage = string.Format(
                     App.GetString("MsgPickedWithAutoPairNotice", "✨ 成功挑选 {0} 项照片！已根据配置自动补全了 {1} 项 Live Photo/侧车配对文件（如 {2}）。在「查看/编辑清单」中已标注 [🪄 来自自动补全] 标记。"),
                     addedCount, autoAddedCount, sampleText);
@@ -872,7 +876,16 @@ public partial class AndroidSyncViewModel : ObservableObject
 
     public void OnLanguageChanged()
     {
-        OnPropertyChanged(nameof(ProgressText));
+        if (progressSticky.HasValue)
+        {
+            ProgressText = progressSticky.Current;
+        }
+
+        if (ftpTestSticky.HasValue)
+        {
+            TestStatus = ftpTestSticky.Current;
+        }
+
         UpdateManualSelectionTexts();
         RecalculateScopeSummary();
     }
@@ -880,18 +893,20 @@ public partial class AndroidSyncViewModel : ObservableObject
     [RelayCommand]
     private async Task TestConnectionAsync()
     {
-        TestStatus = "正在尝试连接 FTP...";
+        TestStatus = ftpTestSticky.Set("AndroidFtpTestRunning", "正在尝试连接 FTP...");
         AddLog($"[TEST] Connecting to FTP {AndroidFtpHost}:{AndroidFtpPort}...");
         try
         {
             bool ok = await SimpleFtpClient.TestConnectionAsync(
                 AndroidFtpHost, AndroidFtpPort, AndroidFtpUser, AndroidFtpPassword, AndroidTargetDir);
-            TestStatus = ok ? "✅ FTP 连接测试成功！" : "❌ FTP 连接失败";
+            TestStatus = ok
+                ? ftpTestSticky.Set("AndroidFtpTestOk", "✅ FTP 连接测试成功！")
+                : ftpTestSticky.Set("AndroidFtpTestFailPlain", "❌ FTP 连接失败");
             AddLog($"[TEST SUCCESS] Successfully connected to FTP {AndroidFtpHost}:{AndroidFtpPort}. Target directory ready.");
         }
         catch (Exception ex)
         {
-            TestStatus = $"❌ 连接失败: {ex.Message}";
+            TestStatus = ftpTestSticky.Set("FmtAndroidFtpTestFail", "❌ 连接失败: {0}", ex.Message);
             AddLog($"[TEST ERROR] Failed to connect: {ex.Message}");
         }
     }
@@ -912,7 +927,7 @@ public partial class AndroidSyncViewModel : ObservableObject
     [RelayCommand]
     private void ShowCopiedDetails()
     {
-        DetailModalTitle = "🤖 Android FTP 已传输 / 已复制文件明细 (Copied)";
+        DetailModalTitle = App.GetString("AndroidFtpDetailCopied", "🤖 Android FTP 已传输 / 已复制文件明细 (Copied)");
         DetailItems = new ObservableCollection<TransferItemDetail>(copiedDetails);
         IsDetailModalOpen = true;
     }
@@ -920,7 +935,7 @@ public partial class AndroidSyncViewModel : ObservableObject
     [RelayCommand]
     private void ShowSkippedDetails()
     {
-        DetailModalTitle = "🤖 Android FTP 已跳过文件明细 (Skipped - 已存在/已同步)";
+        DetailModalTitle = App.GetString("AndroidFtpDetailSkipped", "🤖 Android FTP 已跳过文件明细 (Skipped - 已存在/已同步)");
         DetailItems = new ObservableCollection<TransferItemDetail>(skippedDetails);
         IsDetailModalOpen = true;
     }
@@ -928,7 +943,7 @@ public partial class AndroidSyncViewModel : ObservableObject
     [RelayCommand]
     private void ShowFailedDetails()
     {
-        DetailModalTitle = "⚠️ Android FTP 失败文件明细 (Failed)";
+        DetailModalTitle = App.GetString("AndroidFtpDetailFailed", "⚠️ Android FTP 失败文件明细 (Failed)");
         DetailItems = new ObservableCollection<TransferItemDetail>(failedDetails);
         IsDetailModalOpen = true;
     }
@@ -989,7 +1004,7 @@ public partial class AndroidSyncViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
         {
-            TestStatus = "❌ PC 本地归档目录不存在！请先在主界面或设置中配置归档路径。";
+            TestStatus = ftpTestSticky.Set("AndroidArchiveMissing", "❌ PC 本地归档目录不存在！请先在主界面或设置中配置归档路径。");
             AddLog($"[ERROR] Local PC archive path directory not found: {ArchivePath}");
             return;
         }
@@ -1038,7 +1053,7 @@ public partial class AndroidSyncViewModel : ObservableObject
                     }
                     if (preflightResult.BrokenLivePhotoPairs.Count > 5)
                     {
-                        sb.AppendLine($"  ... 等共 {preflightResult.BrokenLivePhotoPairs.Count} 项");
+                        sb.AppendLine(string.Format(App.GetString("FmtMoreItems", "  ... 等共 {0} 项"), preflightResult.BrokenLivePhotoPairs.Count));
                     }
                 }
 
@@ -1069,7 +1084,7 @@ public partial class AndroidSyncViewModel : ObservableObject
         SkippedCount = 0;
         FailedCount = 0;
         ProgressValue = 0;
-        ProgressText = "正在初始化 Android FTP 增量同步...";
+        ProgressText = progressSticky.Set("AndroidSyncInit", "正在初始化 Android FTP 增量同步...");
 
         copiedDetails.Clear();
         skippedDetails.Clear();
@@ -1091,9 +1106,15 @@ public partial class AndroidSyncViewModel : ObservableObject
                 SpeedText = snapshot.CurrentBytesPerSecond > 0 ? $"{snapshot.CurrentBytesPerSecond / 1024d / 1024d:F1} MB/s" : "--";
                 TransferredSizeText = $"{FormatBytes(snapshot.ProcessedBytes)} / {FormatBytes(snapshot.TotalBytes)}";
                 EtaText = snapshot.Eta is TimeSpan eta
-                    ? FormatTimeSpan(eta)
+                    ? UiText.Duration(eta)
                     : (percent >= 100 ? App.GetString("MsgSyncCompleted", "同步完成") : App.GetString("MsgCalculating", "计算中..."));
-                ProgressText = $"{percent:F1}% ({snapshot.ProcessedFiles:N0}/{snapshot.TotalFiles:N0} 文件) - {FormatSpeed(snapshot.CurrentBytesPerSecond)}";
+                ProgressText = progressSticky.Set(
+                    "FmtAndroidSyncProgress",
+                    "{0:F1}% ({1:N0}/{2:N0} 文件) - {3}",
+                    percent,
+                    snapshot.ProcessedFiles,
+                    snapshot.TotalFiles,
+                    FormatSpeed(snapshot.CurrentBytesPerSecond));
             });
         });
 
@@ -1169,17 +1190,17 @@ public partial class AndroidSyncViewModel : ObservableObject
             SkippedCount = result.SkippedCount;
             FailedCount = result.FailedCount;
             ProgressValue = 100;
-            ProgressText = $"同步完成: 已传输 {result.CopiedCount}，跳过 {result.SkippedCount}，失败 {result.FailedCount}";
+            ProgressText = progressSticky.Set("FmtAndroidSyncDone", "同步完成: 已传输 {0}，跳过 {1}，失败 {2}", result.CopiedCount, result.SkippedCount, result.FailedCount);
             AddLog($"[FINISHED] Android sync finished for device ID {result.DeviceId}. Transferred {result.CopiedCount:N0} files ({FormatBytes(result.BytesCopied)}).");
         }
         catch (OperationCanceledException)
         {
-            ProgressText = App.GetString("MsgSyncCancelled", "同步已取消");
+            ProgressText = progressSticky.Set("MsgSyncCancelled", "同步已取消");
             AddLog("[CANCELLED] Sync cancelled by user.");
         }
         catch (Exception ex)
         {
-            ProgressText = $"同步失败: {ex.Message}";
+            ProgressText = progressSticky.Set("FmtAndroidSyncFailed", "同步失败: {0}", ex.Message);
             AddLog($"[ERROR] Android sync failed: {ex.Message}");
         }
         finally
@@ -1221,19 +1242,6 @@ public partial class AndroidSyncViewModel : ObservableObject
     }
 
     private static string FormatSpeed(double bytesPerSecond) => $"{FormatBytes((long)bytesPerSecond)}/s";
-
-    private static string FormatTimeSpan(TimeSpan span)
-    {
-        if (span.TotalHours >= 1)
-        {
-            return $"{(int)span.TotalHours}小时{span.Minutes:D2}分{span.Seconds:D2}秒";
-        }
-        if (span.TotalMinutes >= 1)
-        {
-            return $"{span.Minutes:D2}分{span.Seconds:D2}秒";
-        }
-        return $"{span.Seconds}秒";
-    }
 
     private (List<string> existing, List<string> missing) FilterDetailPaths(object? parameter)
     {
@@ -1290,7 +1298,7 @@ public partial class AndroidSyncViewModel : ObservableObject
         if (missing.Count > 0)
         {
             MessageBox.Show(
-                $"有 {missing.Count} 个选中的文件在磁盘上不存在:\n{string.Join(Environment.NewLine, missing.Take(3))}{(missing.Count > 3 ? "\n..." : "")}",
+                UiText.MissingFiles(missing.Count, missing),
                 App.GetString("MsgFileNotFound", "文件不存在"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 

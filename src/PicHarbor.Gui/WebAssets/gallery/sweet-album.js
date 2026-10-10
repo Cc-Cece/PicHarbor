@@ -168,9 +168,34 @@ const P = [
   dateHeader: ({ year: h, month: t, day: e }) => `${h}年${t}月${e}日`,
   months: B,
   monthsShort: B
+}, H = {
+  photos: "張相片",
+  photo: "張相片",
+  selected: "已揀",
+  selectAll: "全選",
+  deselectAll: "取消全選",
+  clearSelection: "清空選擇",
+  favorite: "加入收藏",
+  unfavorite: "取消收藏",
+  empty: "暫無相片",
+  loading: "載入中…",
+  loadFailed: "載入失敗",
+  close: "關閉",
+  prev: "上一張",
+  next: "下一張",
+  zoomIn: "放大",
+  zoomOut: "縮小",
+  rotateLeft: "向左旋轉",
+  rotateRight: "向右旋轉",
+  actualSize: "實際像素",
+  fitToWindow: "適應視窗",
+  dateHeader: ({ year: h, month: t, day: e }) => `${h}年${t}月${e}日`,
+  months: B,
+  monthsShort: B
 }, J = {
   en: Y,
-  "zh-CN": j
+  "zh-CN": j,
+  "zh-HK": H
 };
 function A(h = "en", t) {
   return { ...J[h] ?? Y, ...t ?? {} };

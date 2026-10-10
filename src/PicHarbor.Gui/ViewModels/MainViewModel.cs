@@ -333,8 +333,29 @@ public partial class MainViewModel : ObservableObject
         deviceProbeTimer.Tick += async (s, e) => await ProbeDeviceStatusAsync();
         deviceProbeTimer.Start();
 
+        ApplyLanguageToViewModels();
+
         // Initial probe
         _ = ProbeDeviceStatusAsync();
+    }
+
+    private void ApplyLanguageToViewModels()
+    {
+        if (!IsDeviceConnected)
+        {
+            DeviceStatusText = App.GetString("DeviceDisconnected", "未检测到 iPhone (USB/AFC)");
+        }
+
+        IPhoneSyncVM.OnLanguageChanged();
+        AndroidSyncVM.OnLanguageChanged();
+        GooglePhotosVM.OnLanguageChanged();
+        SearchVM.OnLanguageChanged();
+        SettingsVM.OnLanguageChanged();
+        BackupVM.OnLanguageChanged();
+        AndroidBackupVM.OnLanguageChanged();
+        ReorganizeVM.OnLanguageChanged();
+        RefreshTaskCards();
+        OnPropertyChanged(nameof(ActiveTaskTitle));
     }
 
     private void OnTransferFinished()
@@ -521,10 +542,7 @@ public partial class MainViewModel : ObservableObject
     {
         CurrentLanguage = culture;
         App.SwitchLanguage(culture);
-        IPhoneSyncVM.OnLanguageChanged();
-        AndroidSyncVM.OnLanguageChanged();
-        GooglePhotosVM.OnLanguageChanged();
-        SearchVM.OnLanguageChanged();
+        ApplyLanguageToViewModels();
         SaveConfig();
         _ = ProbeDeviceStatusAsync();
     }
@@ -821,7 +839,7 @@ public partial class MainViewModel : ObservableObject
         var ofd = new Microsoft.Win32.OpenFileDialog
         {
             Multiselect = true,
-            Filter = "媒体文件|*.jpg;*.jpeg;*.png;*.heic;*.mp4;*.mov;*.dng;*.raw|所有文件|*.*"
+            Filter = App.GetString("MediaPickFilter", "媒体文件|*.jpg;*.jpeg;*.png;*.heic;*.mp4;*.mov;*.dng;*.raw|所有文件|*.*")
         };
         if (ofd.ShowDialog() == true && ofd.FileNames.Length > 0)
         {
@@ -989,11 +1007,12 @@ public partial class MainViewModel : ObservableObject
 
         string iphoneName = string.IsNullOrWhiteSpace(BackupVM.DetectedDeviceModel) ? "iPhone" : BackupVM.DetectedDeviceModel;
         string androidName = string.IsNullOrWhiteSpace(AndroidBackupVM.DetectedDeviceModel) ? "Android" : AndroidBackupVM.DetectedDeviceModel;
-        ApplyCard(TaskCards[0], BackupVM.IsTransferring, $"{iphoneName} 备份", BackupVM.ProgressPercentage, BackupVM.ProgressText, BackupVM.SpeedText, BackupVM.CopiedCount, BackupVM.SkippedCount, BackupVM.FailedCount, "已复制");
-        ApplyCard(TaskCards[1], AndroidBackupVM.IsTransferring, $"{androidName} 备份", AndroidBackupVM.ProgressPercentage, AndroidBackupVM.ProgressText, AndroidBackupVM.SpeedText, AndroidBackupVM.CopiedCount, AndroidBackupVM.SkippedCount, AndroidBackupVM.FailedCount, "已复制");
-        ApplyCard(TaskCards[2], GooglePhotosVM.IsSyncing, "Google 相册", GooglePhotosVM.ProgressValue, GooglePhotosVM.ProgressText, GooglePhotosVM.SpeedText, GooglePhotosVM.UploadedCount, GooglePhotosVM.SkippedCount, GooglePhotosVM.FailedCount, "已上传");
-        ApplyCard(TaskCards[3], IPhoneSyncVM.IsExporting, "同步到 iPhone", IPhoneSyncVM.ProgressValue, IPhoneSyncVM.ProgressText, IPhoneSyncVM.SpeedText, IPhoneSyncVM.CopiedCount, IPhoneSyncVM.SkippedCount, IPhoneSyncVM.FailedCount, "已复制");
-        ApplyCard(TaskCards[4], AndroidSyncVM.IsSyncing, "同步到 Android", AndroidSyncVM.ProgressValue, AndroidSyncVM.ProgressText, AndroidSyncVM.SpeedText, AndroidSyncVM.CopiedCount, AndroidSyncVM.SkippedCount, AndroidSyncVM.FailedCount, "已复制");
+        string backupSuffix = App.GetString("TaskBackupSuffix", "备份");
+        ApplyCard(TaskCards[0], BackupVM.IsTransferring, $"{iphoneName} {backupSuffix}", BackupVM.ProgressPercentage, BackupVM.ProgressText, BackupVM.SpeedText, BackupVM.CopiedCount, BackupVM.SkippedCount, BackupVM.FailedCount, App.GetString("TaskCopied", "已复制"));
+        ApplyCard(TaskCards[1], AndroidBackupVM.IsTransferring, $"{androidName} {backupSuffix}", AndroidBackupVM.ProgressPercentage, AndroidBackupVM.ProgressText, AndroidBackupVM.SpeedText, AndroidBackupVM.CopiedCount, AndroidBackupVM.SkippedCount, AndroidBackupVM.FailedCount, App.GetString("TaskCopied", "已复制"));
+        ApplyCard(TaskCards[2], GooglePhotosVM.IsSyncing, App.GetString("TaskGooglePhotos", "Google 相册"), GooglePhotosVM.ProgressValue, GooglePhotosVM.ProgressText, GooglePhotosVM.SpeedText, GooglePhotosVM.UploadedCount, GooglePhotosVM.SkippedCount, GooglePhotosVM.FailedCount, App.GetString("TaskUploaded", "已上传"));
+        ApplyCard(TaskCards[3], IPhoneSyncVM.IsExporting, App.GetString("TaskSyncIPhone", "同步到 iPhone"), IPhoneSyncVM.ProgressValue, IPhoneSyncVM.ProgressText, IPhoneSyncVM.SpeedText, IPhoneSyncVM.CopiedCount, IPhoneSyncVM.SkippedCount, IPhoneSyncVM.FailedCount, App.GetString("TaskCopied", "已复制"));
+        ApplyCard(TaskCards[4], AndroidSyncVM.IsSyncing, App.GetString("TaskSyncAndroid", "同步到 Android"), AndroidSyncVM.ProgressValue, AndroidSyncVM.ProgressText, AndroidSyncVM.SpeedText, AndroidSyncVM.CopiedCount, AndroidSyncVM.SkippedCount, AndroidSyncVM.FailedCount, App.GetString("TaskCopied", "已复制"));
         OnPropertyChanged(nameof(HasVisibleTaskCard));
         OnPropertyChanged(nameof(ShowTaskBall));
     }
@@ -1022,8 +1041,19 @@ public partial class MainViewModel : ObservableObject
         card.Progress = progress;
         card.ProgressText = string.IsNullOrWhiteSpace(progressText) ? "" : progressText;
         card.SpeedText = running ? (string.IsNullOrWhiteSpace(speedText) ? "--" : speedText) : "--";
-        card.StateText = running ? "进行中" : failed > 0 ? "已结束，有失败" : "已结束";
-        card.ResultText = $"{copiedLabel} {copied:N0} · 已跳过 {skipped:N0} · 失败 {failed:N0}";
+        card.StateText = running
+            ? App.GetString("TaskStateRunning", "进行中")
+            : failed > 0
+                ? App.GetString("TaskStateEndedFailed", "已结束，有失败")
+                : App.GetString("TaskStateEnded", "已结束");
+        card.ResultText = string.Format(
+            App.GetString("FmtTaskResult", "{0} {1:N0} · {2} {3:N0} · {4} {5:N0}"),
+            copiedLabel,
+            copied,
+            App.GetString("TaskSkipped", "已跳过"),
+            skipped,
+            App.GetString("TaskFailed", "失败"),
+            failed);
     }
 
     private static string FormatTotalSpeed(double bytesPerSecond)
@@ -1186,30 +1216,30 @@ public partial class MainViewModel : ObservableObject
             if (IsAnyTaskRunning)
             {
                 if (AndroidBackupVM.IsTransferring)
-                    return $"{(string.IsNullOrWhiteSpace(AndroidBackupVM.DetectedDeviceModel) ? "Android 设备" : AndroidBackupVM.DetectedDeviceModel)} 增量备份 (进行中)";
+                    return string.Format(App.GetString("FmtIncrementalRunning", "{0} 增量备份 (进行中)"), string.IsNullOrWhiteSpace(AndroidBackupVM.DetectedDeviceModel) ? App.GetString("TaskAndroidDevice", "Android 设备") : AndroidBackupVM.DetectedDeviceModel);
                 if (BackupVM.IsTransferring)
-                    return $"{(string.IsNullOrWhiteSpace(BackupVM.DetectedDeviceModel) ? "iPhone 设备" : BackupVM.DetectedDeviceModel)} 增量备份 (进行中)";
+                    return string.Format(App.GetString("FmtIncrementalRunning", "{0} 增量备份 (进行中)"), string.IsNullOrWhiteSpace(BackupVM.DetectedDeviceModel) ? App.GetString("TaskIPhoneDevice", "iPhone 设备") : BackupVM.DetectedDeviceModel);
                 if (GooglePhotosVM.IsSyncing)
-                    return "Google 相册上传与同步 (进行中)";
+                    return App.GetString("TaskGoogleRunning", "Google 相册上传与同步 (进行中)");
                 if (IPhoneSyncVM.IsExporting)
-                    return "iPhone 照片导出与回传 (进行中)";
+                    return App.GetString("TaskIPhoneSyncRunning", "iPhone 照片导出与回传 (进行中)");
                 if (AndroidSyncVM.IsSyncing)
-                    return "Android 照片回传与同步 (进行中)";
-                return "传输任务 (进行中)";
+                    return App.GetString("TaskAndroidSyncRunning", "Android 照片回传与同步 (进行中)");
+                return App.GetString("TaskGenericRunning", "传输任务 (进行中)");
             }
 
             if (HasPreviousTaskRun)
             {
                 if (SelectedDeviceIndex == 1 || AndroidBackupVM.CopiedCount > 0 || AndroidBackupVM.SkippedCount > 0)
                 {
-                    string model = string.IsNullOrWhiteSpace(AndroidBackupVM.DetectedDeviceModel) ? "Android 设备" : AndroidBackupVM.DetectedDeviceModel;
-                    return $"{model} 增量备份 (已完成)";
+                    string model = string.IsNullOrWhiteSpace(AndroidBackupVM.DetectedDeviceModel) ? App.GetString("TaskAndroidDevice", "Android 设备") : AndroidBackupVM.DetectedDeviceModel;
+                    return string.Format(App.GetString("FmtIncrementalDone", "{0} 增量备份 (已完成)"), model);
                 }
-                string iphoneModel = string.IsNullOrWhiteSpace(BackupVM.DetectedDeviceModel) ? "iPhone 设备" : BackupVM.DetectedDeviceModel;
-                return $"{iphoneModel} 增量备份 (已完成)";
+                string iphoneModel = string.IsNullOrWhiteSpace(BackupVM.DetectedDeviceModel) ? App.GetString("TaskIPhoneDevice", "iPhone 设备") : BackupVM.DetectedDeviceModel;
+                return string.Format(App.GetString("FmtIncrementalDone", "{0} 增量备份 (已完成)"), iphoneModel);
             }
 
-            return "等待开启新任务";
+            return App.GetString("TaskWaiting", "等待开启新任务");
         }
     }
 

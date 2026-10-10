@@ -87,9 +87,9 @@ public partial class GoogleLoginWindow : Window
         }
         catch (Exception ex)
         {
-            SetStatus($"初始化浏览器失败: {ex.Message}", true);
+            SetStatus(string.Format(App.GetString("FmtGoogleInitFailed", "初始化浏览器失败: {0}"), ex.Message), true);
             MessageBox.Show(this,
-                $"无法初始化内置浏览器 (WebView2):\n{ex.Message}\n\n建议您使用「在外部浏览器中打开」并手动输入凭证。",
+                string.Format(App.GetString("FmtGoogleWebView2Failed", "无法初始化内置浏览器 (WebView2):\n{0}\n\n建议您使用「在外部浏览器中打开」并手动输入凭证。"), ex.Message),
                 App.GetString("GoogleLoginWindowTitle", "Google 账号登录"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
@@ -164,7 +164,7 @@ public partial class GoogleLoginWindow : Window
                     => App.GetString("GoogleLoginWindowTimeout", "连接 Google 超时，请检查代理服务是否正常运行"),
                 CoreWebView2WebErrorStatus.ServerUnreachable or CoreWebView2WebErrorStatus.ValidProxyAuthenticationRequired
                     => App.GetString("GoogleLoginWindowProxyError", "无法连接至配置的代理服务器，请检查代理端口与服务状态"),
-                _ => $"加载失败: {e.WebErrorStatus}"
+                _ => string.Format(App.GetString("FmtGoogleLoadFailed", "加载失败: {0}"), e.WebErrorStatus)
             };
             SetStatus($"⚠️ {errorText}", true);
         }
@@ -334,7 +334,7 @@ public partial class GoogleLoginWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"清除缓存失败: {ex.Message}", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, string.Format(App.GetString("FmtGoogleClearCacheFailed", "清除缓存失败: {0}"), ex.Message), App.GetString("MsgBoxTitle", "提示"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 

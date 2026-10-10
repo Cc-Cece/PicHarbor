@@ -334,7 +334,7 @@
 
                                 <!-- Hero Action Button (Idle) -->
                                 <controls:PclButton Content="{DynamicResource HeroStartBackup}"
-                                                    Subtitle="{Binding BackupVM.FullDestinationPreview, StringFormat='目标: {0}'}"
+                                                    Subtitle="{Binding BackupVM.DestinationSubtitle}"
                                                     Command="{Binding BackupVM.StartBackupCommand}"
                                                     ButtonType="Hero"
                                                     Height="56"
@@ -343,7 +343,7 @@
 
                                 <!-- Hero Action Button (Transferring -> Stop) -->
                                 <controls:PclButton Content="{DynamicResource HeroStopBackup}"
-                                                    Subtitle="{Binding BackupVM.SpeedText, StringFormat='正在传输 · {0}'}"
+                                                    Subtitle="{Binding BackupVM.TransferringSubtitle}"
                                                     Command="{Binding BackupVM.CancelBackupCommand}"
                                                     ButtonType="Hero"
                                                     Height="56"
@@ -377,7 +377,7 @@
 
                                 <!-- Hero Action Button (Idle) -->
                                 <controls:PclButton Content="{DynamicResource HeroStartBackup}"
-                                                    Subtitle="{Binding AndroidBackupVM.FullDestinationPreview, StringFormat='目标: {0}'}"
+                                                    Subtitle="{Binding AndroidBackupVM.DestinationSubtitle}"
                                                     Command="{Binding AndroidBackupVM.StartBackupCommand}"
                                                     ButtonType="Hero"
                                                     Height="56"
@@ -386,7 +386,7 @@
 
                                 <!-- Hero Action Button (Transferring -> Stop) -->
                                 <controls:PclButton Content="{DynamicResource HeroStopBackup}"
-                                                    Subtitle="{Binding AndroidBackupVM.SpeedText, StringFormat='正在传输 · {0}'}"
+                                                    Subtitle="{Binding AndroidBackupVM.TransferringSubtitle}"
                                                     Command="{Binding AndroidBackupVM.CancelBackupCommand}"
                                                     ButtonType="Hero"
                                                     Height="56"
@@ -463,8 +463,11 @@
                                     <!-- Card 1: 存储主盘与图库概览 (Common for both iPhone and Android) -->
                                     <controls:PclCard Title="{DynamicResource CardStorageOverview}" CanSwap="False">
                                         <StackPanel>
-                                            <TextBlock Text="{Binding DestinationPath, StringFormat='极简统一存储架构，随盘即插即用 · {0}'}"
-                                                       FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,12" />
+                                            <TextBlock FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,12">
+                                                <Run Text="{DynamicResource StoragePlugAndPlay}" />
+                                                <Run Text=" · " />
+                                                <Run Text="{Binding DestinationPath, Mode=OneWay}" />
+                                            </TextBlock>
 
                                             <!-- Three Metrics Pills -->
                                             <Grid Margin="0,0,0,10">
@@ -478,7 +481,11 @@
                                                 <Border Grid.Column="0" Background="#F8FAFC" CornerRadius="6" Padding="12,10" Margin="0,0,6,0" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
                                                     <StackPanel>
                                                         <TextBlock Text="{DynamicResource ArchivedMediaCount}" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" />
-                                                        <TextBlock Text="{Binding StatusVM.ItemCount, StringFormat='{}{0:N0} 张'}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" Margin="0,4,0,0" />
+                                                        <TextBlock FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" Margin="0,4,0,0">
+                                                            <Run Text="{Binding StatusVM.ItemCount, Mode=OneWay, StringFormat={}{0:N0}}" />
+                                                            <Run Text=" " />
+                                                            <Run Text="{DynamicResource UnitSheet}" />
+                                                        </TextBlock>
                                                     </StackPanel>
                                                 </Border>
 
@@ -1043,7 +1050,21 @@
                                         </Grid.RowDefinitions>
 
                                         <TextBlock Grid.Row="0" Text="{DynamicResource LabelAuthorizedAccount}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,25,0" />
-                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AccountEmail, TargetNullValue='未登录', FallbackValue='未登录'}" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Row="0" Grid.Column="1" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="{Binding AccountEmail}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding AccountEmail}" Value="{x:Null}">
+                                                            <Setter Property="Text" Value="{DynamicResource AccountNotSignedIn}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding AccountEmail}" Value="">
+                                                            <Setter Property="Text" Value="{DynamicResource AccountNotSignedIn}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                         <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal">
                                             <controls:PclButton Content="{DynamicResource BtnLoginSwitchAccount}" Command="{Binding LoginViaWebViewCommand}" Height="28" Margin="0,0,8,0" />
                                             <controls:PclButton Content="{DynamicResource BtnLogoutAccount}" Command="{Binding LogoutCommand}" Height="28" />
@@ -1198,7 +1219,7 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Text="{DynamicResource LabelAppleDevicesDir}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                            <TextBox Grid.Column="1" Text="{Binding CustomSyncFolder, UpdateSourceTrigger=PropertyChanged}" Height="28" verticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" />
+                                            <TextBox Grid.Column="1" Text="{Binding CustomSyncFolder, UpdateSourceTrigger=PropertyChanged}" Height="28" VerticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" />
                                             <controls:PclButton Grid.Column="2" Content="{DynamicResource BtnBrowseDir}" Command="{Binding BrowseSyncFolderCommand}" Height="28" Margin="8,0,0,0" />
                                             <controls:PclButton Grid.Column="3" Content="{DynamicResource BtnLaunchAppleDevices}" Command="{Binding OpenAppleDevicesCommand}" Height="28" Margin="8,0,0,0" />
                                         </Grid>
@@ -1708,7 +1729,11 @@
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Text="{DynamicResource SettingsConcurrentThreadsLabel}" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" Margin="0,0,25,0" />
                                                 <controls:PclSlider Grid.Column="1" Minimum="1" Maximum="6" Value="{Binding GooglePhotosThreads, Mode=TwoWay}" VerticalAlignment="Center" />
-                                                <TextBlock Grid.Column="2" Text="{Binding GooglePhotosThreads, StringFormat='{}{0} 线程'}" Foreground="{DynamicResource ColorBrushGray2}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="2" Foreground="{DynamicResource ColorBrushGray2}" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                    <Run Text="{Binding GooglePhotosThreads, Mode=OneWay}" />
+                                                    <Run Text=" " />
+                                                    <Run Text="{DynamicResource UnitThreads}" />
+                                                </TextBlock>
                                             </Grid>
 
                                             <!-- Timeout -->
@@ -1720,7 +1745,11 @@
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Text="{DynamicResource SettingsRequestTimeoutLabel}" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" Margin="0,0,25,0" />
                                                 <controls:PclSlider Grid.Column="1" Minimum="30" Maximum="120" Value="{Binding GooglePhotosTimeoutSeconds, Mode=TwoWay}" VerticalAlignment="Center" />
-                                                <TextBlock Grid.Column="2" Text="{Binding GooglePhotosTimeoutSeconds, StringFormat='{}{0} 秒'}" Foreground="{DynamicResource ColorBrushGray2}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="2" Foreground="{DynamicResource ColorBrushGray2}" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                    <Run Text="{Binding GooglePhotosTimeoutSeconds, Mode=OneWay}" />
+                                                    <Run Text=" " />
+                                                    <Run Text="{DynamicResource UnitSeconds}" />
+                                                </TextBlock>
                                             </Grid>
 
                                             <!-- Auto Retry -->
@@ -1732,7 +1761,11 @@
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Text="{DynamicResource SettingsAutoRetryLabel}" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" Margin="0,0,25,0" />
                                                 <controls:PclSlider Grid.Column="1" Minimum="1" Maximum="5" Value="{Binding GooglePhotosAutoRetryAttempts, Mode=TwoWay}" VerticalAlignment="Center" />
-                                                <TextBlock Grid.Column="2" Text="{Binding GooglePhotosAutoRetryAttempts, StringFormat='{}{0} 次'}" Foreground="{DynamicResource ColorBrushGray2}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="2" Foreground="{DynamicResource ColorBrushGray2}" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                    <Run Text="{Binding GooglePhotosAutoRetryAttempts, Mode=OneWay}" />
+                                                    <Run Text=" " />
+                                                    <Run Text="{DynamicResource UnitTimes}" />
+                                                </TextBlock>
                                             </Grid>
                                         </StackPanel>
                                     </controls:PclCard>
@@ -1748,7 +1781,11 @@
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Text="{DynamicResource SettingsDeviceTimeoutLabel}" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" Margin="0,0,25,0" />
                                                 <controls:PclSlider Grid.Column="1" Minimum="10" Maximum="120" Value="{Binding ReadTimeoutSeconds, Mode=TwoWay}" VerticalAlignment="Center" />
-                                                <TextBlock Grid.Column="2" Text="{Binding ReadTimeoutSeconds, StringFormat='{}{0} 秒'}" Foreground="{DynamicResource ColorBrushGray2}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="2" Foreground="{DynamicResource ColorBrushGray2}" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                    <Run Text="{Binding ReadTimeoutSeconds, Mode=OneWay}" />
+                                                    <Run Text=" " />
+                                                    <Run Text="{DynamicResource UnitSeconds}" />
+                                                </TextBlock>
                                             </Grid>
                                             <controls:PclCheckBox Content="{DynamicResource SettingsPreventSleepOption}" IsChecked="{Binding DisablePcSleepNotice, Mode=TwoWay}" />
                                         </StackPanel>
@@ -1831,7 +1868,7 @@
                                         </StackPanel>
 
                                         <!-- Summary & DataGrid Preview -->
-                                        <TextBlock Text="{Binding ReorgSummaryText, FallbackValue='点击“模拟预览”分析目录结构重排变动。'}"
+                                        <TextBlock Text="{Binding ReorgSummaryText}"
                                                    FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush2}" Margin="0,10,0,10" />
 
                                         <DataGrid ItemsSource="{Binding PreviewItems}"
@@ -1877,8 +1914,16 @@
                                                 <StackPanel>
                                                     <TextBlock Text="{DynamicResource SettingsDbMetricsComposition}" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" />
                                                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                                        <TextBlock Text="{Binding CoreFilesCount, StringFormat='核心: {0:N0} 项'}" FontSize="14" FontWeight="Bold" Foreground="#10B981" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                                        <TextBlock Text="{Binding HistoryRecordsCount, StringFormat='流水: {0:N0} 项'}" FontSize="14" FontWeight="Bold" Foreground="#EA580C" VerticalAlignment="Center" />
+                                                        <TextBlock FontSize="14" FontWeight="Bold" Foreground="#10B981" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                            <Run Text="{DynamicResource DbCoreLead}" />
+                                                            <Run Text="{Binding CoreFilesCount, Mode=OneWay, StringFormat={}{0:N0}}" />
+                                                            <Run Text="{DynamicResource DbCoreTail}" />
+                                                        </TextBlock>
+                                                        <TextBlock FontSize="14" FontWeight="Bold" Foreground="#EA580C" VerticalAlignment="Center">
+                                                            <Run Text="{DynamicResource DbAuditLead}" />
+                                                            <Run Text="{Binding HistoryRecordsCount, Mode=OneWay, StringFormat={}{0:N0}}" />
+                                                            <Run Text="{DynamicResource DbAuditTail}" />
+                                                        </TextBlock>
                                                     </StackPanel>
                                                 </StackPanel>
                                             </Border>
@@ -2021,8 +2066,21 @@
                     </Grid.RowDefinitions>
 
                     <Grid Grid.Row="0" Margin="0,0,0,8">
-                        <TextBlock Text="{Binding ActiveDetailModalTitle, FallbackValue='传输文件明细清单'}"
-                                   FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center" />
+                        <TextBlock FontSize="18" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="{Binding ActiveDetailModalTitle}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ActiveDetailModalTitle}" Value="{x:Null}">
+                                            <Setter Property="Text" Value="{DynamicResource DetailModalTitleFallback}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding ActiveDetailModalTitle}" Value="">
+                                            <Setter Property="Text" Value="{DynamicResource DetailModalTitleFallback}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                         <controls:PclIconButton Logo="{StaticResource PclIconClose}" IconTheme="Close" Command="{Binding CloseActiveDetailModalCommand}" HorizontalAlignment="Right" />
                     </Grid>
                     <Rectangle Grid.Row="1" Height="2" Fill="{DynamicResource ColorBrush2}" />

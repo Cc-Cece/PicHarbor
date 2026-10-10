@@ -31,6 +31,7 @@ public partial class BackupViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(TargetDriveSummary))]
     [NotifyPropertyChangedFor(nameof(TargetDriveFreeSpaceText))]
     [NotifyPropertyChangedFor(nameof(TargetDriveSubtext))]
+    [NotifyPropertyChangedFor(nameof(DestinationSubtitle))]
     private string destinationPath = MainViewModel.DefaultArchivePath;
 
     [ObservableProperty]
@@ -38,10 +39,17 @@ public partial class BackupViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FullDestinationPreview))]
+    [NotifyPropertyChangedFor(nameof(DestinationSubtitle))]
     private string deviceSubdir = "iPhone";
 
     public string FullDestinationPreview =>
         Path.Combine(DestinationPath, LibraryStorageService.SanitizeDeviceFolderName(DeviceSubdir));
+
+    public string DestinationSubtitle =>
+        string.Format(App.GetString("FmtTargetPath", "目标: {0}"), FullDestinationPreview);
+
+    public string TransferringSubtitle =>
+        string.Format(App.GetString("FmtTransferring", "正在传输 · {0}"), SpeedText);
 
     public string TargetDriveFreeSpaceText
     {
@@ -57,9 +65,9 @@ public partial class BackupViewModel : ObservableObject
                     double freeGb = Math.Round(d.AvailableFreeSpace / (1024.0 * 1024.0 * 1024.0), 1);
                     if (freeGb >= 1024)
                     {
-                        return $"{freeGb / 1024.0:F2} TB 可用";
+                        return string.Format(App.GetString("FmtDriveFreeTb", "{0:F2} TB 可用"), freeGb / 1024.0);
                     }
-                    return $"{freeGb:F1} GB 可用";
+                    return string.Format(App.GetString("FmtDriveFreeGb", "{0:F1} GB 可用"), freeGb);
                 }
             }
             catch { }
@@ -72,7 +80,9 @@ public partial class BackupViewModel : ObservableObject
         get
         {
             string? root = Path.GetPathRoot(DestinationPath);
-            return string.IsNullOrEmpty(root) ? DestinationPath : $"{root.TrimEnd('\\')} 盘可用空间 ({DestinationPath})";
+            return string.IsNullOrEmpty(root)
+                ? DestinationPath
+                : string.Format(App.GetString("FmtDriveSubtext", "{0} 盘可用空间 ({1})"), root.TrimEnd('\\'), DestinationPath);
         }
     }
 
@@ -88,7 +98,7 @@ public partial class BackupViewModel : ObservableObject
                 if (d.IsReady)
                 {
                     double freeGb = Math.Round(d.AvailableFreeSpace / (1024.0 * 1024.0 * 1024.0), 1);
-                    return $"{root.TrimEnd('\\')} ({DestinationPath}) - 可用: {freeGb} GB";
+                    return string.Format(App.GetString("FmtDriveSummary", "{0} ({1}) - 可用: {2:F1} GB"), root.TrimEnd('\\'), DestinationPath, freeGb);
                 }
             }
             catch { }
@@ -101,6 +111,22 @@ public partial class BackupViewModel : ObservableObject
         OnPropertyChanged(nameof(TargetDriveFreeSpaceText));
         OnPropertyChanged(nameof(TargetDriveSummary));
         OnPropertyChanged(nameof(TargetDriveSubtext));
+    }
+
+    public void OnLanguageChanged()
+    {
+        OnPropertyChanged(nameof(DestinationSubtitle));
+        OnPropertyChanged(nameof(TransferringSubtitle));
+        RefreshDriveSpace();
+        if (!IsTransferring && CopiedCount == 0 && SkippedCount == 0 && FailedCount == 0)
+        {
+            ProgressText = App.GetString("MsgReady", "准备就绪");
+        }
+
+        if (androidTestSticky.HasValue)
+        {
+            AndroidTestStatus = androidTestSticky.Current;
+        }
     }
 
     [RelayCommand]
@@ -148,6 +174,7 @@ public partial class BackupViewModel : ObservableObject
     private string currentFileName = "Ready";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TransferringSubtitle))]
     private string speedText = "0.0 MB/s";
 
     [ObservableProperty]
@@ -195,7 +222,7 @@ public partial class BackupViewModel : ObservableObject
     [RelayCommand]
     private void ShowCopiedDetails()
     {
-        DetailModalTitle = "📱 iPhone 备份 已传输 / 已复制文件明细 (Copied)";
+        DetailModalTitle = App.GetString("IPhoneDetailCopied", "📱 iPhone 备份 已传输 / 已复制文件明细 (Copied)");
         DetailItems = new ObservableCollection<TransferItemDetail>(copiedDetails);
         IsDetailModalOpen = true;
     }
@@ -203,7 +230,7 @@ public partial class BackupViewModel : ObservableObject
     [RelayCommand]
     private void ShowSkippedDetails()
     {
-        DetailModalTitle = "📱 iPhone 备份 已跳过文件明细 (Skipped - 已存在/已增量归档)";
+        DetailModalTitle = App.GetString("IPhoneDetailSkipped", "📱 iPhone 备份 已跳过文件明细 (Skipped - 已存在/已增量归档)");
         DetailItems = new ObservableCollection<TransferItemDetail>(skippedDetails);
         IsDetailModalOpen = true;
     }
@@ -211,7 +238,7 @@ public partial class BackupViewModel : ObservableObject
     [RelayCommand]
     private void ShowFailedDetails()
     {
-        DetailModalTitle = "⚠️ iPhone 备份 失败文件明细 (Failed)";
+        DetailModalTitle = App.GetString("IPhoneDetailFailed", "⚠️ iPhone 备份 失败文件明细 (Failed)");
         DetailItems = new ObservableCollection<TransferItemDetail>(failedDetails);
         IsDetailModalOpen = true;
     }
@@ -413,6 +440,7 @@ public partial class BackupViewModel : ObservableObject
 
     [ObservableProperty]
     private string androidTestStatus = "";
+    private readonly StickyText androidTestSticky = new();
 
     public ObservableCollection<string> OrganizeSchemes { get; } = new()
     {
@@ -483,7 +511,7 @@ public partial class BackupViewModel : ObservableObject
     {
         var dialog = new Microsoft.Win32.OpenFolderDialog
         {
-            Title = "选择 iPhone 备份目标保存目录",
+            Title = App.GetString("IPhoneBrowseTitle", "选择 iPhone 备份目标保存目录"),
             InitialDirectory = Directory.Exists(DestinationPath) ? DestinationPath : string.Empty
         };
 
@@ -524,7 +552,7 @@ public partial class BackupViewModel : ObservableObject
         FailedCount = 0;
         TransferredSizeText = "0 B / 0 B";
         EtaText = "--";
-        ProgressText = "正在初始化 iPhone 增量备份...";
+        ProgressText = App.GetString("IPhoneBackupInit", "正在初始化 iPhone 增量备份...");
 
         await Application.Current.Dispatcher.InvokeAsync(() =>
         {
@@ -825,7 +853,13 @@ public partial class BackupViewModel : ObservableObject
                 ? FormatTimeSpan(eta)
                 : (snapshot.ByteFraction >= 1.0 ? App.GetString("MsgBackupCompleted", "备份完成") : App.GetString("MsgCalculating", "计算中..."));
             int items = PlannedItemCount > 0 ? PlannedItemCount : snapshot.TotalFiles;
-            ProgressText = $"{snapshot.ByteFraction * 100:F1}% · {items:N0} 张（文件 {snapshot.ProcessedFiles:N0}/{snapshot.TotalFiles:N0}） - {FormatSpeed(snapshot.CurrentBytesPerSecond)}";
+            ProgressText = string.Format(
+                App.GetString("FmtBackupProgress", "{0:F1}% · {1:N0} 张（文件 {2:N0}/{3:N0}） - {4}"),
+                snapshot.ByteFraction * 100,
+                items,
+                snapshot.ProcessedFiles,
+                snapshot.TotalFiles,
+                FormatSpeed(snapshot.CurrentBytesPerSecond));
 
             SpeedBytesPerSecond = snapshot.CurrentBytesPerSecond;
             double mbps = snapshot.CurrentBytesPerSecond / 1024d / 1024d;
@@ -851,18 +885,7 @@ public partial class BackupViewModel : ObservableObject
 
     private static string FormatSpeed(double bytesPerSecond) => $"{FormatBytes((long)bytesPerSecond)}/s";
 
-    private static string FormatTimeSpan(TimeSpan span)
-    {
-        if (span.TotalHours >= 1)
-        {
-            return $"{(int)span.TotalHours}小时{span.Minutes:D2}分{span.Seconds:D2}秒";
-        }
-        if (span.TotalMinutes >= 1)
-        {
-            return $"{span.Minutes:D2}分{span.Seconds:D2}秒";
-        }
-        return $"{span.Seconds}秒";
-    }
+    private static string FormatTimeSpan(TimeSpan span) => UiText.Duration(span);
 
     private void AddLog(string message)
     {
@@ -879,7 +902,7 @@ public partial class BackupViewModel : ObservableObject
     [RelayCommand]
     private async Task TestAndroidConnectionAsync()
     {
-        AndroidTestStatus = "正在测试 FTP 连接...";
+        AndroidTestStatus = androidTestSticky.Set("AndroidTestRunning", "正在测试 FTP 连接...");
         try
         {
             await Task.Run(async () =>
@@ -892,14 +915,14 @@ public partial class BackupViewModel : ObservableObject
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     AndroidDeviceId = verifiedId;
-                    AndroidTestStatus = $"连接成功！设备 ID: {verifiedId}";
+                    AndroidTestStatus = androidTestSticky.Set("FmtAndroidTestOk", "连接成功！设备 ID: {0}", verifiedId);
                     SaveAndroidConfig();
                 });
             }).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            AndroidTestStatus = $"连接失败: {ex.Message}";
+            AndroidTestStatus = androidTestSticky.Set("FmtAndroidTestFail", "连接失败: {0}", ex.Message);
         }
     }
 
@@ -962,7 +985,7 @@ public partial class BackupViewModel : ObservableObject
         if (missing.Count > 0)
         {
             MessageBox.Show(
-                $"有 {missing.Count} 个选中的文件在磁盘上不存在:\n{string.Join(Environment.NewLine, missing.Take(3))}{(missing.Count > 3 ? "\n..." : "")}",
+                UiText.MissingFiles(missing.Count, missing),
                 App.GetString("MsgFileNotFound", "文件不存在"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 

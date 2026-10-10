@@ -43,6 +43,8 @@ public partial class SettingsViewModel : ObservableObject
         "flat (单一目录)"
     };
 
+    private bool suppressSchemeSave;
+
     [ObservableProperty]
     private string selectedScheme = "month (YYYY-MM)";
 
@@ -118,9 +120,15 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool isCloudAdvancedExpanded = false;
 
-    public string BackupAdvancedButtonText => IsBackupAdvancedExpanded ? "▲ 收起高级设置" : "▼ 展开高级设置";
-    public string GalleryAdvancedButtonText => IsGalleryAdvancedExpanded ? "▲ 收起高级设置" : "▼ 展开高级设置";
-    public string CloudAdvancedButtonText => IsCloudAdvancedExpanded ? "▲ 收起高级设置" : "▼ 展开高级设置";
+    public string BackupAdvancedButtonText => IsBackupAdvancedExpanded
+        ? App.GetString("BtnCollapseAdvanced", "▲ 收起高级设置")
+        : App.GetString("BtnExpandAdvanced", "▼ 展开高级设置");
+    public string GalleryAdvancedButtonText => IsGalleryAdvancedExpanded
+        ? App.GetString("BtnCollapseAdvanced", "▲ 收起高级设置")
+        : App.GetString("BtnExpandAdvanced", "▼ 展开高级设置");
+    public string CloudAdvancedButtonText => IsCloudAdvancedExpanded
+        ? App.GetString("BtnCollapseAdvanced", "▲ 收起高级设置")
+        : App.GetString("BtnExpandAdvanced", "▼ 展开高级设置");
 
     partial void OnIsBackupAdvancedExpandedChanged(bool value) => OnPropertyChanged(nameof(BackupAdvancedButtonText));
     partial void OnIsGalleryAdvancedExpandedChanged(bool value) => OnPropertyChanged(nameof(GalleryAdvancedButtonText));
@@ -140,8 +148,8 @@ public partial class SettingsViewModel : ObservableObject
     {
         var dlg = new Microsoft.Win32.OpenFileDialog
         {
-            Filter = "Python 解释器 (python.exe)|python.exe|可执行文件 (*.exe)|*.exe|所有文件 (*.*)|*.*",
-            Title = "选择 Python 可执行文件路径"
+            Filter = App.GetString("PythonBrowseFilter", "Python 解释器 (python.exe)|python.exe|可执行文件 (*.exe)|*.exe|所有文件 (*.*)|*.*"),
+            Title = App.GetString("PythonBrowseTitle", "选择 Python 可执行文件路径")
         };
         if (dlg.ShowDialog() == true)
         {
@@ -221,23 +229,23 @@ public partial class SettingsViewModel : ObservableObject
     {
         if (!CodecProbeCompleted)
         {
-            CodecStatusText = "正在检测 HEIF / HEVC 扩展…";
+            CodecStatusText = App.GetString("CodecChecking", "正在检测 HEIF / HEVC 扩展…");
         }
         else if (HeifInstalled && HevcInstalled)
         {
-            CodecStatusText = "HEIF 与 HEVC 扩展都已安装。若缩略图仍是占位图，请重启本软件。";
+            CodecStatusText = App.GetString("CodecReadyRestart", "HEIF 与 HEVC 扩展都已安装。若缩略图仍是占位图，请重启本软件。");
         }
         else if (!HeifInstalled && !HevcInstalled)
         {
-            CodecStatusText = "尚未检测到 HEIF 图像扩展和 HEVC 视频扩展。";
+            CodecStatusText = App.GetString("CodecMissingBoth", "尚未检测到 HEIF 图像扩展和 HEVC 视频扩展。");
         }
         else if (!HeifInstalled)
         {
-            CodecStatusText = "尚未检测到 HEIF 图像扩展。";
+            CodecStatusText = App.GetString("CodecMissingHeif", "尚未检测到 HEIF 图像扩展。");
         }
         else
         {
-            CodecStatusText = "尚未检测到 HEVC 视频扩展。";
+            CodecStatusText = App.GetString("CodecMissingHevc", "尚未检测到 HEVC 视频扩展。");
         }
 
         OnPropertyChanged(nameof(CodecReady));
@@ -322,7 +330,7 @@ public partial class SettingsViewModel : ObservableObject
         copyNoticeCts?.Cancel();
         copyNoticeCts = new CancellationTokenSource();
         CancellationToken token = copyNoticeCts.Token;
-        CopyFeedbackText = "已复制";
+        CopyFeedbackText = App.GetString("CopyFeedbackCopied", "已复制");
         try
         {
             await Task.Delay(2000, token);
@@ -392,7 +400,7 @@ public partial class SettingsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            SyncStatusMessage = $"无法打开文件夹: {ex.Message}";
+            SyncStatusMessage = syncStatus.Set("FmtOpenFolderFailed", "无法打开文件夹: {0}", ex.Message);
         }
     }
 
@@ -429,7 +437,7 @@ public partial class SettingsViewModel : ObservableObject
             SelectedGooglePhotosQualityIndex = 0;
         }
         GooglePhotosSkipExistingFilenames = config.GooglePhotosSkipExistingFilenames;
-        ProxyStatusText = !string.IsNullOrWhiteSpace(GooglePhotosProxy) ? $"{GooglePhotosProxy} (已配置)" : "直连 (未配置代理)";
+        RefreshIdleProxyText();
     }
 
     public void SaveConfig()
@@ -470,7 +478,146 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     partial void OnGroupMediaByDeviceChanged(bool value) => SaveConfig();
-    partial void OnSelectedSchemeChanged(string value) => SaveConfig();
+    partial void OnSelectedSchemeChanged(string value)
+    {
+        if (!suppressSchemeSave)
+        {
+            SaveConfig();
+        }
+    }
+
+    public void OnLanguageChanged()
+    {
+        RefreshSchemeLabels();
+        RefreshQualityLabels();
+        NotifyCodecStatus();
+        RefreshIdleProxyText();
+        OnPropertyChanged(nameof(BackupAdvancedButtonText));
+        OnPropertyChanged(nameof(GalleryAdvancedButtonText));
+        OnPropertyChanged(nameof(CloudAdvancedButtonText));
+        RefreshRetentionLabels();
+        ApplyDbMetricText();
+        if (!string.IsNullOrEmpty(CopyFeedbackText))
+        {
+            CopyFeedbackText = App.GetString("CopyFeedbackCopied", "已复制");
+        }
+
+        if (syncStatus.HasValue)
+        {
+            SyncStatusMessage = syncStatus.Current;
+        }
+
+        if (syncDetail.HasValue)
+        {
+            SyncProgressDetailText = syncDetail.Current;
+        }
+
+        if (syncUpdated.HasValue)
+        {
+            SyncUpdatedText = syncUpdated.Current;
+        }
+
+        if (pruneStatus.HasValue)
+        {
+            PruneStatusMessage = pruneStatus.Current;
+        }
+
+        if (repairStatus.HasValue)
+        {
+            RepairStatusMessage = repairStatus.Current;
+        }
+
+        if (repairDetail.HasValue)
+        {
+            RepairProgressDetailText = repairDetail.Current;
+        }
+    }
+
+    private void RefreshRetentionLabels()
+    {
+        int index = SelectedRetentionIndex;
+        UiLists.Replace(
+            RetentionPolicies,
+            App.GetString("RetentionKeepAll", "永久保留所有历史（默认）"),
+            App.GetString("RetentionPrune180Days", "清理 180 天前的冗余历史记录"),
+            App.GetString("RetentionPrune90Days", "清理 90 天前的冗余历史记录"),
+            App.GetString("RetentionPrune30Days", "清理 30 天前的冗余历史记录"),
+            App.GetString("RetentionPruneAll", "清理所有历史备份流水记录"));
+        if (index >= 0 && index < RetentionPolicies.Count && SelectedRetentionIndex != index)
+        {
+            SelectedRetentionIndex = index;
+        }
+    }
+
+    private void ApplyDbMetricText()
+    {
+        DbMetricsSummaryText = dbMetricKind switch
+        {
+            "invalid" => App.GetString("DbMetricsInvalid", "归档目录无效或未就绪"),
+            "failed" => string.Format(App.GetString("FmtDbMetricsFail", "读取数据库指标失败: {0}"), dbMetricError),
+            "ready" => string.Format(
+                App.GetString("FmtDbMetrics", "数据库实体: {0} (WAL: {1})  |  核心媒体索引: {2:N0} 条  |  历史追溯流水: {3:N0} 条"),
+                DbSizeText,
+                DbWalSizeText,
+                CoreFilesCount,
+                HistoryRecordsCount),
+            _ => App.GetString("DbMetricsSummaryInitial", "点击刷新查看数据库体积与记录统计")
+        };
+    }
+
+    private void RefreshQualityLabels()
+    {
+        int index = SelectedGooglePhotosQualityIndex is >= 0 and <= 2 ? SelectedGooglePhotosQualityIndex : 0;
+        UiLists.Replace(
+            GooglePhotosQualityOptions,
+            App.GetString("QualityOriginalUnlimited", "原画质不计配额（推荐）"),
+            App.GetString("QualityOriginalWithQuota", "原画质（占用空间）"),
+            App.GetString("QualityStorageSaver", "压缩画质"));
+        SelectedGooglePhotosQualityIndex = index;
+    }
+
+    private void RefreshSchemeLabels()
+    {
+        string token = SchemeToken(SelectedScheme);
+        string[] labels =
+        [
+            "month (YYYY-MM)",
+            "year (YYYY)",
+            "day (YYYY-MM-DD)",
+            "flat (" + App.GetString("SchemeFlatFolder", "单一目录") + ")"
+        ];
+        suppressSchemeSave = true;
+        UiLists.Replace(OrganizeSchemes, labels);
+        string match = labels.FirstOrDefault(label => SchemeToken(label) == token) ?? labels[0];
+        if (!string.Equals(SelectedScheme, match, StringComparison.Ordinal))
+        {
+            SelectedScheme = match;
+        }
+
+        suppressSchemeSave = false;
+    }
+
+    private static string SchemeToken(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "month";
+        if (value.StartsWith("year-month", StringComparison.OrdinalIgnoreCase)) return "year-month";
+        if (value.StartsWith("year", StringComparison.OrdinalIgnoreCase)) return "year";
+        if (value.StartsWith("day", StringComparison.OrdinalIgnoreCase)) return "day";
+        if (value.StartsWith("flat", StringComparison.OrdinalIgnoreCase)) return "flat";
+        return "month";
+    }
+
+    private void RefreshIdleProxyText()
+    {
+        if (IsTestingProxy)
+        {
+            return;
+        }
+
+        ProxyStatusText = !string.IsNullOrWhiteSpace(GooglePhotosProxy)
+            ? $"{GooglePhotosProxy} {App.GetString("ProxyConfiguredSuffix", "(已配置)")}"
+            : App.GetString("ProxyDirect", "直连 (未配置代理)");
+    }
     partial void OnSyncExifToLastWriteTimeChanged(bool value) => SaveConfig();
     partial void OnSyncExifToCreationTimeChanged(bool value) => SaveConfig();
     partial void OnReadTimeoutSecondsChanged(int value) => SaveConfig();
@@ -491,7 +638,7 @@ public partial class SettingsViewModel : ObservableObject
         if (IsTestingProxy) return;
         IsTestingProxy = true;
         ProxyStatusColor = "#3B82F6";
-        ProxyStatusText = "⏳ 正在检测网络通道...";
+        ProxyStatusText = App.GetString("ProxyTesting", "⏳ 正在检测网络通道...");
 
         try
         {
@@ -517,18 +664,18 @@ public partial class SettingsViewModel : ObservableObject
             if (response.IsSuccessStatusCode)
             {
                 ProxyStatusColor = "#10B981";
-                ProxyStatusText = $"✅ 代理通道畅通 (延迟 {sw.ElapsedMilliseconds} ms)";
+                ProxyStatusText = string.Format(App.GetString("FmtProxyOk", "✅ 代理通道畅通 (延迟 {0} ms)"), sw.ElapsedMilliseconds);
             }
             else
             {
                 ProxyStatusColor = "#EF4444";
-                ProxyStatusText = $"⚠️ 响应状态: {(int)response.StatusCode}";
+                ProxyStatusText = string.Format(App.GetString("FmtProxyHttpStatus", "⚠️ 响应状态: {0}"), (int)response.StatusCode);
             }
         }
         catch (Exception ex)
         {
             ProxyStatusColor = "#EF4444";
-            ProxyStatusText = $"❌ 连接失败: {ex.Message}";
+            ProxyStatusText = string.Format(App.GetString("FmtConnFailed", "❌ 连接失败: {0}"), ex.Message);
         }
         finally
         {
@@ -541,7 +688,7 @@ public partial class SettingsViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
         {
-            SyncStatusMessage = App.GetString("MsgDirNotExist", "归档目录不存在，请先选择有效的备份目标路径。");
+            SyncStatusMessage = syncStatus.Set("MsgDirNotExist", "归档目录不存在，请先选择有效的备份目标路径。");
             ShowProgress = false;
             return;
         }
@@ -549,7 +696,7 @@ public partial class SettingsViewModel : ObservableObject
         string dbPath = TransferJournal.ResolveDatabasePath(ArchivePath);
         if (!File.Exists(LongPath.ToExtended(dbPath)))
         {
-            SyncStatusMessage = App.GetString("MsgDbNotFound", "未在归档目录中找到 picharbor.db 数据库，请先执行备份。");
+            SyncStatusMessage = syncStatus.Set("MsgDbNotFound", "未在归档目录中找到 picharbor.db 数据库，请先执行备份。");
             ShowProgress = false;
             return;
         }
@@ -561,8 +708,9 @@ public partial class SettingsViewModel : ObservableObject
         SyncUpdatedCount = 0;
         SyncProgressPercentage = 0;
         SyncProgressOverlayText = "0.0% (0/0)";
-        SyncProgressDetailText = App.GetString("MsgReadingDb", "正在读取归档数据库...");
-        SyncUpdatedText = string.Format(App.GetString("MsgUpdatedCount", "已成功更新: {0} 项"), 0);
+        SyncProgressDetailText = syncDetail.Set("MsgReadingDb", "正在读取归档数据库...");
+        SyncUpdatedText = syncUpdated.Set("MsgUpdatedCount", "已成功更新: {0} 项", 0);
+        syncStatus.Clear();
         SyncStatusMessage = "";
 
         try
@@ -578,15 +726,15 @@ public partial class SettingsViewModel : ObservableObject
                     double pct = (double)p.Processed / p.Total * 100.0;
                     SyncProgressPercentage = pct;
                     SyncProgressOverlayText = $"{pct:F1}% ({p.Processed:N0}/{p.Total:N0})";
-                    SyncProgressDetailText = string.Format(App.GetString("MsgCompletedProgress", "已完成: {0} / {1} 文件"), p.Processed.ToString("N0"), p.Total.ToString("N0"));
-                    SyncUpdatedText = string.Format(App.GetString("MsgUpdatedCount", "已成功更新: {0} 项"), p.Updated.ToString("N0"));
+                    SyncProgressDetailText = syncDetail.Set("MsgCompletedProgress", "已完成: {0} / {1} 文件", p.Processed.ToString("N0"), p.Total.ToString("N0"));
+                    SyncUpdatedText = syncUpdated.Set("MsgUpdatedCount", "已成功更新: {0} 项", p.Updated.ToString("N0"));
                 }
                 else
                 {
                     SyncProgressPercentage = 0;
                     SyncProgressOverlayText = "0.0% (0/0)";
-                    SyncProgressDetailText = App.GetString("MsgNoFilesToSync", "归档清单中未找到可同步的文件");
-                    SyncUpdatedText = string.Format(App.GetString("MsgUpdatedCount", "已成功更新: {0} 项"), 0);
+                    SyncProgressDetailText = syncDetail.Set("MsgNoFilesToSync", "归档清单中未找到可同步的文件");
+                    SyncUpdatedText = syncUpdated.Set("MsgUpdatedCount", "已成功更新: {0} 项", 0);
                 }
             });
 
@@ -595,11 +743,11 @@ public partial class SettingsViewModel : ObservableObject
                 syncCreationTime: SyncExifToCreationTime,
                 progress: progress);
 
-            SyncStatusMessage = string.Format(App.GetString("MsgSyncSuccess", "✅ 同步完成！共检索 {0} 个归档文件，成功将 {1} 个文件的 EXIF 时间同步到 Windows 系统时间。"), SyncProcessedCount.ToString("N0"), updated.ToString("N0"));
+            SyncStatusMessage = syncStatus.Set("MsgSyncSuccess", "✅ 同步完成！共检索 {0} 个归档文件，成功将 {1} 个文件的 EXIF 时间同步到 Windows 系统时间。", SyncProcessedCount.ToString("N0"), updated.ToString("N0"));
         }
         catch (Exception ex)
         {
-            SyncStatusMessage = string.Format(App.GetString("MsgSyncError", "❌ 同步失败: {0}"), ex.Message);
+            SyncStatusMessage = syncStatus.Set("MsgSyncError", "❌ 同步失败: {0}", ex.Message);
         }
         finally
         {
@@ -628,6 +776,14 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private string dbMetricsSummaryText = "点击刷新查看数据库体积与记录统计";
+    private readonly StickyText syncStatus = new();
+    private readonly StickyText syncDetail = new();
+    private readonly StickyText syncUpdated = new();
+    private readonly StickyText pruneStatus = new();
+    private readonly StickyText repairStatus = new();
+    private readonly StickyText repairDetail = new();
+    private string dbMetricKind = "initial";
+    private string dbMetricError = "";
 
     public ObservableCollection<string> RetentionPolicies { get; } = new()
     {
@@ -671,7 +827,8 @@ public partial class SettingsViewModel : ObservableObject
         if (IsRefreshingDbMetrics) return;
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
         {
-            DbMetricsSummaryText = "归档目录无效或未就绪";
+            dbMetricKind = "invalid";
+            ApplyDbMetricText();
             return;
         }
 
@@ -690,7 +847,9 @@ public partial class SettingsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            DbMetricsSummaryText = $"读取数据库指标失败: {ex.Message}";
+            dbMetricKind = "failed";
+            dbMetricError = ex.Message;
+            ApplyDbMetricText();
         }
         finally
         {
@@ -705,7 +864,8 @@ public partial class SettingsViewModel : ObservableObject
         CoreFilesCount = metrics.CoreFilesCount;
         HistoryRecordsCount = metrics.HistoryRecordsCount;
         BackupSessionsCount = metrics.BackupSessionsCount;
-        DbMetricsSummaryText = $"数据库实体: {DbSizeText} (WAL: {DbWalSizeText})  |  核心媒体索引: {CoreFilesCount:N0} 条  |  历史追溯流水: {HistoryRecordsCount:N0} 条";
+        dbMetricKind = "ready";
+        ApplyDbMetricText();
     }
 
     [RelayCommand]
@@ -713,18 +873,18 @@ public partial class SettingsViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
         {
-            PruneStatusMessage = "未指定有效的归档目录。";
+            PruneStatusMessage = pruneStatus.Set("PruneNoArchive", "未指定有效的归档目录。");
             return;
         }
 
         if (SelectedRetentionIndex == 0)
         {
-            PruneStatusMessage = "当前策略为【永久保留所有历史】，无需清理。若需清理请在下拉框选择保留期限。";
+            PruneStatusMessage = pruneStatus.Set("PruneKeepAll", "当前策略为【永久保留所有历史】，无需清理。若需清理请在下拉框选择保留期限。");
             return;
         }
 
         IsPruning = true;
-        PruneStatusMessage = "正在清理过期冗余审计数据并压缩数据库碎片...";
+        PruneStatusMessage = pruneStatus.Set("PruneRunning", "正在清理过期冗余审计数据并压缩数据库碎片...");
 
         try
         {
@@ -740,11 +900,11 @@ public partial class SettingsViewModel : ObservableObject
 
             var (prunedSessions, prunedRecords) = await ArchiveRepository.PruneRedundantHistoryAsync(ArchivePath, cutoff);
             await RefreshDbMetricsAsync();
-            PruneStatusMessage = $"✅ 清理完成！已安全清理 {prunedSessions} 个过期批次共 {prunedRecords:N0} 条历史流水记录，物理空间已整理并回收。";
+            PruneStatusMessage = pruneStatus.Set("FmtPruneDone", "✅ 清理完成！已安全清理 {0} 个过期批次共 {1:N0} 条历史流水记录，物理空间已整理并回收。", prunedSessions, prunedRecords);
         }
         catch (Exception ex)
         {
-            PruneStatusMessage = $"❌ 清理失败: {ex.Message}";
+            PruneStatusMessage = pruneStatus.Set("FmtPruneFail", "❌ 清理失败: {0}", ex.Message);
         }
         finally
         {
@@ -757,21 +917,22 @@ public partial class SettingsViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
         {
-            RepairStatusMessage = "未指定有效的归档目录。";
+            RepairStatusMessage = repairStatus.Set("PruneNoArchive", "未指定有效的归档目录。");
             return;
         }
 
         IsRepairing = true;
         RepairProgressPercentage = 0;
         RepairProgressOverlayText = "0.0%";
-        RepairProgressDetailText = "正在扫描归档索引与磁盘文件真实性...";
+        RepairProgressDetailText = repairDetail.Set("RepairScanning", "正在扫描归档索引与磁盘文件真实性...");
+        repairStatus.Clear();
         RepairStatusMessage = "";
 
         try
         {
             var progress = new Progress<(int Scanned, int Removed)>(p =>
             {
-                RepairProgressDetailText = $"已比对: {p.Scanned:N0} 项，发现并标记幽灵文件: {p.Removed:N0} 项";
+                RepairProgressDetailText = repairDetail.Set("FmtRepairProgress", "已比对: {0:N0} 项，发现并标记幽灵文件: {1:N0} 项", p.Scanned, p.Removed);
             });
 
             var (scanned, removed) = await ArchiveRepository.RepairDatabaseConsistencyAsync(ArchivePath, progress);
@@ -779,11 +940,11 @@ public partial class SettingsViewModel : ObservableObject
 
             RepairProgressPercentage = 100;
             RepairProgressOverlayText = "100.0%";
-            RepairStatusMessage = $"✅ 自愈扫描修复完成！共深度比对 {scanned:N0} 个归档文件索引，安全剔除 {removed:N0} 个磁盘已被手动删除的失效幽灵记录。数据库已恢复真实一致，物理碎片已收敛。";
+            RepairStatusMessage = repairStatus.Set("FmtRepairDone", "✅ 自愈扫描修复完成！共深度比对 {0:N0} 个归档文件索引，安全剔除 {1:N0} 个磁盘已被手动删除的失效幽灵记录。数据库已恢复真实一致，物理碎片已收敛。", scanned, removed);
         }
         catch (Exception ex)
         {
-            RepairStatusMessage = $"❌ 修复失败: {ex.Message}";
+            RepairStatusMessage = repairStatus.Set("FmtRepairFail", "❌ 修复失败: {0}", ex.Message);
         }
         finally
         {

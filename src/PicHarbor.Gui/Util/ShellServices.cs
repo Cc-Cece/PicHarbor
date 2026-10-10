@@ -142,7 +142,11 @@ public static class ShellServices
                     Debug.WriteLine($"Failed to open {path}: {ex.Message}");
                     try
                     {
-                        MessageBox.Show($"无法打开文件 \"{Path.GetFileName(path)}\"：\n{ex.Message}", "打开文件失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        MessageBox.Show(
+                            string.Format(App.GetString("FmtOpenFileFailed", "无法打开文件 \"{0}\"：\n{1}"), Path.GetFileName(path), ex.Message),
+                            App.GetString("OpenFileFailedTitle", "打开文件失败"),
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning);
                     }
                     catch { }
                 }

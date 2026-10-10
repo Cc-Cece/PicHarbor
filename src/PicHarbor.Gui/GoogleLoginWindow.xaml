@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         xmlns:controls="clr-namespace:PicHarbor.Gui.Controls"
-        Title="Google 账号授权与登录"
+        Title="{DynamicResource GoogleLoginHeading}"
         Width="680" Height="800"
         MinWidth="540" MinHeight="640"
         WindowStartupLocation="CenterOwner"
@@ -46,21 +46,21 @@
                 <!-- Icon and Title -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                     <Path Data="{StaticResource PclIconCloud}" Fill="White" Width="18" Height="18" Stretch="Uniform" Margin="0,0,10,0" />
-                    <TextBlock Text="Google 账号授权登录" FontSize="15" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
+                    <TextBlock Text="{DynamicResource GoogleLoginHeading}" FontSize="15" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
                 </StackPanel>
 
                 <!-- Actions: Refresh & Clear Cookies -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,16,0"
                             WindowChrome.IsHitTestVisibleInChrome="True">
-                    <controls:PclButton x:Name="RefreshBtn" Content="🔄 刷新页面" Click="RefreshBtn_Click" Height="28" Padding="10,0" Margin="0,0,8,0" />
-                    <controls:PclButton x:Name="ClearCookiesBtn" Content="🧹 清理 Cookie" Click="ClearCookiesBtn_Click" Height="28" Padding="10,0" />
+                    <controls:PclButton x:Name="RefreshBtn" Content="{DynamicResource GoogleLoginRefreshPage}" Click="RefreshBtn_Click" Height="28" Padding="10,0" Margin="0,0,8,0" />
+                    <controls:PclButton x:Name="ClearCookiesBtn" Content="{DynamicResource GoogleLoginClearCookie}" Click="ClearCookiesBtn_Click" Height="28" Padding="10,0" />
                 </StackPanel>
 
                 <!-- Window Minimize and Close -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
                             WindowChrome.IsHitTestVisibleInChrome="True">
-                    <controls:PclIconButton Logo="{StaticResource PclIconMinimize}" IconTheme="White" Click="MinimizeBtn_Click" ToolTip="最小化" Margin="0,0,4,0" />
-                    <controls:PclIconButton Logo="{StaticResource PclIconClose}" IconTheme="Close" Click="CloseBtn_Click" ToolTip="关闭" />
+                    <controls:PclIconButton Logo="{StaticResource PclIconMinimize}" IconTheme="White" Click="MinimizeBtn_Click" ToolTip="{DynamicResource GoogleLoginMinimize}" Margin="0,0,4,0" />
+                    <controls:PclIconButton Logo="{StaticResource PclIconClose}" IconTheme="Close" Click="CloseBtn_Click" ToolTip="{DynamicResource CloseBtn}" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -69,7 +69,7 @@
         <Border Grid.Row="1" Background="#F1F5F9" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="0,0,0,1" Padding="16,10">
             <DockPanel LastChildFill="True">
                 <controls:PclHint HintType="Info">
-                    <TextBlock Text="请在下方官方页面登录。PicHarbor 仅在本地获取授权 Token，绝不上传您的密码与个人凭证。" FontSize="11.5" Foreground="#1E40AF" />
+                    <TextBlock Text="{DynamicResource GoogleLoginPrivacy}" FontSize="11.5" Foreground="#1E40AF" TextWrapping="Wrap" />
                 </controls:PclHint>
             </DockPanel>
         </Border>
@@ -84,7 +84,7 @@
                     <Border x:Name="LoadingOverlay" Background="#FAFCFF" Visibility="Visible">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                             <ProgressBar IsIndeterminate="True" Width="200" Height="4" Margin="0,0,0,14" Foreground="{DynamicResource ColorBrush3}" Background="#E2E8F0" BorderThickness="0" />
-                            <TextBlock x:Name="LoadingText" Text="正在载入 Google 登录界面..." Foreground="{DynamicResource ColorBrushGray2}" HorizontalAlignment="Center" FontSize="12.5" />
+                            <TextBlock x:Name="LoadingText" Text="{DynamicResource GoogleLoginOverlay}" Foreground="{DynamicResource ColorBrushGray2}" HorizontalAlignment="Center" FontSize="12.5" />
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -96,10 +96,10 @@
             <Grid VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <Ellipse Width="7" Height="7" Fill="#10B981" VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <TextBlock x:Name="StatusTextBlock" Text="等待用户登录完成..." Foreground="{DynamicResource ColorBrushGray2}" FontSize="12" VerticalAlignment="Center" />
+                    <TextBlock x:Name="StatusTextBlock" Text="{DynamicResource GoogleLoginAwaitUser}" Foreground="{DynamicResource ColorBrushGray2}" FontSize="12" VerticalAlignment="Center" />
                 </StackPanel>
 
-                <controls:PclButton Content="取消并返回" Width="100" Height="30" Click="CancelBtn_Click" HorizontalAlignment="Right" />
+                <controls:PclButton Content="{DynamicResource GoogleLoginCancelBack}" Width="100" Height="30" Click="CancelBtn_Click" HorizontalAlignment="Right" />
             </Grid>
         </Border>
     </Grid>

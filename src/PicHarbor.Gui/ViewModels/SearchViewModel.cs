@@ -118,8 +118,63 @@ public partial class SearchViewModel : ObservableObject
     public void OnLanguageChanged()
     {
         RefreshSortLabels();
+        RefreshFilterLabels();
         RefreshCameraModelItems(knownCameraModels);
         RefreshPlaybackLabel();
+        OnPropertyChanged(nameof(ApplyFilterButtonText));
+        OnPropertyChanged(nameof(CategoryPendingTransferLabel));
+        RefreshSearchSummary();
+    }
+
+    private string searchSummaryKey = "";
+    private object[] searchSummaryArgs = Array.Empty<object>();
+
+    private void SetSearchSummary(string key, string fallback, params object[] args)
+    {
+        searchSummaryKey = key;
+        searchSummaryArgs = args;
+        SearchSummaryText = FormatSearchSummary(key, fallback, args);
+    }
+
+    private void RefreshSearchSummary()
+    {
+        if (string.IsNullOrEmpty(searchSummaryKey))
+        {
+            return;
+        }
+
+        SearchSummaryText = FormatSearchSummary(searchSummaryKey, SearchSummaryText, searchSummaryArgs);
+    }
+
+    private static string FormatSearchSummary(string key, string fallback, object[] args)
+    {
+        string template = App.GetString(key, fallback);
+        return args.Length == 0 ? template : string.Format(CultureInfo.CurrentCulture, template, args);
+    }
+
+    private void RefreshFilterLabels()
+    {
+        int typeIndex = SelectedTypeIndex is >= 0 and <= 4 ? SelectedTypeIndex : 0;
+        int dateIndex = SelectedDatePresetIndex is >= 0 and <= 5 ? SelectedDatePresetIndex : 0;
+        suppressFilterSearch = true;
+        UiLists.Replace(
+            FilterTypeLabels,
+            App.GetString("FilterAllTypes", "全部类型"),
+            App.GetString("FilterPhotos", "照片"),
+            App.GetString("FilterVideos", "视频"),
+            App.GetString("FilterLivePhotos", "实况照片"),
+            App.GetString("FilterScreenshots", "截屏"));
+        UiLists.Replace(
+            DatePresetLabels,
+            App.GetString("DatePresetAll", "全部时间"),
+            App.GetString("DatePresetThisYear", "本年"),
+            App.GetString("DatePresetLastYear", "去年"),
+            App.GetString("DatePreset90", "近90天"),
+            App.GetString("DatePreset30", "近30天"),
+            App.GetString("DatePresetCustom", "自定义..."));
+        SelectedTypeIndex = typeIndex;
+        SelectedDatePresetIndex = dateIndex;
+        suppressFilterSearch = false;
     }
 
     [ObservableProperty]
@@ -350,7 +405,9 @@ public partial class SearchViewModel : ObservableObject
         get
         {
             int count = IPhoneSyncVM?.ManualSelectedItems?.Count ?? 0;
-            return count > 0 ? $"待传列表 ({count})" : "待传列表";
+            return count > 0
+                ? string.Format(App.GetString("FmtPendingList", "待传列表 ({0})"), count)
+                : App.GetString("PendingList", "待传列表");
         }
     }
 
@@ -561,7 +618,9 @@ public partial class SearchViewModel : ObservableObject
         OnPropertyChanged(nameof(ApplyFilterButtonText));
     }
 
-    public string ApplyFilterButtonText => IsSearching ? "正在筛选..." : "应用筛选";
+    public string ApplyFilterButtonText => IsSearching
+        ? App.GetString("SearchFiltering", "正在筛选...")
+        : App.GetString("SearchApplyFilter", "应用筛选");
 
     [ObservableProperty]
     private bool isPreviewOpen = false;
@@ -689,7 +748,7 @@ public partial class SearchViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
         {
-            SearchSummaryText = App.GetString("MsgTargetDirNotExist", "目标归档路径不存在");
+            SetSearchSummary("MsgTargetDirNotExist", "目标归档路径不存在");
             SearchResults = new();
             GalleryRows = new();
             HasMoreItems = false;
@@ -716,7 +775,7 @@ public partial class SearchViewModel : ObservableObject
             FileNameKeyword: string.IsNullOrWhiteSpace(FileNameFilter) ? null : FileNameFilter);
 
         IsSearching = true;
-        SearchSummaryText = "正在检索 SQLite 数据库...";
+        SetSearchSummary("SearchSearching", "正在检索 SQLite 数据库...");
 
         try
         {
@@ -831,12 +890,12 @@ public partial class SearchViewModel : ObservableObject
             SearchResults = new ObservableCollection<MediaSearchResultItem>();
             GalleryRows = new ObservableCollection<GalleryRow>();
             HasMoreItems = currentHits.Count > 0;
-            SearchSummaryText = $"检索成功：共匹配 {currentHits.Count:N0} 项";
+            SetSearchSummary("FmtSearchMatched", "检索成功：共匹配 {0:N0} 项", currentHits.Count);
             HitsUpdated?.Invoke(this, EventArgs.Empty);
 
             if (currentHits.Count == 0)
             {
-                SearchSummaryText = "检索成功：共匹配 0 项";
+                SetSearchSummary("SearchMatchedZero", "检索成功：共匹配 0 项");
                 HasMoreItems = false;
                 HitsUpdated?.Invoke(this, EventArgs.Empty);
             }
@@ -847,7 +906,7 @@ public partial class SearchViewModel : ObservableObject
         }
         catch (FileNotFoundException)
         {
-            SearchSummaryText = "尚未发现 SQLite 归档数据库 (picharbor.db)。";
+            SetSearchSummary("SearchNoDatabase", "尚未发现 SQLite 归档数据库 (picharbor.db)。");
             SearchResults = new();
             GalleryRows = new();
             HasMoreItems = false;
@@ -855,7 +914,7 @@ public partial class SearchViewModel : ObservableObject
         catch (Exception ex)
         {
             Debug.WriteLine($"Search error: {ex.Message}");
-            SearchSummaryText = $"检索错误: {ex.Message}";
+            SetSearchSummary("FmtSearchError", "检索错误: {0}", ex.Message);
             HasMoreItems = false;
         }
         finally
@@ -1031,7 +1090,7 @@ public partial class SearchViewModel : ObservableObject
                     foreach (var item in newItems) SearchResults.Add(item);
                     foreach (var gRow in newGridRows) GalleryRows.Add(gRow);
                     HasMoreItems = remaining;
-                    SearchSummaryText = remaining ? $"检索成功：共匹配 {total:N0} 项" : $"检索成功：共匹配 {total:N0} 项 (已全加载)";
+                    SetSearchSummary(remaining ? "FmtSearchMatched" : "FmtSearchMatchedAll", remaining ? "检索成功：共匹配 {0:N0} 项" : "检索成功：共匹配 {0:N0} 项 (已全加载)", total);
                 });
             }
             else
@@ -1039,7 +1098,7 @@ public partial class SearchViewModel : ObservableObject
                 foreach (var item in newItems) SearchResults.Add(item);
                 foreach (var gRow in newGridRows) GalleryRows.Add(gRow);
                 HasMoreItems = remaining;
-                SearchSummaryText = remaining ? $"检索成功：共匹配 {total:N0} 项" : $"检索成功：共匹配 {total:N0} 项 (已全加载)";
+                SetSearchSummary(remaining ? "FmtSearchMatched" : "FmtSearchMatchedAll", remaining ? "检索成功：共匹配 {0:N0} 项" : "检索成功：共匹配 {0:N0} 项 (已全加载)", total);
             }
 
             _ = LoadThumbnailsInBackgroundAsync(newItems, ct);
@@ -1430,7 +1489,7 @@ public partial class SearchViewModel : ObservableObject
             if (missing.Count > 0)
             {
                 MessageBox.Show(
-                    $"有 {missing.Count} 个选中的文件在磁盘上已被删除或移走:\n{string.Join(Environment.NewLine, missing.Take(3))}{(missing.Count > 3 ? "\n..." : "")}",
+                    UiText.MissingFiles(missing.Count, missing),
                     App.GetString("MsgFileNotFound", "文件不存在"), MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }

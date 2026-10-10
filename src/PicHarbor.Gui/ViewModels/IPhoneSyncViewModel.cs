@@ -9,6 +9,7 @@ using PicHarbor.Core.iPhone;
 using PicHarbor.Core.Journal;
 using PicHarbor.Core.Organize;
 using PicHarbor.Core.Progress;
+using PicHarbor.Gui.Util;
 
 namespace PicHarbor.Gui.ViewModels;
 
@@ -283,6 +284,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
 
     [ObservableProperty]
     private string progressText = App.GetString("MsgReady", "准备就绪");
+    private readonly StickyText progressSticky = new();
 
     [ObservableProperty]
     private int copiedCount = 0;
@@ -572,7 +574,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
         }
         catch
         {
-            ScopeSummaryText = "📊 当前筛选结果: 预计恢复 0 项";
+            ScopeSummaryText = App.GetString("ScopeSummaryZero", "📊 当前筛选结果: 预计恢复 0 项");
         }
     }
 
@@ -625,7 +627,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            NotificationMessage = $"❌ 过程出现错误: {ex.Message}";
+            NotificationMessage = string.Format(App.GetString("FmtProcessError", "❌ 过程出现错误: {0}"), ex.Message);
         }
 
         LoadManualSelectionsFromDb();
@@ -664,7 +666,9 @@ public partial class IPhoneSyncViewModel : ObservableObject
         {
             if (autoAddedCount > 0)
             {
-                string sampleText = autoAddedCount == 1 ? "1 项配对" : $"{autoAddedCount} 项配对";
+                string sampleText = autoAddedCount == 1
+                    ? App.GetString("FmtPairOne", "1 项配对")
+                    : string.Format(App.GetString("FmtPairMany", "{0} 项配对"), autoAddedCount);
                 NotificationMessage = string.Format(
                     App.GetString("MsgPickedWithAutoPairNotice", "✨ 成功挑选 {0} 项照片！已根据配置自动补全了 {1} 项 Live Photo/侧车配对文件（如 {2}）。在「查看/编辑清单」中已标注 [🪄 来自自动补全] 标记。"),
                     addedCount, autoAddedCount, sampleText);
@@ -1067,7 +1071,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
                     }
                     if (preflightResult.BrokenLivePhotoPairs.Count > 5)
                     {
-                        sb.AppendLine($"  ... 等共 {preflightResult.BrokenLivePhotoPairs.Count} 项");
+                        sb.AppendLine(string.Format(App.GetString("FmtMoreItems", "  ... 等共 {0} 项"), preflightResult.BrokenLivePhotoPairs.Count));
                     }
                 }
 
@@ -1095,7 +1099,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
     {
         IsExporting = true;
         ProgressValue = 0;
-        ProgressText = App.GetString("MsgCalculating", "计算中...");
+        ProgressText = progressSticky.Set("MsgCalculating", "计算中...");
         CopiedCount = 0;
         SkippedCount = 0;
         DeletedCount = 0;
@@ -1150,18 +1154,18 @@ public partial class IPhoneSyncViewModel : ObservableObject
             DeletedCount = result.DeletedCount;
             HasExported = true;
             ProgressValue = 100;
-            ProgressText = App.GetString("MsgBackupCompleted", "整理完成");
+            ProgressText = progressSticky.Set("MsgBackupCompleted", "整理完成");
             AddLog($"[SUCCESS] 🎉 同步文件夹已就绪！有效路径: {result.ExportedFolder}");
             AddLog("[INFO] 请点击【步骤 2: 打开 Apple Devices 软件】，在 Apple Devices 左侧选择「照片」并选定该文件夹完成同步。");
         }
         catch (OperationCanceledException)
         {
-            ProgressText = App.GetString("MsgSyncCancelled", "同步已取消");
+            ProgressText = progressSticky.Set("MsgSyncCancelled", "同步已取消");
             AddLog("[WARN] 同步准备已被用户取消。");
         }
         catch (Exception ex)
         {
-            ProgressText = "出错";
+            ProgressText = progressSticky.Set("SyncErrorShort", "出错");
             AddLog($"[ERROR] ❌ 导出过程发生错误: {ex.Message}");
         }
         finally
@@ -1181,7 +1185,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
     {
         var dialog = new Microsoft.Win32.OpenFolderDialog
         {
-            Title = "选择 iPhone 专用同步目录",
+            Title = App.GetString("IPhoneSyncBrowseTitle", "选择 iPhone 专用同步目录"),
             InitialDirectory = Directory.Exists(EffectiveSyncFolder) ? EffectiveSyncFolder : ArchivePath
         };
 
@@ -1252,7 +1256,11 @@ public partial class IPhoneSyncViewModel : ObservableObject
 
     public void OnLanguageChanged()
     {
-        OnPropertyChanged(nameof(ProgressText));
+        if (!IsExporting && progressSticky.HasValue)
+        {
+            ProgressText = progressSticky.Current;
+        }
+
         OnPropertyChanged(nameof(ModalConfirmText));
         UpdateManualSelectionTexts();
         RecalculateScopeSummary();
