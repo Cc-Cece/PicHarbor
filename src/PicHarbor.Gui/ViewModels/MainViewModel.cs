@@ -175,30 +175,33 @@ public partial class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(ActiveTaskStep2Text));
             OnPropertyChanged(nameof(ActiveTaskStep3Status));
             OnPropertyChanged(nameof(ActiveTaskStep4Status));
+            OnPropertyChanged(nameof(ActiveTaskCopiedCount));
+            OnPropertyChanged(nameof(ActiveTaskSkippedCount));
+            OnPropertyChanged(nameof(ActiveTaskFailedCount));
         }
 
         BackupVM.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName == nameof(BackupViewModel.IsDetailModalOpen)) NotifyModalChanged();
-            if (e.PropertyName is nameof(BackupViewModel.IsTransferring) or nameof(BackupViewModel.ProgressPercentage) or nameof(BackupViewModel.SpeedText) or nameof(BackupViewModel.RemainingFilesCount) or nameof(BackupViewModel.CurrentFileName))
+            if (e.PropertyName is nameof(BackupViewModel.IsTransferring) or nameof(BackupViewModel.ProgressPercentage) or nameof(BackupViewModel.SpeedText) or nameof(BackupViewModel.RemainingFilesCount) or nameof(BackupViewModel.CurrentFileName) or nameof(BackupViewModel.CopiedCount) or nameof(BackupViewModel.SkippedCount) or nameof(BackupViewModel.FailedCount))
                 NotifyTaskChanged();
         };
         AndroidBackupVM.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName == nameof(AndroidBackupViewModel.IsDetailModalOpen)) NotifyModalChanged();
-            if (e.PropertyName is nameof(AndroidBackupViewModel.IsTransferring) or nameof(AndroidBackupViewModel.ProgressPercentage) or nameof(AndroidBackupViewModel.SpeedText) or nameof(AndroidBackupViewModel.RemainingFilesCount) or nameof(AndroidBackupViewModel.CurrentFileName))
+            if (e.PropertyName is nameof(AndroidBackupViewModel.IsTransferring) or nameof(AndroidBackupViewModel.ProgressPercentage) or nameof(AndroidBackupViewModel.SpeedText) or nameof(AndroidBackupViewModel.RemainingFilesCount) or nameof(AndroidBackupViewModel.CurrentFileName) or nameof(AndroidBackupViewModel.CopiedCount) or nameof(AndroidBackupViewModel.SkippedCount) or nameof(AndroidBackupViewModel.FailedCount))
                 NotifyTaskChanged();
         };
         GooglePhotosVM.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName is nameof(GooglePhotosSyncViewModel.IsDetailModalOpen) or nameof(GooglePhotosSyncViewModel.IsManualModalOpen)) NotifyModalChanged();
-            if (e.PropertyName is nameof(GooglePhotosSyncViewModel.IsSyncing) or nameof(GooglePhotosSyncViewModel.ProgressValue) or nameof(GooglePhotosSyncViewModel.SpeedText) or nameof(GooglePhotosSyncViewModel.RemainingFilesCount) or nameof(GooglePhotosSyncViewModel.CurrentFile))
+            if (e.PropertyName is nameof(GooglePhotosSyncViewModel.IsSyncing) or nameof(GooglePhotosSyncViewModel.ProgressValue) or nameof(GooglePhotosSyncViewModel.SpeedText) or nameof(GooglePhotosSyncViewModel.RemainingFilesCount) or nameof(GooglePhotosSyncViewModel.CurrentFile) or nameof(GooglePhotosSyncViewModel.UploadedCount) or nameof(GooglePhotosSyncViewModel.SkippedCount) or nameof(GooglePhotosSyncViewModel.FailedCount))
                 NotifyTaskChanged();
         };
         AndroidSyncVM.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName is nameof(AndroidSyncViewModel.IsDetailModalOpen) or nameof(AndroidSyncViewModel.IsPreflightModalOpen) or nameof(AndroidSyncViewModel.IsManualModalOpen)) NotifyModalChanged();
-            if (e.PropertyName is nameof(AndroidSyncViewModel.IsSyncing) or nameof(AndroidSyncViewModel.ProgressValue) or nameof(AndroidSyncViewModel.SpeedText) or nameof(AndroidSyncViewModel.RemainingFilesCount))
+            if (e.PropertyName is nameof(AndroidSyncViewModel.IsSyncing) or nameof(AndroidSyncViewModel.ProgressValue) or nameof(AndroidSyncViewModel.SpeedText) or nameof(AndroidSyncViewModel.RemainingFilesCount) or nameof(AndroidSyncViewModel.CopiedCount) or nameof(AndroidSyncViewModel.SkippedCount) or nameof(AndroidSyncViewModel.FailedCount))
                 NotifyTaskChanged();
         };
         IPhoneSyncVM.PropertyChanged += (s, e) =>
@@ -573,10 +576,134 @@ public partial class MainViewModel : ObservableObject
     public void CloseAndroidFtpModal() => IsAndroidFtpModalOpen = false;
 
     [RelayCommand]
-    public void OpenTaskManager() => IsTaskManagerOpen = true;
+    public void OpenTaskManager()
+    {
+        OnPropertyChanged(nameof(ActiveTaskTitle));
+        OnPropertyChanged(nameof(ActiveTaskProgressPercentage));
+        OnPropertyChanged(nameof(ActiveTaskProgressPercentText));
+        OnPropertyChanged(nameof(ActiveTaskSpeedText));
+        OnPropertyChanged(nameof(ActiveTaskRemainingFilesText));
+        OnPropertyChanged(nameof(ActiveTaskCurrentFileName));
+        OnPropertyChanged(nameof(ActiveTaskStep2Status));
+        OnPropertyChanged(nameof(ActiveTaskStep2Text));
+        OnPropertyChanged(nameof(ActiveTaskStep3Status));
+        OnPropertyChanged(nameof(ActiveTaskStep4Status));
+        OnPropertyChanged(nameof(ActiveTaskCopiedCount));
+        OnPropertyChanged(nameof(ActiveTaskSkippedCount));
+        OnPropertyChanged(nameof(ActiveTaskFailedCount));
+        IsTaskManagerOpen = true;
+    }
 
     [RelayCommand]
     public void CloseTaskManager() => IsTaskManagerOpen = false;
+
+    public int ActiveTaskCopiedCount
+    {
+        get
+        {
+            if (AndroidBackupVM.IsTransferring || (SelectedDeviceIndex == 1 && !BackupVM.IsTransferring)) return AndroidBackupVM.CopiedCount;
+            if (GooglePhotosVM.IsSyncing) return GooglePhotosVM.UploadedCount;
+            if (AndroidSyncVM.IsSyncing) return AndroidSyncVM.CopiedCount;
+            return BackupVM.CopiedCount;
+        }
+    }
+
+    public int ActiveTaskSkippedCount
+    {
+        get
+        {
+            if (AndroidBackupVM.IsTransferring || (SelectedDeviceIndex == 1 && !BackupVM.IsTransferring)) return AndroidBackupVM.SkippedCount;
+            if (GooglePhotosVM.IsSyncing) return GooglePhotosVM.SkippedCount;
+            if (AndroidSyncVM.IsSyncing) return AndroidSyncVM.SkippedCount;
+            return BackupVM.SkippedCount;
+        }
+    }
+
+    public int ActiveTaskFailedCount
+    {
+        get
+        {
+            if (AndroidBackupVM.IsTransferring || (SelectedDeviceIndex == 1 && !BackupVM.IsTransferring)) return AndroidBackupVM.FailedCount;
+            if (GooglePhotosVM.IsSyncing) return GooglePhotosVM.FailedCount;
+            if (AndroidSyncVM.IsSyncing) return AndroidSyncVM.FailedCount;
+            return BackupVM.FailedCount;
+        }
+    }
+
+    [RelayCommand]
+    public void ShowActiveCopiedDetails()
+    {
+        if (AndroidBackupVM.IsTransferring || (SelectedDeviceIndex == 1 && !BackupVM.IsTransferring))
+        {
+            AndroidBackupVM.ShowCopiedDetailsCommand.Execute(null);
+        }
+        else if (GooglePhotosVM.IsSyncing)
+        {
+            GooglePhotosVM.ShowUploadedDetailsCommand.Execute(null);
+        }
+        else if (AndroidSyncVM.IsSyncing)
+        {
+            AndroidSyncVM.ShowCopiedDetailsCommand.Execute(null);
+        }
+        else
+        {
+            BackupVM.ShowCopiedDetailsCommand.Execute(null);
+        }
+        OnPropertyChanged(nameof(IsDetailModalOpen));
+        OnPropertyChanged(nameof(ActiveDetailModalTitle));
+        OnPropertyChanged(nameof(ActiveDetailItems));
+        OnPropertyChanged(nameof(IsAnyModalOpen));
+    }
+
+    [RelayCommand]
+    public void ShowActiveSkippedDetails()
+    {
+        if (AndroidBackupVM.IsTransferring || (SelectedDeviceIndex == 1 && !BackupVM.IsTransferring))
+        {
+            AndroidBackupVM.ShowSkippedDetailsCommand.Execute(null);
+        }
+        else if (GooglePhotosVM.IsSyncing)
+        {
+            GooglePhotosVM.ShowSkippedDetailsCommand.Execute(null);
+        }
+        else if (AndroidSyncVM.IsSyncing)
+        {
+            AndroidSyncVM.ShowSkippedDetailsCommand.Execute(null);
+        }
+        else
+        {
+            BackupVM.ShowSkippedDetailsCommand.Execute(null);
+        }
+        OnPropertyChanged(nameof(IsDetailModalOpen));
+        OnPropertyChanged(nameof(ActiveDetailModalTitle));
+        OnPropertyChanged(nameof(ActiveDetailItems));
+        OnPropertyChanged(nameof(IsAnyModalOpen));
+    }
+
+    [RelayCommand]
+    public void ShowActiveFailedDetails()
+    {
+        if (AndroidBackupVM.IsTransferring || (SelectedDeviceIndex == 1 && !BackupVM.IsTransferring))
+        {
+            AndroidBackupVM.ShowFailedDetailsCommand.Execute(null);
+        }
+        else if (GooglePhotosVM.IsSyncing)
+        {
+            GooglePhotosVM.ShowFailedDetailsCommand.Execute(null);
+        }
+        else if (AndroidSyncVM.IsSyncing)
+        {
+            AndroidSyncVM.ShowFailedDetailsCommand.Execute(null);
+        }
+        else
+        {
+            BackupVM.ShowFailedDetailsCommand.Execute(null);
+        }
+        OnPropertyChanged(nameof(IsDetailModalOpen));
+        OnPropertyChanged(nameof(ActiveDetailModalTitle));
+        OnPropertyChanged(nameof(ActiveDetailItems));
+        OnPropertyChanged(nameof(IsAnyModalOpen));
+    }
 
     [RelayCommand]
     public void CancelActiveTask()

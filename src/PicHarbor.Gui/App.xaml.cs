@@ -175,16 +175,6 @@ public partial class App : Application
                 vm.CloseUnifiedManualModalCommand.Execute(null);
                 WaitAnimation(350);
 
-                // Render Image Viewer Modal
-                vm.ViewerImageTitle = "IMG_20240901_102030.jpg";
-                vm.ViewerImageDetails = "4.2 MB · 2024-09-01 10:20:30 · 4032 × 3024";
-                vm.IsImageViewerOpen = true;
-                WaitAnimation(350);
-                window.UpdateLayout();
-                SaveWindowSnapshot(window, Path.Combine(outDir, "pcl2_ui_preview_image_viewer.png"));
-                vm.CloseImageViewerCommand.Execute(null);
-                WaitAnimation(350);
-
                 // Render Android FTP Connection Modal
                 vm.OpenAndroidFtpModalCommand.Execute(null);
                 WaitAnimation(350);
@@ -193,12 +183,15 @@ public partial class App : Application
                 vm.CloseAndroidFtpModalCommand.Execute(null);
                 WaitAnimation(350);
 
-                // Render Task Manager Overlay matching Image 2
+                // Render Task Manager Overlay with clickable counts
                 vm.AndroidBackupVM.IsTransferring = true;
                 vm.AndroidBackupVM.ProgressPercentage = 70.0;
                 vm.AndroidBackupVM.SpeedText = "12.2 MB/s";
                 vm.AndroidBackupVM.RemainingFilesCount = 794;
                 vm.AndroidBackupVM.CurrentFileName = "IMG_20240901_102030.jpg";
+                vm.AndroidBackupVM.CopiedCount = 1850;
+                vm.AndroidBackupVM.SkippedCount = 120;
+                vm.AndroidBackupVM.FailedCount = 2;
                 vm.OpenTaskManagerCommand.Execute(null);
                 window.UpdateLayout();
                 SaveWindowSnapshot(window, Path.Combine(outDir, "pcl2_ui_preview_task_manager.png"));

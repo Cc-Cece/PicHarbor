@@ -155,15 +155,7 @@ public partial class MainWindow : Window
                 var path = ResolveDetailFilePath(detail);
                 if (!string.IsNullOrEmpty(path) && File.Exists(path))
                 {
-                    string ext = Path.GetExtension(path);
-                    if (PreviewImageExtensions.Contains(ext) && DataContext is MainViewModel mainVM)
-                    {
-                        mainVM.OpenImageViewer(path);
-                    }
-                    else
-                    {
-                        ShellServices.OpenFiles(new[] { path });
-                    }
+                    ShellServices.OpenFiles(new[] { path });
                     e.Handled = true;
                 }
             }
@@ -286,11 +278,11 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ImageViewerBackdrop_MouseDown(object sender, MouseButtonEventArgs e)
+    private void CloseTaskManager_Click(object sender, RoutedEventArgs e)
     {
-        if (e.OriginalSource == sender && DataContext is MainViewModel mainVM)
+        if (DataContext is MainViewModel mainVM)
         {
-            mainVM.CloseImageViewerCommand.Execute(null);
+            mainVM.CloseTaskManager();
         }
     }
 
@@ -306,9 +298,16 @@ public partial class MainWindow : Window
 
             if (DataContext is MainViewModel mainVM)
             {
-                if (e.Key == Key.Escape && mainVM.IsImageViewerOpen)
+                if (e.Key == Key.Escape && mainVM.IsDetailModalOpen)
                 {
-                    mainVM.CloseImageViewerCommand.Execute(null);
+                    mainVM.CloseActiveDetailModal();
+                    e.Handled = true;
+                    return;
+                }
+
+                if (e.Key == Key.Escape && mainVM.IsTaskManagerOpen)
+                {
+                    mainVM.CloseTaskManager();
                     e.Handled = true;
                     return;
                 }
