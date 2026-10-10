@@ -55,7 +55,7 @@ public sealed class AppConfig
     public int GooglePhotosThreads { get; set; } = 3;
     public bool GooglePhotosUnlimitedQuality { get; set; } = true;
     public bool GooglePhotosStorageSaver { get; set; } = false;
-    public bool GooglePhotosSkipExistingFilenames { get; set; } = true;
+    public bool GooglePhotosSkipExistingFilenames { get; set; } = false;
     public string GooglePhotosPythonPath { get; set; } = "python";
     public string GooglePhotosGpmcPath { get; set; } = string.Empty;
     public int GooglePhotosTimeoutSeconds { get; set; } = 60;

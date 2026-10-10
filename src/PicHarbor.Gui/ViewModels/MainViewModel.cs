@@ -219,6 +219,19 @@ public partial class MainViewModel : ObservableObject
         SettingsVM.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName == nameof(SettingsViewModel.GooglePhotosProxy)) GooglePhotosVM.Proxy = SettingsVM.GooglePhotosProxy;
+            if (e.PropertyName == nameof(SettingsViewModel.GooglePhotosPythonPath)) GooglePhotosVM.PythonPath = SettingsVM.GooglePhotosPythonPath;
+            if (e.PropertyName == nameof(SettingsViewModel.GooglePhotosThreads)) GooglePhotosVM.Threads = SettingsVM.GooglePhotosThreads;
+            if (e.PropertyName == nameof(SettingsViewModel.GooglePhotosTimeoutSeconds)) GooglePhotosVM.TimeoutSeconds = SettingsVM.GooglePhotosTimeoutSeconds;
+            if (e.PropertyName == nameof(SettingsViewModel.GooglePhotosAutoRetryAttempts)) GooglePhotosVM.AutoRetryAttempts = SettingsVM.GooglePhotosAutoRetryAttempts;
+            if (e.PropertyName == nameof(SettingsViewModel.SelectedGooglePhotosQualityIndex))
+            {
+                GooglePhotosVM.UnlimitedQuality = SettingsVM.SelectedGooglePhotosQualityIndex == 0;
+                GooglePhotosVM.StorageSaver = SettingsVM.SelectedGooglePhotosQualityIndex == 2;
+            }
+            if (e.PropertyName == nameof(SettingsViewModel.GooglePhotosSkipExistingFilenames))
+            {
+                GooglePhotosVM.SkipExistingFilenames = SettingsVM.GooglePhotosSkipExistingFilenames;
+            }
         };
 
         CreateTaskCards();
@@ -417,7 +430,7 @@ public partial class MainViewModel : ObservableObject
     private void OpenCodecSettings()
     {
         SelectedTabIndex = 3;
-        SettingsSubTabIndex = 3;
+        SettingsSubTabIndex = 1;
     }
 
     partial void OnDestinationPathChanged(string value)

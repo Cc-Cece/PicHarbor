@@ -93,6 +93,63 @@ public partial class SettingsViewModel : ObservableObject
     private int googlePhotosAutoRetryAttempts = 3;
 
     [ObservableProperty]
+    private string googlePhotosPythonPath = "python";
+
+    public ObservableCollection<string> GooglePhotosQualityOptions { get; } = new()
+    {
+        "原画质不计配额（推荐）",
+        "原画质（占用空间）",
+        "压缩画质"
+    };
+
+    [ObservableProperty]
+    private int selectedGooglePhotosQualityIndex = 0;
+
+    [ObservableProperty]
+    private bool googlePhotosSkipExistingFilenames = false;
+
+    // Advanced Section Expansion State
+    [ObservableProperty]
+    private bool isBackupAdvancedExpanded = false;
+
+    [ObservableProperty]
+    private bool isGalleryAdvancedExpanded = false;
+
+    [ObservableProperty]
+    private bool isCloudAdvancedExpanded = false;
+
+    public string BackupAdvancedButtonText => IsBackupAdvancedExpanded ? "▲ 收起高级设置" : "▼ 展开高级设置";
+    public string GalleryAdvancedButtonText => IsGalleryAdvancedExpanded ? "▲ 收起高级设置" : "▼ 展开高级设置";
+    public string CloudAdvancedButtonText => IsCloudAdvancedExpanded ? "▲ 收起高级设置" : "▼ 展开高级设置";
+
+    partial void OnIsBackupAdvancedExpandedChanged(bool value) => OnPropertyChanged(nameof(BackupAdvancedButtonText));
+    partial void OnIsGalleryAdvancedExpandedChanged(bool value) => OnPropertyChanged(nameof(GalleryAdvancedButtonText));
+    partial void OnIsCloudAdvancedExpandedChanged(bool value) => OnPropertyChanged(nameof(CloudAdvancedButtonText));
+
+    [RelayCommand]
+    private void ToggleBackupAdvanced() => IsBackupAdvancedExpanded = !IsBackupAdvancedExpanded;
+
+    [RelayCommand]
+    private void ToggleGalleryAdvanced() => IsGalleryAdvancedExpanded = !IsGalleryAdvancedExpanded;
+
+    [RelayCommand]
+    private void ToggleCloudAdvanced() => IsCloudAdvancedExpanded = !IsCloudAdvancedExpanded;
+
+    [RelayCommand]
+    private void BrowsePythonPath()
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = "Python 解释器 (python.exe)|python.exe|可执行文件 (*.exe)|*.exe|所有文件 (*.*)|*.*",
+            Title = "选择 Python 可执行文件路径"
+        };
+        if (dlg.ShowDialog() == true)
+        {
+            GooglePhotosPythonPath = dlg.FileName;
+        }
+    }
+
+    [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SyncNowCommand))]
     private bool isSyncing;
 
@@ -338,6 +395,20 @@ public partial class SettingsViewModel : ObservableObject
         GooglePhotosThreads = config.GooglePhotosThreads > 0 ? config.GooglePhotosThreads : 3;
         GooglePhotosTimeoutSeconds = config.GooglePhotosTimeoutSeconds > 0 ? config.GooglePhotosTimeoutSeconds : 60;
         GooglePhotosAutoRetryAttempts = config.GooglePhotosAutoRetryAttempts > 0 ? config.GooglePhotosAutoRetryAttempts : 3;
+        GooglePhotosPythonPath = !string.IsNullOrWhiteSpace(config.GooglePhotosPythonPath) ? config.GooglePhotosPythonPath : "python";
+        if (config.GooglePhotosStorageSaver)
+        {
+            SelectedGooglePhotosQualityIndex = 2;
+        }
+        else if (!config.GooglePhotosUnlimitedQuality)
+        {
+            SelectedGooglePhotosQualityIndex = 1;
+        }
+        else
+        {
+            SelectedGooglePhotosQualityIndex = 0;
+        }
+        GooglePhotosSkipExistingFilenames = config.GooglePhotosSkipExistingFilenames;
         ProxyStatusText = !string.IsNullOrWhiteSpace(GooglePhotosProxy) ? $"{GooglePhotosProxy} (已配置)" : "直连 (未配置代理)";
     }
 
@@ -358,6 +429,10 @@ public partial class SettingsViewModel : ObservableObject
         config.GooglePhotosThreads = GooglePhotosThreads;
         config.GooglePhotosTimeoutSeconds = GooglePhotosTimeoutSeconds;
         config.GooglePhotosAutoRetryAttempts = GooglePhotosAutoRetryAttempts;
+        config.GooglePhotosPythonPath = GooglePhotosPythonPath;
+        config.GooglePhotosUnlimitedQuality = SelectedGooglePhotosQualityIndex == 0;
+        config.GooglePhotosStorageSaver = SelectedGooglePhotosQualityIndex == 2;
+        config.GooglePhotosSkipExistingFilenames = GooglePhotosSkipExistingFilenames;
         Config.AppSettings.Save(config);
     }
 
@@ -386,6 +461,9 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnGooglePhotosThreadsChanged(int value) => SaveConfig();
     partial void OnGooglePhotosTimeoutSecondsChanged(int value) => SaveConfig();
     partial void OnGooglePhotosAutoRetryAttemptsChanged(int value) => SaveConfig();
+    partial void OnGooglePhotosPythonPathChanged(string value) => SaveConfig();
+    partial void OnSelectedGooglePhotosQualityIndexChanged(int value) => SaveConfig();
+    partial void OnGooglePhotosSkipExistingFilenamesChanged(bool value) => SaveConfig();
 
     [RelayCommand(CanExecute = nameof(CanTestProxy))]
     private async Task TestProxyAsync()
