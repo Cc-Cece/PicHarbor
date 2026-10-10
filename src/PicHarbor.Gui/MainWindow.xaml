@@ -1777,7 +1777,7 @@
                                                    FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,12" TextWrapping="Wrap" />
 
                                         <controls:PclCheckBox Content="将 EXIF 拍摄时间同步写入文件修改时间 (LastWriteTime)" IsChecked="{Binding SyncExifToLastWriteTime, Mode=TwoWay}" Margin="0,0,0,8" />
-                                        <controls:PclCheckBox Content="将 EXIF 拍摄时间同步写入文件创建时间 (CreationTime)" IsChecked="{Binding SyncExifToCreationTime, Mode=TwoWay}" Margin="0,0,12" />
+                                        <controls:PclCheckBox Content="将 EXIF 拍摄时间同步写入文件创建时间 (CreationTime)" IsChecked="{Binding SyncExifToCreationTime, Mode=TwoWay}" Margin="0,0,0,12" />
 
                                         <controls:PclHint HintType="Warning" Margin="0,0,0,14">
                                             <TextBlock Text="本操作将直接更新本地文件系统的时间戳属性，不修改媒体原始二进制内容。校准速度极快且完全无损。" FontSize="12" Foreground="#B45309" TextWrapping="Wrap" />
