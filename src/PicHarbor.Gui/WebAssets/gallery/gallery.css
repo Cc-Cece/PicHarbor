@@ -89,6 +89,10 @@ html, body {
   vertical-align: middle;
 }
 
+.badge-pending {
+  background: linear-gradient(135deg, #0B5BCB, #1370F3);
+}
+
 .badge-iphone {
   background: linear-gradient(135deg, #0B5BCB, #1370F3);
 }

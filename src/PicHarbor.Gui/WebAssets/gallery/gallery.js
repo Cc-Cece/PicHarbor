@@ -102,6 +102,7 @@ function arePhotosIdentical(a, b) {
   if (a[0].id !== b[0].id || a[a.length - 1].id !== b[b.length - 1].id) return false;
   for (let i = 0; i < a.length; i++) {
     if (a[i].id !== b[i].id ||
+        a[i].isPending !== b[i].isPending ||
         a[i].isPendingIPhone !== b[i].isPendingIPhone ||
         a[i].isPendingAndroid !== b[i].isPendingAndroid ||
         a[i].isGooglePhotos !== b[i].isGooglePhotos) {
@@ -150,26 +151,15 @@ function initAlbum(photos) {
       const list = [];
 
       // Top Right: Upload / Sync Status Badges
-      if (item.isPendingIPhone) {
+      if (item.isPending || item.isPendingIPhone || item.isPendingAndroid) {
         list.push({
-          id: 'badge-pending-iphone',
+          id: 'badge-pending-unified',
           corner: 'topRight',
-          className: 'badge-pill badge-iphone',
-          content: '<span class="badge-dot"></span>iPhone 待传',
-          title: '已标记为 iPhone 待传清单（点击取消）',
+          className: 'badge-pill badge-pending',
+          content: '<span class="badge-dot"></span>待传',
+          title: '已加入待传列表（点击取消）',
           onClick: (it) => {
-            postToHost({ action: 'toggleManualSelection', type: 'iPhone', ids: [it.id] });
-          }
-        });
-      } else if (item.isPendingAndroid) {
-        list.push({
-          id: 'badge-pending-android',
-          corner: 'topRight',
-          className: 'badge-pill badge-android',
-          content: '<span class="badge-dot"></span>Android 待传',
-          title: '已标记为 Android 待传清单（点击取消）',
-          onClick: (it) => {
-            postToHost({ action: 'toggleManualSelection', type: 'Android', ids: [it.id] });
+            postToHost({ action: 'toggleManualSelection', type: 'Unified', ids: [it.id] });
           }
         });
       }
@@ -211,12 +201,12 @@ function initAlbum(photos) {
       return [
         {
           id: 'mark-unified',
-          label: `📌 加入待传清单 (${targets.length})`,
+          label: `📌 加入待传列表 (${targets.length})`,
           onClick: () => postToHost({ action: 'addManualSelection', type: 'Unified', ids })
         },
         {
           id: 'unmark-unified',
-          label: `✖ 从待传清单中移除 (${targets.length})`,
+          label: `✖ 从待传列表中移除 (${targets.length})`,
           onClick: () => postToHost({ action: 'removeManualSelection', ids })
         },
         { id: 'sep1', divider: true },
@@ -247,7 +237,7 @@ function initAlbum(photos) {
     selectionActions: (selected) => [
       {
         id: 'batch-unified',
-        label: `📌 加入待传清单 (${selected.length})`,
+        label: `📌 加入待传列表 (${selected.length})`,
         icon: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>',
         onClick: ({ selected, clearSelection }) => {
           postToHost({ action: 'addManualSelection', type: 'Unified', ids: selected.map(s => s.id) });
@@ -256,7 +246,7 @@ function initAlbum(photos) {
       },
       {
         id: 'batch-remove',
-        label: `✖ 移出待传清单 (${selected.length})`,
+        label: `✖ 移出待传列表 (${selected.length})`,
         danger: true,
         onClick: ({ selected, clearSelection }) => {
           postToHost({ action: 'removeManualSelection', ids: selected.map(s => s.id) });

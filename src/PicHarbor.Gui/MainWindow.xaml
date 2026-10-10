@@ -741,11 +741,11 @@
                         <controls:PclPageHost Direction="Horizontal">
                             <StackPanel Margin="0,12,0,0">
                                 <TextBlock Text="图库视图" FontSize="11.5" FontWeight="Bold" Foreground="{DynamicResource ColorBrushGray2}" Margin="18,10,0,8" />
-                                <controls:PclListItem Content="全部照片与视频" Logo="{StaticResource PclIconGallery}" GroupName="GallerySubNav" IsChecked="{Binding SearchVM.IsCategoryAll, Mode=TwoWay}" />
-                                <controls:PclListItem Content="视频与实况" Logo="{StaticResource PclIconVideo}" GroupName="GallerySubNav" IsChecked="{Binding SearchVM.IsCategoryVideo, Mode=TwoWay}" />
-                                <controls:PclListItem Content="相机与设备" Logo="{StaticResource PclIconPhone}" GroupName="GallerySubNav" IsChecked="{Binding SearchVM.IsCategoryCamera, Mode=TwoWay}" />
-                                <controls:PclListItem Content="自选标记" Logo="{StaticResource PclIconStar}" GroupName="GallerySubNav" IsChecked="{Binding SearchVM.IsCategoryManual, Mode=TwoWay}" />
-                                <controls:PclListItem Content="导出清单" Logo="{StaticResource PclIconList}" GroupName="GallerySubNav" IsChecked="{Binding SearchVM.IsCategoryExport, Mode=TwoWay}" />
+                                <controls:PclListItem Content="全部" Logo="{StaticResource PclIconGallery}" GroupName="GallerySubNav" IsChecked="{Binding SearchVM.IsCategoryAll, Mode=TwoWay}" />
+                                <controls:PclListItem Content="视频" Logo="{StaticResource PclIconVideo}" GroupName="GallerySubNav" IsChecked="{Binding SearchVM.IsCategoryVideoOnly, Mode=TwoWay}" />
+                                <controls:PclListItem Content="照片与实况" Logo="{StaticResource PclIconGallery}" GroupName="GallerySubNav" IsChecked="{Binding SearchVM.IsCategoryPhotoAndLive, Mode=TwoWay}" />
+                                <controls:PclListItem Content="截图" Logo="{StaticResource PclIconPhone}" GroupName="GallerySubNav" IsChecked="{Binding SearchVM.IsCategoryScreenshot, Mode=TwoWay}" />
+                                <controls:PclListItem Content="{Binding SearchVM.CategoryPendingTransferLabel}" Logo="{StaticResource PclIconList}" GroupName="GallerySubNav" IsChecked="{Binding SearchVM.IsCategoryPending, Mode=TwoWay}" />
                             </StackPanel>
                         </controls:PclPageHost>
                     </Border>
@@ -783,6 +783,8 @@
                                             <controls:PclButton Content="加载更多" Command="{Binding SearchVM.LoadMoreItemsCommand}"
                                                                 Visibility="{Binding SearchVM.CanLoadMoreInTableView, Converter={StaticResource BooleanToVisibilityConverter}}"
                                                                 Height="26" Margin="12,0,0,0" Padding="8,2" />
+                                            <controls:PclButton Content="📋 查看 / 导出待传清单" Command="{Binding OpenUnifiedManualModalCommand}"
+                                                                Height="26" Margin="10,0,0,0" Padding="8,2" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                             <TextBlock Text="排序:" Foreground="{DynamicResource ColorBrushGray2}" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
@@ -894,8 +896,7 @@
                                                         <MenuItem Header="打开" Click="ListItem_Open_Click" />
                                                         <MenuItem Header="在文件资源管理器中定位" Click="ListItem_Reveal_Click" />
                                                         <Separator />
-                                                        <MenuItem Header="📱 标记为待传 iPhone" Click="ListItem_ToggleIPhone_Click" />
-                                                        <MenuItem Header="🤖 标记为待传 Android" Click="ListItem_ToggleAndroid_Click" />
+                                                        <MenuItem Header="📌 加入/移出待传列表" Click="ListItem_ToggleUnified_Click" />
                                                     </ContextMenu>
                                                 </Border.ContextMenu>
                                                 <Grid>
@@ -954,9 +955,9 @@
 
                                                     <!-- Quick Action Buttons -->
                                                     <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
-                                                        <!-- iPhone Toggle -->
-                                                        <Button Click="ListItem_ToggleIPhone_Click" Margin="0,0,6,0" Cursor="Hand"
-                                                                ToolTip="添加到 iPhone 待传清单">
+                                                        <!-- Unified Pending Transfer Toggle -->
+                                                        <Button Click="ListItem_ToggleUnified_Click" Margin="0,0,6,0" Cursor="Hand"
+                                                                ToolTip="加入或移出待传列表">
                                                             <Button.Style>
                                                                 <Style TargetType="Button">
                                                                     <Setter Property="Template">
@@ -964,46 +965,14 @@
                                                                             <ControlTemplate TargetType="Button">
                                                                                 <Border x:Name="btnBorder" Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="14" Padding="10,5">
                                                                                     <StackPanel Orientation="Horizontal">
-                                                                                        <TextBlock x:Name="btnIcon" Text="📱" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0" />
-                                                                                        <TextBlock x:Name="btnText" Text="待传 iPhone" FontSize="11" FontWeight="Medium" Foreground="#475569" VerticalAlignment="Center" />
+                                                                                        <TextBlock x:Name="btnIcon" Text="📋" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                                                                        <TextBlock x:Name="btnText" Text="待传" FontSize="11" FontWeight="Medium" Foreground="#475569" VerticalAlignment="Center" />
                                                                                     </StackPanel>
                                                                                 </Border>
                                                                                 <ControlTemplate.Triggers>
                                                                                     <DataTrigger Binding="{Binding IsManualSelectedForIPhone}" Value="True">
                                                                                         <Setter TargetName="btnBorder" Property="Background" Value="#0B5BCB" />
                                                                                         <Setter TargetName="btnBorder" Property="BorderBrush" Value="#0B5BCB" />
-                                                                                        <Setter TargetName="btnText" Property="Foreground" Value="White" />
-                                                                                        <Setter TargetName="btnText" Property="FontWeight" Value="Bold" />
-                                                                                    </DataTrigger>
-                                                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                                                        <Setter TargetName="btnBorder" Property="Opacity" Value="0.85" />
-                                                                                    </Trigger>
-                                                                                </ControlTemplate.Triggers>
-                                                                            </ControlTemplate>
-                                                                        </Setter.Value>
-                                                                    </Setter>
-                                                                </Style>
-                                                            </Button.Style>
-                                                        </Button>
-
-                                                        <!-- Android Toggle -->
-                                                        <Button Click="ListItem_ToggleAndroid_Click" Margin="0,0,6,0" Cursor="Hand"
-                                                                ToolTip="添加到 Android 待传清单">
-                                                            <Button.Style>
-                                                                <Style TargetType="Button">
-                                                                    <Setter Property="Template">
-                                                                        <Setter.Value>
-                                                                            <ControlTemplate TargetType="Button">
-                                                                                <Border x:Name="btnBorder" Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="14" Padding="10,5">
-                                                                                    <StackPanel Orientation="Horizontal">
-                                                                                        <TextBlock x:Name="btnIcon" Text="🤖" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0" />
-                                                                                        <TextBlock x:Name="btnText" Text="待传 Android" FontSize="11" FontWeight="Medium" Foreground="#475569" VerticalAlignment="Center" />
-                                                                                    </StackPanel>
-                                                                                </Border>
-                                                                                <ControlTemplate.Triggers>
-                                                                                    <DataTrigger Binding="{Binding IsManualSelectedForAndroid}" Value="True">
-                                                                                        <Setter TargetName="btnBorder" Property="Background" Value="#10B981" />
-                                                                                        <Setter TargetName="btnBorder" Property="BorderBrush" Value="#10B981" />
                                                                                         <Setter TargetName="btnText" Property="Foreground" Value="White" />
                                                                                         <Setter TargetName="btnText" Property="FontWeight" Value="Bold" />
                                                                                     </DataTrigger>

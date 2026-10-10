@@ -1062,6 +1062,21 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         }
     }
 
+    public void SyncWithUnifiedManualSelections(IEnumerable<ManualSelectedItemViewModel> items)
+    {
+        ManualSelectedItems.Clear();
+        foreach (var item in items)
+        {
+            ManualSelectedItems.Add(item);
+        }
+        ManualSelectionCount = ManualSelectedItems.Count;
+        ManualSelectionCountText = $"已选择 {ManualSelectionCount} 项媒体";
+        ManualSelectionModalBtnText = string.Format(App.GetString("GooglePhotosViewEditListBtn", "👁️ 查看/编辑上传清单 ({0})"), ManualSelectionCount);
+        OnPropertyChanged(nameof(HasManualSelections));
+        OnPropertyChanged(nameof(HasNoManualSelections));
+        RecalculateScopeSummary();
+    }
+
     public HashSet<string> GetManualSelectionPathsSet()
     {
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))

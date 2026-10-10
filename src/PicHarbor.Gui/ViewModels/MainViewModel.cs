@@ -187,11 +187,23 @@ public partial class MainViewModel : ObservableObject
         };
 
         // Wire unified manual selection modal across all devices
-        AndroidBackupVM.OpenManualModalAction = () => IsUnifiedManualModalOpen = true;
-        IPhoneSyncVM.OpenManualModalAction = () => IsUnifiedManualModalOpen = true;
-        AndroidSyncVM.OpenManualModalAction = () => IsUnifiedManualModalOpen = true;
-        GooglePhotosVM.OpenManualModalAction = () => IsUnifiedManualModalOpen = true;
-        IPhoneSyncVM.ManualSelectedItems.CollectionChanged += (s, e) => OnPropertyChanged(nameof(UnifiedManualSelectionCountText));
+        AndroidBackupVM.OpenManualModalAction = () => OpenUnifiedManualModal();
+        IPhoneSyncVM.OpenManualModalAction = () => OpenUnifiedManualModal();
+        AndroidSyncVM.OpenManualModalAction = () => OpenUnifiedManualModal();
+        GooglePhotosVM.OpenManualModalAction = () => OpenUnifiedManualModal();
+        IPhoneSyncVM.ManualSelectedItems.CollectionChanged += (s, e) =>
+        {
+            OnPropertyChanged(nameof(UnifiedManualSelectionCountText));
+            IPhoneSyncVM.UpdateManualSelectionTexts();
+            AndroidSyncVM.SyncWithUnifiedManualSelections(IPhoneSyncVM.ManualSelectedItems);
+            GooglePhotosVM.SyncWithUnifiedManualSelections(IPhoneSyncVM.ManualSelectedItems);
+            SearchVM?.NotifyManualSelectionsChanged();
+        };
+
+        // Initial sync of selections from db
+        IPhoneSyncVM.LoadManualSelectionsFromDb();
+        AndroidSyncVM.SyncWithUnifiedManualSelections(IPhoneSyncVM.ManualSelectedItems);
+        GooglePhotosVM.SyncWithUnifiedManualSelections(IPhoneSyncVM.ManualSelectedItems);
 
         // Sync initial destination path across all sub-ViewModels
         SyncDestinationPath(DestinationPath);
@@ -470,8 +482,11 @@ public partial class MainViewModel : ObservableObject
     public void OpenUnifiedManualModal()
     {
         IPhoneSyncVM.LoadManualSelectionsFromDb();
+        AndroidSyncVM.SyncWithUnifiedManualSelections(IPhoneSyncVM.ManualSelectedItems);
+        GooglePhotosVM.SyncWithUnifiedManualSelections(IPhoneSyncVM.ManualSelectedItems);
         OnPropertyChanged(nameof(UnifiedManualSelectionCountText));
         OnPropertyChanged(nameof(UnifiedManualSelectedItems));
+        SearchVM?.NotifyManualSelectionsChanged();
         IsUnifiedManualModalOpen = true;
     }
 
@@ -485,6 +500,7 @@ public partial class MainViewModel : ObservableObject
         AndroidSyncVM.ClearAllManualSelectionsCommand.Execute(null);
         GooglePhotosVM.ClearAllManualSelectionsCommand.Execute(null);
         OnPropertyChanged(nameof(UnifiedManualSelectionCountText));
+        SearchVM?.NotifyManualSelectionsChanged();
     }
 
     [RelayCommand]
@@ -495,6 +511,7 @@ public partial class MainViewModel : ObservableObject
         AndroidSyncVM.RemoveManualItemCommand.Execute(item);
         GooglePhotosVM.RemoveManualItemCommand.Execute(item);
         OnPropertyChanged(nameof(UnifiedManualSelectionCountText));
+        SearchVM?.NotifyManualSelectionsChanged();
     }
 
     [RelayCommand]

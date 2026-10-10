@@ -740,11 +740,11 @@ public partial class PclGalleryWebControl : UserControl
 
                 case "toggleManualSelection":
                     {
-                        string type = obj["type"]?.GetValue<string>() ?? "iPhone";
+                        string type = obj["type"]?.GetValue<string>() ?? "Unified";
                         var ids = obj["ids"]?.AsArray().Select(x => x?.GetValue<string>()).Where(x => !string.IsNullOrEmpty(x)).ToList();
                         if (ids != null && ids.Count > 0 && currentSearchVM != null)
                         {
-                            Dispatcher.Invoke(() => currentSearchVM.ToggleItemsManualSelection(type, ids!));
+                            Dispatcher.Invoke(() => currentSearchVM.ToggleItemsManualSelection("Unified", ids!));
                         }
                     }
                     break;
@@ -962,8 +962,9 @@ public partial class PclGalleryWebControl : UserControl
                     isLivePhoto = isLive,
                     format = ext,
                     mediaType = hit.Type.ToString().ToLowerInvariant(),
-                    isPendingIPhone = iphoneSet.Contains(rel),
-                    isPendingAndroid = androidSet.Contains(rel),
+                    isPending = iphoneSet.Contains(rel) || androidSet.Contains(rel) || googleSet.Contains(rel),
+                    isPendingIPhone = iphoneSet.Contains(rel) || androidSet.Contains(rel) || googleSet.Contains(rel),
+                    isPendingAndroid = iphoneSet.Contains(rel) || androidSet.Contains(rel) || googleSet.Contains(rel),
                     isGooglePhotos = googleSet.Contains(rel),
                     sizeText = ByteSize.Humanize(hit.SizeBytes),
                     cameraModel = camera
@@ -1000,8 +1001,9 @@ public partial class PclGalleryWebControl : UserControl
                     isLivePhoto = item.IsLivePhoto,
                     format = ext,
                     mediaType = item.MediaType,
-                    isPendingIPhone = item.IsManualSelectedForIPhone,
-                    isPendingAndroid = item.IsManualSelectedForAndroid,
+                    isPending = item.IsManualSelectedForIPhone || item.IsManualSelectedForAndroid || item.IsManualSelectedForGooglePhotos,
+                    isPendingIPhone = item.IsManualSelectedForIPhone || item.IsManualSelectedForAndroid || item.IsManualSelectedForGooglePhotos,
+                    isPendingAndroid = item.IsManualSelectedForIPhone || item.IsManualSelectedForAndroid || item.IsManualSelectedForGooglePhotos,
                     isGooglePhotos = item.IsManualSelectedForGooglePhotos,
                     sizeText = item.SizeText,
                     cameraModel = item.CameraModel

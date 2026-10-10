@@ -460,6 +460,17 @@ public partial class AndroidSyncViewModel : ObservableObject
         UpdateManualSelectionTexts();
     }
 
+    public void SyncWithUnifiedManualSelections(IEnumerable<ManualSelectedItemViewModel> items)
+    {
+        ManualSelectedItems.Clear();
+        foreach (var item in items)
+        {
+            ManualSelectedItems.Add(item);
+        }
+        UpdateManualSelectionTexts();
+        RecalculateScopeSummary();
+    }
+
     public void UpdateManualSelectionTexts()
     {
         ManualSelectionCount = ManualSelectedItems.Count;

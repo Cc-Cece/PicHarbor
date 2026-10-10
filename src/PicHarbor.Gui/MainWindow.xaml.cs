@@ -357,12 +357,21 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ListItem_ToggleUnified_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: MediaSearchResultItem item } &&
+            DataContext is MainViewModel { SearchVM: { } searchVM })
+        {
+            searchVM.ToggleUnifiedManualSelectionCommand.Execute(item);
+        }
+    }
+
     private void ListItem_ToggleIPhone_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { DataContext: MediaSearchResultItem item } &&
             DataContext is MainViewModel { SearchVM: { } searchVM })
         {
-            searchVM.ToggleIPhoneManualSelectionCommand.Execute(item);
+            searchVM.ToggleUnifiedManualSelectionCommand.Execute(item);
         }
     }
 
@@ -371,7 +380,7 @@ public partial class MainWindow : Window
         if (sender is FrameworkElement { DataContext: MediaSearchResultItem item } &&
             DataContext is MainViewModel { SearchVM: { } searchVM })
         {
-            searchVM.ToggleAndroidManualSelectionCommand.Execute(item);
+            searchVM.ToggleUnifiedManualSelectionCommand.Execute(item);
         }
     }
 
