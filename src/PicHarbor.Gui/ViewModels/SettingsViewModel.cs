@@ -546,8 +546,8 @@ public partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        string dbPath = Path.Combine(ArchivePath, TransferJournal.DatabaseFileName);
-        if (!File.Exists(dbPath))
+        string dbPath = TransferJournal.ResolveDatabasePath(ArchivePath);
+        if (!File.Exists(LongPath.ToExtended(dbPath)))
         {
             SyncStatusMessage = App.GetString("MsgDbNotFound", "未在归档目录中找到 picharbor.db 数据库，请先执行备份。");
             ShowProgress = false;

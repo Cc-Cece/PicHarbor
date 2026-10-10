@@ -41,6 +41,36 @@ public partial class ReorganizeViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<ReorganizeItem> previewItems = new();
 
+    public ReorganizeViewModel()
+    {
+        RefreshCurrentScheme();
+    }
+
+    partial void OnArchivePathChanged(string value)
+    {
+        RefreshCurrentScheme();
+    }
+
+    public void RefreshCurrentScheme()
+    {
+        if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
+        {
+            CurrentScheme = "未就绪";
+            return;
+        }
+
+        try
+        {
+            using var journal = TransferJournal.OpenReadOnly(ArchivePath);
+            OrganizeScheme? scheme = journal.GetOrganizeScheme();
+            CurrentScheme = scheme.HasValue ? FormatSchemeName(scheme.Value) : "month (YYYY-MM)";
+        }
+        catch
+        {
+            CurrentScheme = "month (YYYY-MM)";
+        }
+    }
+
     [RelayCommand]
     private async Task DryRunAsync()
     {
@@ -54,9 +84,12 @@ public partial class ReorganizeViewModel : ObservableObject
         try
         {
             OrganizeScheme scheme = ParseSchemeToken(TargetScheme);
-            var (items, summary, targetSchemeStr) = await Task.Run(() =>
+            var (items, summary, currentSchemeDisplay) = await Task.Run(() =>
             {
                 using var journal = TransferJournal.OpenReadOnly(ArchivePath);
+                OrganizeScheme? existingScheme = journal.GetOrganizeScheme();
+                string currentDisplay = existingScheme.HasValue ? FormatSchemeName(existingScheme.Value) : "month (YYYY-MM)";
+
                 var reorganizer = new Reorganizer(journal, new DateFolderOrganizer(), ArchivePath);
                 ReorganizePlan plan = reorganizer.Plan(scheme);
 
@@ -78,12 +111,12 @@ public partial class ReorganizeViewModel : ObservableObject
                     ? $"需要移动重构 {plan.Moves.Count:N0} 项 (仅预览前 {maxDisplay:N0} 项)"
                     : $"需要移动重构 {plan.Moves.Count:N0} 项";
 
-                return (list, summaryText, plan.TargetScheme.ToString().ToLowerInvariant());
+                return (list, summaryText, currentDisplay);
             }).ConfigureAwait(false);
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                CurrentScheme = targetSchemeStr;
+                CurrentScheme = currentSchemeDisplay;
                 PreviewItems = new ObservableCollection<ReorganizeItem>(items);
                 ReorgSummaryText = summary;
             });
@@ -114,6 +147,11 @@ public partial class ReorganizeViewModel : ObservableObject
                 reorganizer.Execute(plan);
             }).ConfigureAwait(false);
 
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                CurrentScheme = FormatSchemeName(scheme);
+            });
+
             await DryRunAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -121,6 +159,15 @@ public partial class ReorganizeViewModel : ObservableObject
             System.Diagnostics.Debug.WriteLine($"Reorganize execute error: {ex.Message}");
         }
     }
+
+    private static string FormatSchemeName(OrganizeScheme scheme) => scheme switch
+    {
+        OrganizeScheme.Month => "month (YYYY-MM)",
+        OrganizeScheme.YearMonth => "year-month (YYYY\\YYYY-MM)",
+        OrganizeScheme.Year => "year (YYYY)",
+        OrganizeScheme.Flat => "flat",
+        _ => scheme.ToString().ToLowerInvariant()
+    };
 
     private static OrganizeScheme ParseSchemeToken(string schemeText)
     {

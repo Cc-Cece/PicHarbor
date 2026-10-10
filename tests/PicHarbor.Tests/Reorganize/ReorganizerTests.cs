@@ -404,6 +404,60 @@ public sealed class ReorganizerTests
             .ShouldBeFalse("no method may take or return the device client");
     }
 
+    [Theory]
+    [InlineData(@"15Plus\2026-09\IMG_2403.JPG", "15Plus", false)]
+    [InlineData(@"15Plus\2026\2026-09\IMG_2403.JPG", "15Plus", false)]
+    [InlineData(@"15Plus\2026\IMG_2403.JPG", "15Plus", false)]
+    [InlineData(@"15Plus\IMG_2403.JPG", "15Plus", false)]
+    [InlineData(@"15Plus\unsorted\IMG_2403.JPG", "15Plus", true)]
+    [InlineData(@"2026-09\IMG_2403.JPG", null, false)]
+    [InlineData(@"2026\2026-09\IMG_2403.JPG", null, false)]
+    [InlineData(@"2026\IMG_2403.JPG", null, false)]
+    [InlineData(@"IMG_2403.JPG", null, false)]
+    [InlineData(@"unsorted\IMG_2403.JPG", null, true)]
+    [InlineData(@"iPhone 15 Pro\2024-05\PXL_001.JPG", "iPhone 15 Pro", false)]
+    [InlineData(@"MyPhone\unsorted\IMG_0001.JPG", "MyPhone", true)]
+    public void InspectPath_correctly_detects_device_prefix_and_unsorted(string path, string? expectedPrefix, bool expectedUnsorted)
+    {
+        var (devicePrefix, isUnsorted) = Reorganizer.InspectPath(path);
+        devicePrefix.ShouldBe(expectedPrefix);
+        isUnsorted.ShouldBe(expectedUnsorted);
+    }
+
+    [Fact]
+    public void Reorganize_preserves_device_subfolder_prefix()
+    {
+        using TempDirectory dest = new();
+        string relativeSrc = Path.Combine("15Plus", "2026-09", "IMG_2403.JPG");
+        string fullSrc = Path.Combine(dest.Path, relativeSrc);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullSrc)!);
+        File.WriteAllBytes(fullSrc, new byte[] { 1, 2, 3, 4 });
+
+        using (TransferJournal journal = TransferJournal.Open(dest.Path))
+        {
+            journal.SetOrganizeScheme(OrganizeScheme.Month);
+            RemoteFile remote = new("/DCIM/100APPLE/IMG_2403.JPG", 4, new DateTimeOffset(2026, 9, 10, 12, 0, 0, TimeSpan.Zero));
+            journal.EnsurePending(remote);
+            journal.MarkDone(
+                remote.Path, remote.Size, relativeSrc,
+                new MediaMetadata(new DateTime(2026, 9, 10, 12, 0, 0), null, null, "Apple", "iPhone 15 Plus"),
+                DateTimeOffset.UtcNow);
+        }
+
+        ReorganizePlan plan = ComputePlan(dest.Path, OrganizeScheme.YearMonth);
+        plan.Moves.Count.ShouldBe(1);
+        string expectedTarget = Path.Combine("15Plus", "2026", "2026-09", "IMG_2403.JPG");
+        plan.Moves[0].TargetDestPath.ShouldBe(expectedTarget);
+
+        ReorganizeReport report = Reorganize(dest.Path, OrganizeScheme.YearMonth);
+        report.Failed.ShouldBe(0);
+        report.Moved.ShouldBe(1);
+
+        string fullTarget = Path.Combine(dest.Path, expectedTarget);
+        File.Exists(fullTarget).ShouldBeTrue("File should be moved preserving device prefix");
+        File.Exists(fullSrc).ShouldBeFalse("Original path should be moved");
+    }
+
     // ---- helpers ----------------------------------------------------------------------------------------
 
     private static async Task BuildArchive(string dest, FakeDeviceSpec spec, OrganizeScheme scheme)

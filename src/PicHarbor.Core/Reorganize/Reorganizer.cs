@@ -79,8 +79,9 @@ public sealed class Reorganizer
         foreach (ReorganizeEntry entry in entries)
         {
             string leaf = Path.GetFileName(entry.DestPath);
+            var (devicePrefix, isUnsorted) = InspectPath(entry.DestPath);
             string rawTarget;
-            if (IsUnderUnsorted(entry.DestPath))
+            if (isUnsorted)
             {
                 // Respect copy's original "no trustworthy date" decision: a file copy placed in unsorted/
                 // never moves, even if its stored timestamp would now resolve as sane (e.g. a clock-skewed
@@ -91,7 +92,7 @@ public sealed class Reorganizer
             else
             {
                 DateTime? date = organizer.ResolveDate(entry.ExifDateTimeOriginal, entry.SourceMtime);
-                rawTarget = organizer.GetRelativeDestination(leaf, date, targetScheme);
+                rawTarget = organizer.GetRelativeDestination(leaf, date, targetScheme, devicePrefix);
             }
 
             computed.Add((entry, rawTarget));
@@ -322,15 +323,78 @@ public sealed class Reorganizer
     private static bool PathsEqual(string a, string b) =>
         string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsUnderUnsorted(string relativeDestPath)
+    internal static (string? DevicePrefix, bool IsUnsorted) InspectPath(string relativeDestPath)
     {
-        // Unsorted files are placed at "unsorted\<leaf>" under every scheme, so the first path segment
-        // identifies them.
-        ReadOnlySpan<char> span = relativeDestPath.AsSpan();
-        int separator = span.IndexOfAny('\\', '/');
-        ReadOnlySpan<char> firstSegment = separator >= 0 ? span[..separator] : span;
-        return firstSegment.Equals(DateFolderOrganizer.UnsortedFolder, StringComparison.OrdinalIgnoreCase);
+        string? dir = Path.GetDirectoryName(relativeDestPath);
+        if (string.IsNullOrWhiteSpace(dir))
+        {
+            return (null, false);
+        }
+
+        string[] segments = dir.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length == 0)
+        {
+            return (null, false);
+        }
+
+        int dateIndex = -1;
+        bool isUnsorted = false;
+
+        for (int i = 0; i < segments.Length; i++)
+        {
+            string seg = segments[i];
+            if (string.Equals(seg, DateFolderOrganizer.UnsortedFolder, StringComparison.OrdinalIgnoreCase))
+            {
+                dateIndex = i;
+                isUnsorted = true;
+                break;
+            }
+
+            if (IsDateSegment(seg))
+            {
+                dateIndex = i;
+                break;
+            }
+        }
+
+        if (dateIndex == -1)
+        {
+            // No date segment found in directory hierarchy (e.g. flat scheme with device subfolder: "15Plus\IMG_001.JPG")
+            string devicePrefix = string.Join(Path.DirectorySeparatorChar.ToString(), segments);
+            return (devicePrefix, false);
+        }
+
+        if (dateIndex > 0)
+        {
+            string devicePrefix = string.Join(Path.DirectorySeparatorChar.ToString(), segments[..dateIndex]);
+            return (devicePrefix, isUnsorted);
+        }
+
+        return (null, isUnsorted);
     }
+
+    private static bool IsDateSegment(string segment)
+    {
+        // YYYY-MM: 4 digits, '-', 2 digits (e.g. 2024-08)
+        if (segment.Length == 7 && segment[4] == '-'
+            && int.TryParse(segment.AsSpan(0, 4), out int y1) && y1 >= 1970 && y1 <= 2100
+            && int.TryParse(segment.AsSpan(5, 2), out int m) && m >= 1 && m <= 12)
+        {
+            return true;
+        }
+
+        // YYYY: 4 digits (e.g. 2024)
+        if (segment.Length == 4
+            && int.TryParse(segment, out int y2) && y2 >= 1970 && y2 <= 2100)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsUnderUnsorted(string relativeDestPath) =>
+        InspectPath(relativeDestPath).IsUnsorted;
 }
 
 /// <summary>One planned file move within a <see cref="ReorganizePlan"/>.</summary>
