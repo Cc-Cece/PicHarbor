@@ -278,6 +278,12 @@ public partial class IPhoneSyncViewModel : ObservableObject
     private int copiedCount = 0;
 
     [ObservableProperty]
+    private int remainingFilesCount = 0;
+
+    [ObservableProperty]
+    private string speedText = "--";
+
+    [ObservableProperty]
     private int skippedCount = 0;
 
     [ObservableProperty]
@@ -1131,6 +1137,8 @@ public partial class IPhoneSyncViewModel : ObservableObject
             CopiedCount = s.CopiedFiles;
             SkippedCount = s.SkippedFiles;
             FailedCount = s.FailedFiles;
+            RemainingFilesCount = Math.Max(0, s.TotalFiles - s.ProcessedFiles);
+            SpeedText = s.CurrentBytesPerSecond > 0 ? $"{s.CurrentBytesPerSecond / 1024d / 1024d:F1} MB/s" : "--";
             TransferredSizeText = FormatByteSize(s.ProcessedBytes);
         });
 

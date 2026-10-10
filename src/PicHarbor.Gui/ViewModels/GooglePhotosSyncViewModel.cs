@@ -556,6 +556,9 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     private string speedText = "--";
 
     [ObservableProperty]
+    private int remainingFilesCount = 0;
+
+    [ObservableProperty]
     private string etaText = "--";
 
     [ObservableProperty]
@@ -1370,6 +1373,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             UploadedCount = s.UploadedFiles;
             SkippedCount = s.SkippedFiles;
             FailedCount = s.FailedFiles;
+            RemainingFilesCount = Math.Max(0, s.TotalFiles - (s.UploadedFiles + s.SkippedFiles + s.FailedFiles));
             activePlanUploadedBytes = s.UploadedBytes;
             TransferredSizeText = $"{FormatSize(s.UploadedBytes)} / {FormatSize(s.TotalBytes)}";
             SpeedText = s.SpeedBytesPerSecond > 0 ? $"{FormatSize((long)s.SpeedBytesPerSecond)}/s" : "--";
@@ -1531,6 +1535,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             UploadedCount = s.UploadedFiles;
             SkippedCount = s.SkippedFiles;
             FailedCount = s.FailedFiles;
+            RemainingFilesCount = Math.Max(0, s.TotalFiles - (s.UploadedFiles + s.SkippedFiles + s.FailedFiles));
             activePlanUploadedBytes = s.UploadedBytes;
             TransferredSizeText = $"{FormatSize(s.UploadedBytes)} / {FormatSize(s.TotalBytes)}";
             SpeedText = s.SpeedBytesPerSecond > 0 ? $"{FormatSize((long)s.SpeedBytesPerSecond)}/s" : "--";
@@ -1727,6 +1732,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         var progressTarget = new Progress<GooglePhotosProgressSnapshot>(s =>
         {
             ProgressValue = s.OverallPercent;
+            RemainingFilesCount = Math.Max(0, s.TotalFiles - (s.UploadedFiles + s.SkippedFiles + s.FailedFiles));
             TransferredSizeText = $"{FormatSize(s.UploadedBytes)} / {FormatSize(s.TotalBytes)}";
             SpeedText = s.SpeedBytesPerSecond > 0 ? $"{FormatSize((long)s.SpeedBytesPerSecond)}/s" : "--";
             CurrentFile = s.CurrentFile;

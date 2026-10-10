@@ -112,6 +112,12 @@ public partial class BackupViewModel : ObservableObject
     private int copiedCount = 0;
 
     [ObservableProperty]
+    private int remainingFilesCount = 0;
+
+    [ObservableProperty]
+    private int totalFilesCount = 0;
+
+    [ObservableProperty]
     private int skippedCount = 0;
 
     [ObservableProperty]
@@ -457,6 +463,8 @@ public partial class BackupViewModel : ObservableObject
 
         ProgressPercentage = 0;
         CopiedCount = 0;
+        RemainingFilesCount = 0;
+        TotalFilesCount = 0;
         SkippedCount = 0;
         FailedCount = 0;
         TransferredSizeText = "0 B / 0 B";
@@ -743,6 +751,8 @@ public partial class BackupViewModel : ObservableObject
             CopiedCount = snapshot.CopiedFiles;
             SkippedCount = snapshot.SkippedFiles;
             FailedCount = snapshot.FailedFiles;
+            RemainingFilesCount = Math.Max(0, snapshot.TotalFiles - snapshot.ProcessedFiles);
+            TotalFilesCount = snapshot.TotalFiles;
             TransferredSizeText = $"{FormatBytes(snapshot.ProcessedBytes)} / {FormatBytes(snapshot.TotalBytes)}";
             EtaText = snapshot.Eta is TimeSpan eta
                 ? FormatTimeSpan(eta)

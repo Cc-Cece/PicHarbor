@@ -37,6 +37,13 @@ public partial class MainViewModel : ObservableObject
     private bool isRenameModalOpen = false;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsAnyModalOpen))]
+    private bool isAndroidFtpModalOpen = false;
+
+    [ObservableProperty]
+    private bool isTaskManagerOpen = false;
+
+    [ObservableProperty]
     private string deviceCustomName = "";
 
     [ObservableProperty]
@@ -127,11 +134,51 @@ public partial class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(IsAnyModalOpen));
         }
 
-        BackupVM.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(BackupViewModel.IsDetailModalOpen)) NotifyModalChanged(); };
-        AndroidBackupVM.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(AndroidBackupViewModel.IsDetailModalOpen)) NotifyModalChanged(); };
-        GooglePhotosVM.PropertyChanged += (s, e) => { if (e.PropertyName is nameof(GooglePhotosSyncViewModel.IsDetailModalOpen) or nameof(GooglePhotosSyncViewModel.IsManualModalOpen)) NotifyModalChanged(); };
-        AndroidSyncVM.PropertyChanged += (s, e) => { if (e.PropertyName is nameof(AndroidSyncViewModel.IsDetailModalOpen) or nameof(AndroidSyncViewModel.IsPreflightModalOpen) or nameof(AndroidSyncViewModel.IsManualModalOpen)) NotifyModalChanged(); };
-        IPhoneSyncVM.PropertyChanged += (s, e) => { if (e.PropertyName is nameof(IPhoneSyncViewModel.IsPreflightModalOpen) or nameof(IPhoneSyncViewModel.IsManualModalOpen)) NotifyModalChanged(); };
+        void NotifyTaskChanged()
+        {
+            OnPropertyChanged(nameof(IsAnyTaskRunning));
+            OnPropertyChanged(nameof(ActiveTaskTitle));
+            OnPropertyChanged(nameof(ActiveTaskProgressPercentage));
+            OnPropertyChanged(nameof(ActiveTaskProgressPercentText));
+            OnPropertyChanged(nameof(ActiveTaskSpeedText));
+            OnPropertyChanged(nameof(ActiveTaskRemainingFilesText));
+            OnPropertyChanged(nameof(ActiveTaskCurrentFileName));
+            OnPropertyChanged(nameof(ActiveTaskStep2Status));
+            OnPropertyChanged(nameof(ActiveTaskStep2Text));
+            OnPropertyChanged(nameof(ActiveTaskStep3Status));
+            OnPropertyChanged(nameof(ActiveTaskStep4Status));
+        }
+
+        BackupVM.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(BackupViewModel.IsDetailModalOpen)) NotifyModalChanged();
+            if (e.PropertyName is nameof(BackupViewModel.IsTransferring) or nameof(BackupViewModel.ProgressPercentage) or nameof(BackupViewModel.SpeedText) or nameof(BackupViewModel.RemainingFilesCount) or nameof(BackupViewModel.CurrentFileName))
+                NotifyTaskChanged();
+        };
+        AndroidBackupVM.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(AndroidBackupViewModel.IsDetailModalOpen)) NotifyModalChanged();
+            if (e.PropertyName is nameof(AndroidBackupViewModel.IsTransferring) or nameof(AndroidBackupViewModel.ProgressPercentage) or nameof(AndroidBackupViewModel.SpeedText) or nameof(AndroidBackupViewModel.RemainingFilesCount) or nameof(AndroidBackupViewModel.CurrentFileName))
+                NotifyTaskChanged();
+        };
+        GooglePhotosVM.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName is nameof(GooglePhotosSyncViewModel.IsDetailModalOpen) or nameof(GooglePhotosSyncViewModel.IsManualModalOpen)) NotifyModalChanged();
+            if (e.PropertyName is nameof(GooglePhotosSyncViewModel.IsSyncing) or nameof(GooglePhotosSyncViewModel.ProgressValue) or nameof(GooglePhotosSyncViewModel.SpeedText) or nameof(GooglePhotosSyncViewModel.RemainingFilesCount) or nameof(GooglePhotosSyncViewModel.CurrentFile))
+                NotifyTaskChanged();
+        };
+        AndroidSyncVM.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName is nameof(AndroidSyncViewModel.IsDetailModalOpen) or nameof(AndroidSyncViewModel.IsPreflightModalOpen) or nameof(AndroidSyncViewModel.IsManualModalOpen)) NotifyModalChanged();
+            if (e.PropertyName is nameof(AndroidSyncViewModel.IsSyncing) or nameof(AndroidSyncViewModel.ProgressValue) or nameof(AndroidSyncViewModel.SpeedText) or nameof(AndroidSyncViewModel.RemainingFilesCount))
+                NotifyTaskChanged();
+        };
+        IPhoneSyncVM.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName is nameof(IPhoneSyncViewModel.IsPreflightModalOpen) or nameof(IPhoneSyncViewModel.IsManualModalOpen)) NotifyModalChanged();
+            if (e.PropertyName is nameof(IPhoneSyncViewModel.IsExporting) or nameof(IPhoneSyncViewModel.ProgressValue) or nameof(IPhoneSyncViewModel.SpeedText) or nameof(IPhoneSyncViewModel.RemainingFilesCount))
+                NotifyTaskChanged();
+        };
 
         // Sync initial destination path across all sub-ViewModels
         SyncDestinationPath(DestinationPath);
@@ -277,6 +324,7 @@ public partial class MainViewModel : ObservableObject
         IsDetailModalOpen ||
         IsScopeModalOpen ||
         IsRenameModalOpen ||
+        IsAndroidFtpModalOpen ||
         IPhoneSyncVM.IsPreflightModalOpen ||
         AndroidSyncVM.IsPreflightModalOpen ||
         IPhoneSyncVM.IsManualModalOpen ||
@@ -351,6 +399,123 @@ public partial class MainViewModel : ObservableObject
         SelectedTabIndex = 2;
         SyncSubTabIndex = 1;
     }
+
+    [RelayCommand]
+    public void OpenAndroidFtpModal() => IsAndroidFtpModalOpen = true;
+
+    [RelayCommand]
+    public void CloseAndroidFtpModal() => IsAndroidFtpModalOpen = false;
+
+    [RelayCommand]
+    public void OpenTaskManager() => IsTaskManagerOpen = true;
+
+    [RelayCommand]
+    public void CloseTaskManager() => IsTaskManagerOpen = false;
+
+    [RelayCommand]
+    public void CancelActiveTask()
+    {
+        if (AndroidBackupVM.IsTransferring) AndroidBackupVM.CancelBackupCommand.Execute(null);
+        if (BackupVM.IsTransferring) BackupVM.StopBackupCommand.Execute(null);
+        if (GooglePhotosVM.IsSyncing) GooglePhotosVM.CancelSyncCommand.Execute(null);
+        if (IPhoneSyncVM.IsExporting) IPhoneSyncVM.CancelExportCommand.Execute(null);
+        if (AndroidSyncVM.IsSyncing) AndroidSyncVM.CancelSyncCommand.Execute(null);
+    }
+
+    public bool IsAnyTaskRunning =>
+        BackupVM.IsTransferring ||
+        AndroidBackupVM.IsTransferring ||
+        IPhoneSyncVM.IsExporting ||
+        AndroidSyncVM.IsSyncing ||
+        GooglePhotosVM.IsSyncing;
+
+    public string ActiveTaskTitle
+    {
+        get
+        {
+            if (AndroidBackupVM.IsTransferring)
+                return $"{(string.IsNullOrWhiteSpace(AndroidBackupVM.DetectedDeviceModel) ? "Android 设备" : AndroidBackupVM.DetectedDeviceModel)} 增量备份";
+            if (BackupVM.IsTransferring)
+                return $"{(string.IsNullOrWhiteSpace(BackupVM.DetectedDeviceModel) ? "iPhone 设备" : BackupVM.DetectedDeviceModel)} 增量备份";
+            if (GooglePhotosVM.IsSyncing)
+                return "Google 相册上传与同步";
+            if (IPhoneSyncVM.IsExporting)
+                return "iPhone 照片导出与回传";
+            if (AndroidSyncVM.IsSyncing)
+                return "Android 照片回传与同步";
+            return "传输任务";
+        }
+    }
+
+    public double ActiveTaskProgressPercentage
+    {
+        get
+        {
+            if (AndroidBackupVM.IsTransferring) return AndroidBackupVM.ProgressPercentage;
+            if (BackupVM.IsTransferring) return BackupVM.ProgressPercentage;
+            if (GooglePhotosVM.IsSyncing) return GooglePhotosVM.ProgressValue;
+            if (IPhoneSyncVM.IsExporting) return IPhoneSyncVM.ProgressValue;
+            if (AndroidSyncVM.IsSyncing) return AndroidSyncVM.ProgressValue;
+            return 0;
+        }
+    }
+
+    public string ActiveTaskProgressPercentText => $"{ActiveTaskProgressPercentage:F2} %";
+
+    public string ActiveTaskSpeedText
+    {
+        get
+        {
+            if (AndroidBackupVM.IsTransferring) return string.IsNullOrWhiteSpace(AndroidBackupVM.SpeedText) ? "0.0 MB/s" : AndroidBackupVM.SpeedText;
+            if (BackupVM.IsTransferring) return string.IsNullOrWhiteSpace(BackupVM.SpeedText) ? "0.0 MB/s" : BackupVM.SpeedText;
+            if (GooglePhotosVM.IsSyncing) return string.IsNullOrWhiteSpace(GooglePhotosVM.SpeedText) ? "--" : GooglePhotosVM.SpeedText;
+            if (IPhoneSyncVM.IsExporting) return string.IsNullOrWhiteSpace(IPhoneSyncVM.SpeedText) ? "--" : IPhoneSyncVM.SpeedText;
+            if (AndroidSyncVM.IsSyncing) return string.IsNullOrWhiteSpace(AndroidSyncVM.SpeedText) ? "--" : AndroidSyncVM.SpeedText;
+            return "0.0 MB/s";
+        }
+    }
+
+    public string ActiveTaskRemainingFilesText
+    {
+        get
+        {
+            if (AndroidBackupVM.IsTransferring) return AndroidBackupVM.RemainingFilesCount > 0 ? AndroidBackupVM.RemainingFilesCount.ToString("N0") : (AndroidBackupVM.TotalFilesCount > 0 ? "0" : "--");
+            if (BackupVM.IsTransferring) return BackupVM.RemainingFilesCount > 0 ? BackupVM.RemainingFilesCount.ToString("N0") : (BackupVM.TotalFilesCount > 0 ? "0" : "--");
+            if (GooglePhotosVM.IsSyncing) return GooglePhotosVM.RemainingFilesCount > 0 ? GooglePhotosVM.RemainingFilesCount.ToString("N0") : "--";
+            if (IPhoneSyncVM.IsExporting) return IPhoneSyncVM.RemainingFilesCount > 0 ? IPhoneSyncVM.RemainingFilesCount.ToString("N0") : "--";
+            if (AndroidSyncVM.IsSyncing) return AndroidSyncVM.RemainingFilesCount > 0 ? AndroidSyncVM.RemainingFilesCount.ToString("N0") : "--";
+            return "--";
+        }
+    }
+
+    public string ActiveTaskCurrentFileName
+    {
+        get
+        {
+            if (AndroidBackupVM.IsTransferring) return AndroidBackupVM.CurrentFileName;
+            if (BackupVM.IsTransferring) return BackupVM.CurrentFileName;
+            if (GooglePhotosVM.IsSyncing) return GooglePhotosVM.CurrentFile ?? "";
+            return "";
+        }
+    }
+
+    public string ActiveTaskStep2Status => $"{ActiveTaskProgressPercentage:F0}%";
+
+    public string ActiveTaskStep2Text
+    {
+        get
+        {
+            string fn = ActiveTaskCurrentFileName;
+            if (!string.IsNullOrWhiteSpace(fn) && fn != "Ready" && fn != "Idle" && fn != "In progress..." && fn != "进行中...")
+            {
+                return $"传输媒体文件 ({fn})";
+            }
+            return "传输媒体文件";
+        }
+    }
+
+    public string ActiveTaskStep3Status => ActiveTaskProgressPercentage >= 95 ? "✓" : (ActiveTaskProgressPercentage >= 80 ? $"{ActiveTaskProgressPercentage:F0}%" : "•••");
+    public string ActiveTaskStep4Status => ActiveTaskProgressPercentage >= 100 ? "✓" : "•••";
 
     [RelayCommand]
     private void NavigateToSettings()

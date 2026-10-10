@@ -193,6 +193,12 @@ public partial class AndroidBackupViewModel : ObservableObject
     private int copiedCount = 0;
 
     [ObservableProperty]
+    private int remainingFilesCount = 0;
+
+    [ObservableProperty]
+    private int totalFilesCount = 0;
+
+    [ObservableProperty]
     private int skippedCount = 0;
 
     [ObservableProperty]
@@ -569,6 +575,8 @@ public partial class AndroidBackupViewModel : ObservableObject
         skippedDetails.Clear();
         failedDetails.Clear();
         CopiedCount = 0;
+        RemainingFilesCount = 0;
+        TotalFilesCount = 0;
         SkippedCount = 0;
         FailedCount = 0;
         ProgressPercentage = 0;
@@ -789,6 +797,8 @@ public partial class AndroidBackupViewModel : ObservableObject
             CopiedCount = snapshot.CopiedFiles;
             SkippedCount = snapshot.SkippedFiles;
             FailedCount = snapshot.FailedFiles;
+            RemainingFilesCount = Math.Max(0, snapshot.TotalFiles - snapshot.ProcessedFiles);
+            TotalFilesCount = snapshot.TotalFiles;
             TransferredSizeText = $"{ByteSize.Humanize(snapshot.ProcessedBytes)} / {ByteSize.Humanize(snapshot.TotalBytes)}";
             EtaText = snapshot.Eta.HasValue
                 ? $"{snapshot.Eta.Value.Minutes}m {snapshot.Eta.Value.Seconds}s"

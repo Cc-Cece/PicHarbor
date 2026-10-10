@@ -246,19 +246,6 @@
                                         </StackPanel>
                                     </Border>
 
-                                    <!-- Device Subdir Label -->
-                                    <Button Command="{Binding OpenRenameModalCommand}" Cursor="Hand" Background="Transparent" BorderThickness="0" Padding="0" Margin="0,6,0,0" HorizontalAlignment="Center">
-                                        <Button.Template>
-                                            <ControlTemplate TargetType="Button">
-                                                <StackPanel Orientation="Horizontal" Opacity="0.85">
-                                                    <TextBlock Text="归档至: " FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" />
-                                                    <TextBlock Text="{Binding BackupVM.DeviceSubdir}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center" TextDecorations="Underline" />
-                                                    <TextBlock Text=" ✏️" FontSize="10" VerticalAlignment="Center" Margin="2,0,0,0" />
-                                                </StackPanel>
-                                            </ControlTemplate>
-                                        </Button.Template>
-                                    </Button>
-
                                     <!-- PCL2 Signature Hero Hover Mini-Menu (Hover anywhere in device region to reveal) -->
                                     <Border x:Name="IPhoneHeroHoverMenu" Height="0" Opacity="0" ClipToBounds="True" Margin="0,8,0,0" HorizontalAlignment="Center">
                                         <Border Background="#F1F5F9" CornerRadius="14" Padding="4,2" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
@@ -318,27 +305,14 @@
                                         </StackPanel>
                                     </Border>
 
-                                    <!-- Device Subdir Label -->
-                                    <Button Command="{Binding OpenRenameModalCommand}" Cursor="Hand" Background="Transparent" BorderThickness="0" Padding="0" Margin="0,6,0,0" HorizontalAlignment="Center">
-                                        <Button.Template>
-                                            <ControlTemplate TargetType="Button">
-                                                <StackPanel Orientation="Horizontal" Opacity="0.85">
-                                                    <TextBlock Text="归档至: " FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" />
-                                                    <TextBlock Text="{Binding AndroidBackupVM.DeviceSubdir}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center" TextDecorations="Underline" />
-                                                    <TextBlock Text=" ✏️" FontSize="10" VerticalAlignment="Center" Margin="2,0,0,0" />
-                                                </StackPanel>
-                                            </ControlTemplate>
-                                        </Button.Template>
-                                    </Button>
-
                                     <!-- PCL2 Signature Hero Hover Mini-Menu (Android) -->
                                     <Border x:Name="AndroidHeroHoverMenu" Height="0" Opacity="0" ClipToBounds="True" Margin="0,8,0,0" HorizontalAlignment="Center">
                                         <Border Background="#F1F5F9" CornerRadius="14" Padding="4,2" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
                                             <StackPanel Orientation="Horizontal">
                                                 <Button Content="✏️ 重命名" Command="{Binding OpenRenameModalCommand}"
                                                         Style="{StaticResource PclHeroMiniBtn}" Margin="0,0,3,0" ToolTip="自定义设备别名" />
-                                                <Button Content="📡 FTP 直连" Command="{Binding NavigateToAndroidSyncCommand}"
-                                                        Style="{StaticResource PclHeroMiniBtn}" Margin="0,0,3,0" ToolTip="快速跳转 Wi-Fi/FTP 同步" />
+                                                <Button Content="📡 连接参数" Command="{Binding OpenAndroidFtpModalCommand}"
+                                                        Style="{StaticResource PclHeroMiniBtn}" Margin="0,0,3,0" ToolTip="配置 Android 手机 FTP 连接参数" />
                                                 <Button Content="🔄 重扫" Command="{Binding RefreshDeviceCommand}"
                                                         Style="{StaticResource PclHeroMiniBtn}" ToolTip="重新扫描局域网与设备" />
                                             </StackPanel>
@@ -594,52 +568,7 @@
                                             </Style>
                                         </StackPanel.Style>
 
-                                        <!-- Card 1: 📡 手机 FTP 连接 -->
-                                        <controls:PclCard Title="📡 手机 FTP 连接配置" CanSwap="False">
-                                            <StackPanel>
-                                                <TextBlock Text="在 Android 手机文件管理或 FTP 客户端开启服务，输入下方局域网连接参数。"
-                                                           FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,12" />
-
-                                                <Grid Margin="0,0,0,10">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="20" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="80" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="手机 IP 地址:" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                                    <TextBox Grid.Column="1" Text="{Binding AndroidFtpHost, UpdateSourceTrigger=PropertyChanged}" Height="28" VerticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" />
-
-                                                    <TextBlock Grid.Column="3" Text="FTP 端口:" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                                    <TextBox Grid.Column="4" Text="{Binding AndroidFtpPort, UpdateSourceTrigger=PropertyChanged}" Height="28" VerticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" />
-                                                </Grid>
-
-                                                <Grid Margin="0,0,0,10">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="20" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="用户名 (可选):" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                                    <TextBox Grid.Column="1" Text="{Binding AndroidFtpUser, UpdateSourceTrigger=PropertyChanged}" Height="28" VerticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" />
-
-                                                    <TextBlock Grid.Column="3" Text="密码 (可选):" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                                    <TextBox Grid.Column="4" Text="{Binding AndroidFtpPassword, UpdateSourceTrigger=PropertyChanged}" Height="28" VerticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" />
-
-                                                    <controls:PclButton Grid.Column="5" Content="测试连接" Command="{Binding TestConnectionCommand}" Height="28" Margin="10,0,0,0" />
-                                                </Grid>
-
-                                                <TextBlock Text="{Binding ConnectionStatusText}" FontSize="12" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource ColorBrush2}" Margin="0,2,0,0"
-                                                           Visibility="{Binding ConnectionStatusText, Converter={x:Static controls:StringNotEmptyToVisibilityConverter.Instance}}" />
-                                            </StackPanel>
-                                        </controls:PclCard>
-
-                                        <!-- Card 2: 🧹 相册选取与过滤清洗 -->
+                                        <!-- Card 1: 🧹 相册选取与智能过滤 -->
                                         <controls:PclCard Title="相册选取与智能过滤" CanSwap="False">
                                             <StackPanel>
                                                 <!-- Album Scan Toolbar -->
@@ -831,11 +760,6 @@
                             </controls:PclPageHost>
                         </StackPanel>
                     </controls:PclScrollViewer>
-
-                    <!-- PCL2 Floating Extra Button (Bottom Right) -->
-                    <controls:PclExtraButton Logo="{StaticResource PclIconTop}"
-                                             HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                             Margin="0,0,24,20" ToolTip="返回顶部" />
                 </Grid>
             </Grid>
 
@@ -2003,6 +1927,14 @@
                     </StackPanel>
                 </controls:PclScrollViewer>
             </Grid>
+
+            <!-- Floating Task Management Action Button (Bottom Right, visible ONLY during active tasks) -->
+            <controls:PclExtraButton Logo="{StaticResource PclIconDownload}"
+                                     Command="{Binding OpenTaskManagerCommand}"
+                                     HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                     Margin="0,0,24,20" Panel.ZIndex="500"
+                                     Visibility="{Binding IsAnyTaskRunning, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                     ToolTip="查看任务管理与传输进度" />
         </Grid>
 
         <!-- ======================================================== -->
@@ -2343,5 +2275,229 @@
                 </StackPanel>
             </Border>
         </controls:PclModalHost>
+
+        <!-- ======================================================== -->
+        <!--  MODAL 9: Android 手机 FTP 连接参数配置弹窗 (PCL2 风格轻量弹窗) -->
+        <!-- ======================================================== -->
+        <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1025"
+                               IsOpen="{Binding IsAndroidFtpModalOpen}"
+                               CloseCommand="{Binding CloseAndroidFtpModalCommand}">
+            <Border Style="{StaticResource PclDialogContainer}" Width="520" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="22">
+                <StackPanel DataContext="{Binding AndroidBackupVM}">
+                    <Grid Margin="0,0,0,12">
+                        <TextBlock Text="📡 FTP 连接参数配置" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center" />
+                        <controls:PclIconButton Logo="{StaticResource PclIconClose}" IconTheme="Close"
+                                                Command="{Binding DataContext.CloseAndroidFtpModalCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                HorizontalAlignment="Right" />
+                    </Grid>
+                    <TextBlock Text="在 Android 手机文件管理或 FTP 客户端开启服务，输入下方局域网连接参数。"
+                               FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,14" />
+
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="80" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="手机 IP 地址:" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <TextBox Grid.Column="1" Text="{Binding AndroidFtpHost, UpdateSourceTrigger=PropertyChanged}" Height="28" VerticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" />
+
+                        <TextBlock Grid.Column="3" Text="FTP 端口:" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <TextBox Grid.Column="4" Text="{Binding AndroidFtpPort, UpdateSourceTrigger=PropertyChanged}" Height="28" VerticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" />
+                    </Grid>
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="用户名 (可选):" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <TextBox Grid.Column="1" Text="{Binding AndroidFtpUser, UpdateSourceTrigger=PropertyChanged}" Height="28" VerticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" />
+
+                        <TextBlock Grid.Column="3" Text="密码 (可选):" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <TextBox Grid.Column="4" Text="{Binding AndroidFtpPassword, UpdateSourceTrigger=PropertyChanged}" Height="28" VerticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" />
+                    </Grid>
+
+                    <TextBlock Text="{Binding ConnectionStatusText}" FontSize="12" FontWeight="SemiBold"
+                               Foreground="{DynamicResource ColorBrush2}" Margin="0,0,0,14"
+                               Visibility="{Binding ConnectionStatusText, Converter={x:Static controls:StringNotEmptyToVisibilityConverter.Instance}}" />
+
+                    <Grid Margin="0,6,0,0">
+                        <controls:PclButton Content="测试连接" Command="{Binding TestConnectionCommand}" Height="30" Padding="14,0" HorizontalAlignment="Left" />
+                        <controls:PclButton Content="完成" Command="{Binding DataContext.CloseAndroidFtpModalCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            Width="90" Height="30" HorizontalAlignment="Right" ButtonType="Hero" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </controls:PclModalHost>
+
+        <!-- ======================================================== -->
+        <!--  PCL2 TASK MANAGEMENT OVERLAY (1:1 Port of PCL2 任务管理)   -->
+        <!-- ======================================================== -->
+        <Grid Grid.RowSpan="2" Panel.ZIndex="1100"
+              Visibility="{Binding IsTaskManagerOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid.RowDefinitions>
+                <!-- Blue Title Bar (44px) -->
+                <RowDefinition Height="44" />
+                <!-- Content Area -->
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- 1. Top Title Bar: PCL2 Style with ← 任务管理 -->
+            <Border Grid.Row="0" Background="{DynamicResource ColorBrush3}">
+                <Grid Margin="12,0,12,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Back Button: ← 任务管理 -->
+                    <Button Grid.Column="0" Command="{Binding CloseTaskManagerCommand}"
+                            Background="Transparent" BorderThickness="0" Cursor="Hand" Padding="6,4">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="6,2">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path Data="{StaticResource PclIconArrowLeft}" Width="16" Height="16" Stretch="Uniform"
+                                              Fill="White" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                        <TextBlock Text="任务管理" FontSize="16" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#25FFFFFF" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Window Minimize & Close Buttons -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <controls:PclIconButton Logo="{StaticResource PclIconMinimize}" IconTheme="White"
+                                                Click="MinimizeButton_Click" ToolTip="最小化" />
+                        <controls:PclIconButton Logo="{StaticResource PclIconClose}" IconTheme="White"
+                                                Command="{Binding CloseTaskManagerCommand}" ToolTip="关闭任务管理" Margin="4,0,0,0" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 2. Content Canvas: Two Column Layout (Image 2) -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <!-- Left Stats Pane (Width 230) -->
+                    <ColumnDefinition Width="230" />
+                    <!-- Right Task Cards Pane -->
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Left Column: Metrics -->
+                <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,0,1,0">
+                    <StackPanel VerticalAlignment="Center" Margin="28,0">
+                        <!-- Stat 1: 总进度 -->
+                        <StackPanel HorizontalAlignment="Center" Margin="0,0,0,38">
+                            <TextBlock Text="总进度" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush3}" HorizontalAlignment="Center" />
+                            <Rectangle Width="160" Height="2.5" Fill="{DynamicResource ColorBrush3}" RadiusX="1.2" RadiusY="1.2" Margin="0,5,0,12" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding ActiveTaskProgressPercentText}" FontSize="24" FontWeight="Normal" Foreground="{DynamicResource ColorBrush1}" HorizontalAlignment="Center" />
+                        </StackPanel>
+
+                        <!-- Stat 2: 传输速度 -->
+                        <StackPanel HorizontalAlignment="Center" Margin="0,0,0,38">
+                            <TextBlock Text="传输速度" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush3}" HorizontalAlignment="Center" />
+                            <Rectangle Width="160" Height="2.5" Fill="{DynamicResource ColorBrush3}" RadiusX="1.2" RadiusY="1.2" Margin="0,5,0,12" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding ActiveTaskSpeedText}" FontSize="24" FontWeight="Normal" Foreground="{DynamicResource ColorBrush1}" HorizontalAlignment="Center" />
+                        </StackPanel>
+
+                        <!-- Stat 3: 剩余文件 -->
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="剩余文件" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush3}" HorizontalAlignment="Center" />
+                            <Rectangle Width="160" Height="2.5" Fill="{DynamicResource ColorBrush3}" RadiusX="1.2" RadiusY="1.2" Margin="0,5,0,12" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding ActiveTaskRemainingFilesText}" FontSize="24" FontWeight="Normal" Foreground="{DynamicResource ColorBrush1}" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Right Column: Active Task Card -->
+                <Border Grid.Column="1" Background="#E5EFFC" Padding="32,28">
+                    <Grid>
+                        <!-- When Task is running: Task Card -->
+                        <Border Background="White" CornerRadius="10" Padding="24,20" VerticalAlignment="Top">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="12" ShadowDepth="2" Direction="270" Color="#0B5BCB" Opacity="0.08" />
+                            </Border.Effect>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <!-- Card Header: Title & Cancel Button -->
+                                <Grid Grid.Row="0" Margin="0,0,0,18">
+                                    <TextBlock Text="{Binding ActiveTaskTitle}" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" />
+                                    <Button Command="{Binding CancelActiveTaskCommand}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                            Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip="取消当前任务" Padding="4">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Path Data="{StaticResource PclIconClose}" Width="12" Height="12" Stretch="Uniform"
+                                                      Fill="{DynamicResource ColorBrush3}" />
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </Grid>
+
+                                <!-- Card Body: Step Checklist (Image 2) -->
+                                <StackPanel Grid.Row="1">
+                                    <!-- Step 1: 扫描媒体清单 -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="42" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="✓" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource ColorBrush3}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="扫描媒体与相册清单" FontSize="13.5" FontWeight="Normal" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" />
+                                    </Grid>
+
+                                    <!-- Step 2: 传输媒体文件 -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="42" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding ActiveTaskStep2Status}" FontSize="12.5" FontWeight="Bold" Foreground="{DynamicResource ColorBrush3}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{Binding ActiveTaskStep2Text}" FontSize="13.5" FontWeight="Normal" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+
+                                    <!-- Step 3: EXIF 校准 -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="42" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding ActiveTaskStep3Status}" FontSize="12.5" FontWeight="Bold" Foreground="{DynamicResource ColorBrush3}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="EXIF 拍摄时间与元数据校准" FontSize="13.5" FontWeight="Normal" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" />
+                                    </Grid>
+
+                                    <!-- Step 4: 更新 SQLite 索引库 -->
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="42" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding ActiveTaskStep4Status}" FontSize="13.5" FontWeight="Bold" Foreground="{DynamicResource ColorBrush3}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="更新 SQLite 媒体库索引" FontSize="13.5" FontWeight="Normal" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" />
+                                    </Grid>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
     </Grid>
 </Window>

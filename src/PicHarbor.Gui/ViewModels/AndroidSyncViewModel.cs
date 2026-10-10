@@ -277,6 +277,12 @@ public partial class AndroidSyncViewModel : ObservableObject
     private int copiedCount = 0;
 
     [ObservableProperty]
+    private int remainingFilesCount = 0;
+
+    [ObservableProperty]
+    private string speedText = "--";
+
+    [ObservableProperty]
     private int skippedCount = 0;
 
     [ObservableProperty]
@@ -1089,6 +1095,8 @@ public partial class AndroidSyncViewModel : ObservableObject
                 CopiedCount = snapshot.CopiedFiles;
                 SkippedCount = snapshot.SkippedFiles;
                 FailedCount = snapshot.FailedFiles;
+                RemainingFilesCount = Math.Max(0, snapshot.TotalFiles - snapshot.ProcessedFiles);
+                SpeedText = snapshot.CurrentBytesPerSecond > 0 ? $"{snapshot.CurrentBytesPerSecond / 1024d / 1024d:F1} MB/s" : "--";
                 TransferredSizeText = $"{FormatBytes(snapshot.ProcessedBytes)} / {FormatBytes(snapshot.TotalBytes)}";
                 EtaText = snapshot.Eta is TimeSpan eta
                     ? FormatTimeSpan(eta)

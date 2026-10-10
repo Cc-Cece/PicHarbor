@@ -127,6 +127,35 @@ public partial class App : Application
                     using var stream = File.Create(file);
                     encoder.Save(stream);
                 }
+
+                // Render Android View
+                vm.SelectedTabIndex = 0;
+                vm.SelectedDeviceIndex = 1;
+                window.UpdateLayout();
+                SaveWindowSnapshot(window, Path.Combine(outDir, "pcl2_ui_preview_android.png"));
+
+                // Render Android FTP Connection Modal
+                vm.OpenAndroidFtpModalCommand.Execute(null);
+                window.UpdateLayout();
+                SaveWindowSnapshot(window, Path.Combine(outDir, "pcl2_ui_preview_ftp_modal.png"));
+                vm.CloseAndroidFtpModalCommand.Execute(null);
+
+                var waitFrame = new DispatcherFrame();
+                var waitTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+                waitTimer.Tick += (s, a) => { waitFrame.Continue = false; waitTimer.Stop(); };
+                waitTimer.Start();
+                Dispatcher.PushFrame(waitFrame);
+                window.UpdateLayout();
+
+                // Render Task Manager Overlay matching Image 2
+                vm.AndroidBackupVM.IsTransferring = true;
+                vm.AndroidBackupVM.ProgressPercentage = 70.0;
+                vm.AndroidBackupVM.SpeedText = "12.2 MB/s";
+                vm.AndroidBackupVM.RemainingFilesCount = 794;
+                vm.AndroidBackupVM.CurrentFileName = "IMG_20240901_102030.jpg";
+                vm.OpenTaskManagerCommand.Execute(null);
+                window.UpdateLayout();
+                SaveWindowSnapshot(window, Path.Combine(outDir, "pcl2_ui_preview_task_manager.png"));
             }
             window.Close();
         }
@@ -134,6 +163,20 @@ public partial class App : Application
         {
             try { File.WriteAllText(Path.Combine(outDir, "render_error.log"), ex.ToString()); } catch { }
         }
+    }
+
+    private static void SaveWindowSnapshot(Window window, string filePath)
+    {
+        int width = (int)window.ActualWidth;
+        int height = (int)window.ActualHeight;
+        if (width <= 0) width = 1000;
+        if (height <= 0) height = 640;
+        var rtb = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        rtb.Render(window);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(rtb));
+        using var stream = File.Create(filePath);
+        encoder.Save(stream);
     }
 
     private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
