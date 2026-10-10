@@ -753,5 +753,19 @@ public partial class MainWindow : Window
             }
         }
     }
+
+    public void ShowModalDim()
+    {
+        ModalDimOverlay.Visibility = Visibility.Visible;
+        Controls.PclAnimation.AnimateDouble(ModalDimOverlay, OpacityProperty, 1.0, 180, Controls.PclAnimation.EaseOutFluentWeak);
+    }
+
+    public void HideModalDim()
+    {
+        Controls.PclAnimation.AnimateDouble(ModalDimOverlay, OpacityProperty, 0.0, 140, Controls.PclAnimation.EaseOutFluentMiddle, onCompleted: () =>
+        {
+            ModalDimOverlay.Visibility = Visibility.Collapsed;
+        });
+    }
 }
 

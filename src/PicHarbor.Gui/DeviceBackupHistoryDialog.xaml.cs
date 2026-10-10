@@ -7,6 +7,7 @@ using System.Windows.Input;
 using PicHarbor.Core.Journal;
 using PicHarbor.Core.Search;
 using PicHarbor.Core.Util;
+using PicHarbor.Gui.Controls;
 using PicHarbor.Gui.ViewModels;
 
 namespace PicHarbor.Gui;
@@ -36,6 +37,7 @@ public partial class DeviceBackupHistoryDialog : Window
     private readonly ObservableCollection<SessionItemView> sessions = new();
     private readonly List<HistoryFileItemView> allCurrentFiles = new();
     private readonly ObservableCollection<HistoryFileItemView> displayedFiles = new();
+    private bool isClosing = false;
 
     public DeviceBackupHistoryDialog(string destinationRoot, DeviceHistoryItem deviceItem)
     {
@@ -46,11 +48,24 @@ public partial class DeviceBackupHistoryDialog : Window
         SessionsListBox.ItemsSource = sessions;
         FilesDataGrid.ItemsSource = displayedFiles;
 
+        KeyDown += (s, e) =>
+        {
+            if (e.Key == Key.Escape)
+            {
+                CloseWithAnimation();
+                e.Handled = true;
+            }
+        };
+
         Loaded += DeviceBackupHistoryDialog_Loaded;
     }
 
     private async void DeviceBackupHistoryDialog_Loaded(object sender, RoutedEventArgs e)
     {
+        // 1. PCL2 Signature Elastic Pop-in Animation (Scale: 0.92 -> 1.0 with EaseOutBack, Opacity: 0 -> 1)
+        PclAnimation.AnimateDouble(RootBorder, OpacityProperty, 1.0, 180, PclAnimation.EaseOutFluentWeak);
+        PclAnimation.AnimateScale(RootScaleTransform, 1.0, 240, PclAnimation.EaseOutBack);
+
         DeviceNameText.Text = string.IsNullOrWhiteSpace(deviceItem.Name) ? "Unknown Device" : deviceItem.Name;
         DeviceModelText.Text = string.IsNullOrWhiteSpace(deviceItem.Model) ? "Generic Device" : deviceItem.Model;
         DeviceSerialText.Text = !string.IsNullOrWhiteSpace(deviceItem.HardwareSerial)
@@ -215,6 +230,15 @@ public partial class DeviceBackupHistoryDialog : Window
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
-        Close();
+        CloseWithAnimation();
+    }
+
+    public void CloseWithAnimation()
+    {
+        if (isClosing) return;
+        isClosing = true;
+
+        PclAnimation.AnimateScale(RootScaleTransform, 0.94, 150, PclAnimation.EaseOutFluentMiddle);
+        PclAnimation.AnimateDouble(RootBorder, OpacityProperty, 0.0, 140, PclAnimation.EaseOutFluentMiddle, onCompleted: Close);
     }
 }

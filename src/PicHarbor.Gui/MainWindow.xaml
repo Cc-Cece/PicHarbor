@@ -1874,6 +1874,10 @@
             </Grid>
         </Grid>
 
+        <!-- Global Window Dim Overlay for Floating Dialogs -->
+        <Border x:Name="ModalDimOverlay" Grid.RowSpan="2" Panel.ZIndex="1450"
+                Background="#66000000" Opacity="0" Visibility="Collapsed" IsHitTestVisible="False" />
+
         <!-- ======================================================== -->
         <!--  MODAL 1: 传输文件明细弹窗 (PCL2 风格弹窗)                -->
         <!-- ======================================================== -->

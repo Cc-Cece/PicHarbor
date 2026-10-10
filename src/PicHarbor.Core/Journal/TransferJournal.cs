@@ -571,6 +571,8 @@ public sealed class TransferJournal : IDisposable
 
             EnsureColumnExists("devices", "hardware_serial", "TEXT");
             EnsureColumnExists("devices", "device_type", "TEXT");
+
+            BackfillLegacySessionsIfEmpty();
         }
 
         Execute($"PRAGMA user_version = {SchemaVersion};");
@@ -1239,6 +1241,192 @@ public sealed class TransferJournal : IDisposable
                 reader.IsDBNull(6) ? null : reader.GetString(6)));
         }
         return list;
+    }
+
+    /// <summary>
+    /// Automatically backfills legacy backup runs and files into <c>backup_sessions</c> and <c>backup_history_records</c>
+    /// if the session tables are currently empty but historical runs exist.
+    /// </summary>
+    public void BackfillLegacySessionsIfEmpty()
+    {
+        if (!TableExists("backup_sessions") || !TableExists("runs") || !TableExists("files")) return;
+
+        using var countCmd = CreateCommand("SELECT COUNT(*) FROM backup_sessions;");
+        long sessionCount = Convert.ToInt64(countCmd.ExecuteScalar());
+        if (sessionCount > 0) return;
+
+        using var runsCmd = CreateCommand(
+            """
+            SELECT r.id, r.started_at, r.finished_at, r.copied, r.device_udid, d.name, d.model
+            FROM runs r
+            LEFT JOIN devices d ON r.device_udid = d.udid
+            WHERE r.device_udid IS NOT NULL AND r.copied > 0
+            ORDER BY r.id ASC;
+            """);
+
+        using var reader = runsCmd.ExecuteReader();
+        var runsToMigrate = new List<(long Id, string StartedAt, string? FinishedAt, int Copied, string DeviceUdid, string? DeviceName, string? DeviceModel)>();
+        while (reader.Read())
+        {
+            runsToMigrate.Add((
+                reader.GetInt64(0),
+                reader.GetString(1),
+                reader.IsDBNull(2) ? null : reader.GetString(2),
+                reader.GetInt32(3),
+                reader.GetString(4),
+                reader.IsDBNull(5) ? null : reader.GetString(5),
+                reader.IsDBNull(6) ? null : reader.GetString(6)));
+        }
+        reader.Close();
+
+        if (runsToMigrate.Count == 0) return;
+
+        using var transaction = connection.BeginTransaction();
+        try
+        {
+            var processedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var run in runsToMigrate)
+            {
+                DateTimeOffset runStart = ParseIsoOrNull(run.StartedAt) ?? DateTimeOffset.UtcNow;
+                DateTimeOffset runEnd = (ParseIsoOrNull(run.FinishedAt) ?? runStart).AddSeconds(30);
+
+                using var filesCmd = CreateCommand(
+                    """
+                    SELECT source_path, dest_path, source_size, copied_at
+                    FROM files
+                    WHERE state = 'done'
+                      AND copied_at >= $start
+                      AND copied_at <= $end;
+                    """);
+                filesCmd.Transaction = transaction;
+                filesCmd.Parameters.AddWithValue("$start", IsoUtc(runStart)!);
+                filesCmd.Parameters.AddWithValue("$end", IsoUtc(runEnd)!);
+
+                using var fReader = filesCmd.ExecuteReader();
+                var matchedFiles = new List<(string SourcePath, string DestPath, long Size, string CopiedAt)>();
+                long totalSize = 0;
+                while (fReader.Read())
+                {
+                    string sp = fReader.GetString(0);
+                    if (processedFiles.Contains(sp)) continue;
+
+                    string dp = fReader.IsDBNull(1) ? sp : fReader.GetString(1);
+                    long sz = fReader.GetInt64(2);
+                    string ca = fReader.IsDBNull(3) ? run.StartedAt : fReader.GetString(3);
+                    matchedFiles.Add((sp, dp, sz, ca));
+                    totalSize += sz;
+                    processedFiles.Add(sp);
+                }
+                fReader.Close();
+
+                int count = matchedFiles.Count > 0 ? matchedFiles.Count : run.Copied;
+
+                using var insertSessionCmd = CreateCommand(
+                    """
+                    INSERT INTO backup_sessions (device_uid, device_name, device_model, started_at, finished_at, files_count, total_size_bytes, status)
+                    VALUES ($uid, $name, $model, $start, $finish, $count, $size, 'Completed');
+                    SELECT last_insert_rowid();
+                    """);
+                insertSessionCmd.Transaction = transaction;
+                insertSessionCmd.Parameters.AddWithValue("$uid", run.DeviceUdid);
+                insertSessionCmd.Parameters.AddWithValue("$name", (object?)run.DeviceName ?? "Unknown Device");
+                insertSessionCmd.Parameters.AddWithValue("$model", (object?)run.DeviceModel ?? "Generic Device");
+                insertSessionCmd.Parameters.AddWithValue("$start", run.StartedAt);
+                insertSessionCmd.Parameters.AddWithValue("$finish", (object?)run.FinishedAt ?? run.StartedAt);
+                insertSessionCmd.Parameters.AddWithValue("$count", count);
+                insertSessionCmd.Parameters.AddWithValue("$size", totalSize);
+
+                long sessionId = Convert.ToInt64(insertSessionCmd.ExecuteScalar());
+
+                foreach (var f in matchedFiles)
+                {
+                    using var insertFileCmd = CreateCommand(
+                        """
+                        INSERT INTO backup_history_records (session_id, device_source_path, dest_path, file_size, transferred_at, media_type)
+                        VALUES ($sid, $sp, $dp, $sz, $ta, $type);
+                        """);
+                    insertFileCmd.Transaction = transaction;
+                    insertFileCmd.Parameters.AddWithValue("$sid", sessionId);
+                    insertFileCmd.Parameters.AddWithValue("$sp", f.SourcePath);
+                    insertFileCmd.Parameters.AddWithValue("$dp", f.DestPath);
+                    insertFileCmd.Parameters.AddWithValue("$sz", f.Size);
+                    insertFileCmd.Parameters.AddWithValue("$ta", f.CopiedAt);
+                    insertFileCmd.Parameters.AddWithValue("$type", Path.GetExtension(f.SourcePath).TrimStart('.').ToLowerInvariant());
+                    insertFileCmd.ExecuteNonQuery();
+                }
+            }
+
+            // Check if there are any remaining files with state='done' that were not covered by the exact run windows
+            using var remainingFilesCmd = CreateCommand(
+                """
+                SELECT source_path, dest_path, source_size, copied_at
+                FROM files
+                WHERE state = 'done';
+                """);
+            remainingFilesCmd.Transaction = transaction;
+            using var remReader = remainingFilesCmd.ExecuteReader();
+            var remainingFiles = new List<(string SourcePath, string DestPath, long Size, string CopiedAt)>();
+            while (remReader.Read())
+            {
+                string sp = remReader.GetString(0);
+                if (!processedFiles.Contains(sp))
+                {
+                    string dp = remReader.IsDBNull(1) ? sp : remReader.GetString(1);
+                    long sz = remReader.GetInt64(2);
+                    string ca = remReader.IsDBNull(3) ? DateTimeOffset.UtcNow.ToString("o") : remReader.GetString(3);
+                    remainingFiles.Add((sp, dp, sz, ca));
+                    processedFiles.Add(sp);
+                }
+            }
+            remReader.Close();
+
+            if (remainingFiles.Count > 0 && runsToMigrate.Count > 0)
+            {
+                var primaryRun = runsToMigrate[0];
+                long remTotalSize = remainingFiles.Sum(f => f.Size);
+                using var baselineSessionCmd = CreateCommand(
+                    """
+                    INSERT INTO backup_sessions (device_uid, device_name, device_model, started_at, finished_at, files_count, total_size_bytes, status)
+                    VALUES ($uid, $name, $model, $start, $finish, $count, $size, 'Completed');
+                    SELECT last_insert_rowid();
+                    """);
+                baselineSessionCmd.Transaction = transaction;
+                baselineSessionCmd.Parameters.AddWithValue("$uid", primaryRun.DeviceUdid);
+                baselineSessionCmd.Parameters.AddWithValue("$name", (object?)primaryRun.DeviceName ?? "Unknown Device");
+                baselineSessionCmd.Parameters.AddWithValue("$model", (object?)primaryRun.DeviceModel ?? "Generic Device");
+                baselineSessionCmd.Parameters.AddWithValue("$start", remainingFiles[0].CopiedAt);
+                baselineSessionCmd.Parameters.AddWithValue("$finish", remainingFiles[^1].CopiedAt);
+                baselineSessionCmd.Parameters.AddWithValue("$count", remainingFiles.Count);
+                baselineSessionCmd.Parameters.AddWithValue("$size", remTotalSize);
+
+                long bSessionId = Convert.ToInt64(baselineSessionCmd.ExecuteScalar());
+
+                foreach (var f in remainingFiles)
+                {
+                    using var insertFileCmd = CreateCommand(
+                        """
+                        INSERT INTO backup_history_records (session_id, device_source_path, dest_path, file_size, transferred_at, media_type)
+                        VALUES ($sid, $sp, $dp, $sz, $ta, $type);
+                        """);
+                    insertFileCmd.Transaction = transaction;
+                    insertFileCmd.Parameters.AddWithValue("$sid", bSessionId);
+                    insertFileCmd.Parameters.AddWithValue("$sp", f.SourcePath);
+                    insertFileCmd.Parameters.AddWithValue("$dp", f.DestPath);
+                    insertFileCmd.Parameters.AddWithValue("$sz", f.Size);
+                    insertFileCmd.Parameters.AddWithValue("$ta", f.CopiedAt);
+                    insertFileCmd.Parameters.AddWithValue("$type", Path.GetExtension(f.SourcePath).TrimStart('.').ToLowerInvariant());
+                    insertFileCmd.ExecuteNonQuery();
+                }
+            }
+
+            transaction.Commit();
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
     }
 
     /// <summary>Returns aggregated backup totals for a device (total sessions, total files, total bytes).</summary>

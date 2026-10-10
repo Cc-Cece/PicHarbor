@@ -140,6 +140,10 @@ public static class ArchiveRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(deviceUid);
         return Task.Run(() =>
         {
+            using (var rw = TransferJournal.Open(destinationRoot))
+            {
+                rw.BackfillLegacySessionsIfEmpty();
+            }
             using var journal = TransferJournal.OpenReadOnly(destinationRoot);
             return journal.ReadBackupSessions(deviceUid);
         });
@@ -163,6 +167,10 @@ public static class ArchiveRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(deviceUid);
         return Task.Run(() =>
         {
+            using (var rw = TransferJournal.Open(destinationRoot))
+            {
+                rw.BackfillLegacySessionsIfEmpty();
+            }
             using var journal = TransferJournal.OpenReadOnly(destinationRoot);
             return journal.ReadDeviceBackupSummary(deviceUid);
         });

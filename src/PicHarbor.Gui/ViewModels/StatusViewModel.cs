@@ -48,9 +48,26 @@ public partial class StatusViewModel : ObservableObject
     public void OpenDeviceHistory(DeviceHistoryItem? item)
     {
         if (item is null) return;
+        var mainWindow = Application.Current.MainWindow;
         var dialog = new DeviceBackupHistoryDialog(DatabasePath, item);
-        dialog.Owner = Application.Current.MainWindow;
-        dialog.ShowDialog();
+        dialog.Owner = mainWindow;
+
+        if (mainWindow is MainWindow win)
+        {
+            win.ShowModalDim();
+            try
+            {
+                dialog.ShowDialog();
+            }
+            finally
+            {
+                win.HideModalDim();
+            }
+        }
+        else
+        {
+            dialog.ShowDialog();
+        }
     }
 
     [ObservableProperty]

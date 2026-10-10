@@ -3,226 +3,246 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:PicHarbor.Gui.Controls"
         Title="设备备份全景档案"
-        Width="920" Height="620"
-        MinWidth="780" MinHeight="500"
+        Width="950" Height="650"
+        MinWidth="800" MinHeight="520"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         WindowStyle="None"
-        AllowsTransparency="False"
-        Background="{DynamicResource ColorBrushBackgroundTransparent}">
+        AllowsTransparency="True"
+        Background="Transparent">
 
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="46"
                       ResizeBorderThickness="6"
-                      CornerRadius="8"
+                      CornerRadius="10"
                       GlassFrameThickness="0"
                       UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
 
-    <Border BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
-        <Grid>
-            <Grid.RowDefinitions>
-                <!-- Title Bar -->
-                <RowDefinition Height="46" />
-                <!-- Device Header Info Banner -->
-                <RowDefinition Height="Auto" />
-                <!-- Content Canvas (Batches on left, Photos on right) -->
-                <RowDefinition Height="*" />
-                <!-- Bottom Action Bar -->
-                <RowDefinition Height="48" />
-            </Grid.RowDefinitions>
+    <Grid Margin="14">
+        <!-- Floating Dialog Container with PCL2 Shadow and Elastic Pop-In Animation -->
+        <Border x:Name="RootBorder"
+                Background="#FFFFFF"
+                CornerRadius="10"
+                BorderBrush="{DynamicResource ColorBrush6}"
+                BorderThickness="1"
+                Opacity="0"
+                RenderTransformOrigin="0.5,0.5">
+            <Border.RenderTransform>
+                <ScaleTransform x:Name="RootScaleTransform" ScaleX="0.92" ScaleY="0.92" />
+            </Border.RenderTransform>
+            <Border.Effect>
+                <DropShadowEffect Color="#000000" BlurRadius="28" ShadowDepth="6" Direction="270" Opacity="0.22" />
+            </Border.Effect>
 
-            <!-- 1. Custom Title Bar -->
-            <Border Grid.Row="0" Background="{DynamicResource ColorBrushTitleGradient}"
-                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
-                <Grid Margin="16,0,12,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <!-- 1. Custom Title Bar -->
+                    <RowDefinition Height="46" />
+                    <!-- 2. Device Meta Summary Card -->
+                    <RowDefinition Height="Auto" />
+                    <!-- 3. Main Split View: Left Sessions List, Right Files Detail -->
+                    <RowDefinition Height="*" />
+                    <!-- 4. Bottom Action Bar -->
+                    <RowDefinition Height="48" />
+                </Grid.RowDefinitions>
 
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="📱" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="已连接设备历史备份档案与来源追溯" FontSize="14" FontWeight="Bold"
-                                   Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" />
-                    </StackPanel>
+                <!-- 1. Custom Title Bar -->
+                <Border Grid.Row="0"
+                        Background="{DynamicResource ColorBrushTitleGradient}"
+                        CornerRadius="9,9,0,0"
+                        MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                    <Grid Margin="16,0,12,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
 
-                    <!-- Close Button -->
-                    <controls:PclIconButton Grid.Column="1" Click="CloseButton_Click"
-                                            Logo="{StaticResource PclIconClose}"
-                                            IconTheme="Close"
-                                            WindowChrome.IsHitTestVisibleInChrome="True"
-                                            ToolTip="关闭" />
-                </Grid>
-            </Border>
-
-            <!-- 2. Device Meta Summary Card -->
-            <Border Grid.Row="1" Background="{DynamicResource ColorBrushCardBackground}"
-                    BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="0,0,0,1"
-                    Padding="20,12">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                            <TextBlock x:Name="DeviceNameText" Text="设备名称" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" />
-                            <Border Background="{DynamicResource ColorBrush3}" CornerRadius="3" Padding="6,2" Margin="10,0,0,0" VerticalAlignment="Center">
-                                <TextBlock x:Name="DeviceModelText" Text="型号规格" FontSize="11" Foreground="White" FontWeight="SemiBold" />
-                            </Border>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="📱" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="已连接设备历史备份档案与来源追溯" FontSize="14" FontWeight="Bold"
+                                       Foreground="White" VerticalAlignment="Center" />
                         </StackPanel>
 
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="出厂硬件序列号 / UDID: " FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" />
-                            <TextBlock x:Name="DeviceSerialText" Text="N/A" FontFamily="Consolas" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush1}" />
-                            <TextBlock Text="  •  首次连接: " FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="12,0,0,0" />
-                            <TextBlock x:Name="FirstSeenText" Text="-" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" />
-                        </StackPanel>
-                    </StackPanel>
-
-                    <!-- Totals on right -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Border Background="#F1F5F9" CornerRadius="6" Padding="12,6" Margin="0,0,10,0">
-                            <StackPanel HorizontalAlignment="Center">
-                                <TextBlock Text="累计备份批次" FontSize="10" Foreground="{DynamicResource ColorBrushGray2}" />
-                                <TextBlock x:Name="TotalSessionsText" Text="0 次" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" />
-                            </StackPanel>
-                        </Border>
-                        <Border Background="#F1F5F9" CornerRadius="6" Padding="12,6">
-                            <StackPanel HorizontalAlignment="Center">
-                                <TextBlock Text="累计备份文件与体积" FontSize="10" Foreground="{DynamicResource ColorBrushGray2}" />
-                                <TextBlock x:Name="TotalFilesAndSizeText" Text="0 张 (0 B)" FontSize="15" FontWeight="Bold" Foreground="#10B981" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </Grid>
-            </Border>
-
-            <!-- 3. Main Split View: Left Sessions List, Right Files Detail -->
-            <Grid Grid.Row="2">
-                <Grid.ColumnDefinitions>
-                    <!-- Left: Sessions List (300px) -->
-                    <ColumnDefinition Width="300" />
-                    <!-- Right: History Items DataGrid -->
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <!-- Left Column: Backup Sessions (Batches) -->
-                <Border Grid.Column="0" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="0,0,1,0" Background="#F8FAFC">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="36" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-
-                        <Border Background="{DynamicResource ColorBrushTitleGradient}" Padding="12,0" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="0,0,0,1">
-                            <TextBlock Text="📅 历史备份批次 (按时间归类)" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" />
-                        </Border>
-
-                        <ListBox x:Name="SessionsListBox" Grid.Row="1"
-                                 SelectionChanged="SessionsListBox_SelectionChanged"
-                                 BorderThickness="0" Background="Transparent"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Margin="2,4" Padding="10,8" Background="White" CornerRadius="5" BorderBrush="#E2E8F0" BorderThickness="1">
-                                        <Grid>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                            </Grid.RowDefinitions>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="🕒 " FontSize="11" />
-                                                <TextBlock Text="{Binding FormattedStartedAt}" FontWeight="SemiBold" FontSize="12.5" Foreground="{DynamicResource ColorBrush1}" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,0">
-                                                <TextBlock Text="{Binding FilesCount, StringFormat='共 {0} 张'}" FontSize="11" FontWeight="Bold" Foreground="#2563EB" Margin="0,0,10,0" />
-                                                <TextBlock Text="{Binding FormattedSize}" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,10,0" />
-                                                <TextBlock Text="{Binding Status}" FontSize="10.5" Foreground="#10B981" FontWeight="SemiBold" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-
-                        <TextBlock x:Name="EmptySessionsNotice" Grid.Row="1" Text="暂无历史备份批次记录"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource ColorBrushGray2}" FontSize="12" Visibility="Collapsed" />
+                        <!-- Close Button -->
+                        <controls:PclIconButton Grid.Column="1" Click="CloseButton_Click"
+                                                Logo="{StaticResource PclIconClose}"
+                                                IconTheme="Close"
+                                                WindowChrome.IsHitTestVisibleInChrome="True"
+                                                ToolTip="关闭" />
                     </Grid>
                 </Border>
 
-                <!-- Right Column: Transferred Files in Selected Session -->
-                <Grid Grid.Column="1">
-                    <Grid.RowDefinitions>
-                        <!-- Filter & Header -->
-                        <RowDefinition Height="40" />
-                        <!-- DataGrid -->
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
+                <!-- 2. Device Meta Summary Card -->
+                <Border Grid.Row="1" Background="#FFFFFF"
+                        BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="0,0,0,1"
+                        Padding="20,12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
 
-                    <Border Grid.Row="0" Background="White" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="0,0,0,1" Padding="12,6">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-
-                            <TextBlock x:Name="SessionHeaderTitle" Text="请选择左侧备份批次查看传输明细" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center" />
-
-                            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                <TextBox x:Name="SearchBox" Width="180" Height="26" VerticalContentAlignment="Center"
-                                         Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}"
-                                         TextChanged="SearchBox_TextChanged"
-                                         ToolTip="输入文件名快速查找" />
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <TextBlock x:Name="DeviceNameText" Text="设备名称" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" />
+                                <Border Background="{DynamicResource ColorBrush3}" CornerRadius="3" Padding="6,2" Margin="10,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock x:Name="DeviceModelText" Text="型号规格" FontSize="11" Foreground="White" FontWeight="SemiBold" />
+                                </Border>
                             </StackPanel>
+
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="出厂硬件序列号 / UDID: " FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" />
+                                <TextBlock x:Name="DeviceSerialText" Text="N/A" FontFamily="Consolas" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush2}" />
+                                <TextBlock Text="  •  首次连接: " FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="12,0,0,0" />
+                                <TextBlock x:Name="FirstSeenText" Text="-" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Totals on right -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12,6" Margin="0,0,10,0">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="累计备份批次" FontSize="10" Foreground="{DynamicResource ColorBrushGray2}" />
+                                    <TextBlock x:Name="TotalSessionsText" Text="0 次" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12,6">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="累计备份文件与体积" FontSize="10" Foreground="{DynamicResource ColorBrushGray2}" />
+                                    <TextBlock x:Name="TotalFilesAndSizeText" Text="0 张 (0 B)" FontSize="15" FontWeight="Bold" Foreground="#10B981" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- 3. Main Split View: Left Sessions List, Right Files Detail -->
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <!-- Left: Sessions List (300px) -->
+                        <ColumnDefinition Width="300" />
+                        <!-- Right: History Items DataGrid -->
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left Column: Backup Sessions (Batches) -->
+                    <Border Grid.Column="0" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="0,0,1,0" Background="#F8FAFC">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="36" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border Background="#F1F5F9" Padding="12,0" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="0,0,0,1">
+                                <TextBlock Text="📅 历史备份批次 (按时间归类)" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center" />
+                            </Border>
+
+                            <ListBox x:Name="SessionsListBox" Grid.Row="1"
+                                     SelectionChanged="SessionsListBox_SelectionChanged"
+                                     BorderThickness="0" Background="Transparent"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="2,4" Padding="10,8" Background="White" CornerRadius="5" BorderBrush="#E2E8F0" BorderThickness="1">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="🕒 " FontSize="11" />
+                                                    <TextBlock Text="{Binding FormattedStartedAt}" FontWeight="SemiBold" FontSize="12.5" Foreground="{DynamicResource ColorBrush1}" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,0">
+                                                    <TextBlock Text="{Binding FilesCount, StringFormat='共 {0} 张'}" FontSize="11" FontWeight="Bold" Foreground="#2563EB" Margin="0,0,10,0" />
+                                                    <TextBlock Text="{Binding FormattedSize}" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,10,0" />
+                                                    <TextBlock Text="{Binding Status}" FontSize="10.5" Foreground="#10B981" FontWeight="SemiBold" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <TextBlock x:Name="EmptySessionsNotice" Grid.Row="1" Text="暂无历史备份批次记录"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource ColorBrushGray2}" FontSize="12" Visibility="Collapsed" />
                         </Grid>
                     </Border>
 
-                    <DataGrid x:Name="FilesDataGrid" Grid.Row="1"
-                              Style="{StaticResource PclDataGrid}"
-                              AutoGenerateColumns="False"
-                              IsReadOnly="True"
-                              HeadersVisibility="Column"
-                              MouseDoubleClick="FilesDataGrid_MouseDoubleClick">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="文件名" Binding="{Binding FileName}" Width="150" />
-                            <DataGridTextColumn Header="设备端来源路径" Binding="{Binding DeviceSourcePath}" Width="2*" />
-                            <DataGridTextColumn Header="电脑归档目标路径" Binding="{Binding DestPath}" Width="2*" />
-                            <DataGridTextColumn Header="文件大小" Binding="{Binding FormattedSize}" Width="90" />
-                            <DataGridTextColumn Header="传输完成时间" Binding="{Binding FormattedTransferredAt}" Width="140" />
-                        </DataGrid.Columns>
-                        <DataGrid.ContextMenu>
-                            <ContextMenu>
-                                <MenuItem Header="📂 在资源管理器中定位文件" Click="LocateFileMenuItem_Click" />
-                                <MenuItem Header="📋 复制电脑目标路径" Click="CopyPathMenuItem_Click" />
-                            </ContextMenu>
-                        </DataGrid.ContextMenu>
-                    </DataGrid>
+                    <!-- Right Column: Transferred Files in Selected Session -->
+                    <Grid Grid.Column="1" Background="#FFFFFF">
+                        <Grid.RowDefinitions>
+                            <!-- Filter & Header -->
+                            <RowDefinition Height="40" />
+                            <!-- DataGrid -->
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
 
-                    <TextBlock x:Name="EmptyFilesNotice" Grid.Row="1" Text="所选批次没有文件传输记录"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Foreground="{DynamicResource ColorBrushGray2}" FontSize="12" Visibility="Collapsed" />
+                        <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="0,0,0,1" Padding="12,6">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock x:Name="SessionHeaderTitle" Text="请选择左侧备份批次查看传输明细" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center" />
+
+                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                    <TextBox x:Name="SearchBox" Width="180" Height="26" VerticalContentAlignment="Center"
+                                             Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}"
+                                             TextChanged="SearchBox_TextChanged"
+                                             ToolTip="输入文件名快速查找" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <DataGrid x:Name="FilesDataGrid" Grid.Row="1"
+                                  Background="#FFFFFF"
+                                  Style="{StaticResource PclDataGrid}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  HeadersVisibility="Column"
+                                  MouseDoubleClick="FilesDataGrid_MouseDoubleClick">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="文件名" Binding="{Binding FileName}" Width="150" />
+                                <DataGridTextColumn Header="设备端来源路径" Binding="{Binding DeviceSourcePath}" Width="2*" />
+                                <DataGridTextColumn Header="电脑归档目标路径" Binding="{Binding DestPath}" Width="2*" />
+                                <DataGridTextColumn Header="文件大小" Binding="{Binding FormattedSize}" Width="90" />
+                                <DataGridTextColumn Header="传输完成时间" Binding="{Binding FormattedTransferredAt}" Width="140" />
+                            </DataGrid.Columns>
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="📂 在资源管理器中定位文件" Click="LocateFileMenuItem_Click" />
+                                    <MenuItem Header="📋 复制电脑目标路径" Click="CopyPathMenuItem_Click" />
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                        </DataGrid>
+
+                        <TextBlock x:Name="EmptyFilesNotice" Grid.Row="1" Text="所选批次没有文件传输记录"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource ColorBrushGray2}" FontSize="12" Visibility="Collapsed" />
+                    </Grid>
                 </Grid>
+
+                <!-- 4. Bottom Action Bar -->
+                <Border Grid.Row="3" Background="#F8FAFC"
+                        CornerRadius="0,0,9,9"
+                        BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="0,1,0,0" Padding="16,0">
+                    <Grid VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Text="💡 提示：双击任意文件记录可在电脑资源管理器中打开对应媒体文件。"
+                                   FontSize="11.5" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" />
+
+                        <controls:PclButton Grid.Column="1" Content="关闭" Click="CloseButton_Click" Height="28" Padding="20,0" />
+                    </Grid>
+                </Border>
             </Grid>
-
-            <!-- 4. Bottom Action Bar -->
-            <Border Grid.Row="3" Background="{DynamicResource ColorBrushCardBackground}"
-                    BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="0,1,0,0" Padding="16,0">
-                <Grid VerticalAlignment="Center">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Text="💡 提示：此界面的历史记录为审计流水，双击文件可在资源管理器中打开对应媒体。"
-                               FontSize="11.5" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" />
-
-                    <controls:PclButton Grid.Column="1" Content="关闭" Click="CloseButton_Click" Height="28" Padding="20,0" />
-                </Grid>
-            </Border>
-        </Grid>
-    </Border>
+        </Border>
+    </Grid>
 </Window>
