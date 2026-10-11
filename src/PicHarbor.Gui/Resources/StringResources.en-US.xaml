@@ -1201,6 +1201,10 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="AppWizardIdleLockOption15">After 15 minutes idle</sys:String>
     <sys:String x:Key="AppWizardIdleLockOption30">After 30 minutes idle</sys:String>
 
+    <sys:String x:Key="SecurityIdleLockCustom">Custom…</sys:String>
+    <sys:String x:Key="SecurityIdleLockCustomUnit">minutes</sys:String>
+    <sys:String x:Key="SecurityIdleLockCustomApply">Apply</sys:String>
+
     <sys:String x:Key="TotpCardTitle">Two-factor authentication (Google Authenticator)</sys:String>
     <sys:String x:Key="TotpCardNeedAppLock">Enable app lock before binding two-factor authentication.</sys:String>
     <sys:String x:Key="TotpBtnBind">Bind authenticator</sys:String>

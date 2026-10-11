@@ -259,6 +259,9 @@ public partial class AppLockViewModel : ObservableObject
     /// <summary>确认弹窗要输入的密码（关闭应用锁用）。</summary>
     [ObservableProperty] private string dangerConfirmPassword = "";
 
+    /// <summary>确认弹窗要输入的密码（彻底移除组件用，与关闭确认分开存以免串值）。</summary>
+    [ObservableProperty] private string removeConfirmPassword = "";
+
     /// <summary>确认弹窗错误提示。</summary>
     [ObservableProperty] private string confirmError = "";
 
@@ -277,14 +280,20 @@ public partial class AppLockViewModel : ObservableObject
         "此操作将卸载后台服务并删除密码、验证器与目录权限记录，不可撤销。" +
         "已锁定的目录会先被解除锁定。");
 
-    /// <summary>安全页「自动锁定」下拉的候选项。</summary>
+    /// <summary>
+    /// 安全页「自动锁定」下拉的候选项。
+    /// 与向导下拉共用同一档位集合（见 <see cref="WizardIdleLockOptions"/>），
+    /// 避免「向导选了 15 分钟、安全页无此档位→回落成关闭」的不一致。
+    /// </summary>
     public IReadOnlyList<IdleLockOption> IdleLockOptions { get; } =
     [
-        new(0,  "SecurityIdleLockOff",  "关闭"),
+        new(0,  "SecurityIdleLockOff", "关闭"),
         new(5,  null, "5 分钟"),
         new(10, null, "10 分钟"),
+        new(15, null, "15 分钟"),
         new(30, null, "30 分钟"),
         new(60, null, "60 分钟"),
+        IdleLockOption.Custom,
     ];
 
     /// <summary>选择「自定义」后手填分钟的绑定值（0 表示未启用自定义）。</summary>
@@ -292,9 +301,10 @@ public partial class AppLockViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsCustomIdleLockActive))]
     private int customIdleLockMinutes;
 
-    /// <summary>当前是否用了自定义值（不在预设档位里）。</summary>
+    /// <summary>当前是否用了自定义值（不在预设档位里，且已启用）。</summary>
     public bool IsCustomIdleLockActive =>
-        IdleTimeoutMinutes > 0 && !IdleLockOptions.Any(o => o.Minutes == IdleTimeoutMinutes);
+        IdleTimeoutMinutes > 0 &&
+        !IdleLockOptions.Any(o => !o.IsCustom && o.Minutes == IdleTimeoutMinutes);
 
     /// <summary>出码时服务端 PID，用于检测「确认前服务重启」。</summary>
     [ObservableProperty] private int totpPendingServerPid;
@@ -730,6 +740,8 @@ public partial class AppLockViewModel : ObservableObject
             TotpSetupUri = report.OtpAuthUri ?? "";
             TotpSetupSecret = report.SecretBase32 ?? "";
             TotpPendingServerPid = report.ServerPid;
+            // 出码成功必须展开，否则二维码被折叠区挡住（用户看到「没有相关内容出现」）
+            IsTotpSectionExpanded = true;
             SetSuccess(App.GetString("AppLockMsgScanQr", "请用 Google Authenticator 扫描二维码。"));
         }
         finally { IsBusy = false; }
@@ -1187,6 +1199,7 @@ public partial class AppLockViewModel : ObservableObject
     [RelayCommand]
     private void OpenRemoveConfirm()
     {
+        RemoveConfirmPassword = "";
         ConfirmError = "";
         IsRemoveConfirmOpen = true;
     }
@@ -1196,19 +1209,39 @@ public partial class AppLockViewModel : ObservableObject
     private void CancelRemoveConfirm()
     {
         IsRemoveConfirmOpen = false;
+        RemoveConfirmPassword = "";
         ConfirmError = "";
     }
 
     /// <summary>
-    /// 确认彻底移除组件：卸载服务 + 删除数据。
-    /// 注意：不要求先关闭应用锁——忘密码者须能通过此路径逃生。
+    /// 确认彻底移除组件：先验密码，再卸载服务 + 删除数据。
+    /// 注意：关闭应用锁的验证密码走同一套 Unlock 探针，
+    /// 因此忘密码者若已配置 TOTP，仍可先走「修改密码」重置后再移除。
     /// </summary>
     [RelayCommand]
     private async Task ConfirmRemoveAsync()
     {
+        ConfirmError = "";
+
+        if (string.IsNullOrEmpty(RemoveConfirmPassword))
+        {
+            ConfirmError = App.GetString("AppLockErrPasswordRequired", "请输入应用密码。");
+            return;
+        }
+
         IsBusy = true;
         try
         {
+            // 验密码（日常命令，未提权即可）：Unlock 成功即密码正确，随即锁回去
+            var probe = await VaultClient.UnlockAsync(RemoveConfirmPassword);
+            if (probe is null || !probe.Ok)
+            {
+                ConfirmError = App.GetString("AppLockErrWrongPassword", "密码错误。");
+                return;
+            }
+            await VaultClient.LockAsync();
+            RemoveConfirmPassword = "";
+
             StatusMessage = App.GetString("AppLockMsgRemovingComponents", "正在移除应用锁组件…");
             IsError = false;
 
@@ -1225,12 +1258,29 @@ public partial class AppLockViewModel : ObservableObject
         finally { IsBusy = false; }
     }
 
-    /// <summary>把「自动锁定」下拉的选中项应用到 VM 并落盘。</summary>
+    /// <summary>把「自动锁定」下拉的选中项应用到 VM 并落盘。选中「自定义」时仅露出输入框，不改超时。</summary>
     [RelayCommand]
     private void ApplyIdleLockOption(IdleLockOption? option)
     {
         if (option is null) return;
+        if (option.IsCustom)
+        {
+            // 只把输入框预填为当前值（或默认 15），等用户确认再落盘
+            if (CustomIdleLockMinutes <= 0) CustomIdleLockMinutes = IdleTimeoutMinutes > 0 ? IdleTimeoutMinutes : 15;
+            return;
+        }
         ApplyIdleTimeout(option.Minutes);
+    }
+
+    /// <summary>确认「自定义」输入：把分钟数落盘（限制在 1..1440）。</summary>
+    [RelayCommand]
+    private void ApplyCustomIdleLock()
+    {
+        int minutes = CustomIdleLockMinutes;
+        if (minutes < 1) minutes = 1;
+        if (minutes > 1440) minutes = 1440;
+        CustomIdleLockMinutes = minutes;
+        ApplyIdleTimeout(minutes);
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -1252,10 +1302,19 @@ public partial class AppLockViewModel : ObservableObject
     }
 }
 
-/// <summary>安全页「自动锁定」下拉的一个候选项。<paramref name="ResourceKey"/> 为 null 时用字面文案。</summary>
-public sealed record IdleLockOption(int Minutes, string? ResourceKey, string FallbackText)
+/// <summary>
+/// 安全页「自动锁定」下拉的一个候选项。
+/// <paramref name="IsCustom"/> 为 true 表示「自定义」项——选中它不直接改超时，
+/// 而是露出分钟输入框，由用户填任意数值（<paramref name="Minutes"/> 此时为 -1 仅作占位）。
+/// <paramref name="ResourceKey"/> 为 null 时用字面文案。
+/// </summary>
+public sealed record IdleLockOption(int Minutes, string? ResourceKey, string FallbackText, bool IsCustom = false)
 {
     /// <summary>显示文案：优先取本地化资源，缺失则回退字面文本。</summary>
     public string DisplayText =>
         ResourceKey is null ? FallbackText : App.GetString(ResourceKey, FallbackText);
+
+    /// <summary>「自定义」哨兵项。</summary>
+    public static IdleLockOption Custom { get; } =
+        new(-1, "SecurityIdleLockCustom", "自定义…", IsCustom: true);
 }

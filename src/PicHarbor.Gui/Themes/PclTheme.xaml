@@ -495,13 +495,14 @@
     </Style>
 
     <!-- ======================================================== -->
-    <!--  9. PclTextBox Style (PCL2 MyTextBox)                    -->
+    <!--  9. PclTextBox Style (modern rounded input)              -->
     <!-- ======================================================== -->
     <Style TargetType="{x:Type controls:PclTextBox}">
         <Setter Property="OverridesDefaultStyle" Value="True" />
-        <Setter Property="Height" Value="32" />
+        <Setter Property="Height" Value="34" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Foreground" Value="{DynamicResource ColorBrush1}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource ColorBrush2}" />
         <Setter Property="SelectionBrush" Value="{DynamicResource ColorBrush3}" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Template">
@@ -510,15 +511,15 @@
                     <Grid>
                         <Border x:Name="PART_Border"
                                 Background="{DynamicResource ColorBrushHalfWhite}"
-                                CornerRadius="3"
+                                CornerRadius="8"
                                 BorderThickness="1"
-                                BorderBrush="{DynamicResource ColorBrushBg0}" />
+                                BorderBrush="{DynamicResource ColorBrush6}" />
 
-                        <ScrollViewer x:Name="PART_ContentHost" Margin="8,0" VerticalAlignment="Center" />
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="12,0" VerticalAlignment="Center" />
 
                         <TextBlock Text="{TemplateBinding HintText}"
                                    Foreground="{DynamicResource ColorBrushGray4}"
-                                   Margin="10,0,0,0"
+                                   Margin="13,0,0,0"
                                    VerticalAlignment="Center"
                                    IsHitTestVisible="False">
                             <TextBlock.Style>
@@ -884,6 +885,95 @@
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="bd" Property="Background" Value="#E2E8F0" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ======================================================== -->
+    <!--  18. Global modern input styles                          -->
+    <!--      Applies to every raw TextBox / PasswordBox so the    -->
+    <!--      whole app (settings, dialogs, unlock window) shares   -->
+    <!--      one rounded look without per-instance styles.         -->
+    <!-- ======================================================== -->
+    <Style TargetType="TextBox">
+        <Setter Property="Background" Value="{DynamicResource ColorBrushHalfWhite}" />
+        <Setter Property="Foreground" Value="{DynamicResource ColorBrush1}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ColorBrush6}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CaretBrush" Value="{DynamicResource ColorBrush2}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource ColorBrush3}" />
+        <Setter Property="Padding" Value="10,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8"
+                            SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      Margin="{TemplateBinding Padding}"
+                                      VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource ColorBrush4}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource ColorBrush3}" />
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ColorBrushWhite}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ColorBrushGray7}" />
+                            <Setter Property="Foreground" Value="{DynamicResource ColorBrushGray3}" />
+                        </Trigger>
+                        <Trigger Property="IsReadOnly" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ColorBrushGray8}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="PasswordBox">
+        <Setter Property="Background" Value="{DynamicResource ColorBrushHalfWhite}" />
+        <Setter Property="Foreground" Value="{DynamicResource ColorBrush1}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ColorBrush6}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CaretBrush" Value="{DynamicResource ColorBrush2}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource ColorBrush3}" />
+        <Setter Property="Padding" Value="10,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="PasswordBox">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8"
+                            SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      Margin="{TemplateBinding Padding}"
+                                      VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource ColorBrush4}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource ColorBrush3}" />
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ColorBrushWhite}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ColorBrushGray7}" />
+                            <Setter Property="Foreground" Value="{DynamicResource ColorBrushGray3}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

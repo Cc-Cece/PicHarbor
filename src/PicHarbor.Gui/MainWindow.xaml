@@ -1414,9 +1414,9 @@
                                                       IsChecked="{Binding SettingsSubTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=2}" />
                                 <controls:PclListItem Content="{DynamicResource SettingsNavTools}" Logo="{StaticResource PclIconSetup}" GroupName="SettingsSubNav"
                                                       IsChecked="{Binding SettingsSubTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=3}" />
-                                <controls:PclListItem Content="{DynamicResource SettingsNavOther}" Logo="{StaticResource PclIconSettings}" GroupName="SettingsSubNav"
-                                                      IsChecked="{Binding SettingsSubTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=4}" />
                                 <controls:PclListItem Content="{DynamicResource SettingsNavSecurity}" Logo="{StaticResource PclIconLock}" GroupName="SettingsSubNav"
+                                                      IsChecked="{Binding SettingsSubTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=4}" />
+                                <controls:PclListItem Content="{DynamicResource SettingsNavOther}" Logo="{StaticResource PclIconSettings}" GroupName="SettingsSubNav"
                                                       IsChecked="{Binding SettingsSubTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=5}" />
                             </StackPanel>
                         </controls:PclPageHost>
@@ -1991,13 +1991,13 @@
                             </StackPanel>
                         </controls:PclPageHost>
 
-                        <!-- SUB-VIEW 4: 其它 (直接平铺展示) -->
+                        <!-- SUB-VIEW 5: 其它 (直接平铺展示) -->
                         <controls:PclPageHost Direction="Vertical">
                             <controls:PclPageHost.Style>
                                 <Style TargetType="controls:PclPageHost">
                                     <Setter Property="Visibility" Value="Collapsed" />
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding SettingsSubTabIndex}" Value="4">
+                                        <DataTrigger Binding="{Binding SettingsSubTabIndex}" Value="5">
                                             <Setter Property="Visibility" Value="Visible" />
                                         </DataTrigger>
                                     </Style.Triggers>
@@ -2052,13 +2052,13 @@
                             </StackPanel>
                         </controls:PclPageHost>
 
-                        <!-- SUB-VIEW 5: 安全 -->
+                        <!-- SUB-VIEW 4: 安全 -->
                         <controls:PclPageHost Direction="Vertical">
                             <controls:PclPageHost.Style>
                                 <Style TargetType="controls:PclPageHost">
                                     <Setter Property="Visibility" Value="Collapsed" />
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding SettingsSubTabIndex}" Value="5">
+                                        <DataTrigger Binding="{Binding SettingsSubTabIndex}" Value="4">
                                             <Setter Property="Visibility" Value="Visible" />
                                         </DataTrigger>
                                     </Style.Triggers>
@@ -2109,10 +2109,27 @@
                                                           HorizontalAlignment="Left" FontSize="12.5"
                                                           ItemsSource="{Binding IdleLockOptions}"
                                                           DisplayMemberPath="DisplayText"
+                                                          Loaded="SecurityIdleLockCombo_Loaded"
                                                           SelectionChanged="SecurityIdleLockCombo_SelectionChanged" />
                                             </Grid>
+
+                                            <!-- 自定义分钟输入（选中「自定义…」时露出） -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
+                                                        Visibility="{Binding IsCustomIdleLockActive, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <TextBox x:Name="SecurityCustomIdleBox" Width="72" Height="28"
+                                                         FontSize="12.5" VerticalContentAlignment="Center" Padding="8,0"
+                                                         Text="{Binding CustomIdleLockMinutes, UpdateSourceTrigger=PropertyChanged}"
+                                                         PreviewTextInput="SecurityCustomIdleBox_PreviewTextInput" />
+                                                <TextBlock Text="{DynamicResource SecurityIdleLockCustomUnit}" FontSize="12"
+                                                           Foreground="{DynamicResource ColorBrushGray2}"
+                                                           VerticalAlignment="Center" Margin="8,0,8,0" />
+                                                <controls:PclButton Content="{DynamicResource SecurityIdleLockCustomApply}"
+                                                                    Command="{Binding ApplyCustomIdleLockCommand}"
+                                                                    Height="28" Padding="14,0" />
+                                            </StackPanel>
+
                                             <TextBlock Text="{DynamicResource AppWizardIdleLockHint}" FontSize="11.5"
-                                                       Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                                                       Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,8,0,12" />
 
                                             <Border Height="1" Background="{DynamicResource ColorBrush6}" Margin="0,0,0,12" />
 
@@ -2345,17 +2362,28 @@
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <ComboBox Grid.Column="1" x:Name="WizardIdleLockCombo" Width="180" Height="28"
                                           HorizontalAlignment="Left" FontSize="12.5"
-                                          SelectionChanged="WizardIdleLockCombo_SelectionChanged">
-                                    <ComboBoxItem Content="{DynamicResource AppWizardIdleLockOff}" Tag="0" />
-                                    <ComboBoxItem Content="{DynamicResource AppWizardIdleLockOption1}" Tag="1" />
-                                    <ComboBoxItem Content="{DynamicResource AppWizardIdleLockOption5}" Tag="5" />
-                                    <ComboBoxItem Content="{DynamicResource AppWizardIdleLockOption10}" Tag="10" />
-                                    <ComboBoxItem Content="{DynamicResource AppWizardIdleLockOption15}" Tag="15" />
-                                    <ComboBoxItem Content="{DynamicResource AppWizardIdleLockOption30}" Tag="30" />
-                                </ComboBox>
+                                          ItemsSource="{Binding IdleLockOptions}"
+                                          DisplayMemberPath="DisplayText"
+                                          SelectionChanged="WizardIdleLockCombo_SelectionChanged" />
                             </Grid>
+
+                            <!-- 自定义分钟输入（选中「自定义…」时露出） -->
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
+                                        Visibility="{Binding IsCustomIdleLockActive, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBox x:Name="WizardCustomIdleBox" Width="72" Height="28"
+                                         FontSize="12.5" VerticalContentAlignment="Center" Padding="8,0"
+                                         Text="{Binding CustomIdleLockMinutes, UpdateSourceTrigger=PropertyChanged}"
+                                         PreviewTextInput="SecurityCustomIdleBox_PreviewTextInput" />
+                                <TextBlock Text="{DynamicResource SecurityIdleLockCustomUnit}" FontSize="12"
+                                           Foreground="{DynamicResource ColorBrushGray2}"
+                                           VerticalAlignment="Center" Margin="8,0,8,0" />
+                                <controls:PclButton Content="{DynamicResource SecurityIdleLockCustomApply}"
+                                                    Command="{Binding ApplyCustomIdleLockCommand}"
+                                                    Height="28" Padding="14,0" />
+                            </StackPanel>
+
                             <TextBlock Text="{DynamicResource AppWizardIdleLockHint}" FontSize="11.5"
-                                       Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" />
+                                       Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,8,0,0" />
 
                             <TextBlock Text="{DynamicResource AppWizardNoteWarning}" FontSize="11.5"
                                        Foreground="#B45309" TextWrapping="Wrap" Margin="0,12,0,0" />
@@ -2570,6 +2598,12 @@
                                Foreground="#DC2626" Margin="0,0,0,10" />
                     <TextBlock Text="{Binding RemoveConfirmDetail}" FontSize="12.5"
                                Foreground="{DynamicResource ColorBrush1}" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+                    <TextBlock Text="{DynamicResource AppLockLabelPassword}" FontSize="12.5"
+                               Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,6" />
+                    <PasswordBox x:Name="RemoveConfirmPasswordBox" Height="32" Padding="8,0" VerticalContentAlignment="Center"
+                                 FontSize="13" Margin="0,0,0,8" MaxWidth="340" HorizontalAlignment="Left"
+                                 PasswordChanged="RemoveConfirmPasswordBox_PasswordChanged" />
 
                     <TextBlock Text="{Binding ConfirmError}" FontSize="12" Foreground="#DC2626" TextWrapping="Wrap"
                                Margin="0,0,0,10"

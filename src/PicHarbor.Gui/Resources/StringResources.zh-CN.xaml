@@ -1201,6 +1201,10 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="AppWizardIdleLockOption15">空闲 15 分钟</sys:String>
     <sys:String x:Key="AppWizardIdleLockOption30">空闲 30 分钟</sys:String>
 
+    <sys:String x:Key="SecurityIdleLockCustom">自定义…</sys:String>
+    <sys:String x:Key="SecurityIdleLockCustomUnit">分钟</sys:String>
+    <sys:String x:Key="SecurityIdleLockCustomApply">应用</sys:String>
+
     <sys:String x:Key="TotpCardTitle">双因素验证（Google Authenticator）</sys:String>
     <sys:String x:Key="TotpCardNeedAppLock">请先启用应用锁，再绑定双因素验证。</sys:String>
     <sys:String x:Key="TotpBtnBind">绑定验证器</sys:String>

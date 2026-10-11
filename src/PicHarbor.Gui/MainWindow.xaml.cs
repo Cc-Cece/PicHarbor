@@ -87,7 +87,7 @@ public partial class MainWindow : Window
         }
         else if (e.PropertyName == nameof(AppLockViewModel.IdleTimeoutMinutes))
         {
-            Dispatcher.Invoke(() => SyncIdleCombo(SecurityIdleLockCombo, AppLock?.IdleTimeoutMinutes ?? 0));
+            Dispatcher.Invoke(() => SyncSecurityIdleLockCombo());
         }
         else if (e.PropertyName == nameof(AppLockViewModel.IsChangePasswordOpen))
         {
@@ -106,6 +106,13 @@ public partial class MainWindow : Window
             Dispatcher.Invoke(() =>
             {
                 if (AppLock?.IsDisableConfirmOpen == true) DisableConfirmPasswordBox?.Focus();
+            });
+        }
+        else if (e.PropertyName == nameof(AppLockViewModel.IsRemoveConfirmOpen))
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (AppLock?.IsRemoveConfirmOpen == true) RemoveConfirmPasswordBox?.Focus();
             });
         }
     }
@@ -133,6 +140,9 @@ public partial class MainWindow : Window
         {
             AnimateOpenTaskManager(animate: false);
         }
+
+        // 初始回填「自动锁定」下拉（ItemsSource 此时已完成绑定）
+        SyncSecurityIdleLockCombo();
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -183,56 +193,83 @@ public partial class MainWindow : Window
         if (AppLock is not null) AppLock.DangerConfirmPassword = DisableConfirmPasswordBox.Password;
     }
 
+    private void RemoveConfirmPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (AppLock is not null) AppLock.RemoveConfirmPassword = RemoveConfirmPasswordBox.Password;
+    }
+
     /// <summary>勾选变化后刷新「下一步」可用性与确认页摘要（数据已由双向绑定写入 RootChoice）。</summary>
     private void WizardRootCheckBox_Click(object sender, RoutedEventArgs e)
     {
         AppLock?.NotifyRootSelectionChanged();
     }
 
-    /// <summary>有效期选择变化：立即持久化（纯客户端配置，不重装服务）。</summary>
+    /// <summary>向导「自动锁定」下拉选择变化。</summary>
     private void WizardIdleLockCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        ApplyIdleLockFromCombo(WizardIdleLockCombo);
+        if (AppLock is null) return;
+        if (WizardIdleLockCombo?.SelectedItem is not IdleLockOption item) return;
+        AppLock.ApplyIdleLockOptionCommand.Execute(item);
     }
 
-    /// <summary>安全页「自动锁定」下拉：选中项即 IdleLockOption，直接取 Minutes。</summary>
+    /// <summary>安全页「自动锁定」下拉选择变化（与向导共用同一批 IdleLockOption）。</summary>
     private void SecurityIdleLockCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (AppLock is null) return;
         if (SecurityIdleLockCombo?.SelectedItem is not IdleLockOption item) return;
-        if (AppLock.IdleTimeoutMinutes != item.Minutes) AppLock.ApplyIdleTimeout(item.Minutes);
+        if (AppLock.IdleTimeoutMinutes != item.Minutes) AppLock.ApplyIdleLockOptionCommand.Execute(item);
     }
 
-    private void ApplyIdleLockFromCombo(ComboBox? combo)
-    {
-        if (AppLock is null || combo?.SelectedItem is not ComboBoxItem item) return;
-        if (item.Tag is not string tag || !int.TryParse(tag, out int minutes)) return;
+    /// <summary>下拉首次加载时回填当前值（安全页切换显示后才会 Loaded）。</summary>
+    private void SecurityIdleLockCombo_Loaded(object sender, RoutedEventArgs e) => SyncSecurityIdleLockCombo();
 
-        if (AppLock.IdleTimeoutMinutes != minutes)
+    /// <summary>「自定义分钟」输入框：只允许数字（避免用户敲进非数字导致绑定异常）。</summary>
+    private void SecurityCustomIdleBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+    {
+        foreach (char c in e.Text)
         {
-            AppLock.ApplyIdleTimeout(minutes);
+            if (!char.IsDigit(c)) { e.Handled = true; return; }
         }
     }
 
     /// <summary>把 VM 里的当前有效期回填到向导下拉框。</summary>
-    private void SyncWizardIdleLockCombo()
-    {
-        int current = AppLock?.IdleTimeoutMinutes ?? 0;
-        SyncIdleCombo(WizardIdleLockCombo, current);
-    }
+    private void SyncWizardIdleLockCombo() => SyncIdleLockCombo(WizardIdleLockCombo);
 
-    private static void SyncIdleCombo(ComboBox? combo, int current)
+    /// <summary>把 VM 里的当前有效期回填到安全页下拉框。</summary>
+    private void SyncSecurityIdleLockCombo() => SyncIdleLockCombo(SecurityIdleLockCombo);
+
+    /// <summary>
+    /// 按 VM 的 IdleTimeoutMinutes 选中对应档位。
+    /// 匹配不到预设档位时选中「自定义」项，并把值预填到 CustomIdleLockMinutes，
+    /// 这样「向导里填了自定义值、安全页也能原样显示」，而不是静默回落成「关闭」。
+    /// </summary>
+    private void SyncIdleLockCombo(ComboBox? combo)
     {
-        if (combo is null) return;
+        if (combo is null || AppLock is null) return;
+        int current = AppLock.IdleTimeoutMinutes;
+
         foreach (object obj in combo.Items)
         {
-            if (obj is ComboBoxItem item && item.Tag is string tag &&
-                int.TryParse(tag, out int minutes) && minutes == current)
+            if (obj is IdleLockOption opt && !opt.IsCustom && opt.Minutes == current)
             {
-                combo.SelectedItem = item;
+                combo.SelectedItem = opt;
                 return;
             }
         }
+
+        // 不在预设档位：若已启用则落到「自定义」并预填，否则落到「关闭」
+        foreach (object obj in combo.Items)
+        {
+            if (obj is not IdleLockOption opt) continue;
+            bool want = current > 0 ? opt.IsCustom : opt.Minutes == 0;
+            if (want)
+            {
+                if (opt.IsCustom) AppLock.CustomIdleLockMinutes = current;
+                combo.SelectedItem = opt;
+                return;
+            }
+        }
+
         if (combo.Items.Count > 0) combo.SelectedIndex = 0;
     }
 
