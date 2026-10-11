@@ -23,3 +23,6 @@ TestResults/
 # other
 .docs/
 *.log
+
+# WorkBuddy AI agent data (local-only, must never be tracked)
+.workbuddy-ai/
