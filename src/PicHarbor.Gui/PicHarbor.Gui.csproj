@@ -17,6 +17,7 @@
       Debugger support is dropped only for that self-contained publish.
     -->
     <PublishSingleFile>true</PublishSingleFile>
+    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <DebuggerSupport Condition="'$(SelfContained)' == 'true'">false</DebuggerSupport>
