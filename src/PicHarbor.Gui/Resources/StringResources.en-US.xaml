@@ -1058,4 +1058,152 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="FmtGooglePausedRemain">Paused ({0}/{1} handled, {2} still failed)</sys:String>
     <sys:String x:Key="MediaPickFilter">Media|*.jpg;*.jpeg;*.png;*.heic;*.mp4;*.mov;*.dng;*.raw|All files|*.*</sys:String>
     <sys:String x:Key="GalleryPlaceholderVideo">Video</sys:String>
+
+    <!-- ==================== App Lock ==================== -->
+    <sys:String x:Key="AppLockUnlockTitle">Unlock PicHarbor</sys:String>
+    <sys:String x:Key="AppLockUnlockPrompt">The photo archive is currently locked. Enter your app password to continue.</sys:String>
+    <sys:String x:Key="AppLockLabelPassword">App password</sys:String>
+    <sys:String x:Key="AppLockBtnUnlock">Unlock</sys:String>
+    <sys:String x:Key="AppLockBtnForgotPassword">Forgot password?</sys:String>
+    <sys:String x:Key="AppLockBtnMinimize">Minimize</sys:String>
+    <sys:String x:Key="AppLockBtnClose">Close</sys:String>
+
+    <!-- Security page (sub-tab) -->
+    <sys:String x:Key="SettingsNavSecurity">Security</sys:String>
+    <sys:String x:Key="SecurityCardAppLock">App Lock</sys:String>
+    <sys:String x:Key="SecurityCardTotp">Two-Factor Authentication</sys:String>
+    <sys:String x:Key="SecurityCardDanger">Danger Zone</sys:String>
+    <sys:String x:Key="SecurityBtnChangePassword">Change Password</sys:String>
+    <sys:String x:Key="SecurityBtnChangePasswordSubmit">Confirm Change</sys:String>
+    <sys:String x:Key="SecurityTotpNotBound">Two-factor authentication is not bound</sys:String>
+    <sys:String x:Key="SecurityBtnBindTotp">Bind Authenticator</sys:String>
+    <sys:String x:Key="SecurityBtnToggleTotp">Expand / Collapse</sys:String>
+    <sys:String x:Key="SecurityChangePasswordTitle">Change App Lock Password</sys:String>
+    <sys:String x:Key="SecurityChangePasswordAuthLabel">Verification method</sys:String>
+    <sys:String x:Key="SecurityChangeAuthPassword">Use old password</sys:String>
+    <sys:String x:Key="SecurityChangeAuthTotp">Use authenticator code</sys:String>
+    <sys:String x:Key="SecurityChangeTotpUnavailable">No authenticator is bound yet, so the code method is unavailable. Bind two-factor authentication below first.</sys:String>
+    <sys:String x:Key="SecurityDisableConfirmTitle">Turn off app lock?</sys:String>
+    <sys:String x:Key="SecurityDisableConfirmDetail">This will unlock all protected folders and clear the app password and two-factor binding. Afterwards anyone can access these folders. Enter your app password to confirm.</sys:String>
+    <sys:String x:Key="SecurityRemoveConfirmTitle">Remove app lock components completely?</sys:String>
+    <sys:String x:Key="SecurityRemoveConfirmDetail">This will uninstall the background service and delete the password, authenticator and folder permission records. It cannot be undone. Locked folders will be unlocked first.</sys:String>
+    <sys:String x:Key="SecurityBtnRemoveSubmit">Remove</sys:String>
+    <sys:String x:Key="SecurityErrChangeFailed">Failed to change password.</sys:String>
+    <sys:String x:Key="SecurityMsgPasswordChanged">Password changed.</sys:String>
+    <sys:String x:Key="AppLockResetPrompt">Enter the 6-digit code from Google Authenticator and set a new password. After resetting, the archive stays locked — unlock again with the new password.</sys:String>
+    <sys:String x:Key="AppLockLabelTotpCode">Verification code</sys:String>
+    <sys:String x:Key="AppLockLabelNewPassword">New password</sys:String>
+    <sys:String x:Key="AppLockLabelConfirmPassword">Confirm password</sys:String>
+    <sys:String x:Key="AppLockBtnResetPassword">Reset password</sys:String>
+    <sys:String x:Key="AppLockBtnBackToUnlock">Back to unlock</sys:String>
+
+    <sys:String x:Key="AppLockCardTitle">App Lock (Security)</sys:String>
+    <sys:String x:Key="AppLockCardDesc">When enabled, the photo archive becomes unreadable to the current user while locked — neither Explorer nor PicHarbor can open it. It is readable while unlocked. Note: this guards against someone at the keyboard; files are not encrypted and remain readable if the drive is removed.</sys:String>
+    <sys:String x:Key="AppLockServiceUnavailable">Background service not running yet (it is installed automatically on first enable, requiring one admin approval).</sys:String>
+    <sys:String x:Key="AppLockEnableHint">Set an app password to enable App Lock; the current archive folder will be locked too. If you forget it, you can take ownership of the folder with administrator rights to recover your photos.</sys:String>
+    <sys:String x:Key="AppLockBtnEnable">Enable App Lock</sys:String>
+    <sys:String x:Key="AppLockEnabledNotice">App Lock is enabled. Access is revoked immediately on lock, exit, screen lock, idle timeout, or crash.</sys:String>
+    <sys:String x:Key="AppLockTotpSectionTitle">Two-factor (Google Authenticator)</sys:String>
+    <sys:String x:Key="AppLockTotpBound">✓ Authenticator bound</sys:String>
+    <sys:String x:Key="AppLockBtnBeginTotp">Bind authenticator</sys:String>
+    <sys:String x:Key="AppLockScanQrHint">Scan the QR code with Google Authenticator, then enter the 6-digit code it shows to confirm.</sys:String>
+    <sys:String x:Key="AppLockBtnConfirmTotp">Confirm binding</sys:String>
+    <sys:String x:Key="AppLockDisableTitle">Disable App Lock</sys:String>
+    <sys:String x:Key="AppLockDisableHint">Disabling restores the archive to read/write for the current user; photos stay in place. Your app password is required.</sys:String>
+    <sys:String x:Key="AppLockBtnDisable">Disable App Lock</sys:String>
+    <sys:String x:Key="AppLockBtnLockNow">Lock now</sys:String>
+
+    <sys:String x:Key="AppLockErrPasswordRequired">Please enter your app password.</sys:String>
+    <sys:String x:Key="AppLockErrNewPasswordRequired">Please set an app password.</sys:String>
+    <sys:String x:Key="AppLockErrPasswordMismatch">The passwords do not match.</sys:String>
+    <sys:String x:Key="AppLockErrWrongPassword">Wrong password.</sys:String>
+    <sys:String x:Key="AppLockErrServiceUnavailable">Cannot connect to the PicHarbor Vault service.</sys:String>
+    <sys:String x:Key="AppLockErrNoArchiveRoot">No archive folder selected yet. Choose an archive location in the gallery first.</sys:String>
+    <sys:String x:Key="AppLockErrRegisterFailed">Failed to register the archive folder.</sys:String>
+    <sys:String x:Key="AppLockMsgInstallingService">Installing and starting the PicHarbor Vault service…</sys:String>
+    <sys:String x:Key="AppLockMsgRemovingComponents">Removing app-lock components…</sys:String>
+    <sys:String x:Key="AppLockMsgComponentsRemoved">App-lock components removed. Enabling again will reinstall them automatically.</sys:String>
+    <sys:String x:Key="AppLockRemoveTitle">Remove app-lock components</sys:String>
+    <sys:String x:Key="AppLockRemoveHint">Uninstalls the background service and deletes the password, authenticator, and directory permission records. This cannot be undone and releases all locked folders first.</sys:String>
+    <sys:String x:Key="AppLockBtnRemoveComponents">Remove components</sys:String>
+    <sys:String x:Key="AppLockErrTotpRequired">Enter the 6-digit code from your authenticator.</sys:String>
+    <sys:String x:Key="AppLockErrTotpInvalid">Invalid verification code.</sys:String>
+    <sys:String x:Key="AppLockErrResetFailed">Reset failed.</sys:String>
+    <sys:String x:Key="AppLockErrRebindInputs">Both the app password and the current code are required.</sys:String>
+    <sys:String x:Key="AppLockErrRebindFailed">Rebind failed.</sys:String>
+
+    <sys:String x:Key="AppLockMsgUnlocked">Unlocked.</sys:String>
+    <sys:String x:Key="AppLockMsgLocked">Locked.</sys:String>
+    <sys:String x:Key="AppLockMsgPasswordSet">App password set. Continue to bind your authenticator.</sys:String>
+    <sys:String x:Key="AppLockMsgDisabled">App Lock disabled.</sys:String>
+    <sys:String x:Key="AppLockMsgScanQr">Scan the QR code with Google Authenticator.</sys:String>
+    <sys:String x:Key="AppLockMsgTotpBound">Authenticator bound.</sys:String>
+    <sys:String x:Key="AppLockMsgResetOk">Password reset. Unlock with the new password.</sys:String>
+    <sys:String x:Key="AppLockMsgRebindScan">Scan the new QR code with your authenticator to finish rebinding.</sys:String>
+
+    <!-- App lock: status card + enable wizard + TOTP card -->
+    <sys:String x:Key="AppLockBtnManage">Manage app lock</sys:String>
+    <sys:String x:Key="AppLockSummaryEnabled">App lock is on and protecting your archive folders.</sys:String>
+    <sys:String x:Key="AppLockSummaryDisabled">App lock is off. When enabled, archive folders are inaccessible while locked.</sys:String>
+
+    <sys:String x:Key="AppWizardManageTitle">Manage app lock</sys:String>
+    <sys:String x:Key="AppWizardManageStatusTotp">App lock is on and two-factor authentication is bound.</sys:String>
+    <sys:String x:Key="AppWizardManageStatusNoTotp">App lock is on (two-factor authentication not yet bound).</sys:String>
+    <sys:String x:Key="AppWizardBtnDone">Done</sys:String>
+    <sys:String x:Key="AppWizardTitle">Enable app lock</sys:String>
+    <sys:String x:Key="AppWizardProgress">3 steps in total; only the last step makes changes</sys:String>
+
+    <sys:String x:Key="AppWizardStep1Title">Step 1 · Set an app password</sys:String>
+    <sys:String x:Key="AppWizardStep1Hint">Set an app password. If you forget it, you can take ownership of the folders with administrator rights to recover your photos. This step only records input; nothing has changed yet.</sys:String>
+
+    <sys:String x:Key="AppWizardStep2Title">Step 2 · Choose folders to protect</sys:String>
+    <sys:String x:Key="AppWizardStep2Hint">These are PicHarbor's own library folders (at most one per drive). All are selected by default; select at least one. This step only records your choice; nothing has changed yet.</sys:String>
+    <sys:String x:Key="AppWizardHintSelectRoot">Select at least one folder to protect.</sys:String>
+
+    <sys:String x:Key="AppWizardStep3Title">Step 3 · Confirm</sys:String>
+    <sys:String x:Key="AppWizardExplainLock">Once confirmed, the selected folders are locked immediately: neither Explorer nor PicHarbor can read or write them until you unlock. Note: this is a lock against someone at the keyboard; photos are not encrypted and can still be read if the drive is removed.</sys:String>
+    <sys:String x:Key="AppWizardStep3RootsLabel">Folders to be locked:</sys:String>
+    <sys:String x:Key="AppWizardNoteWarning">Note: clicking Enable will prompt once for administrator approval (UAC).</sys:String>
+
+    <sys:String x:Key="AppWizardStep4Title">Step 4 · Result</sys:String>
+    <sys:String x:Key="AppWizardResultSucceeded">Folders protected successfully:</sys:String>
+    <sys:String x:Key="AppWizardResultFailed">Folders that failed:</sys:String>
+    <sys:String x:Key="AppWizardResultSuccess">App lock is now enabled.</sys:String>
+    <sys:String x:Key="AppWizardResultPartial">App lock is enabled, but some folders failed.</sys:String>
+    <sys:String x:Key="AppWizardResultFatal">Failed to set the password; folders may already be locked.</sys:String>
+    <sys:String x:Key="AppWizardAdviceSuccess">App lock is enabled and the selected folders are locked. You can now configure auto-lock or bind two-factor authentication on this page.</sys:String>
+    <sys:String x:Key="AppWizardAdvicePartial">App lock is enabled, but some folders failed to register. Retry later or ignore those folders.</sys:String>
+    <sys:String x:Key="AppWizardAdviceFatal">Some folders are already locked, but the password was not set. You may not be able to access them. Click "One-click recover" below to unlock them immediately.</sys:String>
+    <sys:String x:Key="AppWizardAdviceUacCancelled">You cancelled administrator approval; nothing was changed. You can retry later.</sys:String>
+    <sys:String x:Key="AppWizardAdviceNoReport">Could not obtain the result. Check the background service and retry.</sys:String>
+
+    <sys:String x:Key="AppWizardBtnNext">Next</sys:String>
+    <sys:String x:Key="AppWizardBtnBack">Back</sys:String>
+    <sys:String x:Key="AppWizardBtnCancel">Cancel</sys:String>
+    <sys:String x:Key="AppWizardBtnEnable">Enable</sys:String>
+    <sys:String x:Key="AppWizardBtnFinish">Finish</sys:String>
+    <sys:String x:Key="AppWizardBtnRecover">One-click recover</sys:String>
+
+    <sys:String x:Key="AppWizardErrPasswordMismatch">The two passwords do not match.</sys:String>
+    <sys:String x:Key="AppWizardErrUacCancelled">Administrator approval was cancelled.</sys:String>
+    <sys:String x:Key="AppWizardErrNoReport">Could not obtain the result.</sys:String>
+    <sys:String x:Key="AppWizardErrFatal">Enabling failed.</sys:String>
+    <sys:String x:Key="AppWizardMsgEnabling">Enabling app lock (administrator approval will be requested)…</sys:String>
+    <sys:String x:Key="AppWizardMsgRecovered">All folders have been unlocked; app lock is now off.</sys:String>
+    <sys:String x:Key="AppWizardRecoverHint">Folder access has been restored. Note: the folder owner may now be the Administrators group; if you cannot read or write, change the owner back to yourself under Properties → Security → Advanced → Owner.</sys:String>
+
+    <sys:String x:Key="AppWizardIdleLockLabel">Auto-lock:</sys:String>
+    <sys:String x:Key="AppWizardIdleLockHint">Uses system idle time: locks automatically after N minutes with no keyboard or mouse input anywhere on the PC (activity in other apps counts as activity). Off by default.</sys:String>
+    <sys:String x:Key="AppWizardIdleLockOff">Do not auto-lock</sys:String>
+    <sys:String x:Key="AppWizardIdleLockOption1">After 1 minute idle</sys:String>
+    <sys:String x:Key="AppWizardIdleLockOption5">After 5 minutes idle</sys:String>
+    <sys:String x:Key="AppWizardIdleLockOption10">After 10 minutes idle</sys:String>
+    <sys:String x:Key="AppWizardIdleLockOption15">After 15 minutes idle</sys:String>
+    <sys:String x:Key="AppWizardIdleLockOption30">After 30 minutes idle</sys:String>
+
+    <sys:String x:Key="TotpCardTitle">Two-factor authentication (Google Authenticator)</sys:String>
+    <sys:String x:Key="TotpCardNeedAppLock">Enable app lock before binding two-factor authentication.</sys:String>
+    <sys:String x:Key="TotpBtnBind">Bind authenticator</sys:String>
+    <sys:String x:Key="TotpBtnChange">Change authenticator</sys:String>
+    <sys:String x:Key="TotpErrServerRestarted">The background service restarted. Generate a new QR code and confirm again.</sys:String>
 </ResourceDictionary>

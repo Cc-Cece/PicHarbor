@@ -8,6 +8,8 @@
     <RootNamespace>PicHarbor.Vault</RootNamespace>
     <AssemblyName>PicHarbor.Vault</AssemblyName>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- 会话锁定通知需要 NativeWindow 消息泵（System.Windows.Forms）。 -->
+    <UseWindowsForms>true</UseWindowsForms>
     <!-- Self-contained single-file exe for deployment alongside PicHarbor.Gui. -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
@@ -17,6 +19,11 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 让测试能直接断言 pipe DACL 构造（PipeServer.BuildPipeSecurity 为 internal）。 -->
+    <InternalsVisibleTo Include="PicHarbor.VaultTests" />
   </ItemGroup>
 
 </Project>

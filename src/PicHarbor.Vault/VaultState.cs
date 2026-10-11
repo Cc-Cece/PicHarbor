@@ -11,13 +11,20 @@ namespace PicHarbor.Vault;
 public sealed class VaultState : IDisposable
 {
     private readonly Lock _lock = new();
-    private readonly List<string> _roots = [];
+    private readonly List<string> _roots;
     private SecurityIdentifier? _unlockedUser;
     private ProcessWatcher? _watcher;
     private CancellationTokenSource? _revokeCts;
 
+    public VaultState()
+    {
+        // 从磁盘恢复已登记的根，保证服务重启后收回仍有对象。
+        _roots = RootStore.Load();
+    }
+
     public bool HasPassword => PasswordStore.HasPassword;
     public bool IsUnlocked  => _unlockedUser is not null;
+    public bool HasTotp     => TotpStore.HasSecret;
 
     public IReadOnlyList<string> RegisteredRoots
     {
@@ -79,7 +86,20 @@ public sealed class VaultState : IDisposable
         {
             string norm = NormPath(path);
             if (!_roots.Contains(norm, StringComparer.OrdinalIgnoreCase))
+            {
                 _roots.Add(norm);
+                RootStore.Save(_roots);
+            }
+
+            // 登记即锁定：断继承、只留 SYSTEM 完全控制、所有者设为 SYSTEM。
+            // 这样「启用应用锁」当场生效，无需等下一次解锁/锁定循环。
+            try { AclEngine.Lock(norm); }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Vault] Lock on register failed ({norm}): {ex.Message}");
+                error = $"Registered but failed to lock: {ex.Message}";
+                return false;
+            }
         }
         error = "";
         return true;
@@ -98,6 +118,7 @@ public sealed class VaultState : IDisposable
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Vault] Restore failed ({norm}): {ex.Message}"); }
 
             _roots.RemoveAt(idx);
+            RootStore.Save(_roots);
         }
         error = "";
         return true;
@@ -110,7 +131,28 @@ public sealed class VaultState : IDisposable
     /// <summary>服务启动第一步调用，确保蓝屏/断电后权限被收回。</summary>
     public void RevokeAllOnStartup()
     {
-        lock (_lock) { InternalRevoke(); }
+        lock (_lock)
+        {
+            // 先把服务私有数据目录与文件的 ACL 收紧（幂等），
+            // 防止历史遗留或用户手动创建的文件权限过宽。
+            TryHardenStore();
+            InternalRevoke();
+        }
+    }
+
+    private static void TryHardenStore()
+    {
+        // 测试隔离模式下 VaultStore.EnsureDirectory 已跳过硬化，这里保持对称。
+        try
+        {
+            VaultStore.EnsureDirectory();
+            if (File.Exists(VaultStore.CredentialPath)) VaultStore.HardenFile(VaultStore.CredentialPath);
+            if (File.Exists(VaultStore.RootsPath))      VaultStore.HardenFile(VaultStore.RootsPath);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Vault] Harden store failed: {ex.Message}");
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -120,7 +162,15 @@ public sealed class VaultState : IDisposable
     public bool TrySetPassword(string newPassword, out string error)
     {
         if (string.IsNullOrEmpty(newPassword)) { error = "Password cannot be empty."; return false; }
-        PasswordStore.SetPassword(newPassword);
+        try
+        {
+            PasswordStore.SetPassword(newPassword);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            error = $"Cannot write credential store (service not running with sufficient rights): {ex.Message}";
+            return false;
+        }
         error = "";
         return true;
     }
@@ -129,10 +179,196 @@ public sealed class VaultState : IDisposable
     {
         if (!PasswordStore.Verify(current)) { error = "Wrong current password."; return false; }
         if (string.IsNullOrEmpty(newPassword)) { error = "New password cannot be empty."; return false; }
-        PasswordStore.SetPassword(newPassword);
+        try
+        {
+            PasswordStore.SetPassword(newPassword);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            error = $"Cannot write credential store (service not running with sufficient rights): {ex.Message}";
+            return false;
+        }
         error = "";
         return true;
     }
+
+    /// <summary>
+    /// 彻底关闭应用锁：恢复所有登记根的访问权限（Restore），清空登记列表，
+    /// 并删除应用密码校验值（此后 <see cref="HasPassword"/> 为 false）。
+    /// 属破坏性操作，仅允许管理员/SYSTEM 调用。
+    /// </summary>
+    public bool TryClearPassword(SecurityIdentifier callerSid, out string error)
+    {
+        lock (_lock)
+        {
+            // 先解除解锁态（若有），再对每个根做 Restore，让用户重新可读写
+            InternalRevoke();
+
+            foreach (string root in _roots.ToList())
+            {
+                try { AclEngine.Restore(root, callerSid); }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Vault] Restore on clear failed ({root}): {ex.Message}");
+                }
+            }
+
+            _roots.Clear();
+            RootStore.Save(_roots);
+
+            // 清掉 TOTP 绑定，避免残留密钥在下次启用时意外复用
+            TotpStore.Clear();
+
+            // 删除密码校验值文件
+            try
+            {
+                if (File.Exists(VaultStore.CredentialPath))
+                    File.Delete(VaultStore.CredentialPath);
+            }
+            catch (Exception ex)
+            {
+                error = $"Failed to remove password: {ex.Message}";
+                return false;
+            }
+        }
+
+        error = "";
+        return true;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // TOTP / 双因素（追加任务书）
+    // ──────────────────────────────────────────────────────────────────────
+
+    // 待确认的绑定密钥（BeginTotpSetup 生成，VerifyTotpSetup 确认后才落盘）
+    private byte[]? _pendingTotpSecret;
+    private readonly Lock _totpLock = new();
+
+    /// <summary>
+    /// 开始 TOTP 绑定：生成新密钥，返回 otpauth URI 与 Base32 密钥。
+    /// 此时密钥<b>尚未生效</b>，必须再调 <see cref="TryConfirmTotpSetup"/> 用一次动态码确认。
+    /// </summary>
+    public bool TryBeginTotpSetup(string account, out string? otpAuthUri, out string? secretBase32, out string error)
+    {
+        otpAuthUri = null;
+        secretBase32 = null;
+
+        lock (_totpLock)
+        {
+            _pendingTotpSecret = TotpEngine.GenerateSecret();
+            secretBase32 = TotpEngine.ToBase32(_pendingTotpSecret);
+            otpAuthUri = TotpEngine.BuildOtpAuthUri(secretBase32, account, "PicHarbor");
+        }
+
+        error = "";
+        return true;
+    }
+
+    /// <summary>
+    /// 确认 TOTP 绑定：校验一次动态码，通过后才真正保存密钥并清空防重放/限流状态。
+    /// </summary>
+    public bool TryConfirmTotpSetup(string code, out string error)
+    {
+        byte[]? secret;
+        lock (_totpLock) { secret = _pendingTotpSecret; }
+
+        if (secret is null) { error = "No pending TOTP setup. Call BeginTotpSetup first."; return false; }
+
+        if (!TotpEngine.Verify(secret, code, NowUnix(), out long step))
+        {
+            error = "Invalid verification code.";
+            return false;
+        }
+
+        // 保存密钥，并把该时间步标记为已用，防止立刻重放
+        TotpStore.SetSecret(secret);
+        TotpStore.MarkStepConsumed(step);
+        TotpStore.RecordSuccess();
+
+        lock (_totpLock) { _pendingTotpSecret = null; }
+
+        error = "";
+        return true;
+    }
+
+    /// <summary>
+    /// 用 TOTP 重置应用密码。验证通过只更新密码，<b>不自动解锁</b>——
+    /// 目录仍保持锁定，用户须用新密码再解锁一次。
+    /// </summary>
+    public bool TryResetPasswordWithTotp(string code, string newPassword, out string error)
+    {
+        if (string.IsNullOrEmpty(newPassword)) { error = "New password cannot be empty."; return false; }
+
+        if (!TryValidateTotp(code, out error)) return false;
+
+        try
+        {
+            PasswordStore.SetPassword(newPassword);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            error = $"Cannot write credential store (service not running with sufficient rights): {ex.Message}";
+            return false;
+        }
+        error = "";
+        return true;
+    }
+
+    /// <summary>
+    /// 重绑验证器：需同时通过「当前应用密码 + 当前 TOTP 码」双验证，
+    /// 通过后才能生成新密钥（返回 otpauth URI，仍须再确认一次）。
+    /// </summary>
+    public bool TryRebindTotp(string currentPassword, string currentCode, string account,
+                              out string? otpAuthUri, out string? secretBase32, out string error)
+    {
+        otpAuthUri = null;
+        secretBase32 = null;
+
+        if (!PasswordStore.Verify(currentPassword)) { error = "Wrong current password."; return false; }
+        if (!TryValidateTotp(currentCode, out error)) return false;
+
+        return TryBeginTotpSetup(account, out otpAuthUri, out secretBase32, out error);
+    }
+
+    /// <summary>
+    /// 通用 TOTP 校验：检查绑定存在、限流、动态码正确且未被重放。
+    /// 校验成功/失败会更新限流与防重放状态。
+    /// </summary>
+    private bool TryValidateTotp(string code, out string error)
+    {
+        byte[]? secret = TotpStore.GetSecret();
+        if (secret is null) { error = "TOTP not configured."; return false; }
+
+        long now = NowUnix();
+
+        if (TotpStore.IsLockedOut(now, out int remaining))
+        {
+            error = $"Too many failed attempts. Try again in {remaining} seconds.";
+            return false;
+        }
+
+        if (!TotpEngine.Verify(secret, code, now, out long step))
+        {
+            TotpStore.RecordFailure(now, out _);
+            error = "Invalid verification code.";
+            return false;
+        }
+
+        // 防重放：同一时间步只能成功一次
+        if (TotpStore.IsStepConsumed(step))
+        {
+            TotpStore.RecordFailure(now, out _);
+            error = "This verification code has already been used.";
+            return false;
+        }
+
+        TotpStore.MarkStepConsumed(step);
+        TotpStore.RecordSuccess();
+        error = "";
+        return true;
+    }
+
+    private static long NowUnix() => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
     // ──────────────────────────────────────────────────────────────────────
     // 内部

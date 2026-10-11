@@ -12,6 +12,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\PicHarbor.Vault\PicHarbor.Vault.csproj" />
+    <!-- Test the actual GUI transport without loading WPF or copying its implementation. -->
+    <Compile Include="..\..\src\PicHarbor.Gui\Vault\VaultClient.cs" Link="Gui\VaultClient.cs" />
+    <Compile Include="..\..\src\PicHarbor.Gui\Vault\VaultProtocol.cs" Link="Gui\VaultProtocol.cs" />
   </ItemGroup>
 
   <ItemGroup>

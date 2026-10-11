@@ -64,6 +64,9 @@ public sealed class AppConfig
 
     // Preview playback. Missing values stay muted.
     public bool PreviewMuted { get; set; } = true;
+
+    // 应用锁：系统空闲 N 分钟后自动重新锁定（0 = 关闭）。
+    public int IdleLockMinutes { get; set; } = 0;
 }
 
 public static class AppSettings
@@ -153,6 +156,37 @@ public static class AppSettings
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Failed to save app settings: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 读取「系统空闲 N 分钟后自动锁定」配置（0 = 关闭）；非法值回退为 0。
+    /// </summary>
+    public static int LoadIdleLockMinutes()
+    {
+        int value = Load().IdleLockMinutes;
+        return value < 0 ? 0 : value;
+    }
+
+    /// <summary>
+    /// 保存自动锁定分钟数。<b>必须走「读-改-写」</b>：<see cref="Save"/> 是整文件覆盖，
+    /// 直接 new 一个 <see cref="AppConfig"/> 盲存会抹掉语言、目录、OAuth 等全部设置。
+    /// 0 = 关闭。
+    /// </summary>
+    public static void SaveIdleLockMinutes(int minutes)
+    {
+        try
+        {
+            AppConfig config = Load();
+            int normalized = minutes < 0 ? 0 : minutes;
+            if (config.IdleLockMinutes == normalized && File.Exists(ConfigPath)) return;
+
+            config.IdleLockMinutes = normalized;
+            Save(config);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to save idle lock minutes: {ex.Message}");
         }
     }
 }

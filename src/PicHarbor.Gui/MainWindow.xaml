@@ -112,6 +112,14 @@
                 <!-- Window Minimize & Close Buttons (1:1 PclIconButton) -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
                             WindowChrome.IsHitTestVisibleInChrome="True">
+                    <!-- 锁定按钮：仅当已启用应用锁时出现 -->
+                    <controls:PclIconButton Logo="{StaticResource PclIconLock}"
+                                            IconTheme="White"
+                                            Click="LockButton_Click"
+                                            ToolTip="{DynamicResource AppLockBtnLockNow}"
+                                            Margin="0,0,4,0"
+                                            Visibility="{Binding AppLock.HasPassword, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
                     <controls:PclIconButton Logo="{StaticResource PclIconMinimize}"
                                             IconTheme="White"
                                             Click="MinimizeButton_Click" ToolTip="{DynamicResource ToolTipMinimize}" />
@@ -1408,6 +1416,8 @@
                                                       IsChecked="{Binding SettingsSubTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=3}" />
                                 <controls:PclListItem Content="{DynamicResource SettingsNavOther}" Logo="{StaticResource PclIconSettings}" GroupName="SettingsSubNav"
                                                       IsChecked="{Binding SettingsSubTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=4}" />
+                                <controls:PclListItem Content="{DynamicResource SettingsNavSecurity}" Logo="{StaticResource PclIconLock}" GroupName="SettingsSubNav"
+                                                      IsChecked="{Binding SettingsSubTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=5}" />
                             </StackPanel>
                         </controls:PclPageHost>
                     </Border>
@@ -1994,6 +2004,7 @@
                                 </Style>
                             </controls:PclPageHost.Style>
                             <StackPanel>
+                                <!-- 应用锁已迁移到「安全」子标签（设置页不再保留入口） -->
                                 <!-- Card 1: 语言与外观 (原: 语言与界面外观) -->
                                 <controls:PclCard Title="{DynamicResource SettingsCardLangTheme}" CanSwap="False">
                                     <Grid Grid.IsSharedSizeScope="True">
@@ -2040,6 +2051,196 @@
                                 </controls:PclCard>
                             </StackPanel>
                         </controls:PclPageHost>
+
+                        <!-- SUB-VIEW 5: 安全 -->
+                        <controls:PclPageHost Direction="Vertical">
+                            <controls:PclPageHost.Style>
+                                <Style TargetType="controls:PclPageHost">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SettingsSubTabIndex}" Value="5">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </controls:PclPageHost.Style>
+                            <StackPanel DataContext="{Binding AppLock, RelativeSource={RelativeSource AncestorType=Window}}">
+
+                                <!-- ══════ 区块 1：应用锁 ══════ -->
+                                <controls:PclCard Title="{DynamicResource SecurityCardAppLock}" CanSwap="False">
+                                    <StackPanel>
+                                        <!-- 状态徽标 -->
+                                        <controls:PclHint HintType="Warning" Margin="0,0,0,10"
+                                                          Visibility="{Binding HasPassword, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                            <TextBlock Text="{DynamicResource AppLockSummaryDisabled}" FontSize="12"
+                                                       Foreground="#B45309" TextWrapping="Wrap" />
+                                        </controls:PclHint>
+                                        <controls:PclHint HintType="Success" Margin="0,0,0,10"
+                                                          Visibility="{Binding HasPassword, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <TextBlock Text="{DynamicResource AppLockSummaryEnabled}" FontSize="12"
+                                                       Foreground="#047857" TextWrapping="Wrap" />
+                                        </controls:PclHint>
+
+                                        <!-- 服务不可达提示 -->
+                                        <controls:PclHint HintType="Warning" Margin="0,0,0,10"
+                                                          Visibility="{Binding IsServiceAvailable, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                            <TextBlock Text="{DynamicResource AppLockServiceUnavailable}" FontSize="12"
+                                                       Foreground="#B45309" TextWrapping="Wrap" />
+                                        </controls:PclHint>
+
+                                        <!-- 未启用：启用按钮（进入向导） -->
+                                        <controls:PclButton ButtonType="Hero"
+                                                            Content="{DynamicResource AppLockBtnEnable}"
+                                                            Command="{Binding OpenWizardCommand}" Height="32" Padding="18,0"
+                                                            HorizontalAlignment="Left"
+                                                            Visibility="{Binding HasPassword, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+
+                                        <!-- 已启用：自动锁定 + 修改密码 + 更换验证器 -->
+                                        <StackPanel Visibility="{Binding HasPassword, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <Grid Margin="0,0,0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{DynamicResource AppWizardIdleLockLabel}"
+                                                           Foreground="{DynamicResource ColorBrush1}" FontSize="12.5"
+                                                           VerticalAlignment="Center" Margin="0,0,10,0" />
+                                                <ComboBox Grid.Column="1" x:Name="SecurityIdleLockCombo" Width="140" Height="28"
+                                                          HorizontalAlignment="Left" FontSize="12.5"
+                                                          ItemsSource="{Binding IdleLockOptions}"
+                                                          DisplayMemberPath="DisplayText"
+                                                          SelectionChanged="SecurityIdleLockCombo_SelectionChanged" />
+                                            </Grid>
+                                            <TextBlock Text="{DynamicResource AppWizardIdleLockHint}" FontSize="11.5"
+                                                       Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+                                            <Border Height="1" Background="{DynamicResource ColorBrush6}" Margin="0,0,0,12" />
+
+                                            <StackPanel Orientation="Horizontal">
+                                                <controls:PclButton Content="{DynamicResource SecurityBtnChangePassword}"
+                                                                    Command="{Binding OpenChangePasswordCommand}" Height="30" Padding="16,0"
+                                                                    Margin="0,0,10,0" />
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <!-- 状态消息 -->
+                                        <TextBlock Text="{Binding StatusMessage}" FontSize="12" TextWrapping="Wrap" Margin="0,10,0,0"
+                                                   Visibility="{Binding StatusMessage, Converter={x:Static controls:StringNotEmptyToVisibilityConverter.Instance}}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#10B981" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsError}" Value="True">
+                                                            <Setter Property="Foreground" Value="#DC2626" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </controls:PclCard>
+
+                                <!-- ══════ 区块 2：双重因素认证（折叠式） ══════ -->
+                                <controls:PclCard Title="{DynamicResource SecurityCardTotp}" CanSwap="False">
+                                    <StackPanel>
+                                        <!-- 未启用应用锁：提示先启用 -->
+                                        <TextBlock Text="{DynamicResource TotpCardNeedAppLock}" FontSize="12"
+                                                   Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap"
+                                                   Visibility="{Binding HasPassword, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+
+                                        <StackPanel Visibility="{Binding HasPassword, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <!-- 折叠头：一行状态 + 展开/绑定按钮 -->
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="12.5"
+                                                           Foreground="{DynamicResource ColorBrushGray2}"
+                                                           Text="{DynamicResource SecurityTotpNotBound}"
+                                                           Visibility="{Binding HasTotp, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                                                <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="12.5"
+                                                           Foreground="#10B981"
+                                                           Text="{DynamicResource AppLockTotpBound}"
+                                                           Visibility="{Binding HasTotp, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                    <controls:PclButton Content="{DynamicResource SecurityBtnBindTotp}" Height="28" Padding="14,0"
+                                                                        Command="{Binding BeginTotpFromCardCommand}"
+                                                                        Visibility="{Binding HasTotp, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                                                    <controls:PclButton Content="{DynamicResource SecurityBtnToggleTotp}" Height="28" Padding="14,0" Margin="8,0,0,0"
+                                                                        Command="{Binding ToggleTotpSectionCommand}"
+                                                                        Visibility="{Binding HasTotp, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- 展开区：更换验证器按钮 + 出码区 -->
+                                            <StackPanel Margin="0,12,0,0"
+                                                        Visibility="{Binding IsTotpSectionExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <controls:PclButton Content="{DynamicResource TotpBtnChange}"
+                                                                    Command="{Binding BeginTotpFromCardCommand}" Height="30" Padding="16,0"
+                                                                    HorizontalAlignment="Left" Margin="0,0,0,10" />
+
+                                                <StackPanel Margin="0,0,0,6"
+                                                            Visibility="{Binding TotpSetupSecret, Converter={x:Static controls:StringNotEmptyToVisibilityConverter.Instance}}">
+                                                    <TextBlock Text="{DynamicResource AppLockScanQrHint}" FontSize="12"
+                                                               Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,8" TextWrapping="Wrap" />
+                                                    <Border Background="White" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}"
+                                                            BorderThickness="1" Padding="10" HorizontalAlignment="Left" Margin="0,0,0,8">
+                                                        <StackPanel>
+                                                            <Image x:Name="SecurityTotpQrImage" Width="160" Height="160" />
+                                                            <TextBlock Text="{Binding TotpSetupSecret}" FontFamily="Consolas" FontSize="12"
+                                                                       Foreground="{DynamicResource ColorBrush1}" HorizontalAlignment="Center"
+                                                                       Margin="0,8,0,0" TextWrapping="Wrap" MaxWidth="160" />
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <TextBlock Text="{DynamicResource AppLockLabelTotpCode}" Foreground="{DynamicResource ColorBrush1}"
+                                                               FontSize="12.5" Margin="0,0,0,6" />
+                                                    <TextBox x:Name="SecurityTotpCodeBox" Height="32" Padding="8,0" VerticalContentAlignment="Center"
+                                                             FontSize="14" MaxLength="6" MaxWidth="180" HorizontalAlignment="Left"
+                                                             Margin="0,0,0,10" TextChanged="SecurityTotpCodeBox_TextChanged" />
+                                                    <controls:PclButton Content="{DynamicResource AppLockBtnConfirmTotp}" ButtonType="Hero"
+                                                                        Command="{Binding ConfirmTotpFromCardCommand}" Height="30" Padding="16,0"
+                                                                        HorizontalAlignment="Left" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </controls:PclCard>
+
+                                <!-- ══════ 区块 3：危险操作 ══════ -->
+                                <controls:PclCard Title="{DynamicResource SecurityCardDanger}" CanSwap="False">
+                                    <StackPanel>
+                                        <!-- 关闭应用锁 -->
+                                        <TextBlock Text="{DynamicResource AppLockDisableTitle}" FontSize="13" FontWeight="Bold"
+                                                   Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,6"
+                                                   Visibility="{Binding HasPassword, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                        <TextBlock Text="{DynamicResource AppLockDisableHint}" FontSize="12"
+                                                   Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                                   Visibility="{Binding HasPassword, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                        <controls:PclButton Content="{DynamicResource AppLockBtnDisable}" ButtonType="Danger"
+                                                            Command="{Binding OpenDisableConfirmCommand}" Height="30" Padding="16,0"
+                                                            HorizontalAlignment="Left" Margin="0,0,0,14"
+                                                            Visibility="{Binding HasPassword, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                                        <!-- 彻底移除组件（仅在服务已安装时显示） -->
+                                        <Border Height="1" Background="{DynamicResource ColorBrush6}" Margin="0,0,0,14"
+                                                Visibility="{Binding IsServiceInstalled, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                        <TextBlock Text="{DynamicResource AppLockRemoveTitle}" FontSize="13" FontWeight="Bold"
+                                                   Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,6"
+                                                   Visibility="{Binding IsServiceInstalled, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                        <TextBlock Text="{DynamicResource AppLockRemoveHint}" FontSize="12"
+                                                   Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                                   Visibility="{Binding IsServiceInstalled, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                        <controls:PclButton Content="{DynamicResource AppLockBtnRemoveComponents}" ButtonType="Danger"
+                                                            Command="{Binding OpenRemoveConfirmCommand}" Height="30" Padding="16,0"
+                                                            HorizontalAlignment="Left"
+                                                            Visibility="{Binding IsServiceInstalled, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                    </StackPanel>
+                                </controls:PclCard>
+                            </StackPanel>
+                        </controls:PclPageHost>
                     </StackPanel>
                 </controls:PclScrollViewer>
             </Grid>
@@ -2048,6 +2249,341 @@
         <!-- Global Window Dim Overlay for Floating Dialogs -->
         <Border x:Name="ModalDimOverlay" Grid.RowSpan="2" Panel.ZIndex="1450"
                 Background="#66000000" Opacity="0" Visibility="Collapsed" IsHitTestVisible="False" />
+
+        <!-- ======================================================== -->
+        <!--  MODAL 0: 应用锁启用向导（步 1~4，CloseOnClickOutside=False） -->
+        <!-- ======================================================== -->
+        <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1600"
+                               DataContext="{Binding AppLock, RelativeSource={RelativeSource AncestorType=Window}}"
+                               IsOpen="{Binding IsWizardOpen, Mode=OneWay}"
+                               CloseCommand="{Binding CloseWizardCommand}"
+                               CloseOnClickOutside="False">
+            <Border Style="{StaticResource PclDialogContainer}" Width="620" MinHeight="380" MaxHeight="640"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="22">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- 标题 -->
+                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                        <TextBlock Text="{DynamicResource AppWizardTitle}" FontSize="17" FontWeight="Bold"
+                                   Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <!-- 步骤内容 -->
+                    <Grid Grid.Row="1">
+                        <!-- 步 1：设置密码 -->
+                        <StackPanel Visibility="{Binding IsWizardStep1, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock Text="{DynamicResource AppWizardStep1Title}" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,6" />
+                            <TextBlock Text="{DynamicResource AppWizardStep1Hint}" FontSize="12"
+                                       Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+                            <TextBlock Text="{DynamicResource AppLockLabelNewPassword}" Foreground="{DynamicResource ColorBrush1}"
+                                       FontSize="12.5" Margin="0,0,0,6" />
+                            <PasswordBox x:Name="WizardPasswordBox" Height="32" Padding="8,0" VerticalContentAlignment="Center"
+                                         FontSize="13" Margin="0,0,0,8" MaxWidth="340" HorizontalAlignment="Left"
+                                         PasswordChanged="WizardPasswordBox_PasswordChanged" />
+
+                            <TextBlock Text="{DynamicResource AppLockLabelConfirmPassword}" Foreground="{DynamicResource ColorBrush1}"
+                                       FontSize="12.5" Margin="0,0,0,6" />
+                            <PasswordBox x:Name="WizardConfirmPasswordBox" Height="32" Padding="8,0" VerticalContentAlignment="Center"
+                                         FontSize="13" Margin="0,0,0,6" MaxWidth="340" HorizontalAlignment="Left"
+                                         PasswordChanged="WizardConfirmPasswordBox_PasswordChanged" />
+
+                            <TextBlock Text="{Binding WizardPasswordError}" FontSize="12" Foreground="#DC2626" TextWrapping="Wrap"
+                                       Visibility="{Binding HasWizardPasswordError, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        </StackPanel>
+
+                        <!-- 步 2：选择要保护的目录 -->
+                        <StackPanel Visibility="{Binding IsWizardStep2, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock Text="{DynamicResource AppWizardStep2Title}" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,6" />
+                            <TextBlock Text="{DynamicResource AppWizardStep2Hint}" FontSize="12"
+                                       Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+                            <controls:PclScrollViewer MaxHeight="260">
+                                <ItemsControl ItemsSource="{Binding ProtectableRoots}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <controls:PclCheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                  Content="{Binding DisplayText}" FontSize="12.5"
+                                                                  Margin="0,0,0,8" Click="WizardRootCheckBox_Click" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </controls:PclScrollViewer>
+                        </StackPanel>
+
+                        <!-- 步 3：确认页 -->
+                        <StackPanel Visibility="{Binding IsWizardStep3, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock Text="{DynamicResource AppWizardStep3Title}" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,6" />
+                            <TextBlock Text="{DynamicResource AppWizardExplainLock}" FontSize="12"
+                                       Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,0,0,10" />
+
+                            <TextBlock Text="{DynamicResource AppWizardStep3RootsLabel}" FontSize="12.5" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,6" />
+                            <controls:PclScrollViewer MaxHeight="120">
+                                <TextBlock Text="{Binding WizardSelectedRootsText}" FontSize="12"
+                                           Foreground="{DynamicResource ColorBrush1}" TextWrapping="Wrap" />
+                            </controls:PclScrollViewer>
+
+                            <Border Height="1" Background="{DynamicResource ColorBrush6}" Margin="0,12,0,12" />
+
+                            <!-- 有效期：系统空闲 N 分钟后自动锁定（默认关闭） -->
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{DynamicResource AppWizardIdleLockLabel}"
+                                           Foreground="{DynamicResource ColorBrush1}" FontSize="12.5"
+                                           VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <ComboBox Grid.Column="1" x:Name="WizardIdleLockCombo" Width="180" Height="28"
+                                          HorizontalAlignment="Left" FontSize="12.5"
+                                          SelectionChanged="WizardIdleLockCombo_SelectionChanged">
+                                    <ComboBoxItem Content="{DynamicResource AppWizardIdleLockOff}" Tag="0" />
+                                    <ComboBoxItem Content="{DynamicResource AppWizardIdleLockOption1}" Tag="1" />
+                                    <ComboBoxItem Content="{DynamicResource AppWizardIdleLockOption5}" Tag="5" />
+                                    <ComboBoxItem Content="{DynamicResource AppWizardIdleLockOption10}" Tag="10" />
+                                    <ComboBoxItem Content="{DynamicResource AppWizardIdleLockOption15}" Tag="15" />
+                                    <ComboBoxItem Content="{DynamicResource AppWizardIdleLockOption30}" Tag="30" />
+                                </ComboBox>
+                            </Grid>
+                            <TextBlock Text="{DynamicResource AppWizardIdleLockHint}" FontSize="11.5"
+                                       Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" />
+
+                            <TextBlock Text="{DynamicResource AppWizardNoteWarning}" FontSize="11.5"
+                                       Foreground="#B45309" TextWrapping="Wrap" Margin="0,12,0,0" />
+                        </StackPanel>
+
+                        <!-- 步 4：结果 -->
+                        <StackPanel Visibility="{Binding IsWizardStep4, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock Text="{DynamicResource AppWizardStep4Title}" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,8" />
+
+                            <controls:PclHint HintType="Error" Margin="0,0,0,10"
+                                              Visibility="{Binding IsEnableFatal, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="{DynamicResource AppWizardResultFatal}" FontSize="12"
+                                           Foreground="#DC2626" TextWrapping="Wrap" />
+                            </controls:PclHint>
+
+                            <TextBlock Text="{DynamicResource AppWizardResultSucceeded}" FontSize="12.5" FontWeight="SemiBold"
+                                       Foreground="#10B981" Margin="0,0,0,4" />
+                            <controls:PclScrollViewer MaxHeight="90">
+                                <ItemsControl ItemsSource="{Binding WizardSucceededRoots}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" FontSize="12" Foreground="{DynamicResource ColorBrush1}"
+                                                       TextWrapping="Wrap" Margin="0,0,0,2" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </controls:PclScrollViewer>
+
+                            <TextBlock Text="{DynamicResource AppWizardResultFailed}" FontSize="12.5" FontWeight="SemiBold"
+                                       Foreground="#DC2626" Margin="0,8,0,4"
+                                       Visibility="{Binding IsPartialFailure, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <controls:PclScrollViewer MaxHeight="90"
+                                                      Visibility="{Binding IsPartialFailure, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <ItemsControl ItemsSource="{Binding WizardFailedRoots}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" FontSize="12" Foreground="#DC2626"
+                                                       TextWrapping="Wrap" Margin="0,0,0,2" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </controls:PclScrollViewer>
+
+                            <TextBlock Text="{Binding WizardAdviceText}" FontSize="12"
+                                       Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,10,0,0" />
+
+                            <controls:PclButton Content="{DynamicResource AppWizardBtnRecover}" ButtonType="Danger"
+                                                Command="{Binding RecoverFromPartialFailureCommand}" Height="30" Padding="16,0"
+                                                HorizontalAlignment="Left" Margin="0,12,0,0"
+                                                Visibility="{Binding IsEnableFatal, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 底部按钮 -->
+                    <Grid Grid.Row="2" Margin="0,16,0,0">
+                        <TextBlock Text="{DynamicResource AppWizardProgress}" FontSize="11.5"
+                                   Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center"
+                                   HorizontalAlignment="Left" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <!-- 步 1~3：上一步 / 取消 / 下一步 / 启用 -->
+                            <controls:PclButton Content="{DynamicResource AppWizardBtnBack}"
+                                                Command="{Binding WizardBackCommand}" Width="84" Height="30" Margin="0,0,8,0"
+                                                Visibility="{Binding ShowWizardBack, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <controls:PclButton Content="{DynamicResource AppWizardBtnCancel}"
+                                                Command="{Binding CloseWizardCommand}" Width="84" Height="30" Margin="0,0,8,0"
+                                                Visibility="{Binding ShowWizardCancel, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <controls:PclButton Content="{DynamicResource AppWizardBtnNext}" ButtonType="Hero"
+                                                Command="{Binding WizardNextCommand}" Width="96" Height="30"
+                                                IsEnabled="{Binding WizardCanNext}"
+                                                Visibility="{Binding ShowWizardNext, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <controls:PclButton Content="{DynamicResource AppWizardBtnEnable}" ButtonType="Hero"
+                                                Command="{Binding ExecuteWizardCommand}" Width="96" Height="30"
+                                                Visibility="{Binding ShowWizardEnable, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                            <!-- 步 4（结果）：完成 -->
+                            <controls:PclButton Content="{DynamicResource AppWizardBtnFinish}" ButtonType="Hero"
+                                                Command="{Binding CloseWizardCommand}" Width="96" Height="30"
+                                                Visibility="{Binding ShowWizardFinish, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </controls:PclModalHost>
+
+        <!-- ======================================================== -->
+        <!--  MODAL: 修改密码对话框                                    -->
+        <!-- ======================================================== -->
+        <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1620"
+                               DataContext="{Binding AppLock, RelativeSource={RelativeSource AncestorType=Window}}"
+                               IsOpen="{Binding IsChangePasswordOpen, Mode=OneWay}"
+                               CloseCommand="{Binding CloseChangePasswordCommand}"
+                               CloseOnClickOutside="False">
+            <Border Style="{StaticResource PclDialogContainer}" Width="480"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="22">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource SecurityChangePasswordTitle}" FontSize="16" FontWeight="Bold"
+                               Foreground="{DynamicResource ColorBrush2}" Margin="0,0,0,12" />
+
+                    <!-- 身份确认方式切换 -->
+                    <TextBlock Text="{DynamicResource SecurityChangePasswordAuthLabel}" FontSize="12.5"
+                               Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,6" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <RadioButton Content="{DynamicResource SecurityChangeAuthPassword}" GroupName="ChangeAuth"
+                                     IsChecked="{Binding IsChangeModePassword, Mode=OneWay}"
+                                     Command="{Binding SetChangeModeCommand}" CommandParameter="password"
+                                     Foreground="{DynamicResource ColorBrush1}" FontSize="12.5" Margin="0,0,16,0" />
+                        <RadioButton Content="{DynamicResource SecurityChangeAuthTotp}" GroupName="ChangeAuth"
+                                     IsChecked="{Binding IsChangeModeTotp, Mode=OneWay}"
+                                     Command="{Binding SetChangeModeCommand}" CommandParameter="totp"
+                                     IsEnabled="{Binding CanUseTotpForChange}"
+                                     Foreground="{DynamicResource ColorBrush1}" FontSize="12.5" />
+                    </StackPanel>
+                    <TextBlock Text="{DynamicResource SecurityChangeTotpUnavailable}" FontSize="11.5"
+                               Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,0,0,10"
+                               Visibility="{Binding CanUseTotpForChange, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+
+                    <!-- 旧密码输入 -->
+                    <StackPanel Visibility="{Binding IsChangeModePassword, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="{DynamicResource AppLockLabelPassword}" Foreground="{DynamicResource ColorBrush1}"
+                                   FontSize="12.5" Margin="0,0,0,6" />
+                        <PasswordBox x:Name="ChangeOldPasswordBox" Height="32" Padding="8,0" VerticalContentAlignment="Center"
+                                     FontSize="13" Margin="0,0,0,10" MaxWidth="360" HorizontalAlignment="Left"
+                                     PasswordChanged="ChangeOldPasswordBox_PasswordChanged" />
+                    </StackPanel>
+
+                    <!-- TOTP 动态码输入 -->
+                    <StackPanel Visibility="{Binding IsChangeModeTotp, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="{DynamicResource AppLockLabelTotpCode}" Foreground="{DynamicResource ColorBrush1}"
+                                   FontSize="12.5" Margin="0,0,0,6" />
+                        <TextBox x:Name="ChangeTotpBox" Height="32" Padding="8,0" VerticalContentAlignment="Center"
+                                 FontSize="14" MaxLength="6" MaxWidth="180" HorizontalAlignment="Left"
+                                 Margin="0,0,0,10" TextChanged="ChangeTotpBox_TextChanged" />
+                    </StackPanel>
+
+                    <Border Height="1" Background="{DynamicResource ColorBrush6}" Margin="0,2,0,12" />
+
+                    <TextBlock Text="{DynamicResource AppLockLabelNewPassword}" Foreground="{DynamicResource ColorBrush1}"
+                               FontSize="12.5" Margin="0,0,0,6" />
+                    <PasswordBox x:Name="ChangeNewPasswordBox" Height="32" Padding="8,0" VerticalContentAlignment="Center"
+                                 FontSize="13" Margin="0,0,0,10" MaxWidth="360" HorizontalAlignment="Left"
+                                 PasswordChanged="ChangeNewPasswordBox_PasswordChanged" />
+
+                    <TextBlock Text="{DynamicResource AppLockLabelConfirmPassword}" Foreground="{DynamicResource ColorBrush1}"
+                               FontSize="12.5" Margin="0,0,0,6" />
+                    <PasswordBox x:Name="ChangeConfirmPasswordBox" Height="32" Padding="8,0" VerticalContentAlignment="Center"
+                                 FontSize="13" Margin="0,0,0,8" MaxWidth="360" HorizontalAlignment="Left"
+                                 PasswordChanged="ChangeConfirmPasswordBox_PasswordChanged" />
+
+                    <TextBlock Text="{Binding ChangePasswordError}" FontSize="12" Foreground="#DC2626" TextWrapping="Wrap"
+                               Margin="0,0,0,10"
+                               Visibility="{Binding HasChangePasswordError, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <controls:PclButton Content="{DynamicResource AppWizardBtnCancel}"
+                                            Command="{Binding CloseChangePasswordCommand}" Width="84" Height="30" Margin="0,0,8,0" />
+                        <controls:PclButton Content="{DynamicResource SecurityBtnChangePasswordSubmit}" ButtonType="Hero"
+                                            Command="{Binding SubmitChangePasswordCommand}" Width="96" Height="30" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </controls:PclModalHost>
+
+        <!-- ======================================================== -->
+        <!--  MODAL: 关闭应用锁二次确认                                 -->
+        <!-- ======================================================== -->
+        <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1630"
+                               DataContext="{Binding AppLock, RelativeSource={RelativeSource AncestorType=Window}}"
+                               IsOpen="{Binding IsDisableConfirmOpen, Mode=OneWay}"
+                               CloseCommand="{Binding CancelDisableConfirmCommand}"
+                               CloseOnClickOutside="False">
+            <Border Style="{StaticResource PclDialogContainer}" Width="460"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="22">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource SecurityDisableConfirmTitle}" FontSize="16" FontWeight="Bold"
+                               Foreground="#DC2626" Margin="0,0,0,10" />
+                    <TextBlock Text="{Binding DisableConfirmDetail}" FontSize="12.5"
+                               Foreground="{DynamicResource ColorBrush1}" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+                    <TextBlock Text="{DynamicResource AppLockLabelPassword}" Foreground="{DynamicResource ColorBrush1}"
+                               FontSize="12.5" Margin="0,0,0,6" />
+                    <PasswordBox x:Name="DisableConfirmPasswordBox" Height="32" Padding="8,0" VerticalContentAlignment="Center"
+                                 FontSize="13" Margin="0,0,0,8" MaxWidth="340" HorizontalAlignment="Left"
+                                 PasswordChanged="DisableConfirmPasswordBox_PasswordChanged" />
+
+                    <TextBlock Text="{Binding ConfirmError}" FontSize="12" Foreground="#DC2626" TextWrapping="Wrap"
+                               Margin="0,0,0,10"
+                               Visibility="{Binding HasConfirmError, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <controls:PclButton Content="{DynamicResource AppWizardBtnCancel}"
+                                            Command="{Binding CancelDisableConfirmCommand}" Width="84" Height="30" Margin="0,0,8,0" />
+                        <controls:PclButton Content="{DynamicResource AppLockBtnDisable}" ButtonType="Danger"
+                                            Command="{Binding ConfirmDisableCommand}" Width="96" Height="30" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </controls:PclModalHost>
+
+        <!-- ======================================================== -->
+        <!--  MODAL: 彻底移除组件二次确认                               -->
+        <!-- ======================================================== -->
+        <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1640"
+                               DataContext="{Binding AppLock, RelativeSource={RelativeSource AncestorType=Window}}"
+                               IsOpen="{Binding IsRemoveConfirmOpen, Mode=OneWay}"
+                               CloseCommand="{Binding CancelRemoveConfirmCommand}"
+                               CloseOnClickOutside="False">
+            <Border Style="{StaticResource PclDialogContainer}" Width="460"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="22">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource SecurityRemoveConfirmTitle}" FontSize="16" FontWeight="Bold"
+                               Foreground="#DC2626" Margin="0,0,0,10" />
+                    <TextBlock Text="{Binding RemoveConfirmDetail}" FontSize="12.5"
+                               Foreground="{DynamicResource ColorBrush1}" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+                    <TextBlock Text="{Binding ConfirmError}" FontSize="12" Foreground="#DC2626" TextWrapping="Wrap"
+                               Margin="0,0,0,10"
+                               Visibility="{Binding HasConfirmError, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <controls:PclButton Content="{DynamicResource AppWizardBtnCancel}"
+                                            Command="{Binding CancelRemoveConfirmCommand}" Width="84" Height="30" Margin="0,0,8,0" />
+                        <controls:PclButton Content="{DynamicResource SecurityBtnRemoveSubmit}" ButtonType="Danger"
+                                            Command="{Binding ConfirmRemoveCommand}" Width="110" Height="30" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </controls:PclModalHost>
 
         <!-- ======================================================== -->
         <!--  MODAL 1: 传输文件明细弹窗 (PCL2 风格弹窗)                -->

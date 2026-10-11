@@ -7,7 +7,6 @@ using PicHarbor.Gui.Util;
 using PicHarbor.Gui.ViewModels;
 
 namespace PicHarbor.Gui;
-
 /// <summary>
 /// Interaction logic for App.xaml
 /// </summary>
@@ -16,6 +15,13 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // 应用生命周期由代码显式管理：默认的 OnLastWindowClose 会在解锁窗口
+        // 关闭、而主窗口尚未构造的空档里判定"最后一个窗口已关闭"并自动退出，
+        // 表现为「输入正确密码后 PicHarbor 直接结束」。改为显式退出，
+        // 由解锁/主窗口各自的路径决定何时 Shutdown。
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
         DispatcherUnhandledException += (s, args) =>
         {
             try
@@ -44,7 +50,70 @@ public partial class App : Application
             return;
         }
 
-        var mainWindow = new MainWindow();
+        _ = StartWithAppLockAsync();
+    }
+
+    /// <summary>
+    /// 应用启动流程：先问 Vault 服务。未启用则直接进主窗口；
+    /// 已启用则先显示解锁窗口——密码通过之前绝不构造会碰归档的逻辑。
+    /// </summary>
+    private async Task StartWithAppLockAsync()
+    {
+        var lockVm = new AppLockViewModel();
+        await lockVm.RefreshStatusAsync();
+
+        if (lockVm.RequiresUnlockOnStartup)
+        {
+            // 已启用且未解锁：先解锁
+            var unlock = new UnlockWindow(lockVm);
+            bool? unlocked = unlock.ShowDialog();
+            if (unlocked != true || !lockVm.IsUnlocked)
+            {
+                Shutdown(0);
+                return;
+            }
+        }
+
+        MainWindow mainWindow;
+        try
+        {
+            mainWindow = new MainWindow { AppLock = lockVm };
+        }
+        catch (Exception ex)
+        {
+            // 主窗口构造失败（例如 XAML/BAML 资源解析异常）：明确记录并退出，
+            // 而不是让进程在没有窗口的情况下静默结束。
+            try
+            {
+                File.WriteAllText("crash.log",
+                    DateTime.Now.ToString("O") + "\n" + ex.ToString() + "\nInner:\n" + ex.InnerException?.ToString());
+            }
+            catch { }
+            MessageBox.Show(
+                string.Format(GetString("FmtUnhandledException", "程序运行遇到异常:\n{0}"), ex.Message),
+                GetString("MsgBoxTitle", "提示"),
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            Shutdown(1);
+            return;
+        }
+
+        MainWindow = mainWindow;
+
+        // 显式退出模式：主窗口关闭即代表用户希望退出应用。
+        mainWindow.Closed += (_, _) => Shutdown(0);
+
+        // 把当前归档根注入应用锁，供「启用」时登记并锁定。
+        // DestinationPath 会在主窗口 DataContext 就绪后可用，这里绑定其后续变化。
+        if (mainWindow.DataContext is MainViewModel mainVm)
+        {
+            lockVm.ArchiveRoot = mainVm.DestinationPath;
+            mainVm.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(MainViewModel.DestinationPath))
+                    lockVm.ArchiveRoot = mainVm.DestinationPath;
+            };
+        }
+
         mainWindow.Show();
     }
 

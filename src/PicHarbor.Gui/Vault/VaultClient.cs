@@ -4,6 +4,7 @@
 using System.IO;
 using System.IO.Pipes;
 using System.Text.Json;
+using System.Security.Principal;
 
 namespace PicHarbor.Gui.Vault;
 
@@ -20,12 +21,19 @@ public sealed class VaultClient
     // 公共 API
     // ──────────────────────────────────────────────────────────────────────
 
-    /// <summary>查询 Vault 当前状态。返回 null 表示服务不可达（未安装或未启动）。</summary>
+    /// <summary>查询状态；只有 ok=true 且包含 status 才表示服务确实可用。</summary>
     public static async Task<VaultStatus?> QueryStatusAsync(CancellationToken ct = default)
     {
-        var resp = await SendAsync(new VaultRequest { Command = VaultCommand.QueryStatus }, ct);
-        return resp?.Status;
+        var resp = await QueryStatusResponseAsync(ct);
+        return resp is { Ok: true, Status: not null } ? resp.Status : null;
     }
+
+    public static Task<VaultResponse?> QueryStatusResponseAsync(CancellationToken ct = default)
+        => SendAsync(new VaultRequest { Command = VaultCommand.QueryStatus }, ct);
+
+    // 测试使用随机管道名，但收发实现与生产 GUI 完全相同。
+    internal static Task<VaultResponse?> QueryStatusOnPipeAsync(string pipeName, CancellationToken ct = default)
+        => SendAsync(new VaultRequest { Command = VaultCommand.QueryStatus }, ct, pipeName);
 
     /// <summary>首次设置应用密码。</summary>
     public static Task<VaultResponse?> SetPasswordAsync(string password, CancellationToken ct = default)
@@ -51,47 +59,97 @@ public sealed class VaultClient
     public static Task<VaultResponse?> LockAsync(CancellationToken ct = default)
         => SendAsync(new VaultRequest { Command = VaultCommand.Lock }, ct);
 
+    /// <summary>彻底关闭应用锁：清除密码与全部登记根（需管理员）。</summary>
+    public static Task<VaultResponse?> ClearPasswordAsync(CancellationToken ct = default)
+        => SendAsync(new VaultRequest { Command = VaultCommand.ClearPassword }, ct);
+
+    // ──────────────────────────────────────────────────────────────────────
+    // TOTP / 双因素
+    // ──────────────────────────────────────────────────────────────────────
+
+    /// <summary>开始 TOTP 绑定，返回 otpauth URI 与 Base32 密钥。</summary>
+    public static Task<VaultResponse?> BeginTotpSetupAsync(string account, CancellationToken ct = default)
+        => SendAsync(new VaultRequest { Command = VaultCommand.BeginTotpSetup, Path = account }, ct);
+
+    /// <summary>确认 TOTP 绑定（校验一次动态码）。</summary>
+    public static Task<VaultResponse?> VerifyTotpSetupAsync(string code, CancellationToken ct = default)
+        => SendAsync(new VaultRequest { Command = VaultCommand.VerifyTotpSetup, TotpCode = code }, ct);
+
+    /// <summary>忘记密码后用 TOTP 重置密码（不自动解锁）。</summary>
+    public static Task<VaultResponse?> ResetPasswordWithTotpAsync(string code, string newPassword, CancellationToken ct = default)
+        => SendAsync(new VaultRequest { Command = VaultCommand.ResetPasswordWithTotp, TotpCode = code, NewPassword = newPassword }, ct);
+
+    /// <summary>重绑验证器：应用密码 + 当前 TOTP 码双验证通过后生成新密钥。</summary>
+    public static Task<VaultResponse?> RebindTotpAsync(string currentPassword, string currentCode, string account, CancellationToken ct = default)
+        => SendAsync(new VaultRequest
+        {
+            Command          = VaultCommand.RebindTotp,
+            PasswordForRebind = currentPassword,
+            TotpCode         = currentCode,
+            Path             = account
+        }, ct);
+
     // ──────────────────────────────────────────────────────────────────────
     // 内部：建立短连接并收发一次
     // ──────────────────────────────────────────────────────────────────────
 
-    private static async Task<VaultResponse?> SendAsync(VaultRequest request, CancellationToken ct)
+    private static async Task<VaultResponse?> SendAsync(VaultRequest request, CancellationToken ct,
+        string pipeName = PipeName)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeoutMs);
 
+        string stage = "连接命名管道";
         try
         {
+            // PipeDirection.InOut 会请求 GENERIC_WRITE，它隐含 CreateNewInstance。
+            // 显式请求个别读写权限，与服务 DACL 对齐，不给普通客户端创建服务端实例的权利。
             using var pipe = new NamedPipeClientStream(
-                ".",               // 本机
-                PipeName,
-                PipeDirection.InOut,
-                PipeOptions.Asynchronous);
+                ".", pipeName,
+                PipeAccessRights.ReadWrite | PipeAccessRights.Synchronize,
+                PipeOptions.Asynchronous,
+                TokenImpersonationLevel.Impersonation,
+                HandleInheritability.None);
 
             await pipe.ConnectAsync(cts.Token);
 
-            // 发送请求
+            // Byte 模式 + 一行 UTF-8 JSON；服务端读到请求后再识别调用方身份。
+            stage = "发送请求";
             string reqJson = JsonSerializer.Serialize(request) + "\n";
             byte[] reqBytes = System.Text.Encoding.UTF8.GetBytes(reqJson);
             await pipe.WriteAsync(reqBytes, cts.Token);
             await pipe.FlushAsync(cts.Token);
 
             // 接收响应（一行 JSON）
+            stage = "读取响应";
             using var reader = new StreamReader(pipe, System.Text.Encoding.UTF8, leaveOpen: true);
             string? line = await reader.ReadLineAsync(cts.Token);
-            if (string.IsNullOrWhiteSpace(line)) return null;
+            if (string.IsNullOrWhiteSpace(line))
+                return Failure("服务关闭了连接，未返回响应。");
 
-            return JsonSerializer.Deserialize<VaultResponse>(line);
+            stage = "解析响应";
+            return JsonSerializer.Deserialize<VaultResponse>(line)
+                ?? Failure("服务返回了空 JSON 响应。");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
         }
         catch (OperationCanceledException)
         {
-            // 超时或外部取消——服务不可达
-            return null;
+            return Failure($"{stage}超时（{TimeoutMs} ms）。");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Failure($"{stage}被拒绝（Win32 5，管道访问权限）：{ex.Message}");
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[VaultClient] {ex.Message}");
-            return null;
+            return Failure($"{stage}失败（0x{ex.HResult:X8}）：{ex.Message}");
         }
     }
+
+    private static VaultResponse Failure(string error)
+        => new() { Ok = false, Error = error };
 }

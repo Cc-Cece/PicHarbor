@@ -1,0 +1,24 @@
+{
+  "clientSid": "S-1-5-21-3327678836-1692478045-118320928-1001",
+  "clientElevated": false,
+  "clientPid": 22920,
+  "expectedServerBuild": "e436e11a-3491-49f4-b807-81a906b97cd9",
+  "repairSucceeded": true,
+  "repairMessage": "Vault \u670D\u52A1\u5DF2\u5B89\u88C5\u5E76\u542F\u52A8\uFF0C\u666E\u901A\u5BA2\u6237\u7AEF\u72B6\u6001\u67E5\u8BE2\u6210\u529F\u3002",
+  "response": {
+    "ok": true,
+    "error": null,
+    "status": {
+      "hasPassword": false,
+      "isUnlocked": false,
+      "registeredRoots": [],
+      "hasTotp": false,
+      "serverPid": 28404,
+      "serverSid": "S-1-5-18",
+      "serverBuild": "e436e11a-3491-49f4-b807-81a906b97cd9"
+    },
+    "otpAuthUri": null,
+    "secretBase32": null,
+    "lockoutSeconds": null
+  }
+}

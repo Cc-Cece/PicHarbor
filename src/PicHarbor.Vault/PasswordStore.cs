@@ -21,11 +21,8 @@ public static class PasswordStore
     private const int Iterations    = 200_000;
     private static readonly HashAlgorithmName Algo = HashAlgorithmName.SHA512;
 
-    private static readonly string StoreDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-        "PicHarbor");
-
-    private static readonly string StorePath = Path.Combine(StoreDir, "vault_credential");
+    private static string StoreDir  => VaultStore.Directory;
+    private static string StorePath => VaultStore.CredentialPath;
 
     /// <summary>是否已设置过密码。</summary>
     public static bool HasPassword => File.Exists(StorePath);
@@ -38,11 +35,9 @@ public static class PasswordStore
         byte[] salt = RandomNumberGenerator.GetBytes(SaltLength);
         byte[] hash = Pbkdf2(plaintext, salt);
 
-        Directory.CreateDirectory(StoreDir);
-        File.WriteAllText(StorePath,
-            Convert.ToBase64String(salt) + "\n" +
-            Convert.ToBase64String(hash),
-            Encoding.UTF8);
+        VaultStore.EnsureDirectory();
+        string content = Convert.ToBase64String(salt) + "\n" + Convert.ToBase64String(hash);
+        VaultStore.WriteProtectedFile(StorePath, content);
     }
 
     /// <summary>校验密码。文件不存在时返回 <c>false</c>。</summary>

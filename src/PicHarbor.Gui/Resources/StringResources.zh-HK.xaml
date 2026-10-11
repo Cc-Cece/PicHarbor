@@ -1058,4 +1058,152 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="FmtGooglePausedRemain">已暫停（{0}/{1} 項已處理，剩餘失敗 {2} 項）</sys:String>
     <sys:String x:Key="MediaPickFilter">媒體檔案|*.jpg;*.jpeg;*.png;*.heic;*.mp4;*.mov;*.dng;*.raw|所有檔案|*.*</sys:String>
     <sys:String x:Key="GalleryPlaceholderVideo">影片</sys:String>
+
+    <!-- ==================== 應用鎖（App Lock） ==================== -->
+    <sys:String x:Key="AppLockUnlockTitle">解鎖 PicHarbor</sys:String>
+    <sys:String x:Key="AppLockUnlockPrompt">相片目錄而家已經鎖上。請輸入應用密碼先至可以繼續。</sys:String>
+    <sys:String x:Key="AppLockLabelPassword">應用密碼</sys:String>
+    <sys:String x:Key="AppLockBtnUnlock">解鎖</sys:String>
+    <sys:String x:Key="AppLockBtnForgotPassword">唔記得密碼？</sys:String>
+    <sys:String x:Key="AppLockBtnMinimize">最小化</sys:String>
+    <sys:String x:Key="AppLockBtnClose">關閉</sys:String>
+
+    <!-- 安全頁（子分頁） -->
+    <sys:String x:Key="SettingsNavSecurity">安全</sys:String>
+    <sys:String x:Key="SecurityCardAppLock">應用鎖</sys:String>
+    <sys:String x:Key="SecurityCardTotp">雙重因素認證</sys:String>
+    <sys:String x:Key="SecurityCardDanger">危險操作</sys:String>
+    <sys:String x:Key="SecurityBtnChangePassword">修改密碼</sys:String>
+    <sys:String x:Key="SecurityBtnChangePasswordSubmit">確認修改</sys:String>
+    <sys:String x:Key="SecurityTotpNotBound">雙重因素認證未綁定</sys:String>
+    <sys:String x:Key="SecurityBtnBindTotp">綁定驗證器</sys:String>
+    <sys:String x:Key="SecurityBtnToggleTotp">展開／收起</sys:String>
+    <sys:String x:Key="SecurityChangePasswordTitle">修改應用鎖密碼</sys:String>
+    <sys:String x:Key="SecurityChangePasswordAuthLabel">身份確認方式</sys:String>
+    <sys:String x:Key="SecurityChangeAuthPassword">使用舊密碼</sys:String>
+    <sys:String x:Key="SecurityChangeAuthTotp">使用動態碼</sys:String>
+    <sys:String x:Key="SecurityChangeTotpUnavailable">尚未綁定驗證器，暫時無法使用動態碼方式。請先在下方綁定雙重因素認證。</sys:String>
+    <sys:String x:Key="SecurityDisableConfirmTitle">確認關閉應用鎖？</sys:String>
+    <sys:String x:Key="SecurityDisableConfirmDetail">此操作將解除全部已保護目錄的鎖定，並清除應用密碼與雙因素綁定。之後任何人均可存取這些目錄。請輸入應用密碼以確認。</sys:String>
+    <sys:String x:Key="SecurityRemoveConfirmTitle">確認徹底移除應用鎖組件？</sys:String>
+    <sys:String x:Key="SecurityRemoveConfirmDetail">此操作將卸載後台服務並刪除密碼、驗證器與目錄權限記錄，不可撤銷。已鎖定的目錄會先被解除鎖定。</sys:String>
+    <sys:String x:Key="SecurityBtnRemoveSubmit">確認移除</sys:String>
+    <sys:String x:Key="SecurityErrChangeFailed">修改密碼失敗。</sys:String>
+    <sys:String x:Key="SecurityMsgPasswordChanged">密碼已修改。</sys:String>
+    <sys:String x:Key="AppLockResetPrompt">請輸入 Google Authenticator 上嘅 6 位動態碼，再設定新密碼。重設之後目錄仍然會鎖住，請用新密碼再解鎖一次。</sys:String>
+    <sys:String x:Key="AppLockLabelTotpCode">動態驗證碼</sys:String>
+    <sys:String x:Key="AppLockLabelNewPassword">新密碼</sys:String>
+    <sys:String x:Key="AppLockLabelConfirmPassword">確認密碼</sys:String>
+    <sys:String x:Key="AppLockBtnResetPassword">重設密碼</sys:String>
+    <sys:String x:Key="AppLockBtnBackToUnlock">返去解鎖</sys:String>
+
+    <sys:String x:Key="AppLockCardTitle">應用鎖（安全）</sys:String>
+    <sys:String x:Key="AppLockCardDesc">啟用之後，相片目錄鎖住嗰陣當前用戶讀唔到又寫唔到，檔案總管同 PicHarbor 都開唔到。解鎖期間可以正常睇。注意：呢個係畀坐喺電腦前面嘅人睇嘅鎖，相片冇加密；拆走硬碟一樣讀得到。</sys:String>
+    <sys:String x:Key="AppLockServiceUnavailable">後台服務仲未啟動（第一次啟用會自動安裝，要一次管理員授權）。</sys:String>
+    <sys:String x:Key="AppLockEnableHint">設定一個應用密碼就可以啟用應用鎖，同時會鎖住而家嘅歸檔目錄。唔記得密碼嘅話，可以用管理員權限取得目錄擁有權攞返啲相。</sys:String>
+    <sys:String x:Key="AppLockBtnEnable">啟用應用鎖</sys:String>
+    <sys:String x:Key="AppLockEnabledNotice">應用鎖已經啟用。鎖定、閂程式、螢幕鎖、閒置逾時或者程式崩潰嗰陣會即刻收回權限。</sys:String>
+    <sys:String x:Key="AppLockTotpSectionTitle">雙因素驗證（Google Authenticator）</sys:String>
+    <sys:String x:Key="AppLockTotpBound">✓ 驗證器已綁定</sys:String>
+    <sys:String x:Key="AppLockBtnBeginTotp">綁定驗證器</sys:String>
+    <sys:String x:Key="AppLockScanQrHint">用 Google Authenticator 掃描二維碼，然後輸入佢顯示嘅 6 位動態碼確認。</sys:String>
+    <sys:String x:Key="AppLockBtnConfirmTotp">確認綁定</sys:String>
+    <sys:String x:Key="AppLockDisableTitle">關閉應用鎖</sys:String>
+    <sys:String x:Key="AppLockDisableHint">關閉之後相片目錄會還原做當前用戶可讀寫，相片留返喺原位。需要輸入應用密碼。</sys:String>
+    <sys:String x:Key="AppLockBtnDisable">關閉應用鎖</sys:String>
+    <sys:String x:Key="AppLockBtnLockNow">即刻鎖定</sys:String>
+
+    <sys:String x:Key="AppLockErrPasswordRequired">請輸入應用密碼。</sys:String>
+    <sys:String x:Key="AppLockErrNewPasswordRequired">請設定應用密碼。</sys:String>
+    <sys:String x:Key="AppLockErrPasswordMismatch">兩次輸入嘅密碼唔一致。</sys:String>
+    <sys:String x:Key="AppLockErrWrongPassword">密碼錯誤。</sys:String>
+    <sys:String x:Key="AppLockErrServiceUnavailable">連唔到 PicHarbor Vault 服務。</sys:String>
+    <sys:String x:Key="AppLockErrNoArchiveRoot">仲未揀要保護嘅歸檔資料夾，請先去圖庫揀歸檔位置。</sys:String>
+    <sys:String x:Key="AppLockErrRegisterFailed">登記歸檔資料夾失敗。</sys:String>
+    <sys:String x:Key="AppLockMsgInstallingService">正在安裝並啟動 PicHarbor Vault 服務…</sys:String>
+    <sys:String x:Key="AppLockMsgRemovingComponents">正在移除應用鎖組件…</sys:String>
+    <sys:String x:Key="AppLockMsgComponentsRemoved">應用鎖組件已徹底移除。想再用的話，重新啟用就會自動重裝。</sys:String>
+    <sys:String x:Key="AppLockRemoveTitle">徹底移除應用鎖組件</sys:String>
+    <sys:String x:Key="AppLockRemoveHint">卸載後台服務並刪除密碼、驗證器同目錄權限紀錄。此操作唔可以撤銷，會先解除全部目錄鎖定。</sys:String>
+    <sys:String x:Key="AppLockBtnRemoveComponents">移除應用鎖組件</sys:String>
+    <sys:String x:Key="AppLockErrTotpRequired">請輸入驗證器上嘅 6 位動態碼。</sys:String>
+    <sys:String x:Key="AppLockErrTotpInvalid">驗證碼無效。</sys:String>
+    <sys:String x:Key="AppLockErrResetFailed">重設失敗。</sys:String>
+    <sys:String x:Key="AppLockErrRebindInputs">需要同時提供應用密碼同當前動態碼。</sys:String>
+    <sys:String x:Key="AppLockErrRebindFailed">重綁失敗。</sys:String>
+
+    <sys:String x:Key="AppLockMsgUnlocked">已解鎖。</sys:String>
+    <sys:String x:Key="AppLockMsgLocked">已鎖定。</sys:String>
+    <sys:String x:Key="AppLockMsgPasswordSet">應用密碼已設定。請繼續綁定驗證器。</sys:String>
+    <sys:String x:Key="AppLockMsgDisabled">應用鎖已關閉。</sys:String>
+    <sys:String x:Key="AppLockMsgScanQr">請用 Google Authenticator 掃描二維碼。</sys:String>
+    <sys:String x:Key="AppLockMsgTotpBound">驗證器已綁定。</sys:String>
+    <sys:String x:Key="AppLockMsgResetOk">密碼已重設。請用新密碼解鎖。</sys:String>
+    <sys:String x:Key="AppLockMsgRebindScan">請用驗證器掃描新二維碼完成重綁。</sys:String>
+
+    <!-- 應用鎖：狀態卡片 + 啟用向導 + 雙因素卡片 -->
+    <sys:String x:Key="AppLockBtnManage">管理應用鎖</sys:String>
+    <sys:String x:Key="AppLockSummaryEnabled">應用鎖已啟用，正在保護您的歸檔目錄。</sys:String>
+    <sys:String x:Key="AppLockSummaryDisabled">應用鎖未啟用。啟用後，鎖定時歸檔目錄將無法被存取。</sys:String>
+
+    <sys:String x:Key="AppWizardManageTitle">管理應用鎖</sys:String>
+    <sys:String x:Key="AppWizardManageStatusTotp">應用鎖已啟用，且已綁定雙因素驗證。</sys:String>
+    <sys:String x:Key="AppWizardManageStatusNoTotp">應用鎖已啟用（尚未綁定雙因素驗證）。</sys:String>
+    <sys:String x:Key="AppWizardBtnDone">完成</sys:String>
+    <sys:String x:Key="AppWizardTitle">啟用應用鎖</sys:String>
+    <sys:String x:Key="AppWizardProgress">共 3 步，最後一步才會實際執行</sys:String>
+
+    <sys:String x:Key="AppWizardStep1Title">第 1 步 · 設定應用密碼</sys:String>
+    <sys:String x:Key="AppWizardStep1Hint">設定一個應用密碼。忘記密碼時可用管理員權限取得目錄擁有權取回相片。此步僅記錄輸入，尚未作任何變更。</sys:String>
+
+    <sys:String x:Key="AppWizardStep2Title">第 2 步 · 選擇要保護的目錄</sys:String>
+    <sys:String x:Key="AppWizardStep2Hint">下列為 PicHarbor 自己的圖庫目錄（每個磁碟最多一個）。預設全部勾選；至少要勾選一個。此步僅記錄選擇，尚未作任何變更。</sys:String>
+    <sys:String x:Key="AppWizardHintSelectRoot">請至少勾選一個要保護的目錄。</sys:String>
+
+    <sys:String x:Key="AppWizardStep3Title">第 3 步 · 確認啟用</sys:String>
+    <sys:String x:Key="AppWizardExplainLock">確認後，選取的目錄會即時鎖定：資源管理員與 PicHarbor 都將無法讀寫，直到您解鎖。注意：這是給坐在電腦前的人看的鎖，相片未加密；硬碟被拆走時仍可被讀出。</sys:String>
+    <sys:String x:Key="AppWizardStep3RootsLabel">即將鎖定的目錄：</sys:String>
+    <sys:String x:Key="AppWizardNoteWarning">提示：按「啟用」後會請求一次管理員授權（UAC）。</sys:String>
+
+    <sys:String x:Key="AppWizardStep4Title">第 4 步 · 執行結果</sys:String>
+    <sys:String x:Key="AppWizardResultSucceeded">已成功保護的目錄：</sys:String>
+    <sys:String x:Key="AppWizardResultFailed">失敗的目錄：</sys:String>
+    <sys:String x:Key="AppWizardResultSuccess">應用鎖已啟用。</sys:String>
+    <sys:String x:Key="AppWizardResultPartial">應用鎖已啟用，部分目錄失敗。</sys:String>
+    <sys:String x:Key="AppWizardResultFatal">密碼設定失敗，目錄可能已被鎖定。</sys:String>
+    <sys:String x:Key="AppWizardAdviceSuccess">應用鎖已啟用，選取的目錄已鎖定。後續可在此頁設定自動鎖定或綁定雙因素驗證。</sys:String>
+    <sys:String x:Key="AppWizardAdvicePartial">應用鎖已啟用，但部分目錄登記失敗。可稍後重試或忽略這些目錄。</sys:String>
+    <sys:String x:Key="AppWizardAdviceFatal">部分目錄已被鎖定，但密碼未設定成功。您可能暫時無法存取這些目錄。請即時按下方「一鍵復原」解除鎖定。</sys:String>
+    <sys:String x:Key="AppWizardAdviceUacCancelled">您取消了管理員授權，未作任何變更。可稍後重試。</sys:String>
+    <sys:String x:Key="AppWizardAdviceNoReport">未能取得執行結果。請檢查後台服務狀態後重試。</sys:String>
+
+    <sys:String x:Key="AppWizardBtnNext">下一步</sys:String>
+    <sys:String x:Key="AppWizardBtnBack">上一步</sys:String>
+    <sys:String x:Key="AppWizardBtnCancel">取消</sys:String>
+    <sys:String x:Key="AppWizardBtnEnable">啟用</sys:String>
+    <sys:String x:Key="AppWizardBtnFinish">完成</sys:String>
+    <sys:String x:Key="AppWizardBtnRecover">一鍵復原</sys:String>
+
+    <sys:String x:Key="AppWizardErrPasswordMismatch">兩次輸入的密碼不一致。</sys:String>
+    <sys:String x:Key="AppWizardErrUacCancelled">已取消管理員授權。</sys:String>
+    <sys:String x:Key="AppWizardErrNoReport">未能取得執行結果。</sys:String>
+    <sys:String x:Key="AppWizardErrFatal">啟用失敗。</sys:String>
+    <sys:String x:Key="AppWizardMsgEnabling">正在啟用應用鎖（會請求一次管理員授權）…</sys:String>
+    <sys:String x:Key="AppWizardMsgRecovered">已解除全部目錄鎖定，應用鎖處於關閉狀態。</sys:String>
+    <sys:String x:Key="AppWizardRecoverHint">已復原目錄存取權限。注意：目錄擁有者可能變為管理員群組，若您無法讀寫，請在「內容 → 安全性 → 進階 → 擁有者」中把擁有者改回自己。</sys:String>
+
+    <sys:String x:Key="AppWizardIdleLockLabel">自動鎖定：</sys:String>
+    <sys:String x:Key="AppWizardIdleLockHint">按「系統閒置」計時：整台電腦 N 分鐘沒有任何鍵鼠輸入後自動鎖定（在其他程式操作也算活動）。預設關閉。</sys:String>
+    <sys:String x:Key="AppWizardIdleLockOff">不自動鎖定</sys:String>
+    <sys:String x:Key="AppWizardIdleLockOption1">閒置 1 分鐘</sys:String>
+    <sys:String x:Key="AppWizardIdleLockOption5">閒置 5 分鐘</sys:String>
+    <sys:String x:Key="AppWizardIdleLockOption10">閒置 10 分鐘</sys:String>
+    <sys:String x:Key="AppWizardIdleLockOption15">閒置 15 分鐘</sys:String>
+    <sys:String x:Key="AppWizardIdleLockOption30">閒置 30 分鐘</sys:String>
+
+    <sys:String x:Key="TotpCardTitle">雙因素驗證（Google Authenticator）</sys:String>
+    <sys:String x:Key="TotpCardNeedAppLock">請先啟用應用鎖，再綁定雙因素驗證。</sys:String>
+    <sys:String x:Key="TotpBtnBind">綁定驗證器</sys:String>
+    <sys:String x:Key="TotpBtnChange">更換驗證器</sys:String>
+    <sys:String x:Key="TotpErrServerRestarted">後台服務已重啟，請重新產生二維碼後再確認。</sys:String>
 </ResourceDictionary>

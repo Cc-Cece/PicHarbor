@@ -12,6 +12,12 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <InvariantGlobalization>false</InvariantGlobalization>
     <!--
+      自定义入口点：同一个 exe 既当 GUI 又当 Vault 服务宿主。
+      收到 vault-service 参数时以无界面方式跑服务主机；否则启动 WPF。
+      见 Program.cs。
+    -->
+    <StartupObject>PicHarbor.Gui.Program</StartupObject>
+    <!--
       Same portable publish shape as the CLI: one compressed self-contained exe.
       Passing self-contained on dotnet publish selects the bundled runtime; a normal build does not.
       Debugger support is dropped only for that self-contained publish.
@@ -25,11 +31,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PicHarbor.Core\PicHarbor.Core.csproj" />
+    <ProjectReference Include="..\PicHarbor.Vault\PicHarbor.Vault.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+    <PackageReference Include="QRCoder" Version="1.8.0" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,0 +1,7 @@
+﻿{
+    "Name":  "PicHarborVault",
+    "State":  "Running",
+    "StartName":  "LocalSystem",
+    "ProcessId":  28404,
+    "PathName":  "\"C:\\Users\\Kanbara\\Code\\vscode\\get-and-see\\outputs\\vault-fixed\\PicHarbor.Gui.exe\" --vault-service"
+}

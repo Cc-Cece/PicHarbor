@@ -17,6 +17,99 @@ public partial class MainWindow : Window
 {
     private MainViewModel? _hookedMainVM;
 
+    /// <summary>
+    /// 应用锁视图模型（由 <see cref="App"/> 在启动时注入）。
+    /// 声明为依赖属性，便于 XAML 用 RelativeSource 绑定。
+    /// </summary>
+    public static readonly DependencyProperty AppLockProperty =
+        DependencyProperty.Register(
+            nameof(AppLock), typeof(AppLockViewModel), typeof(MainWindow),
+            new PropertyMetadata(null, OnAppLockChanged));
+
+    public AppLockViewModel? AppLock
+    {
+        get => (AppLockViewModel?)GetValue(AppLockProperty);
+        set => SetValue(AppLockProperty, value);
+    }
+
+    private static void OnAppLockChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is not MainWindow win) return;
+
+        if (e.OldValue is AppLockViewModel oldVm)
+        {
+            oldVm.PropertyChanged -= win.AppLockVm_PropertyChanged;
+            oldVm.IdleTimeoutReached -= win.AppLock_IdleTimeoutReached;
+        }
+
+        if (e.NewValue is AppLockViewModel vm)
+        {
+            vm.PropertyChanged += win.AppLockVm_PropertyChanged;
+            vm.IdleTimeoutReached += win.AppLock_IdleTimeoutReached;
+        }
+    }
+
+    private void AppLockVm_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(AppLockViewModel.TotpSetupUri))
+        {
+            Dispatcher.Invoke(() =>
+            {
+                string uri = AppLock?.TotpSetupUri ?? "";
+                var source = string.IsNullOrEmpty(uri) ? null : QrCodeRenderer.Render(uri, 160);
+                if (SecurityTotpQrImage is not null) SecurityTotpQrImage.Source = source;
+            });
+        }
+        else if (e.PropertyName == nameof(AppLockViewModel.WizardStep))
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (AppLock?.IsWizardStep1 == true)
+                {
+                    WizardPasswordBox?.Focus();
+                }
+                else if (AppLock?.IsWizardStep3 == true)
+                {
+                    SyncWizardIdleLockCombo();
+                }
+            });
+        }
+        else if (e.PropertyName == nameof(AppLockViewModel.IsTotpSectionExpanded))
+        {
+            // 展开后若已有二维码，重新渲染（Image 在 Collapsed 时不加载）
+            Dispatcher.Invoke(() =>
+            {
+                if (AppLock?.IsTotpSectionExpanded != true) return;
+                string uri = AppLock?.TotpSetupUri ?? "";
+                if (SecurityTotpQrImage is not null && !string.IsNullOrEmpty(uri))
+                    SecurityTotpQrImage.Source = QrCodeRenderer.Render(uri, 160);
+            });
+        }
+        else if (e.PropertyName == nameof(AppLockViewModel.IdleTimeoutMinutes))
+        {
+            Dispatcher.Invoke(() => SyncIdleCombo(SecurityIdleLockCombo, AppLock?.IdleTimeoutMinutes ?? 0));
+        }
+        else if (e.PropertyName == nameof(AppLockViewModel.IsChangePasswordOpen))
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (AppLock?.IsChangePasswordOpen == true)
+                {
+                    // 默认聚焦到当前身份确认方式的输入框
+                    if (AppLock.IsChangeModePassword) ChangeOldPasswordBox?.Focus();
+                    else ChangeTotpBox?.Focus();
+                }
+            });
+        }
+        else if (e.PropertyName == nameof(AppLockViewModel.IsDisableConfirmOpen))
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (AppLock?.IsDisableConfirmOpen == true) DisableConfirmPasswordBox?.Focus();
+            });
+        }
+    }
+
     public MainWindow()
     {
         InitializeComponent();
@@ -40,6 +133,151 @@ public partial class MainWindow : Window
         {
             AnimateOpenTaskManager(animate: false);
         }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // 应用锁交互
+    // ──────────────────────────────────────────────────────────────────────
+
+    private void WizardPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (AppLock is not null) AppLock.WizardPassword = WizardPasswordBox.Password;
+    }
+
+    private void WizardConfirmPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (AppLock is not null) AppLock.WizardConfirmPassword = WizardConfirmPasswordBox.Password;
+    }
+
+    private void SecurityTotpCodeBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (AppLock is not null) AppLock.TotpCodeInput = SecurityTotpCodeBox.Text;
+    }
+
+    // ── 修改密码对话框 ──
+
+    private void ChangeOldPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (AppLock is not null) AppLock.ChangeOldPassword = ChangeOldPasswordBox.Password;
+    }
+
+    private void ChangeTotpBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (AppLock is not null) AppLock.ChangeTotpCode = ChangeTotpBox.Text;
+    }
+
+    private void ChangeNewPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (AppLock is not null) AppLock.ChangeNewPassword = ChangeNewPasswordBox.Password;
+    }
+
+    private void ChangeConfirmPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (AppLock is not null) AppLock.ChangeConfirmPassword = ChangeConfirmPasswordBox.Password;
+    }
+
+    // ── 危险操作确认弹窗 ──
+
+    private void DisableConfirmPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (AppLock is not null) AppLock.DangerConfirmPassword = DisableConfirmPasswordBox.Password;
+    }
+
+    /// <summary>勾选变化后刷新「下一步」可用性与确认页摘要（数据已由双向绑定写入 RootChoice）。</summary>
+    private void WizardRootCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        AppLock?.NotifyRootSelectionChanged();
+    }
+
+    /// <summary>有效期选择变化：立即持久化（纯客户端配置，不重装服务）。</summary>
+    private void WizardIdleLockCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        ApplyIdleLockFromCombo(WizardIdleLockCombo);
+    }
+
+    /// <summary>安全页「自动锁定」下拉：选中项即 IdleLockOption，直接取 Minutes。</summary>
+    private void SecurityIdleLockCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (AppLock is null) return;
+        if (SecurityIdleLockCombo?.SelectedItem is not IdleLockOption item) return;
+        if (AppLock.IdleTimeoutMinutes != item.Minutes) AppLock.ApplyIdleTimeout(item.Minutes);
+    }
+
+    private void ApplyIdleLockFromCombo(ComboBox? combo)
+    {
+        if (AppLock is null || combo?.SelectedItem is not ComboBoxItem item) return;
+        if (item.Tag is not string tag || !int.TryParse(tag, out int minutes)) return;
+
+        if (AppLock.IdleTimeoutMinutes != minutes)
+        {
+            AppLock.ApplyIdleTimeout(minutes);
+        }
+    }
+
+    /// <summary>把 VM 里的当前有效期回填到向导下拉框。</summary>
+    private void SyncWizardIdleLockCombo()
+    {
+        int current = AppLock?.IdleTimeoutMinutes ?? 0;
+        SyncIdleCombo(WizardIdleLockCombo, current);
+    }
+
+    private static void SyncIdleCombo(ComboBox? combo, int current)
+    {
+        if (combo is null) return;
+        foreach (object obj in combo.Items)
+        {
+            if (obj is ComboBoxItem item && item.Tag is string tag &&
+                int.TryParse(tag, out int minutes) && minutes == current)
+            {
+                combo.SelectedItem = item;
+                return;
+            }
+        }
+        if (combo.Items.Count > 0) combo.SelectedIndex = 0;
+    }
+
+    private async void LockButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (AppLock is null) return;
+        // 用户主动锁定：先收回权限，再弹解锁窗
+        await AppLock.LockCommand.ExecuteAsync(null);
+        await PromptUnlockAsync();
+    }
+
+    /// <summary>
+    /// 弹出解锁窗：隐藏主窗口，通过后恢复，取消则关闭应用。
+    /// 供「立即锁定」按钮与闲置超时自动锁定共用。
+    /// 调用方负责先执行锁定（<c>LockCommand</c>）。
+    /// </summary>
+    private async Task PromptUnlockAsync()
+    {
+        if (AppLock is null) return;
+
+        // 若向导正开着，先关掉，避免解锁后草稿态残留
+        if (AppLock.IsWizardOpen) AppLock.ForceCloseWizard();
+
+        var unlock = new UnlockWindow(AppLock);
+        Hide();
+        bool? ok = unlock.ShowDialog();
+        if (ok == true && AppLock.IsUnlocked)
+        {
+            Show();
+        }
+        else
+        {
+            Close();
+        }
+
+        await Task.CompletedTask;
+    }
+
+    private void AppLock_IdleTimeoutReached()
+    {
+        // 计时器回调在 UI 线程（DispatcherTimer），可直接操作窗口。
+        // VM 的 CheckIdle 已自行调用 LockAsync，这里只负责弹解锁窗。
+        if (AppLock is null) return;
+        if (!AppLock.IsUnlocked) return;
+        _ = PromptUnlockAsync();
     }
 
     private void HookMainViewModel(MainViewModel? vm)

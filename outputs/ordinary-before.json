@@ -1,0 +1,16 @@
+{
+  "clientSid": "S-1-5-21-3327678836-1692478045-118320928-1001",
+  "clientElevated": false,
+  "clientPid": 29484,
+  "expectedServerBuild": "a0411ecd-35ae-4400-abeb-57266330049b",
+  "repairSucceeded": null,
+  "repairMessage": null,
+  "response": {
+    "ok": false,
+    "error": "\u8FDE\u63A5\u547D\u540D\u7BA1\u9053\u88AB\u62D2\u7EDD\uFF08Win32 5\uFF0C\u7BA1\u9053\u8BBF\u95EE\u6743\u9650\uFF09\uFF1AAccess to the path is denied.",
+    "status": null,
+    "otpAuthUri": null,
+    "secretBase32": null,
+    "lockoutSeconds": null
+  }
+}

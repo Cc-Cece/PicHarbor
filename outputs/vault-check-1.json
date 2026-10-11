@@ -1,0 +1,24 @@
+{
+  "clientSid": "S-1-5-21-3327678836-1692478045-118320928-1001",
+  "clientElevated": false,
+  "clientPid": 3316,
+  "expectedServerBuild": "e436e11a-3491-49f4-b807-81a906b97cd9",
+  "repairSucceeded": null,
+  "repairMessage": null,
+  "response": {
+    "ok": true,
+    "error": null,
+    "status": {
+      "hasPassword": false,
+      "isUnlocked": false,
+      "registeredRoots": [],
+      "hasTotp": false,
+      "serverPid": 28404,
+      "serverSid": "S-1-5-18",
+      "serverBuild": "e436e11a-3491-49f4-b807-81a906b97cd9"
+    },
+    "otpAuthUri": null,
+    "secretBase32": null,
+    "lockoutSeconds": null
+  }
+}

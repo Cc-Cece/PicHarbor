@@ -1,0 +1,26 @@
+{
+  "clientSid": "S-1-5-21-3327678836-1692478045-118320928-1001",
+  "clientElevated": false,
+  "clientPid": 29576,
+  "expectedServerBuild": "a4a3768f-f44f-4fb4-9c8c-cbbec2ec6929",
+  "repairSucceeded": null,
+  "repairMessage": null,
+  "response": {
+    "ok": true,
+    "error": null,
+    "status": {
+      "hasPassword": true,
+      "isUnlocked": false,
+      "registeredRoots": [
+        "E:\\Pictures\\PicHarbor"
+      ],
+      "hasTotp": false,
+      "serverPid": 9080,
+      "serverSid": "S-1-5-18",
+      "serverBuild": "e436e11a-3491-49f4-b807-81a906b97cd9"
+    },
+    "otpAuthUri": null,
+    "secretBase32": null,
+    "lockoutSeconds": null
+  }
+}
