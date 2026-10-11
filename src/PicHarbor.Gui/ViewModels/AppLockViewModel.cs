@@ -296,15 +296,36 @@ public partial class AppLockViewModel : ObservableObject
         IdleLockOption.Custom,
     ];
 
-    /// <summary>选择「自定义」后手填分钟的绑定值（0 表示未启用自定义）。</summary>
+    /// <summary>
+    /// 「自定义分钟」输入框的文本。用字符串而非 int：
+    /// 用户清空或只输入部分数字时 int 绑定会转换失败、且无法表达空串，
+    /// 用文本承载、点「应用」时再解析，交互更顺。
+    /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCustomIdleLockActive))]
-    private int customIdleLockMinutes;
+    private string customIdleLockText = "";
 
-    /// <summary>当前是否用了自定义值（不在预设档位里，且已启用）。</summary>
+    /// <summary>文本解析出的分钟数；空/非法时为 0。</summary>
+    public int CustomIdleLockMinutes =>
+        int.TryParse(CustomIdleLockText, out int m) ? m : 0;
+
+    /// <summary>
+    /// 用户是否在下拉里选中了「自定义…」项。
+    /// 注意：不能只看「当前超时是否位于预设档位」——用户刚选中自定义时超时值还没变，
+    /// 那样输入框永远不出现（曾经的实际 bug）。
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCustomIdleLockActive))]
+    private bool isCustomIdleLockSelected;
+
+    /// <summary>
+    /// 自定义分钟输入框是否可见。
+    /// 只要用户选中了「自定义…」，或当前超时值本来就不在预设档位里，就显示。
+    /// </summary>
     public bool IsCustomIdleLockActive =>
-        IdleTimeoutMinutes > 0 &&
-        !IdleLockOptions.Any(o => !o.IsCustom && o.Minutes == IdleTimeoutMinutes);
+        IsCustomIdleLockSelected
+        || (IdleTimeoutMinutes > 0 &&
+            !IdleLockOptions.Any(o => !o.IsCustom && o.Minutes == IdleTimeoutMinutes));
 
     /// <summary>出码时服务端 PID，用于检测「确认前服务重启」。</summary>
     [ObservableProperty] private int totpPendingServerPid;
@@ -1265,10 +1286,13 @@ public partial class AppLockViewModel : ObservableObject
         if (option is null) return;
         if (option.IsCustom)
         {
-            // 只把输入框预填为当前值（或默认 15），等用户确认再落盘
-            if (CustomIdleLockMinutes <= 0) CustomIdleLockMinutes = IdleTimeoutMinutes > 0 ? IdleTimeoutMinutes : 15;
+            // 只把输入框预填为当前值（或默认 15），等用户点「应用」再落盘
+            IsCustomIdleLockSelected = true;
+            if (CustomIdleLockMinutes <= 0)
+                CustomIdleLockText = (IdleTimeoutMinutes > 0 ? IdleTimeoutMinutes : 15).ToString();
             return;
         }
+        IsCustomIdleLockSelected = false;
         ApplyIdleTimeout(option.Minutes);
     }
 
@@ -1279,7 +1303,8 @@ public partial class AppLockViewModel : ObservableObject
         int minutes = CustomIdleLockMinutes;
         if (minutes < 1) minutes = 1;
         if (minutes > 1440) minutes = 1440;
-        CustomIdleLockMinutes = minutes;
+        CustomIdleLockText = minutes.ToString();
+        IsCustomIdleLockSelected = true;
         ApplyIdleTimeout(minutes);
     }
 

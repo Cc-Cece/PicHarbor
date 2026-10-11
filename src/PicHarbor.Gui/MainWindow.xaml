@@ -2118,7 +2118,7 @@
                                                         Visibility="{Binding IsCustomIdleLockActive, Converter={StaticResource BooleanToVisibilityConverter}}">
                                                 <TextBox x:Name="SecurityCustomIdleBox" Width="72" Height="28"
                                                          FontSize="12.5" VerticalContentAlignment="Center" Padding="8,0"
-                                                         Text="{Binding CustomIdleLockMinutes, UpdateSourceTrigger=PropertyChanged}"
+                                                         Text="{Binding CustomIdleLockText, UpdateSourceTrigger=PropertyChanged}"
                                                          PreviewTextInput="SecurityCustomIdleBox_PreviewTextInput" />
                                                 <TextBlock Text="{DynamicResource SecurityIdleLockCustomUnit}" FontSize="12"
                                                            Foreground="{DynamicResource ColorBrushGray2}"
@@ -2372,7 +2372,7 @@
                                         Visibility="{Binding IsCustomIdleLockActive, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <TextBox x:Name="WizardCustomIdleBox" Width="72" Height="28"
                                          FontSize="12.5" VerticalContentAlignment="Center" Padding="8,0"
-                                         Text="{Binding CustomIdleLockMinutes, UpdateSourceTrigger=PropertyChanged}"
+                                         Text="{Binding CustomIdleLockText, UpdateSourceTrigger=PropertyChanged}"
                                          PreviewTextInput="SecurityCustomIdleBox_PreviewTextInput" />
                                 <TextBlock Text="{DynamicResource SecurityIdleLockCustomUnit}" FontSize="12"
                                            Foreground="{DynamicResource ColorBrushGray2}"

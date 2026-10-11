@@ -17,6 +17,9 @@ public partial class MainWindow : Window
 {
     private MainViewModel? _hookedMainVM;
 
+    /// <summary>回填自动锁定下拉时为 true，用于抑制 SelectionChanged 里的再入应用。</summary>
+    private bool _syncingIdleCombo;
+
     /// <summary>
     /// 应用锁视图模型（由 <see cref="App"/> 在启动时注入）。
     /// 声明为依赖属性，便于 XAML 用 RelativeSource 绑定。
@@ -74,6 +77,19 @@ public partial class MainWindow : Window
                 }
             });
         }
+        else if (e.PropertyName == nameof(AppLockViewModel.IsWizardOpen))
+        {
+            // 向导打开时清空密码框：PasswordBox 不受 VM 绑定，上次草稿会留成幽灵字符。
+            // 只在「打开」时清，不在步间切换时清，否则用户从步 2 返回步 1 会丢输入。
+            Dispatcher.Invoke(() =>
+            {
+                if (AppLock?.IsWizardOpen == true)
+                {
+                    if (WizardPasswordBox is not null) WizardPasswordBox.Password = "";
+                    if (WizardConfirmPasswordBox is not null) WizardConfirmPasswordBox.Password = "";
+                }
+            });
+        }
         else if (e.PropertyName == nameof(AppLockViewModel.IsTotpSectionExpanded))
         {
             // 展开后若已有二维码，重新渲染（Image 在 Collapsed 时不加载）
@@ -95,9 +111,25 @@ public partial class MainWindow : Window
             {
                 if (AppLock?.IsChangePasswordOpen == true)
                 {
+                    // 每次都把 PasswordBox 清空：PasswordBox.Password 不受 VM 绑定控制，
+                    // 上次留下的字符会变成「幽灵」——界面显示旧圆点、但 VM 已清空，
+                    // 于是点确认时反而报「请输入应用密码。」。
+                    if (ChangeOldPasswordBox is not null) ChangeOldPasswordBox.Password = "";
+                    if (ChangeNewPasswordBox is not null) ChangeNewPasswordBox.Password = "";
+                    if (ChangeConfirmPasswordBox is not null) ChangeConfirmPasswordBox.Password = "";
+                    if (ChangeTotpBox is not null) ChangeTotpBox.Text = "";
+
                     // 默认聚焦到当前身份确认方式的输入框
                     if (AppLock.IsChangeModePassword) ChangeOldPasswordBox?.Focus();
                     else ChangeTotpBox?.Focus();
+                }
+                else
+                {
+                    // 关闭时同样清空，避免下次打开又看到旧内容
+                    if (ChangeOldPasswordBox is not null) ChangeOldPasswordBox.Password = "";
+                    if (ChangeNewPasswordBox is not null) ChangeNewPasswordBox.Password = "";
+                    if (ChangeConfirmPasswordBox is not null) ChangeConfirmPasswordBox.Password = "";
+                    if (ChangeTotpBox is not null) ChangeTotpBox.Text = "";
                 }
             });
         }
@@ -105,6 +137,8 @@ public partial class MainWindow : Window
         {
             Dispatcher.Invoke(() =>
             {
+                // 同「修改密码」：每次开关都清空，避免上次输入残留成幽灵
+                if (DisableConfirmPasswordBox is not null) DisableConfirmPasswordBox.Password = "";
                 if (AppLock?.IsDisableConfirmOpen == true) DisableConfirmPasswordBox?.Focus();
             });
         }
@@ -112,6 +146,7 @@ public partial class MainWindow : Window
         {
             Dispatcher.Invoke(() =>
             {
+                if (RemoveConfirmPasswordBox is not null) RemoveConfirmPasswordBox.Password = "";
                 if (AppLock?.IsRemoveConfirmOpen == true) RemoveConfirmPasswordBox?.Focus();
             });
         }
@@ -207,7 +242,7 @@ public partial class MainWindow : Window
     /// <summary>向导「自动锁定」下拉选择变化。</summary>
     private void WizardIdleLockCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (AppLock is null) return;
+        if (_syncingIdleCombo || AppLock is null) return;
         if (WizardIdleLockCombo?.SelectedItem is not IdleLockOption item) return;
         AppLock.ApplyIdleLockOptionCommand.Execute(item);
     }
@@ -215,9 +250,9 @@ public partial class MainWindow : Window
     /// <summary>安全页「自动锁定」下拉选择变化（与向导共用同一批 IdleLockOption）。</summary>
     private void SecurityIdleLockCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (AppLock is null) return;
+        if (_syncingIdleCombo || AppLock is null) return;
         if (SecurityIdleLockCombo?.SelectedItem is not IdleLockOption item) return;
-        if (AppLock.IdleTimeoutMinutes != item.Minutes) AppLock.ApplyIdleLockOptionCommand.Execute(item);
+        AppLock.ApplyIdleLockOptionCommand.Execute(item);
     }
 
     /// <summary>下拉首次加载时回填当前值（安全页切换显示后才会 Loaded）。</summary>
@@ -240,7 +275,7 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// 按 VM 的 IdleTimeoutMinutes 选中对应档位。
-    /// 匹配不到预设档位时选中「自定义」项，并把值预填到 CustomIdleLockMinutes，
+    /// 匹配不到预设档位时选中「自定义」项，并把值预填到 CustomIdleLockText，
     /// 这样「向导里填了自定义值、安全页也能原样显示」，而不是静默回落成「关闭」。
     /// </summary>
     private void SyncIdleLockCombo(ComboBox? combo)
@@ -248,29 +283,53 @@ public partial class MainWindow : Window
         if (combo is null || AppLock is null) return;
         int current = AppLock.IdleTimeoutMinutes;
 
-        foreach (object obj in combo.Items)
+        _syncingIdleCombo = true;
+        try
         {
-            if (obj is IdleLockOption opt && !opt.IsCustom && opt.Minutes == current)
+            // 用户此前已在下拉里选中「自定义…」→ 保持选中，不要被回填覆盖成其它档
+            if (AppLock.IsCustomIdleLockSelected)
             {
-                combo.SelectedItem = opt;
-                return;
+                foreach (object obj in combo.Items)
+                {
+                    if (obj is IdleLockOption { IsCustom: true } customOpt)
+                    {
+                        combo.SelectedItem = customOpt;
+                        if (AppLock.CustomIdleLockMinutes <= 0)
+                            AppLock.CustomIdleLockText = (current > 0 ? current : 15).ToString();
+                        return;
+                    }
+                }
             }
-        }
 
-        // 不在预设档位：若已启用则落到「自定义」并预填，否则落到「关闭」
-        foreach (object obj in combo.Items)
-        {
-            if (obj is not IdleLockOption opt) continue;
-            bool want = current > 0 ? opt.IsCustom : opt.Minutes == 0;
-            if (want)
+            foreach (object obj in combo.Items)
             {
-                if (opt.IsCustom) AppLock.CustomIdleLockMinutes = current;
-                combo.SelectedItem = opt;
-                return;
+                if (obj is IdleLockOption opt && !opt.IsCustom && opt.Minutes == current)
+                {
+                    combo.SelectedItem = opt;
+                    return;
+                }
             }
-        }
 
-        if (combo.Items.Count > 0) combo.SelectedIndex = 0;
+            // 不在预设档位：若已启用则落到「自定义」并预填，否则落到「关闭」
+            foreach (object obj in combo.Items)
+            {
+                if (obj is not IdleLockOption opt) continue;
+                bool want = current > 0 ? opt.IsCustom : opt.Minutes == 0;
+                if (want)
+                {
+                    if (opt.IsCustom)
+                    {
+                        AppLock.CustomIdleLockText = current.ToString();
+                        AppLock.IsCustomIdleLockSelected = true;
+                    }
+                    combo.SelectedItem = opt;
+                    return;
+                }
+            }
+
+            if (combo.Items.Count > 0) combo.SelectedIndex = 0;
+        }
+        finally { _syncingIdleCombo = false; }
     }
 
     private async void LockButton_Click(object sender, RoutedEventArgs e)
