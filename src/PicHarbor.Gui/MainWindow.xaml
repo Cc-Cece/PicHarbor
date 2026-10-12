@@ -1224,12 +1224,12 @@
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Text="{DynamicResource LabelAppleDevicesDir}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                            <TextBox Grid.Column="1" Text="{Binding CustomSyncFolder, UpdateSourceTrigger=PropertyChanged}" Height="28" VerticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" />
+                                            <!-- Read-only display: changes must go through the Browse button so the warning flow cannot be bypassed -->
+                                            <TextBox Grid.Column="1" Text="{Binding EffectiveSyncFolder, Mode=OneWay}" IsReadOnly="True" Background="#F8FAFC"
+                                                     Height="28" VerticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" />
                                             <controls:PclButton Grid.Column="2" Content="{DynamicResource BtnBrowseDir}" Command="{Binding BrowseSyncFolderCommand}" Height="28" Margin="8,0,0,0" />
-                                            <controls:PclButton Grid.Column="3" Content="{DynamicResource BtnLaunchAppleDevices}" Command="{Binding OpenAppleDevicesCommand}" Height="28" Margin="8,0,0,0" />
                                         </Grid>
                                     </StackPanel>
                                 </controls:PclCard>
@@ -1248,6 +1248,21 @@
                                                     Height="48"
                                                     Margin="0,0,0,14"
                                                     Visibility="{Binding IsExporting, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                                <!-- Step 2: 在 Apple Devices 中完成同步（仅导出成功后显示） -->
+                                <controls:PclCard Title="{DynamicResource IPhoneStep2CardTitle}" CanSwap="False"
+                                                  Visibility="{Binding ShowSyncStep2Panel, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource IPhoneStep2ReadyBanner}" FontSize="12" FontWeight="SemiBold" Foreground="#047857" Margin="0,0,0,12" />
+                                        <controls:PclButton Content="{DynamicResource BtnLaunchAppleDevices}"
+                                                            Command="{Binding OpenAppleDevicesCommand}"
+                                                            ButtonType="Hero"
+                                                            Height="44"
+                                                            Margin="0,0,0,12" />
+                                        <TextBlock Text="{DynamicResource IPhoneStep2HintSelectPhotos}" FontSize="12" Foreground="{DynamicResource ColorBrush2}" Margin="0,0,0,6" />
+                                        <TextBlock Text="{DynamicResource IPhoneStep2HintClickSync}" FontSize="12" Foreground="{DynamicResource ColorBrush2}" />
+                                    </StackPanel>
+                                </controls:PclCard>
 
                             </StackPanel>
                         </controls:PclPageHost>
@@ -2904,6 +2919,29 @@
                         <controls:PclButton Content="{DynamicResource BtnGoSettings}" Command="{Binding OpenSettingsTabCommand}" Height="32" Margin="0,0,8,0" Padding="14,0" />
                         <controls:PclButton Content="{DynamicResource BtnIgnoreRiskProceed}" Command="{Binding IgnorePreflightAndProceedCommand}" Height="32" Margin="0,0,8,0" Padding="14,0" />
                         <controls:PclButton Content="{DynamicResource BtnAutoFixProceed}" Command="{Binding FixPreflightAndProceedCommand}" ButtonType="Hero" Height="32" Padding="16,0" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </controls:PclModalHost>
+
+        <!-- ======================================================== -->
+        <!--  MODAL 3b: iPhone 同步选项二次确认弹窗（含风险勾选）        -->
+        <!-- ======================================================== -->
+        <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1020" DataContext="{Binding IPhoneSyncVM}"
+                               IsOpen="{Binding IsModalOpen}"
+                               CloseCommand="{Binding CancelModalCommand}">
+            <Border Style="{StaticResource PclDialogContainer}" Width="560" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24">
+                <StackPanel>
+                    <TextBlock Text="{Binding ModalTitle}" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                    <TextBlock Text="{Binding ModalMessage}" FontSize="12.5" Foreground="{DynamicResource ColorBrush2}" TextWrapping="Wrap" Margin="0,0,0,14" />
+                    <CheckBox Content="{DynamicResource MsgPathRiskAck}"
+                              IsChecked="{Binding ModalRiskAcknowledged, Mode=TwoWay}"
+                              Margin="0,0,0,16"
+                              Visibility="{Binding ModalRequireRiskAck, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <controls:PclButton Content="{DynamicResource BtnCancel}" Command="{Binding CancelModalCommand}" Height="32" Margin="0,0,8,0" Padding="14,0" />
+                        <controls:PclButton Content="{Binding ModalConfirmText}" Command="{Binding ConfirmModalCommand}" ButtonType="Hero" Height="32" Padding="16,0"
+                                            IsEnabled="{Binding CanConfirmModal}" />
                     </StackPanel>
                 </StackPanel>
             </Border>

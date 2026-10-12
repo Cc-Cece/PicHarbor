@@ -288,7 +288,7 @@
     <sys:String x:Key="LabelTargetAlbumName">目标相册名称:</sys:String>
     <sys:String x:Key="BtnStartGoogleSync">开始备份到 Google 相册</sys:String>
     <sys:String x:Key="BtnStopGoogleSync">停止同步</sys:String>
-    <sys:String x:Key="BannerIPhoneSyncGuide">通过 Apple Devices / iTunes 文件共享无损回传照片与实况照片至 iPhone。流程：选择回传媒体范围、点击“开始导出”、用USB连接iPhone、启动 Apple Devices、选中左侧“照片”选项、点击右下角“同步”按钮。</sys:String>
+    <sys:String x:Key="BannerIPhoneSyncGuide">通过 Apple Devices / iTunes 文件共享无损回传照片与实况照片至 iPhone。流程：选择回传媒体范围、点击“开始导出”，导出完成后按页面下方「步骤 2」提示在 Apple Devices 中完成同步。</sys:String>
     <sys:String x:Key="CardIPhoneRestoreScope">回传媒体范围</sys:String>
     <sys:String x:Key="ScopeRestoreAll">全量回传 (将本地备份库全部照片回传)</sys:String>
     <sys:String x:Key="ScopeRestoreDateRange">按拍摄日期范围挑选</sys:String>
@@ -309,6 +309,13 @@
     <sys:String x:Key="BtnLaunchAppleDevices">🚀 启动 Apple Devices</sys:String>
     <sys:String x:Key="BtnStartIPhoneSync">开始导出</sys:String>
     <sys:String x:Key="BtnStopIPhoneSync">停止回传</sys:String>
+    <sys:String x:Key="IPhoneStep2CardTitle">步骤 2 · 在 Apple Devices 中完成同步</sys:String>
+    <sys:String x:Key="IPhoneStep2ReadyBanner">✓ 同步文件夹已就绪，请继续以下步骤</sys:String>
+    <sys:String x:Key="IPhoneStep2HintSelectPhotos">1. 在 Apple Devices 左侧选择「照片」，并勾选刚导出的文件夹</sys:String>
+    <sys:String x:Key="IPhoneStep2HintClickSync">2. 点击右下角「同步」按钮开始回传</sys:String>
+    <sys:String x:Key="MsgPathRiskAck">我已了解：切换同步源后，iPhone 上原先通过电脑同步的照片将被移除（手机本机拍摄的照片不受影响）</sys:String>
+    <sys:String x:Key="MsgPathChangeFirstTitle">更改 iPhone 同步目录</sys:String>
+    <sys:String x:Key="MsgPathChangeFirstBody">即将把 iPhone 回传目录从默认位置更改为自定义目录：&#x0a;{0}&#x0a;&#x0a;更改后需在 Apple Devices 中重新选定新目录作为同步源。是否确认更改？</sys:String>
     <sys:String x:Key="BannerAndroidSyncGuide">通过局域网 FTP 服务无损回传照片与视频至 Android 设备相机相册目录。</sys:String>
     <sys:String x:Key="CardAndroidFtpConn">Android 设备 FTP 连接参数</sys:String>
     <sys:String x:Key="LabelPhoneIp">手机 IP 地址:</sys:String>

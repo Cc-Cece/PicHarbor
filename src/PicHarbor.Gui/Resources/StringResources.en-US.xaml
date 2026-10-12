@@ -4,7 +4,7 @@
 
     <!-- Application Title &amp; General -->
     <sys:String x:Key="AppTitle">PicHarbor</sys:String>
-    <sys:String x:Key="DeviceDisconnected">No iPhone Detected (USB / AFC)</sys:String>
+    <sys:String x:Key="DeviceDisconnected">No iPhone Detected (AFC)</sys:String>
 
     <!-- General UI Labels &amp; Buttons -->
     <sys:String x:Key="CloseBtn">Close</sys:String>
@@ -15,7 +15,7 @@
     <!-- Table Columns for Device History -->
     <sys:String x:Key="ColDeviceName">Device Name</sys:String>
     <sys:String x:Key="ColDeviceModel">Model</sys:String>
-    <sys:String x:Key="ColDeviceUdid">Device UDID</sys:String>
+    <sys:String x:Key="ColDeviceUdid">Device Unique ID</sys:String>
     <sys:String x:Key="ColLastSeen">Last Seen</sys:String>
 
     <!-- Search Tab -->
@@ -39,7 +39,7 @@
     <!-- Device Probe Messages -->
     <sys:String x:Key="MsgConnected">Connected: {0}{1}</sys:String>
     <sys:String x:Key="MsgTrustRequired">Please unlock iPhone and tap "Trust This Computer"</sys:String>
-    <sys:String x:Key="MsgDriverUnavailable">Apple driver service not running (please open iTunes)</sys:String>
+    <sys:String x:Key="MsgDriverUnavailable">Apple driver service not running (please install Apple Devices or iTunes)</sys:String>
 
     <!-- General Status Strings for ViewModels -->
     <sys:String x:Key="MsgReady">Ready</sys:String>
@@ -62,7 +62,7 @@
     <sys:String x:Key="MsgSyncSuccess">✅ Sync complete! Checked {0} archive files, successfully updated EXIF timestamps for {1} files to Windows system time.</sys:String>
     <!-- iPhone Sync Tab -->
     <sys:String x:Key="MsgPathWarningTitle">⚠️ High-Risk Warning: Change iPhone Sync Folder</sys:String>
-    <sys:String x:Key="MsgPathWarningBody">Detected that this iPhone was previously synced with a different folder. Switching sync source in Apple Devices will automatically remove all previously PC-synced photos from the iPhone (photos taken on iPhone are unaffected).&#x0a;Are you sure you want to change the sync folder?</sys:String>
+    <sys:String x:Key="MsgPathWarningBody">Detected that this iPhone was previously synced with the original folder. After switching the sync source to a new folder in Apple Devices, all photos previously synced from the PC will be automatically removed from the iPhone by iOS (photos taken on the phone are unaffected). (Tip: to keep existing photos, do not change the folder — keep using the original sync folder.)&#x0a;Are you sure you want to change the sync folder?</sys:String>
     <sys:String x:Key="MsgAlbumModeWarningTitle">ℹ️ Confirm Album Structure Change</sys:String>
     <sys:String x:Key="MsgAlbumModeWarningBody">Changing album structure will reorganize subfolders in the sync directory. Albums on iPhone will be reorganized during the next sync in Apple Devices. Confirm change?</sys:String>
 
@@ -106,9 +106,9 @@
     <sys:String x:Key="GooglePhotosViewEditListBtn">👁️ View/Edit Upload List ({0})</sys:String>
 
     <!-- Google Photos Detail Modal &amp; Tooltips -->
-    <sys:String x:Key="GooglePhotosModalTitleUploaded">☁️ Google Photos Uploaded Files (Uploaded)</sys:String>
-    <sys:String x:Key="GooglePhotosModalTitleSkipped">☁️ Google Photos Skipped Files (Skipped - Already in Cloud)</sys:String>
-    <sys:String x:Key="GooglePhotosModalTitleFailed">⚠️ Google Photos Failed Files (Failed)</sys:String>
+    <sys:String x:Key="GooglePhotosModalTitleUploaded">☁️ Google Photos Uploaded Files</sys:String>
+    <sys:String x:Key="GooglePhotosModalTitleSkipped">☁️ Google Photos Skipped Files (Already in Cloud)</sys:String>
+    <sys:String x:Key="GooglePhotosModalTitleFailed">⚠️ Google Photos Failed Files</sys:String>
     <sys:String x:Key="StatusUploaded">Uploaded</sys:String>
     <sys:String x:Key="StatusSkipped">Skipped</sys:String>
     <sys:String x:Key="StatusFailed">Failed</sys:String>
@@ -129,29 +129,29 @@
     <sys:String x:Key="HeroStopBackup">Stop Backup</sys:String>
     <sys:String x:Key="HeroBackupScope">Backup Scope</sys:String>
     <sys:String x:Key="HeroTransferLog">Transfer Log</sys:String>
-    <sys:String x:Key="SubTabBackupExec">Incremental Backup &amp; Execution</sys:String>
-    <sys:String x:Key="SubTabBackupStatus">Status &amp; History</sys:String>
-    <sys:String x:Key="CardStorageOverview">Storage &amp; Library Overview</sys:String>
+    <sys:String x:Key="SubTabBackupExec">Overview</sys:String>
+    <sys:String x:Key="SubTabBackupStatus">History</sys:String>
+    <sys:String x:Key="CardStorageOverview">Storage Library</sys:String>
     <sys:String x:Key="ArchivedMediaCount">Archived Media</sys:String>
     <sys:String x:Key="ArchivedTotalSize">Total Library Size</sys:String>
     <sys:String x:Key="DiskFreeSpace">Disk Free Space</sys:String>
-    <sys:String x:Key="CrossDriveReadyHint">Cross-drive deduplication index ready. Instant transfers across removable and internal drives.</sys:String>
-    <sys:String x:Key="CardStatsOverview">Media Library Statistics</sys:String>
+    <sys:String x:Key="CrossDriveReadyHint">Cross-drive file fingerprinting deduplicates all files — back up with confidence.</sys:String>
+    <sys:String x:Key="CardStatsOverview">Library Statistics</sys:String>
     <sys:String x:Key="StatTotalFiles">Total Files</sys:String>
     <sys:String x:Key="StatTotalSize">Storage Used</sys:String>
     <sys:String x:Key="StatPhotosCount">Total Photos</sys:String>
     <sys:String x:Key="StatVideosCount">Total Videos</sys:String>
-    <sys:String x:Key="BtnRefreshStats">🔄 Refresh Statistics</sys:String>
+    <sys:String x:Key="BtnRefreshStats">🔄 Refresh</sys:String>
     <sys:String x:Key="CardDbStatus">Core Database &amp; Storage Status</sys:String>
-    <sys:String x:Key="LabelSqliteDbPath">SQLite Index DB Path</sys:String>
+    <sys:String x:Key="LabelSqliteDbPath">Database Path</sys:String>
     <sys:String x:Key="LabelLastBackupTime">Last Backup Time</sys:String>
     <sys:String x:Key="CardConnectedDevices">Connected Device History</sys:String>
-    <sys:String x:Key="HintDeviceHistoryDoubleClick">💡 Tip: Double-click any device row to view its historical backup archive.</sys:String>
-    <sys:String x:Key="DeviceHistoryMenuItem">📱 View Device Backup Archive...</sys:String>
+    <sys:String x:Key="HintDeviceHistoryDoubleClick">💡 Tip: Double-click any device row below to view its backup history.</sys:String>
+    <sys:String x:Key="DeviceHistoryMenuItem">📱 View Device Backup History</sys:String>
     <sys:String x:Key="SearchBoxHint">Search photos, camera models or dates...</sys:String>
-    <sys:String x:Key="CardGalleryInspection">Gallery View &amp; Filters</sys:String>
+    <sys:String x:Key="CardGalleryInspection">Gallery Filters</sys:String>
     <sys:String x:Key="BtnLoadMore">Load More</sys:String>
-    <sys:String x:Key="BtnViewTransferQueue">📋 View / Export Queue</sys:String>
+    <sys:String x:Key="BtnViewTransferQueue">📋 View Transfer Queue</sys:String>
     <sys:String x:Key="LabelSort">Sort:</sys:String>
     <sys:String x:Key="TabGalleryView">Gallery</sys:String>
     <sys:String x:Key="TabTableView">List</sys:String>
@@ -162,7 +162,7 @@
     <sys:String x:Key="LabelDateTo">to</sys:String>
     <sys:String x:Key="FilterDeviceLabelShort">Device:</sys:String>
     <sys:String x:Key="SearchLoadingText">Searching and updating library...</sys:String>
-    <sys:String x:Key="SyncEngineHeader">Sync Engines &amp; Return</sys:String>
+    <sys:String x:Key="SyncEngineHeader">Cloud Sync &amp; Restore</sys:String>
     <sys:String x:Key="NavGooglePhotosPill">Google Photos</sys:String>
     <sys:String x:Key="NavIPhoneSyncPill">Sync to iPhone</sys:String>
     <sys:String x:Key="NavAndroidSyncPill">Sync to Android</sys:String>
@@ -173,10 +173,10 @@
     <sys:String x:Key="SettingsCardBackupLocation">Backup Location</sys:String>
     <sys:String x:Key="SettingsLabelPrimaryDrive">Primary Backup Drive</sys:String>
     <sys:String x:Key="SettingsBtnOpenFolder">Open Folder</sys:String>
-    <sys:String x:Key="SettingsLabelArchivePath">Archive Root Path</sys:String>
+    <sys:String x:Key="SettingsLabelArchivePath">Library Root Path</sys:String>
     <sys:String x:Key="SettingsCardSubdirConfig">Subdirectory Configuration</sys:String>
     <sys:String x:Key="SettingsLabelOrganizeFormat">Default Date Organize Format:</sys:String>
-    <sys:String x:Key="SettingsSubdirDeviceOption">Separate into device subdirectories (e.g. D:\PicHarbor\iPhone 15\)</sys:String>
+    <sys:String x:Key="SettingsSubdirDeviceOption">Separate into device subdirectories (e.g. D://PicHarbor//iPhone 15\)</sys:String>
     <sys:String x:Key="SettingsCardCodecs">HEIC &amp; Live Photo Codecs</sys:String>
     <sys:String x:Key="SettingsCardSmartBinding">Smart File Pairing</sys:String>
     <sys:String x:Key="SettingsCardTimeCalibration">File Timestamp Calibration</sys:String>
@@ -185,10 +185,10 @@
     <sys:String x:Key="SettingsAdvancedHint">(Recommended default)</sys:String>
     <sys:String x:Key="SettingsLivePhotoPairOption">Pair Live Photo MOV videos with photos (preserves live effect)</sys:String>
     <sys:String x:Key="SettingsAaeOption">Automatically pair AAE edit sidecar files</sys:String>
-    <sys:String x:Key="SettingsRawJpgOption">Pair RAW + JPG photos together</sys:String>
-    <sys:String x:Key="SettingsTimeCalibrationHint">Automatically calibrate Windows filesystem timestamps using genuine EXIF capture dates:</sys:String>
-    <sys:String x:Key="SettingsSyncLastWriteOption">Calibrate LastWriteTime</sys:String>
-    <sys:String x:Key="SettingsSyncCreationOption">Calibrate CreationTime (resolves 3rd-party cloud sync sorting)</sys:String>
+    <sys:String x:Key="SettingsRawJpgOption">Pair RAW + JPG files together (raw photos and their previews)</sys:String>
+    <sys:String x:Key="SettingsTimeCalibrationHint">When importing photos, Windows uses the import time as the modification time by default. With this enabled, PicHarbor reads the genuine capture time embedded in each photo and overrides the Windows file system timestamps during import (note: the photo's actual metadata is never modified, whether enabled or not):</sys:String>
+    <sys:String x:Key="SettingsSyncLastWriteOption">Calibrate LastWriteTime (for correct sorting in Windows)</sys:String>
+    <sys:String x:Key="SettingsSyncCreationOption">Calibrate CreationTime (fixes sorting issues in third-party cloud drives and similar apps)</sys:String>
     <sys:String x:Key="CodecDescText">iPhone HEIC &amp; Live Photos require Windows HEIF &amp; HEVC extensions for display and playback. Choose an option below, then click Recheck.</sys:String>
     <sys:String x:Key="BtnRecheckCodecs">Recheck</sys:String>
     <sys:String x:Key="CodecSectionStore">Microsoft Store</sys:String>
@@ -197,7 +197,7 @@
     <sys:String x:Key="BtnOpenHevcPaidStore">Open HEVC Store Page (Paid)</sys:String>
     <sys:String x:Key="BtnOpenHevcFreeStore">Open HEVC Store Page (Free)</sys:String>
     <sys:String x:Key="CodecSectionPackage">Offline Package</sys:String>
-    <sys:String x:Key="CodecPackageDesc">Download page contains HEIF and OEM HEVC .appxbundle packages.</sys:String>
+    <sys:String x:Key="CodecPackageDesc">The download page offers the HEIF image extension and the OEM-provided HEVC video extension.</sys:String>
     <sys:String x:Key="BtnOpenPackageDownload">Open Download Page</sys:String>
     <sys:String x:Key="CodecPasswordHint">Password: 0000</sys:String>
     <sys:String x:Key="BtnCopyPackagePassword">Copy Password</sys:String>
@@ -206,16 +206,16 @@
     <sys:String x:Key="BtnOpenLinkGenerator">Open Link Generator</sys:String>
     <sys:String x:Key="BtnCopyHeifLink">Copy HEIF Product Link</sys:String>
     <sys:String x:Key="BtnCopyHevcLink">Copy HEVC Product Link</sys:String>
-    <sys:String x:Key="CodecThirdPartyWarning">This opens a third-party website. The software does not guarantee safety. Proceed at your own risk.</sys:String>
+    <sys:String x:Key="CodecThirdPartyWarning">When using third-party download or installation methods, the software cannot guarantee that the links and files are valid or safe. Verify the source yourself and comply with the license; you bear the risk.</sys:String>
     <sys:String x:Key="SettingsCardProxy">Proxy</sys:String>
     <sys:String x:Key="SettingsProxyLabel">Proxy Address:</sys:String>
     <sys:String x:Key="SettingsCardPythonPath">Python Interpreter Path</sys:String>
-    <sys:String x:Key="SettingsPythonPathDesc">Used by Google Photos sync engine. PicHarbor bundles its runtime, or specify a custom system Python here.</sys:String>
+    <sys:String x:Key="SettingsPythonPathDesc">Used by the Google Photos cloud sync engine. If Google Photos cloud sync is already working properly, please do not change this.</sys:String>
     <sys:String x:Key="SettingsPythonLabel">Interpreter Path:</sys:String>
     <sys:String x:Key="SettingsBtnBrowse">📂 Browse...</sys:String>
     <sys:String x:Key="SettingsCardGooglePhotosParams">Google Photos Upload Parameters</sys:String>
     <sys:String x:Key="SettingsQualityQuotaLabel">Quality &amp; Quota Policy:</sys:String>
-    <sys:String x:Key="SettingsSkipExistingFilenamesOption">Skip existing filenames using local cache (reduces remote checks)</sys:String>
+    <sys:String x:Key="SettingsSkipExistingFilenamesOption">Skip same-named files already recorded as uploaded in the database (reduces remote checks)</sys:String>
     <sys:String x:Key="SettingsConcurrentThreadsLabel">Concurrent Upload Threads</sys:String>
     <sys:String x:Key="SettingsRequestTimeoutLabel">Request Timeout</sys:String>
     <sys:String x:Key="SettingsAutoRetryLabel">Auto Retry On Failure</sys:String>
@@ -223,43 +223,43 @@
     <sys:String x:Key="SettingsDeviceTimeoutLabel">Device Read Timeout</sys:String>
     <sys:String x:Key="SettingsPreventSleepOption">Prevent PC from sleeping during transfer</sys:String>
     <sys:String x:Key="SettingsCardToolExifSync">File Timestamp Tool</sys:String>
-    <sys:String x:Key="SettingsExifToolDesc">Calibrate OS file timestamps from EXIF capture time across archive, fixing sorting issues in Windows Photos &amp; cloud drives.</sys:String>
+    <sys:String x:Key="SettingsExifToolDesc">If file time calibration was not enabled during earlier uploads, or you find some files have inaccurate timestamps, use this tool to scan the media files in the main library and write the EXIF capture time to the OS-level file creation and modification times, fixing sorting issues in Windows Photos and third-party cloud drives.</sys:String>
     <sys:String x:Key="SettingsBtnStartExifSync">Start Calibration Now</sys:String>
     <sys:String x:Key="SettingsCardToolReorganize">Directory Structure Tool</sys:String>
-    <sys:String x:Key="SettingsReorgToolDesc">Reorganize media library directory structure according to chosen date hierarchy without data loss.</sys:String>
+    <sys:String x:Key="SettingsReorgToolDesc">Restructure the local library's directory hierarchy, re-archiving by capture date and format. (Run a dry-run preview and confirm before executing.)</sys:String>
     <sys:String x:Key="SettingsCurrentSchemeLabel">Current Structure</sys:String>
     <sys:String x:Key="SettingsTargetSchemeLabel">Target Structure</sys:String>
-    <sys:String x:Key="SettingsBtnDryRun">🔍 Dry Run Preview</sys:String>
+    <sys:String x:Key="SettingsBtnDryRun">🔍 Preview</sys:String>
     <sys:String x:Key="SettingsBtnExecuteReorg">⚡ Execute Reorganization</sys:String>
     <sys:String x:Key="SettingsCardToolDb">Database Maintenance Tool</sys:String>
-    <sys:String x:Key="SettingsDbToolDesc">Monitor SQLite database size, clean audit trails to reclaim disk space, and run self-healing repairs for orphaned indexes.</sys:String>
+    <sys:String x:Key="SettingsDbToolDesc">Monitor the core database index size, periodically clean up audit trails to reclaim disk space, and run manual smart self-healing scans.</sys:String>
     <sys:String x:Key="SettingsCardLangTheme">Language &amp; Appearance</sys:String>
     <sys:String x:Key="SettingsLabelDisplayLanguage">Display Language</sys:String>
-    <sys:String x:Key="SettingsCardAbout">About PicHarbor</sys:String>
-    <sys:String x:Key="AboutSubtitleText">PicHarbor: Minimalist Local Mobile Photo Backup &amp; Cross-Platform Manager</sys:String>
-    <sys:String x:Key="AboutVersionText">Version: 1.0.0 (Release) · Crafted with PCL2 Design Aesthetics</sys:String>
-    <sys:String x:Key="AboutFeature1">• Lossless Direct Transfer: Native iPhone &amp; Android transfer, preserving Live Photos &amp; EXIF.</sys:String>
-    <sys:String x:Key="AboutFeature2">• Plug &amp; Play: Unified primary storage architecture with global cross-drive deduplication.</sys:String>
-    <sys:String x:Key="AboutFeature3">• Modern Gallery: SweetAlbum masonry layout with millisecond virtualized timeline search.</sys:String>
+    <sys:String x:Key="SettingsCardAbout">About</sys:String>
+    <sys:String x:Key="AboutSubtitleText">PicHarbor</sys:String>
+    <sys:String x:Key="AboutVersionText">Version: 1.0.0 (Release) · Free &amp; open-source local mobile photo backup and cross-device manager</sys:String>
+    <sys:String x:Key="AboutFeature1">• Lossless Direct Transfer: Secure iPhone &amp; Android transfer, preserving Live Photos &amp; EXIF.</sys:String>
+    <sys:String x:Key="AboutFeature2">• Simple &amp; Efficient: Global cross-drive deduplication with instant transfers, offline indexing and fast search.</sys:String>
+    <sys:String x:Key="AboutFeature3">• Multi-Device Restore: Sync and restore across devices to iPhone, Android and Google Photos.</sys:String>
     <sys:String x:Key="AboutBtnWebsite">Website</sys:String>
     <sys:String x:Key="AboutBtnLicense">License</sys:String>
     <sys:String x:Key="AboutBtnAcknowledgements">Acknowledgements</sys:String>
 
-    <sys:String x:Key="SettingsDbPhysicalSize">Database Physical Size (incl. WAL cache)</sys:String>
-    <sys:String x:Key="SettingsDbMetricsComposition">Records Breakdown (Core Index vs Audit Trail)</sys:String>
-    <sys:String x:Key="SettingsBtnRefreshDbMetrics">🔄 Refresh Database Metrics</sys:String>
-    <sys:String x:Key="SettingsDbAuditPruneTitle">1. Redundant Audit History Cleanup (Safe Space Reclaim)</sys:String>
-    <sys:String x:Key="SettingsDbAuditPruneDesc">Transfer history details are only used to inspect which phone backed up which photos. Cleaning redundant history will never affect real photos on your PC, and re-plugged phones will still instantly skip backed up files.</sys:String>
+    <sys:String x:Key="SettingsDbPhysicalSize">Database Physical Size</sys:String>
+    <sys:String x:Key="SettingsDbMetricsComposition">Key Metrics Breakdown</sys:String>
+    <sys:String x:Key="SettingsBtnRefreshDbMetrics">🔄 Refresh</sys:String>
+    <sys:String x:Key="SettingsDbAuditPruneTitle">Redundant Audit History Cleanup</sys:String>
+    <sys:String x:Key="SettingsDbAuditPruneDesc">Transfer history details are only used to inspect which phone backed up which photos. Cleaning redundant history will never affect real photos on your PC, and the phone will still accurately skip already backed-up files next time it is connected.</sys:String>
     <sys:String x:Key="SettingsDbRetentionPolicy">Retention Policy:</sys:String>
     <sys:String x:Key="SettingsBtnPruneAuditNow">Clean &amp; Optimize Now</sys:String>
-    <sys:String x:Key="SettingsDbRepairTitle">2. Smart Self-Healing &amp; Consistency Repair (Fix Manually Deleted PC Files)</sys:String>
-    <sys:String x:Key="SettingsDbRepairDesc">If you manually deleted photos in the archive directory, leaving stale indices in the database, run self-healing here. It safely purges ghost records without deleting any valid files.</sys:String>
-    <sys:String x:Key="SettingsDbRepairNotice">Safety Rule: Self-healing only purges stale indices pointing to non-existent files to keep gallery consistent with disk, never modifying or deleting existing media.</sys:String>
+    <sys:String x:Key="SettingsDbRepairTitle">Smart Self-Healing</sys:String>
+    <sys:String x:Key="SettingsDbRepairDesc">If you manually deleted photos from the archive folders, leaving stale indices in the database, run one-click self-healing here: it only purges indices pointing to files that no longer exist. The system safely removes ghost records to keep the database consistent with the files, and never actively deletes any real files on your PC or phone.</sys:String>
+    <sys:String x:Key="SettingsDbRepairNotice">Note: although this operation can quickly fix index issues in the database, manually deleting backed-up files is not recommended in principle — only do so when you know what you are doing. Make sure important data is backed up before proceeding.</sys:String>
     <sys:String x:Key="SettingsBtnStartRepairNow">⚡ Scan &amp; Self-Heal Now</sys:String>
-    <sys:String x:Key="SettingsExifToolSafetyNotice">This operation updates file system timestamps directly without modifying original binary content. Fast and lossless.</sys:String>
+    <sys:String x:Key="SettingsExifToolSafetyNotice">This operation updates local file system timestamps only; it does not modify the media file's metadata or the media file itself.</sys:String>
     <sys:String x:Key="SettingsExifSyncModifyTime">Sync EXIF capture time to file modified time (LastWriteTime)</sys:String>
     <sys:String x:Key="SettingsExifSyncCreateTime">Sync EXIF capture time to file creation time (CreationTime)</sys:String>
-    <sys:String x:Key="GalleryNavHeader">Gallery Views</sys:String>
+    <sys:String x:Key="GalleryNavHeader">Gallery Navigation</sys:String>
     <sys:String x:Key="CatAll">All</sys:String>
     <sys:String x:Key="CatVideos">Videos</sys:String>
     <sys:String x:Key="CatPhotosLive">Photos &amp; Live</sys:String>
@@ -267,7 +267,7 @@
     <sys:String x:Key="BtnResetFilters">Reset Filters</sys:String>
     <sys:String x:Key="MenuRevealInExplorer">Reveal in File Explorer</sys:String>
     <sys:String x:Key="MenuTogglePending">📌 Add / Remove from Transfer Queue</sys:String>
-    <sys:String x:Key="TooltipTogglePending">Add or remove from transfer queue</sys:String>
+    <sys:String x:Key="TooltipTogglePending">Add/remove from transfer queue</sys:String>
     <sys:String x:Key="PendingBadgeText">Queued</sys:String>
     <sys:String x:Key="CardGoogleAccount">Google Photos Authorization &amp; Connection</sys:String>
     <sys:String x:Key="LabelAuthorizedAccount">Authorized Account</sys:String>
@@ -275,7 +275,7 @@
     <sys:String x:Key="BtnLogoutAccount">Sign Out</sys:String>
     <sys:String x:Key="LabelProxyChannel">Network Proxy Channel</sys:String>
     <sys:String x:Key="BtnGoToProxySettings">Open Network Settings</sys:String>
-    <sys:String x:Key="CardGoogleScope">Upload Scope &amp; Album Policy</sys:String>
+    <sys:String x:Key="CardGoogleScope">Upload Policy</sys:String>
     <sys:String x:Key="LabelUploadScope">Upload Scope</sys:String>
     <sys:String x:Key="ScopeGoogleAll">Full Sync (Incrementally upload all local photos to Google Photos)</sys:String>
     <sys:String x:Key="ScopeGoogleManual">Queue Sync (Upload only selected photos marked in gallery)</sys:String>
@@ -283,14 +283,14 @@
     <sys:String x:Key="BtnPickFromExplorer">Pick from File Explorer...</sys:String>
     <sys:String x:Key="LabelGoogleAlbumMode">Google Photos Album Organization</sys:String>
     <sys:String x:Key="AlbumModeAuto">Organize into monthly albums automatically (YYYY-MM)</sys:String>
-    <sys:String x:Key="AlbumModeNone">Backup to main library (No album)</sys:String>
+    <sys:String x:Key="AlbumModeNone">Backup to main library (Default)</sys:String>
     <sys:String x:Key="AlbumModeCustom">Specify custom album name</sys:String>
     <sys:String x:Key="LabelTargetAlbumName">Target Album Name:</sys:String>
-    <sys:String x:Key="BtnStartGoogleSync">Start Sync to Google Photos</sys:String>
+    <sys:String x:Key="BtnStartGoogleSync">Start Backup to Google Photos</sys:String>
     <sys:String x:Key="BtnStopGoogleSync">Stop Sync</sys:String>
-    <sys:String x:Key="BannerIPhoneSyncGuide">Losslessly transfer photos and Live Photos back to iPhone via Apple Devices / iTunes File Sharing.</sys:String>
-    <sys:String x:Key="CardIPhoneRestoreScope">Restore Media Scope &amp; Selection</sys:String>
-    <sys:String x:Key="ScopeRestoreAll">Full Restore (Restore all media library photos)</sys:String>
+    <sys:String x:Key="BannerIPhoneSyncGuide">Losslessly transfer photos and Live Photos back to iPhone via Apple Devices / iTunes File Sharing. Steps: choose the restore scope, click “Start Export”, then follow the “Step 2” prompts below to finish syncing in Apple Devices.</sys:String>
+    <sys:String x:Key="CardIPhoneRestoreScope">Restore Media Scope</sys:String>
+    <sys:String x:Key="ScopeRestoreAll">Full Restore (restore all photos in the local library)</sys:String>
     <sys:String x:Key="ScopeRestoreDateRange">Filter by capture date range</sys:String>
     <sys:String x:Key="LabelDateFrom">From:</sys:String>
     <sys:String x:Key="BtnClear">Clear</sys:String>
@@ -307,8 +307,15 @@
     <sys:String x:Key="LabelAppleDevicesDir">Apple Devices Sync Directory:</sys:String>
     <sys:String x:Key="BtnBrowseDir">Browse...</sys:String>
     <sys:String x:Key="BtnLaunchAppleDevices">🚀 Launch Apple Devices</sys:String>
-    <sys:String x:Key="BtnStartIPhoneSync">Start Export &amp; Sync to iPhone</sys:String>
+    <sys:String x:Key="BtnStartIPhoneSync">Start Export</sys:String>
     <sys:String x:Key="BtnStopIPhoneSync">Stop Restore</sys:String>
+    <sys:String x:Key="IPhoneStep2CardTitle">Step 2 · Finish Sync in Apple Devices</sys:String>
+    <sys:String x:Key="IPhoneStep2ReadyBanner">✓ Sync folder is ready — continue with the steps below</sys:String>
+    <sys:String x:Key="IPhoneStep2HintSelectPhotos">1. In Apple Devices, select “Photos” in the left sidebar and tick the exported folder</sys:String>
+    <sys:String x:Key="IPhoneStep2HintClickSync">2. Click the “Sync” button in the bottom-right corner to start transferring</sys:String>
+    <sys:String x:Key="MsgPathRiskAck">I understand that after switching the sync source, photos previously synced from this PC will be removed from the iPhone (photos taken on the phone are unaffected)</sys:String>
+    <sys:String x:Key="MsgPathChangeFirstTitle">Change iPhone Sync Folder</sys:String>
+    <sys:String x:Key="MsgPathChangeFirstBody">The iPhone restore folder will be changed from the default location to a custom folder:&#x0a;{0}&#x0a;&#x0a;After the change, you need to re-select the new folder as the sync source in Apple Devices. Confirm change?</sys:String>
     <sys:String x:Key="BannerAndroidSyncGuide">Losslessly transfer photos and videos to Android Camera folder via local Wi-Fi FTP service.</sys:String>
     <sys:String x:Key="CardAndroidFtpConn">Android Device FTP Connection Parameters</sys:String>
     <sys:String x:Key="LabelPhoneIp">Phone IP Address:</sys:String>
@@ -361,9 +368,9 @@
     <sys:String x:Key="BtnCopiedDetails">Copied Details</sys:String>
     <sys:String x:Key="BtnSkippedDetails">Skipped Details</sys:String>
     <sys:String x:Key="BtnFailedDetails">Failed Details</sys:String>
-    <sys:String x:Key="QualityOriginalUnlimited">Original Quality (Unlimited Quota, Recommended)</sys:String>
-    <sys:String x:Key="QualityOriginalWithQuota">Original Quality (Uses Storage Quota)</sys:String>
-    <sys:String x:Key="QualityStorageSaver">Storage Saver</sys:String>
+    <sys:String x:Key="QualityOriginalUnlimited">Original Quality (Recommended, No Storage Quota Used)</sys:String>
+    <sys:String x:Key="QualityOriginalWithQuota">Original Quality (Uses Account Storage)</sys:String>
+    <sys:String x:Key="QualityStorageSaver">Storage Saver (Uses Account Storage)</sys:String>
     <sys:String x:Key="BtnCollapseAdvanced">▲ Collapse Advanced</sys:String>
     <sys:String x:Key="BtnExpandAdvanced">▼ Expand Advanced</sys:String>
     <sys:String x:Key="RetentionKeepAll">Keep all history forever (Default)</sys:String>
@@ -749,7 +756,7 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <!-- Security page (sub-tab) -->
     <sys:String x:Key="SettingsNavSecurity">Security</sys:String>
     <sys:String x:Key="SecurityCardAppLock">App Lock</sys:String>
-    <sys:String x:Key="SecurityCardTotp">Two-Factor Authentication</sys:String>
+    <sys:String x:Key="SecurityCardTotp">Two-Factor Authentication (Google Authenticator)</sys:String>
     <sys:String x:Key="SecurityCardDanger">Danger Zone</sys:String>
     <sys:String x:Key="SecurityBtnChangePassword">Change Password</sys:String>
     <sys:String x:Key="SecurityBtnChangePasswordSubmit">Confirm Change</sys:String>
@@ -762,9 +769,9 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="SecurityChangeAuthTotp">Use authenticator code</sys:String>
     <sys:String x:Key="SecurityChangeTotpUnavailable">No authenticator is bound yet, so the code method is unavailable. Bind two-factor authentication below first.</sys:String>
     <sys:String x:Key="SecurityDisableConfirmTitle">Turn off app lock?</sys:String>
-    <sys:String x:Key="SecurityDisableConfirmDetail">This will unlock all protected folders and clear the app password and two-factor binding. Afterwards anyone can access these folders. Enter your app password to confirm.</sys:String>
+    <sys:String x:Key="SecurityDisableConfirmDetail">This will unlock all protected folders and clear the app password and two-factor binding. Afterwards anyone can access these folders. Your current app password is required to confirm.</sys:String>
     <sys:String x:Key="SecurityRemoveConfirmTitle">Remove app lock components completely?</sys:String>
-    <sys:String x:Key="SecurityRemoveConfirmDetail">This will uninstall the background service and delete the password, authenticator and folder permission records. It cannot be undone. Locked folders will be unlocked first.</sys:String>
+    <sys:String x:Key="SecurityRemoveConfirmDetail">This will unlock all protected folders, clear the app password and two-factor binding, and uninstall the related service (it can be re-enabled later if needed). Afterwards anyone can access these folders. Your current app password is required to confirm.</sys:String>
     <sys:String x:Key="SecurityBtnRemoveSubmit">Remove</sys:String>
     <sys:String x:Key="SecurityErrChangeFailed">Failed to change password.</sys:String>
     <sys:String x:Key="SecurityMsgPasswordChanged">Password changed.</sys:String>
@@ -811,26 +818,26 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="AppLockMsgScanQr">Scan the QR code with Google Authenticator.</sys:String>
     <sys:String x:Key="AppLockMsgTotpBound">Authenticator bound.</sys:String>
     <sys:String x:Key="AppLockMsgResetOk">Password reset. Unlock with the new password.</sys:String>
-    <sys:String x:Key="AppLockMsgRebindScan">Scan the new QR code with your authenticator to finish rebinding.</sys:String>
+    <sys:String x:Key="AppLockMsgRebindScan">Scan the new QR code with your authenticator to finish rebinding. The previous authenticator remains usable until rebinding completes.</sys:String>
 
     <!-- App lock: status card + enable wizard + TOTP card -->
-    <sys:String x:Key="AppLockSummaryEnabled">App lock is on and protecting your archive folders.</sys:String>
+    <sys:String x:Key="AppLockSummaryEnabled">App lock is on and protecting your archive folders; while locked, the archive folders cannot be accessed.</sys:String>
     <sys:String x:Key="AppLockSummaryDisabled">App lock is off. When enabled, archive folders are inaccessible while locked.</sys:String>
 
     <sys:String x:Key="AppWizardTitle">Enable app lock</sys:String>
-    <sys:String x:Key="AppWizardProgress">3 steps in total; only the last step makes changes</sys:String>
+    <sys:String x:Key="AppWizardProgress">3 steps in total; please continue the setup</sys:String>
 
     <sys:String x:Key="AppWizardStep1Title">Step 1 · Set an app password</sys:String>
-    <sys:String x:Key="AppWizardStep1Hint">Set an app password. If you forget it, you can take ownership of the folders with administrator rights to recover your photos. This step only records input; nothing has changed yet.</sys:String>
+    <sys:String x:Key="AppWizardStep1Hint">Set an app password. It is used to verify your identity when unlocking the app; archived media can only be accessed after successful verification. This step only records input; nothing has changed yet.</sys:String>
 
     <sys:String x:Key="AppWizardStep2Title">Step 2 · Choose folders to protect</sys:String>
-    <sys:String x:Key="AppWizardStep2Hint">These are PicHarbor's own library folders (at most one per drive). All are selected by default; select at least one. This step only records your choice; nothing has changed yet.</sys:String>
+    <sys:String x:Key="AppWizardStep2Hint">Listed below are the archive folders PicHarbor is already using; select as needed. This step only records your choice; nothing has changed yet.</sys:String>
     <sys:String x:Key="AppWizardHintSelectRoot">Select at least one folder to protect.</sys:String>
 
     <sys:String x:Key="AppWizardStep3Title">Step 3 · Confirm</sys:String>
-    <sys:String x:Key="AppWizardExplainLock">Once confirmed, the selected folders are locked immediately: neither Explorer nor PicHarbor can read or write them until you unlock. Note: this is a lock against someone at the keyboard; photos are not encrypted and can still be read if the drive is removed.</sys:String>
+    <sys:String x:Key="AppWizardExplainLock">Once confirmed, the selected folders are locked immediately: neither Explorer nor PicHarbor can read or write them until you unlock. Note: this is a system-level lock on the folders, not encryption; data can still be read after reinstalling the system or if the drive is removed. (It is sufficient for everyday security — if you need stronger protection, consider encrypting the volume yourself.)</sys:String>
     <sys:String x:Key="AppWizardStep3RootsLabel">Folders to be locked:</sys:String>
-    <sys:String x:Key="AppWizardNoteWarning">Note: clicking Enable will prompt once for administrator approval (UAC).</sys:String>
+    <sys:String x:Key="AppWizardNoteWarning">Note: clicking Enable will prompt once for administrator approval (UAC) — please make sure to allow it.</sys:String>
 
     <sys:String x:Key="AppWizardStep4Title">Step 4 · Result</sys:String>
     <sys:String x:Key="AppWizardResultSucceeded">Folders protected successfully:</sys:String>
@@ -860,7 +867,7 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="AppWizardRecoverHint">Folder access has been restored. Note: the folder owner may now be the Administrators group; if you cannot read or write, change the owner back to yourself under Properties → Security → Advanced → Owner.</sys:String>
 
     <sys:String x:Key="AppWizardIdleLockLabel">Auto-lock:</sys:String>
-    <sys:String x:Key="AppWizardIdleLockHint">Uses system idle time: locks automatically after N minutes with no keyboard or mouse input anywhere on the PC (activity in other apps counts as activity). Off by default.</sys:String>
+    <sys:String x:Key="AppWizardIdleLockHint">Uses system idle time: locks automatically after N minutes with no keyboard or mouse input anywhere on the PC (activity in other apps counts as activity).</sys:String>
 
     <sys:String x:Key="SecurityIdleLockCustom">Custom…</sys:String>
     <sys:String x:Key="SecurityIdleLockCustomUnit">minutes</sys:String>

@@ -276,8 +276,24 @@ public partial class IPhoneSyncViewModel : ObservableObject
     [ObservableProperty]
     private bool isExporting = false;
 
+    partial void OnIsExportingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowSyncStep2Panel));
+    }
+
     [ObservableProperty]
     private bool hasExported = false;
+
+    partial void OnHasExportedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowSyncStep2Panel));
+    }
+
+    /// <summary>
+    /// Step-2 panel (launch Apple Devices + sync hints) becomes visible
+    /// only after a successful export, and hides while re-exporting.
+    /// </summary>
+    public bool ShowSyncStep2Panel => HasExported && !IsExporting;
 
     [ObservableProperty]
     private double progressValue = 0;
@@ -321,6 +337,25 @@ public partial class IPhoneSyncViewModel : ObservableObject
 
     [ObservableProperty]
     private string modalConfirmText = App.GetString("CloseBtn", "确认");
+
+    // Risk-acknowledgement state for the second-confirmation modal (directory change etc.)
+    [ObservableProperty]
+    private bool modalRiskAcknowledged = false;
+
+    [ObservableProperty]
+    private bool modalRequireRiskAck = false;
+
+    public bool CanConfirmModal => !ModalRequireRiskAck || ModalRiskAcknowledged;
+
+    partial void OnModalRiskAcknowledgedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanConfirmModal));
+    }
+
+    partial void OnModalRequireRiskAckChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanConfirmModal));
+    }
 
     private Action? pendingConfirmAction;
     private Action? pendingCancelAction;
@@ -911,6 +946,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
         bool hasPreviousSync = HasExported || CheckPreviousSyncExists();
         if (hasPreviousSync)
         {
+            // High-risk: a previous sync exists on this device. Require explicit risk acknowledgement.
             ShowConfirmationModal(
                 App.GetString("MsgPathWarningTitle", "⚠️ 高危操作警告：更改 iPhone 同步目录"),
                 App.GetString("MsgPathWarningBody", "检测到该 iPhone 先前已与原有目录进行过同步。在 Apple Devices 中将同步源切换到新目录后，iPhone 上原先通过电脑同步的所有照片将被系统自动移除（手机本机拍摄的照片不受影响）。\n是否确认更改同步路径？"),
@@ -920,12 +956,24 @@ public partial class IPhoneSyncViewModel : ObservableObject
                     OnPropertyChanged(nameof(EffectiveSyncFolder));
                     AddLog($"[WARN] 用户确认更换同步目录: {newPath}");
                 },
-                () => { });
+                () => { },
+                requireRiskAck: true);
         }
         else
         {
-            CustomSyncFolder = newPath;
-            OnPropertyChanged(nameof(EffectiveSyncFolder));
+            // First-time change: no previous sync on this device, light confirmation only.
+            ShowConfirmationModal(
+                App.GetString("MsgPathChangeFirstTitle", "更改 iPhone 同步目录"),
+                string.Format(
+                    App.GetString("MsgPathChangeFirstBody", "即将把 iPhone 回传目录从默认位置更改为自定义目录：\n{0}\n\n更改后需在 Apple Devices 中重新选定新目录作为同步源。是否确认更改？"),
+                    newPath),
+                () =>
+                {
+                    CustomSyncFolder = newPath;
+                    OnPropertyChanged(nameof(EffectiveSyncFolder));
+                    AddLog($"[INFO] 用户更改同步目录: {newPath}");
+                },
+                () => { });
         }
     }
 
@@ -943,10 +991,12 @@ public partial class IPhoneSyncViewModel : ObservableObject
         }
     }
 
-    private void ShowConfirmationModal(string title, string message, Action onConfirm, Action? onCancel = null)
+    private void ShowConfirmationModal(string title, string message, Action onConfirm, Action? onCancel = null, bool requireRiskAck = false)
     {
         ModalTitle = title;
         ModalMessage = message;
+        ModalRequireRiskAck = requireRiskAck;
+        ModalRiskAcknowledged = false;
         pendingConfirmAction = onConfirm;
         pendingCancelAction = onCancel;
         IsModalOpen = true;
@@ -955,7 +1005,13 @@ public partial class IPhoneSyncViewModel : ObservableObject
     [RelayCommand]
     private void ConfirmModal()
     {
+        // Second-confirmation gate: the confirm button is disabled until the risk
+        // checkbox is ticked, but guard here as well in case of direct invocation.
+        if (ModalRequireRiskAck && !ModalRiskAcknowledged) return;
+
         IsModalOpen = false;
+        ModalRequireRiskAck = false;
+        ModalRiskAcknowledged = false;
         var action = pendingConfirmAction;
         pendingConfirmAction = null;
         pendingCancelAction = null;
@@ -966,6 +1022,8 @@ public partial class IPhoneSyncViewModel : ObservableObject
     private void CancelModal()
     {
         IsModalOpen = false;
+        ModalRequireRiskAck = false;
+        ModalRiskAcknowledged = false;
         var action = pendingCancelAction;
         pendingConfirmAction = null;
         pendingCancelAction = null;
@@ -1156,7 +1214,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
             ProgressValue = 100;
             ProgressText = progressSticky.Set("MsgBackupCompleted", "整理完成");
             AddLog($"[SUCCESS] 🎉 同步文件夹已就绪！有效路径: {result.ExportedFolder}");
-            AddLog("[INFO] 请点击【步骤 2: 打开 Apple Devices 软件】，在 Apple Devices 左侧选择「照片」并选定该文件夹完成同步。");
+            AddLog("[INFO] 请在下方「步骤 2」卡片中启动 Apple Devices：左侧选择「照片」并勾选导出的文件夹，点击右下角「同步」完成回传。");
         }
         catch (OperationCanceledException)
         {
@@ -1261,7 +1319,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
             ProgressText = progressSticky.Current;
         }
 
-        OnPropertyChanged(nameof(ModalConfirmText));
+        ModalConfirmText = App.GetString("CloseBtn", "确认");
         UpdateManualSelectionTexts();
         RecalculateScopeSummary();
     }
