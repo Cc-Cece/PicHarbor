@@ -356,6 +356,11 @@ public partial class MainViewModel : ObservableObject
         ReorganizeVM.OnLanguageChanged();
         RefreshTaskCards();
         OnPropertyChanged(nameof(ActiveTaskTitle));
+        OnPropertyChanged(nameof(ActiveTaskSpeedText));
+        OnPropertyChanged(nameof(ActiveTaskStep1Text));
+        OnPropertyChanged(nameof(ActiveTaskStep2Text));
+        OnPropertyChanged(nameof(ActiveTaskStep3Text));
+        OnPropertyChanged(nameof(ActiveTaskStep4Text));
     }
 
     private void OnTransferFinished()
@@ -1278,7 +1283,7 @@ public partial class MainViewModel : ObservableObject
             if (GooglePhotosVM.IsSyncing) return string.IsNullOrWhiteSpace(GooglePhotosVM.SpeedText) ? "--" : GooglePhotosVM.SpeedText;
             if (IPhoneSyncVM.IsExporting) return string.IsNullOrWhiteSpace(IPhoneSyncVM.SpeedText) ? "--" : IPhoneSyncVM.SpeedText;
             if (AndroidSyncVM.IsSyncing) return string.IsNullOrWhiteSpace(AndroidSyncVM.SpeedText) ? "--" : AndroidSyncVM.SpeedText;
-            if (HasPreviousTaskRun) return "已完成";
+            if (HasPreviousTaskRun) return App.GetString("TaskSpeedDone", "已完成");
             return "--";
         }
     }
@@ -1310,7 +1315,9 @@ public partial class MainViewModel : ObservableObject
 
     public string ActiveTaskStep1Status => (IsAnyTaskRunning || HasPreviousTaskRun) ? "✓" : "•••";
 
-    public string ActiveTaskStep1Text => (IsAnyTaskRunning || HasPreviousTaskRun) ? "扫描媒体与相册清单 (完成)" : "扫描媒体与相册清单";
+    public string ActiveTaskStep1Text => (IsAnyTaskRunning || HasPreviousTaskRun)
+        ? App.GetString("TaskStep1ScanDone", "扫描媒体与相册清单 (完成)")
+        : App.GetString("TaskStep1Scan", "扫描媒体与相册清单");
 
     public string ActiveTaskStep2Status
     {
@@ -1331,12 +1338,12 @@ public partial class MainViewModel : ObservableObject
                 string fn = ActiveTaskCurrentFileName;
                 if (!string.IsNullOrWhiteSpace(fn) && fn != "Ready" && fn != "Idle" && fn != "In progress..." && fn != "进行中...")
                 {
-                    return $"传输媒体文件 ({fn})";
+                    return string.Format(App.GetString("TaskStep2TransferWithFile", "传输媒体文件 ({0})"), fn);
                 }
-                return "传输媒体文件";
+                return App.GetString("TaskStep2Transfer", "传输媒体文件");
             }
-            if (HasPreviousTaskRun) return "传输媒体文件 (全部传输完毕)";
-            return "传输媒体文件 (等待启动)";
+            if (HasPreviousTaskRun) return App.GetString("TaskStep2TransferAllDone", "传输媒体文件 (全部传输完毕)");
+            return App.GetString("TaskStep2TransferWaiting", "传输媒体文件 (等待启动)");
         }
     }
 
@@ -1350,7 +1357,9 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    public string ActiveTaskStep3Text => HasPreviousTaskRun ? "EXIF 拍摄时间与元数据校准 (完成)" : "EXIF 拍摄时间与元数据校准";
+    public string ActiveTaskStep3Text => HasPreviousTaskRun
+        ? App.GetString("TaskStep3ExifDone", "EXIF 拍摄时间与元数据校准 (完成)")
+        : App.GetString("TaskStep3Exif", "EXIF 拍摄时间与元数据校准");
 
     public string ActiveTaskStep4Status
     {
@@ -1362,7 +1371,9 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    public string ActiveTaskStep4Text => HasPreviousTaskRun ? "更新 SQLite 媒体库索引 (完成)" : "更新 SQLite 媒体库索引";
+    public string ActiveTaskStep4Text => HasPreviousTaskRun
+        ? App.GetString("TaskStep4IndexDone", "更新 SQLite 媒体库索引 (完成)")
+        : App.GetString("TaskStep4Index", "更新 SQLite 媒体库索引");
 
     [RelayCommand]
     private void NavigateToSettings()

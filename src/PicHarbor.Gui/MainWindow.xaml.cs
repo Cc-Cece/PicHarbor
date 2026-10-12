@@ -49,6 +49,25 @@ public partial class MainWindow : Window
         {
             vm.PropertyChanged += win.AppLockVm_PropertyChanged;
             vm.IdleTimeoutReached += win.AppLock_IdleTimeoutReached;
+            // 语言切换时刷新应用锁下拉框文案（普通对象列表不随资源字典自动更新）。
+            LocalizationService.LanguageChanged -= win.OnAppLanguageChanged;
+            LocalizationService.LanguageChanged += win.OnAppLanguageChanged;
+        }
+        else
+        {
+            LocalizationService.LanguageChanged -= win.OnAppLanguageChanged;
+        }
+    }
+
+    private void OnAppLanguageChanged(string _)
+    {
+        if (Dispatcher.CheckAccess())
+        {
+            AppLock?.OnLanguageChanged();
+        }
+        else
+        {
+            Dispatcher.Invoke(() => AppLock?.OnLanguageChanged());
         }
     }
 

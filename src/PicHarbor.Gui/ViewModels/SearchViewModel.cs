@@ -1296,7 +1296,9 @@ public partial class SearchViewModel : ObservableObject
             IsPreviewVideo = true;
             PreviewVideoPath = videoPath;
             PreviewImageSource = item.ThumbnailImage;
-            PreviewDetailsText = $"{Path.GetFileName(videoPath)} (实况动图) | 拍摄时间: {item.CapturedAt}";
+            PreviewDetailsText = string.Format(
+                App.GetString("FmtPreviewDetailsVideo", "{0} (实况动图) | 拍摄时间: {1}"),
+                Path.GetFileName(videoPath), item.CapturedAt);
             IsPreviewVideoFailed = false;
             PreviewStatusText = "";
             IsPreviewPlaying = false;
@@ -1346,7 +1348,9 @@ public partial class SearchViewModel : ObservableObject
         HasPrevItem = index > 0;
         HasNextItem = index < SearchResults.Count - 1;
 
-        PreviewDetailsText = $"{item.RelativePath} | 拍摄时间: {item.CapturedAt} | 大小: {item.SizeText}";
+        PreviewDetailsText = string.Format(
+            App.GetString("FmtPreviewDetailsMedia", "{0} | 拍摄时间: {1} | 大小: {2}"),
+            item.RelativePath, item.CapturedAt, item.SizeText);
         IsPreviewVideoFailed = false;
         PreviewStatusText = "";
         IsPreviewPlaying = false;

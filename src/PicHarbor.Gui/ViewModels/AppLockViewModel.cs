@@ -287,12 +287,12 @@ public partial class AppLockViewModel : ObservableObject
     /// </summary>
     public IReadOnlyList<IdleLockOption> IdleLockOptions { get; } =
     [
-        new(0,  "SecurityIdleLockOff", "关闭"),
-        new(5,  null, "5 分钟"),
-        new(10, null, "10 分钟"),
-        new(15, null, "15 分钟"),
-        new(30, null, "30 分钟"),
-        new(60, null, "60 分钟"),
+        new(0,  "SecurityIdleLockOff",  "关闭"),
+        new(5,  "SecurityIdleLock5",    "5 分钟"),
+        new(10, "SecurityIdleLock10",   "10 分钟"),
+        new(15, "SecurityIdleLock15",   "15 分钟"),
+        new(30, "SecurityIdleLock30",   "30 分钟"),
+        new(60, "SecurityIdleLock60",   "60 分钟"),
         IdleLockOption.Custom,
     ];
 
@@ -345,6 +345,17 @@ public partial class AppLockViewModel : ObservableObject
         _idleTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
         _idleTimer.Tick += (_, _) => CheckIdle();
         _idleTimer.Start();
+    }
+
+    /// <summary>
+    /// 语言切换后刷新「自动锁定」下拉的候选项文案（该列表项为普通对象，不会自动跟随资源字典切换）。
+    /// </summary>
+    public void OnLanguageChanged()
+    {
+        foreach (var option in IdleLockOptions)
+        {
+            option.RefreshText();
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -1332,12 +1343,32 @@ public partial class AppLockViewModel : ObservableObject
 /// <paramref name="IsCustom"/> 为 true 表示「自定义」项——选中它不直接改超时，
 /// 而是露出分钟输入框，由用户填任意数值（<paramref name="Minutes"/> 此时为 -1 仅作占位）。
 /// <paramref name="ResourceKey"/> 为 null 时用字面文案。
+/// 实现 <see cref="ObservableObject"/> 是为了让 <see cref="DisplayText"/> 能在语言切换后通知界面刷新。
 /// </summary>
-public sealed record IdleLockOption(int Minutes, string? ResourceKey, string FallbackText, bool IsCustom = false)
+public sealed class IdleLockOption : ObservableObject
 {
+    public int Minutes { get; }
+
+    public string? ResourceKey { get; }
+
+    public string FallbackText { get; }
+
+    public bool IsCustom { get; }
+
+    public IdleLockOption(int minutes, string? resourceKey, string fallbackText, bool IsCustom = false)
+    {
+        Minutes = minutes;
+        ResourceKey = resourceKey;
+        FallbackText = fallbackText;
+        this.IsCustom = IsCustom;
+    }
+
     /// <summary>显示文案：优先取本地化资源，缺失则回退字面文本。</summary>
     public string DisplayText =>
         ResourceKey is null ? FallbackText : App.GetString(ResourceKey, FallbackText);
+
+    /// <summary>语言切换后通知界面重新读取 <see cref="DisplayText"/>。</summary>
+    public void RefreshText() => OnPropertyChanged(nameof(DisplayText));
 
     /// <summary>「自定义」哨兵项。</summary>
     public static IdleLockOption Custom { get; } =

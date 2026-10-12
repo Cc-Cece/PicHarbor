@@ -17,6 +17,15 @@ public sealed class VaultClient
     private const string PipeName    = "PicHarborVault";
     private const int    TimeoutMs   = 3000;
 
+    /// <summary>
+    /// 文案本地化钩子。GUI 启动时注入 <c>App.GetString</c>；
+    /// 未注入时（单元测试、服务模式）回退到字面文案。
+    /// 之所以做成钩子而非直接调用 App：本文件会被 PicHarbor.VaultTests 以源码链接方式编译，
+    /// 而该测试项目刻意不加载 WPF。
+    /// </summary>
+    internal static Func<string, string, string> Localize { get; set; } =
+        static (_, fallback) => fallback;
+
     // ──────────────────────────────────────────────────────────────────────
     // 公共 API
     // ──────────────────────────────────────────────────────────────────────
@@ -99,7 +108,7 @@ public sealed class VaultClient
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeoutMs);
 
-        string stage = "连接命名管道";
+        string stage = Localize("VaultStageConnectPipe", "连接命名管道");
         try
         {
             // PipeDirection.InOut 会请求 GENERIC_WRITE，它隐含 CreateNewInstance。
@@ -114,22 +123,22 @@ public sealed class VaultClient
             await pipe.ConnectAsync(cts.Token);
 
             // Byte 模式 + 一行 UTF-8 JSON；服务端读到请求后再识别调用方身份。
-            stage = "发送请求";
+            stage = Localize("VaultStageSendRequest", "发送请求");
             string reqJson = JsonSerializer.Serialize(request) + "\n";
             byte[] reqBytes = System.Text.Encoding.UTF8.GetBytes(reqJson);
             await pipe.WriteAsync(reqBytes, cts.Token);
             await pipe.FlushAsync(cts.Token);
 
             // 接收响应（一行 JSON）
-            stage = "读取响应";
+            stage = Localize("VaultStageReadResponse", "读取响应");
             using var reader = new StreamReader(pipe, System.Text.Encoding.UTF8, leaveOpen: true);
             string? line = await reader.ReadLineAsync(cts.Token);
             if (string.IsNullOrWhiteSpace(line))
-                return Failure("服务关闭了连接，未返回响应。");
+                return Failure(Localize("VaultErrConnClosed", "服务关闭了连接，未返回响应。"));
 
-            stage = "解析响应";
+            stage = Localize("VaultStageParseResponse", "解析响应");
             return JsonSerializer.Deserialize<VaultResponse>(line)
-                ?? Failure("服务返回了空 JSON 响应。");
+                ?? Failure(Localize("VaultErrEmptyJson", "服务返回了空 JSON 响应。"));
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -137,16 +146,20 @@ public sealed class VaultClient
         }
         catch (OperationCanceledException)
         {
-            return Failure($"{stage}超时（{TimeoutMs} ms）。");
+            return Failure(string.Format(
+                Localize("VaultErrStageTimeout", "{0}超时（{1} ms）。"), stage, TimeoutMs));
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Failure($"{stage}被拒绝（Win32 5，管道访问权限）：{ex.Message}");
+            return Failure(string.Format(
+                Localize("VaultErrStageDenied", "{0}被拒绝（Win32 5，管道访问权限）：{1}"), stage, ex.Message));
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[VaultClient] {ex.Message}");
-            return Failure($"{stage}失败（0x{ex.HResult:X8}）：{ex.Message}");
+            return Failure(string.Format(
+                Localize("VaultErrStageFailed", "{0}失败（0x{1}）：{2}"),
+                stage, ex.HResult.ToString("X8"), ex.Message));
         }
     }
 

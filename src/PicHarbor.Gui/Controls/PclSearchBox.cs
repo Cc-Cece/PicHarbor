@@ -21,7 +21,7 @@ public class PclSearchBox : Control
 
     public static readonly DependencyProperty HintTextProperty =
         DependencyProperty.Register(nameof(HintText), typeof(string), typeof(PclSearchBox),
-            new PropertyMetadata("搜索..."));
+            new PropertyMetadata(string.Empty));
 
     public string Text
     {

@@ -59,6 +59,9 @@ public partial class App : Application
     /// </summary>
     private async Task StartWithAppLockAsync()
     {
+        // 注入 VaultClient 的本地化钩子（该文件不依赖 WPF，故用委托注入而非直接调用 App）。
+        Vault.VaultClient.Localize = GetString;
+
         var lockVm = new AppLockViewModel();
         await lockVm.RefreshStatusAsync();
 

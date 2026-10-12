@@ -33,7 +33,8 @@ internal static class VaultServiceManager
     /// <summary>本 exe 的完整路径（服务注册时将指向它）。</summary>
     private static string ExePath
         => Environment.ProcessPath
-           ?? throw new InvalidOperationException("无法确定当前可执行文件路径。");
+           ?? throw new InvalidOperationException(
+               App.GetString("VaultErrExePathUnknown", "无法确定当前可执行文件路径。"));
 
     // ──────────────────────────────────────────────────────────────────────
     // 服务可达性
@@ -73,7 +74,8 @@ internal static class VaultServiceManager
         int code = await RunElevatedAsync("--install-vault-service").ConfigureAwait(false);
         bool ok = code == 0;
         if (!ok)
-            return (false, $"安装 Vault 服务失败（退出码 {code}）。");
+            return (false, string.Format(
+                App.GetString("VaultErrInstallFailed", "安装 Vault 服务失败（退出码 {0}）。"), code));
 
         bool reachable = await WaitUntilReachableAsync(TimeSpan.FromSeconds(15)).ConfigureAwait(false);
         var response = await VaultClient.QueryStatusResponseAsync().ConfigureAwait(false);
@@ -81,12 +83,17 @@ internal static class VaultServiceManager
         {
             string expectedBuild = typeof(PicHarbor.Vault.PipeServer).Module.ModuleVersionId.ToString();
             if (response.Status.ServerSid != "S-1-5-18")
-                return (false, "管道响应方不是 LocalSystem 服务，请检查同名调试进程。");
+                return (false, App.GetString("VaultErrNotLocalSystem",
+                    "管道响应方不是 LocalSystem 服务，请检查同名调试进程。"));
             if (response.Status.ServerBuild != expectedBuild)
-                return (false, "服务仍运行旧版本，状态响应的构建标识与当前 GUI 不一致。");
-            return (true, "Vault 服务已安装并启动，普通客户端状态查询成功。");
+                return (false, App.GetString("VaultErrBuildMismatch",
+                    "服务仍运行旧版本，状态响应的构建标识与当前 GUI 不一致。"));
+            return (true, App.GetString("VaultMsgInstallOk",
+                "Vault 服务已安装并启动，普通客户端状态查询成功。"));
         }
-        return (false, $"服务安装完成，但状态查询失败：{response?.Error ?? "响应缺少 status。"}");
+        return (false, string.Format(
+            App.GetString("VaultErrStatusQueryFailed", "服务安装完成，但状态查询失败：{0}"),
+            response?.Error ?? App.GetString("VaultMsgMissingStatus", "响应缺少 status。")));
     }
 
     /// <summary>停止并删除 Vault 服务（保留服务数据）。</summary>
@@ -94,8 +101,9 @@ internal static class VaultServiceManager
     {
         int code = await RunElevatedAsync("--uninstall-vault-service").ConfigureAwait(false);
         return code == 0
-            ? (true, "Vault 服务已卸载。")
-            : (false, $"卸载 Vault 服务失败（退出码 {code}）。");
+            ? (true, App.GetString("VaultMsgUninstalled", "Vault 服务已卸载。"))
+            : (false, string.Format(
+                App.GetString("VaultErrUninstallFailed", "卸载 Vault 服务失败（退出码 {0}）。"), code));
     }
 
     /// <summary>删除服务数据目录（%ProgramData%\PicHarbor）。</summary>
@@ -103,8 +111,9 @@ internal static class VaultServiceManager
     {
         int code = await RunElevatedAsync("--purge-vault-data").ConfigureAwait(false);
         return code == 0
-            ? (true, "服务数据已清除。")
-            : (false, $"清除服务数据失败（退出码 {code}）。");
+            ? (true, App.GetString("VaultMsgDataPurged", "服务数据已清除。"))
+            : (false, string.Format(
+                App.GetString("VaultErrPurgeFailed", "清除服务数据失败（退出码 {0}）。"), code));
     }
 
     /// <summary>
@@ -117,14 +126,15 @@ internal static class VaultServiceManager
         {
             var resp = await VaultClient.ClearPasswordAsync().ConfigureAwait(false);
             return resp is { Ok: true }
-                ? (true, "应用锁已关闭。")
-                : (false, resp?.Error ?? "关闭应用锁失败。");
+                ? (true, App.GetString("VaultMsgAppLockDisabled", "应用锁已关闭。"))
+                : (false, resp?.Error ?? App.GetString("VaultErrDisableFailed", "关闭应用锁失败。"));
         }
 
         int code = await RunElevatedAsync("--disable-app-lock").ConfigureAwait(false);
         return code == 0
-            ? (true, "应用锁已关闭。")
-            : (false, "关闭应用锁失败（可能需要管理员权限或服务未运行）。");
+            ? (true, App.GetString("VaultMsgAppLockDisabled", "应用锁已关闭。"))
+            : (false, App.GetString("VaultErrDisableFailedElevated",
+                "关闭应用锁失败（可能需要管理员权限或服务未运行）。"));
     }
 
     // ──────────────────────────────────────────────────────────────────────

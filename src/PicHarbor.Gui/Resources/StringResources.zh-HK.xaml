@@ -4,101 +4,14 @@
 
     <!-- Application Title &amp; General -->
     <sys:String x:Key="AppTitle">PicHarbor</sys:String>
-    <sys:String x:Key="AppSubtitle">iPhone 媒體備份與歸檔</sys:String>
-    <sys:String x:Key="DeviceConnected">已連線: iPhone 15 Pro (128GB)</sys:String>
     <sys:String x:Key="DeviceDisconnected">未偵測到 iPhone (USB / AFC)</sys:String>
-    <sys:String x:Key="DeviceBattery">電量: 85% (充電中)</sys:String>
-
-    <!-- Sidebar Navigation -->
-    <sys:String x:Key="NavBackup">📱 備份到電腦 (iPhone)</sys:String>
-    <sys:String x:Key="NavAndroidBackup">🤖 備份到電腦 (Android)</sys:String>
-    <sys:String x:Key="NavIPhoneSync">📱 恢復到 iPhone</sys:String>
-    <sys:String x:Key="NavAndroidSync">🤖 恢復到 Android</sys:String>
-    <sys:String x:Key="NavGooglePhotos">☁️ Google 相簿</sys:String>
-    <sys:String x:Key="NavStatus">📊 歸檔狀態</sys:String>
-    <sys:String x:Key="NavSearch">🔍 媒體檢索</sys:String>
-    <sys:String x:Key="NavReorganize">📁 目錄整理</sys:String>
-    <sys:String x:Key="NavSettings">⚙️ 設定</sys:String>
 
     <!-- General UI Labels &amp; Buttons -->
-    <sys:String x:Key="LabelTransferred">已傳輸</sys:String>
-    <sys:String x:Key="LabelSkipped">已略過</sys:String>
-    <sys:String x:Key="LabelFailed">失敗數</sys:String>
-    <sys:String x:Key="LabelTransferSize">傳輸容量 / 總容量</sys:String>
-    <sys:String x:Key="LabelEta">剩餘預計時間</sys:String>
     <sys:String x:Key="CloseBtn">關閉</sys:String>
-    <sys:String x:Key="LoadMoreBtn">⏬ 載入更多</sys:String>
-
-    <!-- Backup Tab -->
-    <sys:String x:Key="BackupTargetHeader">備份參數設定</sys:String>
-    <sys:String x:Key="DestPathLabel">目標儲存路徑:</sys:String>
-    <sys:String x:Key="BrowseButton">瀏覽...</sys:String>
-    <sys:String x:Key="OrganizeSchemeLabel">目錄結構:</sys:String>
-    <sys:String x:Key="StartBackupBtn">🚀 開始增量備份</sys:String>
-    <sys:String x:Key="PauseBackupBtn">⏸️ 暫停</sys:String>
-    <sys:String x:Key="DryRunBtn">🔍 預覽</sys:String>
-    <sys:String x:Key="ProgressHeader">即時進度與日誌</sys:String>
-    <sys:String x:Key="SpeedLabel">傳輸速率:</sys:String>
-    <sys:String x:Key="CurrentFileLabel">當前檔案:</sys:String>
-    <sys:String x:Key="CopiedCountLabel">已複製:</sys:String>
-    <sys:String x:Key="SkippedCountLabel">已略過:</sys:String>
-    <sys:String x:Key="FailedCountLabel">失敗數:</sys:String>
-    <sys:String x:Key="BackupScopeHeader">🎯 第一步：選擇備份範圍 (Backup Scope &amp; Filter)</sys:String>
-    <sys:String x:Key="BackupScopeModeAll">全量備份 (預設完整媒體)</sys:String>
-    <sys:String x:Key="BackupScopeModeDateRange">按時段備份 (適合淨係備份近期相片)</sys:String>
-    <sys:String x:Key="BackupScopeModeSubfolder">按相簿/目錄選擇</sys:String>
-    <sys:String x:Key="BackupScopeSubfoldersLabel">選擇要備份嘅相簿/子目錄:</sys:String>
-
-    <!-- Android Backup Tab -->
-    <sys:String x:Key="AndroidBackupHeader">🤖 Android 手機增量備份到電腦</sys:String>
-    <sys:String x:Key="AndroidBackupConnHeader">📶 第一步：區域網絡連線與設定 (FTP 服務)</sys:String>
-    <sys:String x:Key="AndroidBackupFtpHostLabel">手機 IP 位址:</sys:String>
-    <sys:String x:Key="AndroidBackupFtpPortLabel">連接埠:</sys:String>
-    <sys:String x:Key="AndroidBackupFtpUserLabel">用戶名稱:</sys:String>
-    <sys:String x:Key="AndroidBackupFtpPassLabel">密碼:</sys:String>
-    <sys:String x:Key="AndroidBackupDeviceNameLabel">設備名稱:</sys:String>
-    <sys:String x:Key="AndroidBackupTestConnBtn">⚡ 測試連線</sys:String>
-    <sys:String x:Key="AndroidBackupScopeHeader">📂 第二步：相簿範圍與雜質過濾 (3道智能過濾門檻)</sys:String>
-    <sys:String x:Key="AndroidBackupScanBtn">🔍 深度掃描相簿</sys:String>
-    <sys:String x:Key="AndroidBackupIgnoreSmallLabel">略過細過指定大細嘅雜圖/表情包/快取圖示:</sys:String>
-    <sys:String x:Key="AndroidBackupTypeFilterLabel">媒體類型過濾:</sys:String>
-    <sys:String x:Key="AndroidBackupIncludePhotosLabel">相片</sys:String>
-    <sys:String x:Key="AndroidBackupIncludeVideosLabel">影片</sys:String>
-    <sys:String x:Key="AndroidBackupAdvancedToggle">⚙️ 展開進階相簿掃描與自訂多選</sys:String>
-    <sys:String x:Key="AndroidBackupCustomPathLabel">新增自訂路徑:</sys:String>
-    <sys:String x:Key="AndroidBackupAddCustomBtn">➕ 新增</sys:String>
-    <sys:String x:Key="AndroidBackupSelectAllBtn">全選</sys:String>
-    <sys:String x:Key="AndroidBackupDeselectAllBtn">取消全選</sys:String>
-    <sys:String x:Key="AndroidBackupStartBtn">🚀 開始 Android 增量備份</sys:String>
-    <sys:String x:Key="AndroidBackupCancelBtn">⏹️ 取消備份</sys:String>
 
     <!-- Android Sync Tab -->
-    <sys:String x:Key="AndroidSyncTitle">🤖 恢復到 Android</sys:String>
-    <sys:String x:Key="AndroidSyncDescription">將電腦本地已歸檔嘅媒體檔案增量傳輸至 Android / Pixel 設備嘅 FTP 目錄（例如 /DCIM/PicHarbor/iPhone 15 Pro/）。傳輸記錄由 SQLite 獨立維護，自動略過已傳輸檔案。</sys:String>
-    <sys:String x:Key="AndroidFtpHeader">⚙️ FTP 伺服器與設備設定</sys:String>
-    <sys:String x:Key="AndroidDeviceNameLabel">Android 設備名稱:</sys:String>
-    <sys:String x:Key="FtpPortLabel">FTP 連接埠:</sys:String>
-    <sys:String x:Key="FtpHostLabel">FTP 位址/IP:</sys:String>
-    <sys:String x:Key="FtpUserLabel">FTP 用戶名稱:</sys:String>
-    <sys:String x:Key="FtpPassLabel">FTP 密碼:</sys:String>
     <sys:String x:Key="AndroidTargetDirLabel">目標目錄:</sys:String>
-    <sys:String x:Key="TestFtpBtn">⚡ 測試 FTP 連線</sys:String>
-    <sys:String x:Key="AndroidControlHeader">🚀 恢復到 Android</sys:String>
-    <sys:String x:Key="SourceArchiveDirLabel">來源歸檔目錄:</sys:String>
-    <sys:String x:Key="StartAndroidSyncBtn">🚀 開始同步到 Android</sys:String>
-    <sys:String x:Key="CancelAndroidSyncBtn">⏸️ 暫停同步</sys:String>
-    <sys:String x:Key="TransferLogHeader">📋 傳輸日誌</sys:String>
 
-    <!-- Status Tab -->
-    <sys:String x:Key="StatusHeader">歸檔檔案概覽</sys:String>
-    <sys:String x:Key="TotalFilesLabel">總包含媒體檔案:</sys:String>
-    <sys:String x:Key="TotalSizeLabel">已歸檔總容量:</sys:String>
-    <sys:String x:Key="PhotosCountLabel">相片 (JPEG/HEIC/RAW):</sys:String>
-    <sys:String x:Key="VideosCountLabel">影片或 Live Photo (MOV/MP4):</sys:String>
-    <sys:String x:Key="LastBackupTimeLabel">最近備份時間:</sys:String>
-    <sys:String x:Key="SqliteDbPathLabel">資料庫路徑 (Manifest):</sys:String>
-    <sys:String x:Key="DeviceHistoryHeader">備份設備歷史記錄</sys:String>
-    
     <!-- Table Columns for Device History -->
     <sys:String x:Key="ColDeviceName">設備名稱</sys:String>
     <sys:String x:Key="ColDeviceModel">機型型號</sys:String>
@@ -106,18 +19,7 @@
     <sys:String x:Key="ColLastSeen">最近在線時間</sys:String>
 
     <!-- Search Tab -->
-    <sys:String x:Key="SearchHeader">檢索媒體檔案</sys:String>
-    <sys:String x:Key="SearchResultsHeader">檢索結果</sys:String>
-    <sys:String x:Key="FileNameFilterLabel">檔案名稱關鍵字:</sys:String>
-    <sys:String x:Key="DateFromLabel">開始日期:</sys:String>
-    <sys:String x:Key="DateToLabel">結束日期:</sys:String>
-    <sys:String x:Key="TypeFilterLabel">媒體類型:</sys:String>
-    <sys:String x:Key="CameraFilterLabel">拍攝設備型號:</sys:String>
-    <sys:String x:Key="CameraPickMode">選擇型號</sys:String>
-    <sys:String x:Key="CameraKeywordMode">關鍵字</sys:String>
     <sys:String x:Key="CameraAllModels">全部型號</sys:String>
-    <sys:String x:Key="CameraKeywordPlaceholder">輸入型號或品牌關鍵字</sys:String>
-    <sys:String x:Key="SortHeader">排序</sys:String>
     <sys:String x:Key="SortByCaptured">拍攝時間</sys:String>
     <sys:String x:Key="SortByName">檔案名稱</sys:String>
     <sys:String x:Key="SortBySize">檔案大細</sys:String>
@@ -125,56 +27,13 @@
     <sys:String x:Key="SortByCamera">拍攝型號</sys:String>
     <sys:String x:Key="SortAscending">升序</sys:String>
     <sys:String x:Key="SortDescending">降序</sys:String>
-    <sys:String x:Key="GpsFilterLabel">包含 GPS 定位</sys:String>
-    <sys:String x:Key="IncludeHeicLabel">顯示 HEIC 檔案</sys:String>
-    <sys:String x:Key="SearchBtn">開始檢索</sys:String>
-    <sys:String x:Key="ViewModeTableView">📋 表格清單</sys:String>
-    <sys:String x:Key="ViewModeGalleryView">🖼️ 相片畫廊</sys:String>
-    
-    <!-- Table Columns for Search Results -->
-    <sys:String x:Key="ColRelativePath">相對歸檔路徑</sys:String>
-    <sys:String x:Key="ColCaptureDate">拍攝/建立時間</sys:String>
-    <sys:String x:Key="ColSize">檔案大細</sys:String>
-    <sys:String x:Key="ColType">媒體類型</sys:String>
-    <sys:String x:Key="ColCamera">拍攝設備型號</sys:String>
-    <sys:String x:Key="ColGps">GPS 座標</sys:String>
 
     <!-- Read-Only Shell Context Menu for Search Results -->
     <sys:String x:Key="MenuOpen">開啟</sys:String>
-    <sys:String x:Key="MenuOpenWith">開啟方式...</sys:String>
-    <sys:String x:Key="MenuCopy">複製</sys:String>
-    <sys:String x:Key="MenuCopyPath">複製檔案路徑</sys:String>
-    <sys:String x:Key="MenuShowInExplorer">喺檔案總管中顯示</sys:String>
-    <sys:String x:Key="MenuProperties">屬性</sys:String>
-
-    <!-- Reorganize Tab -->
-    <sys:String x:Key="ReorganizeHeader">歸檔目錄結構重組</sys:String>
-    <sys:String x:Key="CurrentSchemeLabel">現有歸檔結構:</sys:String>
-    <sys:String x:Key="TargetSchemeLabel">目標歸檔結構:</sys:String>
-    <sys:String x:Key="ReorganizeDryRunBtn">🔍 預覽重組</sys:String>
-    <sys:String x:Key="ExecuteReorganizeBtn">📁 執行結構重組</sys:String>
-    <sys:String x:Key="ReorganizePreviewHeader">結果預覽</sys:String>
-    <sys:String x:Key="ColOriginalPath">原本相對路徑</sys:String>
-    <sys:String x:Key="ColTargetPath">→ 預計目標相對路徑</sys:String>
-
-    <!-- Settings Tab -->
-    <sys:String x:Key="SettingsHeader">功能與安全選項</sys:String>
-    <sys:String x:Key="ResetFileTimeHeader">⏱️ 重新校準檔案時間</sys:String>
-    <sys:String x:Key="SyncTimeOption">同步相片 EXIF 拍攝時間到 Windows 檔案修改時間</sys:String>
-    <sys:String x:Key="SyncCreationTimeOption">同時修改 Windows 檔案建立時間</sys:String>
-    <sys:String x:Key="ReadTimeoutLabel">讀取逾時限制 (秒):</sys:String>
-    <sys:String x:Key="DisablePcSleepOption">提示停用電腦睡眠以防大型傳輸中斷</sys:String>
-    <sys:String x:Key="ExifSafetyNote">提示：預設情況下，Windows 顯示嘅檔案時間係 Windows 檔案嘅修改時間，唔係相片嘅拍攝時間。啟用呢個選項可以將相片嘅拍攝時間同步到 Windows 檔案修改時間，但唔會修改 iPhone 端或檔案本身嘅 EXIF 內容。備註：無論有冇啟用呢個選項，都唔會影響相簿軟件識別相片準確拍攝時間嘅能力。</sys:String>
-    <sys:String x:Key="SyncExifNowBtn">⚡ 立即同步歸檔目錄中所有檔案嘅 EXIF 時間</sys:String>
 
     <!-- Lightbox Preview Modal -->
-    <sys:String x:Key="MediaPreviewHeader">🖼️ 媒體即時大圖預覽</sys:String>
-    <sys:String x:Key="ClosePreviewBtn">✕ 關閉 (Esc)</sys:String>
-    <sys:String x:Key="CopyPathBtn">📋 複製路徑</sys:String>
-    <sys:String x:Key="ShowInExplorerBtn">📁 喺檔案總管顯示</sys:String>
     <sys:String x:Key="PreviewPlay">播放</sys:String>
     <sys:String x:Key="PreviewPause">暫停</sys:String>
-    <sys:String x:Key="PreviewVideoFailed">無法播放此影片，已顯示配套靜態相片。</sys:String>
     <sys:String x:Key="PreviewVideoMissing">搵唔到影片檔案。</sys:String>
 
     <!-- Device Probe Messages -->
@@ -199,79 +58,18 @@
     <sys:String x:Key="MsgReadingDb">讀取緊歸檔資料庫...</sys:String>
     <sys:String x:Key="MsgCompletedProgress">已完成: {0} / {1} 個檔案</sys:String>
     <sys:String x:Key="MsgUpdatedCount">已成功更新: {0} 項</sys:String>
-    <sys:String x:Key="MsgUpdatedZero">已更新: 0 項</sys:String>
     <sys:String x:Key="MsgNoFilesToSync">歸檔清單中搵唔到可同步嘅檔案</sys:String>
     <sys:String x:Key="MsgSyncSuccess">✅ 同步完成！一共檢索咗 {0} 個歸檔檔案，成功將 {1} 個檔案嘅 EXIF 時間同步到 Windows 系統時間。</sys:String>
-    <!-- Details DataGrid Columns &amp; Tooltips -->
-    <sys:String x:Key="ColSourcePath">來源路徑</sys:String>
-    <sys:String x:Key="ColStatus">狀態</sys:String>
-    <sys:String x:Key="ColDetails">詳細說明</sys:String>
-    <sys:String x:Key="ToolTipTransferred">撳呢度查看已傳輸/已複製檔案清單</sys:String>
-    <sys:String x:Key="ToolTipSkipped">撳呢度查看已略過檔案清單</sys:String>
-    <sys:String x:Key="ToolTipFailed">撳呢度查看失敗檔案清單</sys:String>
-    <sys:String x:Key="ReexifHeader">⏱️ 重新校準檔案時間</sys:String>
-    <sys:String x:Key="SyncNowBtn">⚡ 立即同步歸檔目錄中所有檔案嘅 EXIF 時間</sys:String>
-    <sys:String x:Key="CloseEscBtn">✕ 關閉 (Esc)</sys:String>
     <!-- iPhone Sync Tab -->
-    <sys:String x:Key="IPhoneSyncTitle">📱 恢復到 iPhone (Apple Devices 官方同步)</sys:String>
-    <sys:String x:Key="IPhoneSyncDescription">透過 PicHarbor 將媒體增量整理並匯出至專用同步目錄，之後使用 Apple Devices 官方應用一鍵同步至 iPhone 原生「相片」App（完美保留 Live Photo 與 EXIF 元數據）。</sys:String>
-    <sys:String x:Key="IPhoneSyncFolderHeader">⚙️ 專用同步目錄與結構設定</sys:String>
-    <sys:String x:Key="IPhoneSyncFolderLabel">專用同步目錄:</sys:String>
-    <sys:String x:Key="IPhoneDeviceModelLabel">iPhone 設備型號:</sys:String>
-    <sys:String x:Key="IPhoneAlbumModeLabel">相簿建立模式:</sys:String>
-    <sys:String x:Key="AlbumModeYearMonth">按年月建立獨立相簿 (YYYY-MM)</sys:String>
-    <sys:String x:Key="AlbumModeFlat">單一相簿平鋪</sys:String>
-    <sys:String x:Key="EnableMirrorDeleteLabel">自動清理歸檔中已刪除嘅相片 (鏡像刪除)</sys:String>
-    <sys:String x:Key="Step1PrepareBtn">🚀 步驟 1: 整理並就緒同步資料夾</sys:String>
-    <sys:String x:Key="Step2OpenAppleDevicesBtn">📱 步驟 2: 開啟 Apple Devices 軟件</sys:String>
-    <sys:String x:Key="OpenSyncFolderBtn">📁 開啟同步資料夾</sys:String>
-    <sys:String x:Key="GuideHeader">💡 Apple Devices 同步指引步驟：</sys:String>
-    <sys:String x:Key="GuideStep1">1. 連接 iPhone 至電腦並解鎖螢幕</sys:String>
-    <sys:String x:Key="GuideStep2">2. 開啟 Apple Devices，喺左側選擇「相片」，勾選「同步相片」</sys:String>
-    <sys:String x:Key="GuideStep3">3. 選擇資料夾路徑為上述專用同步目錄，撳右下角「套用 / 同步」</sys:String>
-    <sys:String x:Key="LabelDeleted">鏡像刪除</sys:String>
-    <sys:String x:Key="ToolTipDeleted">撳呢度查看自動清理嘅冗餘/誤刪檔案</sys:String>
     <sys:String x:Key="MsgPathWarningTitle">⚠️ 高危操作警告：變更 iPhone 同步目錄</sys:String>
     <sys:String x:Key="MsgPathWarningBody">偵測到呢部 iPhone 之前已經同舊有目錄同步過。喺 Apple Devices 將同步來源切換到新目錄之後，iPhone 上原本透過電腦同步嘅所有相片將會被系統自動移除（手機本機拍攝嘅相片唔受影響）。&#x0a;係咪確認要變更同步路徑？</sys:String>
     <sys:String x:Key="MsgAlbumModeWarningTitle">ℹ️ 確認變更相簿組織結構</sys:String>
     <sys:String x:Key="MsgAlbumModeWarningBody">變更相簿結構將會重新整理同步資料夾入面嘅目錄形態，下次喺 Apple Devices 同步嗰陣，iPhone 上嘅相簿分類將會相應重組。係咪確認變更？</sys:String>
-    <sys:String x:Key="MsgMirrorDeleteWarningTitle">ℹ️ 關閉鏡像刪除提示</sys:String>
-    <sys:String x:Key="MsgMirrorDeleteWarningBody">關閉之後，歸檔中已刪除嘅相片依然會保留喺同步資料夾入面，同步到 iPhone 嘅相片將唔會自動移除。係咪確認？</sys:String>
 
     <!-- Restore Scope &amp; Manual Selection Strings -->
-    <sys:String x:Key="IPhoneScopeHeader">🎯 第一步：選擇恢復範圍 (Restore Scope &amp; Filter)</sys:String>
-    <sys:String x:Key="AndroidRestoreModeLabel">恢復模式:</sys:String>
-    <sys:String x:Key="AndroidRestoreModeDefault">預設恢復 (全量恢復唔略過)</sys:String>
-    <sys:String x:Key="AndroidRestoreModeHistorical">歷史增量 (根據歷史恢復記錄略過)</sys:String>
-    <sys:String x:Key="IPhoneScopeModeLabel">範圍篩選:</sys:String>
-    <sys:String x:Key="ScopeModeAll">全量恢復 (預設完整鏡像)</sys:String>
-    <sys:String x:Key="ScopeModeDateRange">按時段恢復 (適合手機淨係存近期相片)</sys:String>
-    <sys:String x:Key="ScopeModeSubfolder">按目錄/相簿選擇</sys:String>
-    <sys:String x:Key="ScopeModeManual">手動挑選模式</sys:String>
-    <sys:String x:Key="ScopeDateFromLabel">開始時間:</sys:String>
-    <sys:String x:Key="ScopeDateToLabel">截止時間:</sys:String>
-    <sys:String x:Key="ScopeSubfoldersLabel">選擇要恢復嘅相簿/子目錄:</sys:String>
     <sys:String x:Key="ScopeViewEditListBtn">👁️ 查看/編輯清單 ({0})</sys:String>
-    <sys:String x:Key="ScopeClearListBtn">🗑️ 清空清單</sys:String>
-    <sys:String x:Key="MenuAddToIPhone">📱 新增到 iPhone 恢復清單</sys:String>
-    <sys:String x:Key="MenuRemoveFromIPhone">❌ 從 iPhone 清單中移除</sys:String>
-    <sys:String x:Key="MenuAddToAndroid">🤖 新增到 Android 恢復清單</sys:String>
-    <sys:String x:Key="MenuRemoveFromAndroid">❌ 從 Android 清單中移除</sys:String>
-    <sys:String x:Key="ManualSelectionModalTitle">手動挑選恢復清單</sys:String>
-    <sys:String x:Key="AndroidManualSelectionModalTitle">手動挑選 Android 恢復清單</sys:String>
-    <sys:String x:Key="ScopeManualEmptyHint">清單中暫時未有手動挑選嘅媒體</sys:String>
-    <sys:String x:Key="ScopeManualEmptySubHint">請前往「媒體檢索」頁面，右鍵相片或影片選擇【📱 新增到 iPhone 恢復清單】或【🤖 新增到 Android 恢復清單】</sys:String>
-    <sys:String x:Key="RemoveFromListBtn">🗑️ 移除</sys:String>
-    <sys:String x:Key="ClearAllListBtn">🗑️ 全部清空</sys:String>
-    <sys:String x:Key="Step1HeaderCard">🎯 第一步：選擇恢復範圍 (Restore Scope &amp; Filter)</sys:String>
-    <sys:String x:Key="Step2HeaderCard">⚙️ 第二步：同步資料夾與規則設定</sys:String>
-    <sys:String x:Key="Step3HeaderCard">🚀 第三步：執行與指引 (Execution Console)</sys:String>
-    <sys:String x:Key="AndroidStep2HeaderCard">🌐 第二步：Android FTP 連線與參數設定</sys:String>
-    <sys:String x:Key="AndroidStep3HeaderCard">🚀 第三步：FTP 傳輸控制台 (Action Console)</sys:String>
 
     <!-- Explorer Selection Integration Strings -->
-    <sys:String x:Key="PickFilesFromExplorerBtn">📂 從檔案總管挑選相片...</sys:String>
-    <sys:String x:Key="DragDropZoneHint">📥 將檔案總管入面嘅相片拖曳至此，或按 Ctrl+V 貼上</sys:String>
     <sys:String x:Key="TitlePickFilesFromExplorer">從檔案總管挑選相片...</sys:String>
     <sys:String x:Key="FilterMediaFiles">媒體檔案|*.jpg;*.jpeg;*.heic;*.png;*.webp;*.mov;*.mp4;*.dng;*.cr2;*.nef;*.arw|所有檔案|*.*</sys:String>
     <sys:String x:Key="MsgPickedSuccess">✅ 成功新增 {0} 項相片到挑選清單。</sys:String>
@@ -285,92 +83,17 @@
     <sys:String x:Key="TitlePreflightIntercept">⚠️ 恢復完整性校驗攔截</sys:String>
     <sys:String x:Key="MsgPreflightBrokenPairs">💡 偵測到 {0} 項媒體缺少配對嘅 Live Photo 動態影片/側車組件：</sys:String>
     <sys:String x:Key="MsgPreflightMissingFiles">❌ 偵測到 {0} 項檔案喺電腦磁碟上已被移動或刪除：</sys:String>
-    <sys:String x:Key="FixPreflightAndProceedBtn">🪄 一鍵修復配對並繼續匯出</sys:String>
-    <sys:String x:Key="IgnorePreflightAndProceedBtn">⚠️ 強制略過自動補全並繼續匯出</sys:String>
-    <sys:String x:Key="CancelPreflightModalBtn">✕ 取消匯出</sys:String>
-    <sys:String x:Key="SmartAutoPairHeaderCard">💡 智能媒體配對建議</sys:String>
-    <sys:String x:Key="SettingAutoCompleteHeader">🪄 媒體恢復自動補全選項</sys:String>
-    <sys:String x:Key="SettingAutoCompleteLivePhoto">挑選 Live Photo (.HEIC/.JPG) 嗰陣，自動補全同名 .MOV 動態影片</sys:String>
-    <sys:String x:Key="SettingAutoCompleteAae">挑選已編輯相片嗰陣，自動補全同名 .AAE 側車修圖數據檔案</sys:String>
-    <sys:String x:Key="SettingAutoCompleteRawJpg">挑選 RAW 相片 (.DNG) 嗰陣，自動補全同名 .JPG 預覽圖</sys:String>
-    <sys:String x:Key="BadgeAutofilledLabel">來自自動補全</sys:String>
-    <sys:String x:Key="ToolTipAutofilledBadge">呢個項目由系統根據 Live Photo / AAE 側車配對規則自動補全新增</sys:String>
     <sys:String x:Key="MsgPickedWithAutoPairNotice">✨ 成功挑選 {0} 項相片！已根據設定自動補全咗 {1} 項 Live Photo/側車配對檔案（例如 {2}）。喺「查看/編輯清單」中已標註 [🪄 來自自動補全] 標記。</sys:String>
-    <sys:String x:Key="OpenSettingsTabBtn">⚙️ 開啟自動補全設定</sys:String>
-
-    <!-- Date Picker &amp; Preset Quick Shortcut Strings -->
-    <sys:String x:Key="ScopeClearDateBtn">🗑️ 重設日期</sys:String>
-    <sys:String x:Key="ScopeQuickPresetsLabel">快捷時段:</sys:String>
-    <sys:String x:Key="PresetLast30Days">⚡ 近 30 日</sys:String>
-    <sys:String x:Key="PresetLast90Days">⚡ 近 3 個月</sys:String>
-    <sys:String x:Key="PresetLast1Year">⚡ 近 1 年</sys:String>
-    <sys:String x:Key="PresetThisYear">⚡ 今年</sys:String>
 
     <!-- Google Photos Tab Strings -->
-    <sys:String x:Key="MenuAddToGooglePhotos">☁️ 新增到 Google 相簿上載清單</sys:String>
-    <sys:String x:Key="MenuRemoveFromGooglePhotos">❌ 從 Google 相簿清單中移除</sys:String>
-    <sys:String x:Key="GooglePhotosManualSelectionModalTitle">手動挑選 Google 相簿上載清單</sys:String>
-    <sys:String x:Key="GooglePhotosTitle">☁️ Google 相簿增量上載</sys:String>
-    <sys:String x:Key="GooglePhotosDescription">基於 gpmc 移動端逆向 API 將歸檔媒體增量備份至 Google 相簿，支援 Pixel 免費無限容量原畫質與自動相簿整理。</sys:String>
-    <sys:String x:Key="GooglePhotosAccountHeader">🔑 Google 帳號與執行環境</sys:String>
-    <sys:String x:Key="GooglePhotosAuthMethodLabel">憑證登入方式:</sys:String>
-    <sys:String x:Key="GooglePhotosAuthMethodOAuthCookie">🌐 網頁 OAuth (推薦)</sys:String>
-    <sys:String x:Key="GooglePhotosAuthMethodAndroidData">🤖 Android GmsCore 憑證 (進階)</sys:String>
-    <sys:String x:Key="GooglePhotosOAuthCookieLabel">oauth_token:</sys:String>
-    <sys:String x:Key="GooglePhotosLoginWebViewBtn">✨ 自動獲取</sys:String>
-    <sys:String x:Key="GooglePhotosOpenBrowserManualBtn">🌐 外部瀏覽器開啟</sys:String>
-    <sys:String x:Key="GooglePhotosOpenSetupPageBtn">🌐 瀏覽器開啟登入頁</sys:String>
-    <sys:String x:Key="GooglePhotosOAuthCookieTip">💡 說明：推薦撳「✨ 自動獲取」，喺內置視窗登入 Google 帳號並撳【我同意】，系統會自動捕獲 Token 並測試連線；亦可以撳「🌐 外部瀏覽器開啟」，喺預設瀏覽器登入後按 F12 複製 oauth_token Cookie 貼上至此。</sys:String>
     <sys:String x:Key="GoogleLoginWindowTitle">Google 帳號登入授權</sys:String>
-    <sys:String x:Key="GoogleLoginWindowHeader">Google 帳號授權精靈</sys:String>
-    <sys:String x:Key="GoogleLoginWindowSubHeader">請喺下方登入 Google 帳號並撳【我同意/I agree】。系統會喺登入成功後自動捕獲憑證並返回。</sys:String>
-    <sys:String x:Key="GoogleLoginWindowRefresh">🔄 重新整理</sys:String>
-    <sys:String x:Key="GoogleLoginWindowClearCookies">🗑️ 切換帳號</sys:String>
-    <sys:String x:Key="GoogleLoginWindowClearCookiesTip">清除瀏覽器快取以登入其他 Google 帳號</sys:String>
-    <sys:String x:Key="GoogleLoginWindowCancel">取消</sys:String>
     <sys:String x:Key="GoogleLoginWindowLoading">載入緊 Google 登入頁面...</sys:String>
     <sys:String x:Key="GoogleLoginWindowWaiting">等待登入...</sys:String>
     <sys:String x:Key="GoogleLoginWindowCaptured">✅ 登入成功！已成功捕獲憑證，返回緊...</sys:String>
     <sys:String x:Key="GoogleLoginWindowCannotConnect">無法連線至 Google 服務，請檢查網絡或代理設定</sys:String>
     <sys:String x:Key="GoogleLoginWindowTimeout">連線 Google 逾時，請檢查代理服務係咪正常運作</sys:String>
     <sys:String x:Key="GoogleLoginWindowProxyError">無法連線至已設定嘅代理伺服器，請檢查代理連接埠與服務狀態</sys:String>
-    <sys:String x:Key="GooglePhotosBundledGpmcNotice">⚡ gpmc 引擎已就緒</sys:String>
-    <sys:String x:Key="GooglePhotosAuthDataLabel">Google auth_data 憑證:</sys:String>
-    <sys:String x:Key="GooglePhotosEmailLabel">Google 帳號:</sys:String>
-    <sys:String x:Key="GooglePhotosProxyLabel">網絡代理:</sys:String>
-    <sys:String x:Key="GooglePhotosTestProxyBtn">🌐 測試連線</sys:String>
-    <sys:String x:Key="GooglePhotosTestProxyToolTip">測試當前設定嘅網絡代理係咪能夠成功連線 Google 伺服器</sys:String>
-    <sys:String x:Key="GooglePhotosPythonPathLabel">Python 解譯器路徑:</sys:String>
-    <sys:String x:Key="GooglePhotosGpmcPathLabel">gpmc 原始碼/安裝路徑:</sys:String>
-    <sys:String x:Key="GooglePhotosTestConnBtn">⚡ 驗證連線與帳號</sys:String>
-    <sys:String x:Key="GooglePhotosScopeHeader">🎯 第一步：選擇上載範圍</sys:String>
-    <sys:String x:Key="GooglePhotosScopeAll">全量歸檔 (完整媒體庫)</sys:String>
-    <sys:String x:Key="GooglePhotosScopeDateRange">按拍攝時段篩選</sys:String>
-    <sys:String x:Key="GooglePhotosScopeSubfolder">按年月子目錄選擇</sys:String>
-    <sys:String x:Key="GooglePhotosScopeManual">手動挑選清單</sys:String>
-    <sys:String x:Key="GooglePhotosScopeCustom">外部自訂目錄/檔案</sys:String>
-    <sys:String x:Key="GooglePhotosCustomPathLabel">外部路徑:</sys:String>
-    <sys:String x:Key="GooglePhotosAlbumHeader">📁 第二步：相簿歸類策略</sys:String>
-    <sys:String x:Key="GooglePhotosAlbumNone">唔建立相簿</sys:String>
-    <sys:String x:Key="GooglePhotosAlbumAuto">根據子資料夾自動建立相簿</sys:String>
-    <sys:String x:Key="GooglePhotosAlbumCustom">指定相簿名稱</sys:String>
     <sys:String x:Key="GooglePhotosAlbumId">指定現有相簿 ID</sys:String>
-    <sys:String x:Key="GooglePhotosAlbumNameLabel">自訂相簿名稱:</sys:String>
-    <sys:String x:Key="GooglePhotosAlbumIdLabel">相簿 Media Key:</sys:String>
-    <sys:String x:Key="GooglePhotosOptionsHeader">⚙️ 第三步：進階上載選項</sys:String>
-    <sys:String x:Key="GooglePhotosThreadsLabel">並發上載線程:</sys:String>
-    <sys:String x:Key="GooglePhotosRetryCountLabel">自動重試次數:</sys:String>
-    <sys:String x:Key="GooglePhotosRetryDelayLabel">基本重試間隔 (秒):</sys:String>
-    <sys:String x:Key="GooglePhotosRetryTip">💡 提示: 上載遇到 Google 429 限流或網絡異常嗰陣，系統會喺設定嘅時間間隔基礎上自動加入隨機擾動 (Jitter) 進行避讓重試；您亦可以喺上載結束後隨時撳「🔁 重試失敗檔案」針對失敗項目重新上載。</sys:String>
-    <sys:String x:Key="GooglePhotosUnlimitedQualityLabel">免費不計空間配額原畫質備份</sys:String>
-    <sys:String x:Key="GooglePhotosSaverLabel">以壓縮畫質上載</sys:String>
-    <sys:String x:Key="GooglePhotosSkipFilenamesLabel">同步本地快取並略過同名檔案</sys:String>
-    <sys:String x:Key="GooglePhotosControlHeader">🚀 第四步：執行上載與監控</sys:String>
-    <sys:String x:Key="StartGooglePhotosSyncBtn">🚀 開始上載到 Google 相簿</sys:String>
-    <sys:String x:Key="PauseGooglePhotosSyncBtn">⏸️ 暫停上載</sys:String>
-    <sys:String x:Key="ResumeGooglePhotosSyncBtn">▶️ 繼續上載</sys:String>
-    <sys:String x:Key="StartNewGooglePhotosSyncBtn">🚀 開始新方案</sys:String>
-    <sys:String x:Key="TerminateGooglePhotosSyncBtn">⏹️ 結束方案</sys:String>
     <sys:String x:Key="GooglePhotosConfirmTerminateAndStartNew">偵測到目前已有未完成嘅上載方案（已完成 {0}/{1} 項，失敗 {2} 項）。&#x0a;&#x0a;係咪結束當前方案並開始新嘅上載方案？</sys:String>
     <sys:String x:Key="GooglePhotosConfirmTerminatePlan">確定要結束當前未完成嘅方案嗎？&#x0a;當前方案進度將會被清除（已完成 {0} 項，失敗 {1} 項）。</sys:String>
     <sys:String x:Key="GooglePhotosConfirmTerminateTitle">方案切換確認</sys:String>
@@ -379,23 +102,10 @@
     <sys:String x:Key="GooglePhotosPausedPhase">已暫停</sys:String>
     <sys:String x:Key="GooglePhotosResumingPhase">繼續上載緊...</sys:String>
     <sys:String x:Key="GooglePhotosPausingPhase">暫停緊...</sys:String>
-    <sys:String x:Key="GooglePhotosRetryFailedBtn">🔁 重試失敗檔案</sys:String>
     <sys:String x:Key="GooglePhotosNoFailedToRetry">暫時冇失敗檔案需要重試。</sys:String>
-    <sys:String x:Key="CancelGooglePhotosSyncBtn">⏹️ 停止上載</sys:String>
-    <sys:String x:Key="GooglePhotosUploadedCountLabel">已上載:</sys:String>
-    <sys:String x:Key="GooglePhotosSkippedCountLabel">已略過:</sys:String>
-    <sys:String x:Key="GooglePhotosFailedCountLabel">失敗數:</sys:String>
-    <sys:String x:Key="GooglePhotosCurrentPhaseLabel">當前階段:</sys:String>
-    <sys:String x:Key="GooglePhotosClearLogsBtn">清空日誌</sys:String>
     <sys:String x:Key="GooglePhotosViewEditListBtn">👁️ 查看/編輯上載清單 ({0})</sys:String>
-    <sys:String x:Key="GooglePhotosGoToSearchBtn">🔍 前往媒體檢索挑選</sys:String>
-    <sys:String x:Key="GooglePhotosManualEmptyHint">清單中暫時未有手動挑選嘅媒體</sys:String>
-    <sys:String x:Key="GooglePhotosManualEmptySubHint">請前往「媒體檢索」頁面，右鍵相片或影片選擇【☁️ 新增到 Google 相簿上載清單】</sys:String>
 
     <!-- Google Photos Detail Modal &amp; Tooltips -->
-    <sys:String x:Key="ToolTipGooglePhotosUploaded">撳呢度查看已上載到 Google 相簿嘅檔案清單</sys:String>
-    <sys:String x:Key="ToolTipGooglePhotosSkipped">撳呢度查看已略過嘅檔案清單 (雲端已存在)</sys:String>
-    <sys:String x:Key="ToolTipGooglePhotosFailed">撳呢度查看上載失敗嘅檔案清單</sys:String>
     <sys:String x:Key="GooglePhotosModalTitleUploaded">☁️ Google 相簿 已上載檔案明細 (Uploaded)</sys:String>
     <sys:String x:Key="GooglePhotosModalTitleSkipped">☁️ Google 相簿 已略過檔案明細 (Skipped - 雲端已存在)</sys:String>
     <sys:String x:Key="GooglePhotosModalTitleFailed">⚠️ Google 相簿 失敗檔案明細 (Failed)</sys:String>
@@ -403,24 +113,8 @@
     <sys:String x:Key="StatusSkipped">已略過</sys:String>
     <sys:String x:Key="StatusFailed">失敗</sys:String>
     <!-- Storage &amp; Device Subdir Architecture -->
-    <sys:String x:Key="TargetDriveLabel">目標儲存主磁碟:</sys:String>
-    <sys:String x:Key="ChangePrimaryDriveButton">⚙ 前往設定變更</sys:String>
-    <sys:String x:Key="DeviceSubdirLabel">設備分類目錄:</sys:String>
-    <sys:String x:Key="ResetDeviceNameButton">🔄 恢復預設型號</sys:String>
-    <sys:String x:Key="OpenFolderButton">📁 開啟資料夾</sys:String>
-    <sys:String x:Key="StorageArchitectureHeader">📦 相片庫儲存與主磁碟代號規範</sys:String>
-    <sys:String x:Key="StorageArchitectureDesc">PicHarbor 採用極簡兩級儲存規範（系統磁碟位於「用戶圖片\PicHarbor」，其他資料磁碟位於「磁碟代號:\Pictures\PicHarbor」）。換磁碟或遷移至新電腦零設定即插即用，各磁碟機歷史歸檔卷自動全磁碟查重。</sys:String>
-    <sys:String x:Key="PrimaryDriveLabel">當前主備份磁碟:</sys:String>
-    <sys:String x:Key="RefreshDrivesButton">🔄 重新整理磁碟</sys:String>
-    <sys:String x:Key="ResolvedArchivePathLabel">實際儲存根目錄:</sys:String>
-    <sys:String x:Key="GroupMediaByDeviceOption">按設備型號建立分類子資料夾 (推薦，例如 iPhone 15 Pro, Pixel 8)</sys:String>
     <sys:String x:Key="MsgDiscoveredOtherArchives">已自動識別歸檔卷: {0} (跨磁碟增量防重複已自動生效)</sys:String>
     <sys:String x:Key="MsgNoOtherArchives">未偵測到其他磁碟代號嘅歸檔卷</sys:String>
-    <sys:String x:Key="ColFileName">檔案名稱</sys:String>
-    <sys:String x:Key="ColCapturedAt">拍攝時間</sys:String>
-    <sys:String x:Key="ActionHeader">操作</sys:String>
-    <sys:String x:Key="LightboxToolTip">按一下查看大圖預覽</sys:String>
-
 
     <!-- Modern PCL2 UI &amp; Settings Localized Strings -->
     <sys:String x:Key="TabBackup">備份</sys:String>
@@ -473,9 +167,7 @@
     <sys:String x:Key="NavIPhoneSyncPill">同步到 iPhone</sys:String>
     <sys:String x:Key="NavAndroidSyncPill">同步到 Android</sys:String>
     <sys:String x:Key="SettingsSystemHeader">系統設定</sys:String>
-    <sys:String x:Key="SettingsNavBackup">備份</sys:String>
     <sys:String x:Key="SettingsNavGallery">圖庫與選擇</sys:String>
-    <sys:String x:Key="SettingsNavSync">雲端同步與回傳</sys:String>
     <sys:String x:Key="SettingsNavTools">內置工具</sys:String>
     <sys:String x:Key="SettingsNavOther">其它</sys:String>
     <sys:String x:Key="SettingsCardBackupLocation">備份位置</sys:String>
@@ -483,8 +175,6 @@
     <sys:String x:Key="SettingsBtnOpenFolder">開啟目錄</sys:String>
     <sys:String x:Key="SettingsLabelArchivePath">歸檔根目錄路徑</sys:String>
     <sys:String x:Key="SettingsCardSubdirConfig">子目錄設定</sys:String>
-    <sys:String x:Key="SettingsLabelDeviceSubdir">設備分類目錄</sys:String>
-    <sys:String x:Key="SettingsBtnResetDeviceName">恢復預設型號</sys:String>
     <sys:String x:Key="SettingsLabelOrganizeFormat">預設相片時間組織格式:</sys:String>
     <sys:String x:Key="SettingsSubdirDeviceOption">按設備型號與別名劃分專屬子目錄 (例如 D:\PicHarbor\iPhone 15\)</sys:String>
     <sys:String x:Key="SettingsCardCodecs">HEIC 與 Live Photo 延伸模組</sys:String>
@@ -518,9 +208,7 @@
     <sys:String x:Key="BtnCopyHevcLink">複製 HEVC 產品連結</sys:String>
     <sys:String x:Key="CodecThirdPartyWarning">呢個方式會開啟第三方網站。連結同檔案係咪有效、係咪安全，本軟件無法保證，請自行確認風險。</sys:String>
     <sys:String x:Key="SettingsCardProxy">代理</sys:String>
-    <sys:String x:Key="SettingsProxyDesc">設定全域網絡 HTTP/SOCKS5 代理位址，供 Google 相簿等遠端雲端服務直接共用。</sys:String>
     <sys:String x:Key="SettingsProxyLabel">網絡代理位址:</sys:String>
-    <sys:String x:Key="SettingsBtnTestProxy">測試連線</sys:String>
     <sys:String x:Key="SettingsCardPythonPath">Python 解譯器路徑</sys:String>
     <sys:String x:Key="SettingsPythonPathDesc">供 Google 相簿雲端同步引擎調用。PicHarbor 已內建執行環境，如需指定特定的系統 Python 環境可喺呢度自訂指定。</sys:String>
     <sys:String x:Key="SettingsPythonLabel">解譯器路徑:</sys:String>
@@ -545,12 +233,6 @@
     <sys:String x:Key="SettingsBtnExecuteReorg">⚡ 開始執行重組</sys:String>
     <sys:String x:Key="SettingsCardToolDb">資料庫維護工具</sys:String>
     <sys:String x:Key="SettingsDbToolDesc">監控 SQLite 核心索引資料庫大細，定期清理追溯審計日誌以釋放磁碟空間，並支援智能自愈掃描（修復電腦端手動刪除造成嘅脫節幽靈索引）。</sys:String>
-    <sys:String x:Key="SettingsDbSizeLabel">資料庫佔用大細</sys:String>
-    <sys:String x:Key="SettingsDbTotalMediaLabel">索引媒體總量</sys:String>
-    <sys:String x:Key="SettingsDbAuditCountLabel">審計日誌筆數</sys:String>
-    <sys:String x:Key="SettingsBtnVacuumDb">⚡ 壓縮清理資料庫 (VACUUM)</sys:String>
-    <sys:String x:Key="SettingsBtnCleanAudit">🧹 清理歷史追溯審計日誌</sys:String>
-    <sys:String x:Key="SettingsBtnHealDb">🪄 智能自愈掃描與脫節索引修復</sys:String>
     <sys:String x:Key="SettingsCardLangTheme">語言與外觀</sys:String>
     <sys:String x:Key="SettingsLabelDisplayLanguage">軟件顯示語言</sys:String>
     <sys:String x:Key="SettingsCardAbout">關於 PicHarbor</sys:String>
@@ -589,7 +271,6 @@
     <sys:String x:Key="PendingBadgeText">待傳</sys:String>
     <sys:String x:Key="CardGoogleAccount">Google 相簿授權與連接</sys:String>
     <sys:String x:Key="LabelAuthorizedAccount">已授權帳號</sys:String>
-    <sys:String x:Key="AccountNotLoggedIn">未登入</sys:String>
     <sys:String x:Key="BtnLoginSwitchAccount">登入 / 切換帳號</sys:String>
     <sys:String x:Key="BtnLogoutAccount">登出</sys:String>
     <sys:String x:Key="LabelProxyChannel">網絡代理通道</sys:String>
@@ -677,7 +358,6 @@
     <sys:String x:Key="TaskManagerRemaining">剩餘文件</sys:String>
     <sys:String x:Key="TaskManagerEmpty">當前冇進行中或未關閉嘅任務</sys:String>
     <sys:String x:Key="BtnStop">停止</sys:String>
-    <sys:String x:Key="BtnDismiss">關閉</sys:String>
     <sys:String x:Key="BtnCopiedDetails">已複製明細</sys:String>
     <sys:String x:Key="BtnSkippedDetails">已跳過明細</sys:String>
     <sys:String x:Key="BtnFailedDetails">失敗明細</sys:String>
@@ -699,8 +379,6 @@
     <sys:String x:Key="ScopeAndroidRestoreManual">僅回傳喺圖庫中挑選標記嘅相片</sys:String>
     <sys:String x:Key="BtnTestConnection">測試連通性</sys:String>
     <sys:String x:Key="SettingsCardProxyDesc">配置全局 HTTP/SOCKS5 代理地址，供 Google 相簿等遠程雲服務直接複用。</sys:String>
-    <sys:String x:Key="ReorgCurrentSchemeLabel">當前組織結構</sys:String>
-    <sys:String x:Key="ReorgBtnDryRun">🔍 模擬預覽 (Dry Run)</sys:String>
     <sys:String x:Key="ReorgSummaryInitial">點擊「模擬預覽」分析目錄結構重排變動。</sys:String>
     <sys:String x:Key="ReorgColOriginalPath">原文件路徑</sys:String>
     <sys:String x:Key="ReorgColTargetPath">重組後新路徑</sys:String>
@@ -1097,15 +775,9 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="AppLockBtnResetPassword">重設密碼</sys:String>
     <sys:String x:Key="AppLockBtnBackToUnlock">返去解鎖</sys:String>
 
-    <sys:String x:Key="AppLockCardTitle">應用鎖（安全）</sys:String>
-    <sys:String x:Key="AppLockCardDesc">啟用之後，相片目錄鎖住嗰陣當前用戶讀唔到又寫唔到，檔案總管同 PicHarbor 都開唔到。解鎖期間可以正常睇。注意：呢個係畀坐喺電腦前面嘅人睇嘅鎖，相片冇加密；拆走硬碟一樣讀得到。</sys:String>
     <sys:String x:Key="AppLockServiceUnavailable">後台服務仲未啟動（第一次啟用會自動安裝，要一次管理員授權）。</sys:String>
-    <sys:String x:Key="AppLockEnableHint">設定一個應用密碼就可以啟用應用鎖，同時會鎖住而家嘅歸檔目錄。唔記得密碼嘅話，可以用管理員權限取得目錄擁有權攞返啲相。</sys:String>
     <sys:String x:Key="AppLockBtnEnable">啟用應用鎖</sys:String>
-    <sys:String x:Key="AppLockEnabledNotice">應用鎖已經啟用。鎖定、閂程式、螢幕鎖、閒置逾時或者程式崩潰嗰陣會即刻收回權限。</sys:String>
-    <sys:String x:Key="AppLockTotpSectionTitle">雙因素驗證（Google Authenticator）</sys:String>
     <sys:String x:Key="AppLockTotpBound">✓ 驗證器已綁定</sys:String>
-    <sys:String x:Key="AppLockBtnBeginTotp">綁定驗證器</sys:String>
     <sys:String x:Key="AppLockScanQrHint">用 Google Authenticator 掃描二維碼，然後輸入佢顯示嘅 6 位動態碼確認。</sys:String>
     <sys:String x:Key="AppLockBtnConfirmTotp">確認綁定</sys:String>
     <sys:String x:Key="AppLockDisableTitle">關閉應用鎖</sys:String>
@@ -1142,14 +814,9 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="AppLockMsgRebindScan">請用驗證器掃描新二維碼完成重綁。</sys:String>
 
     <!-- 應用鎖：狀態卡片 + 啟用向導 + 雙因素卡片 -->
-    <sys:String x:Key="AppLockBtnManage">管理應用鎖</sys:String>
     <sys:String x:Key="AppLockSummaryEnabled">應用鎖已啟用，正在保護您的歸檔目錄。</sys:String>
     <sys:String x:Key="AppLockSummaryDisabled">應用鎖未啟用。啟用後，鎖定時歸檔目錄將無法被存取。</sys:String>
 
-    <sys:String x:Key="AppWizardManageTitle">管理應用鎖</sys:String>
-    <sys:String x:Key="AppWizardManageStatusTotp">應用鎖已啟用，且已綁定雙因素驗證。</sys:String>
-    <sys:String x:Key="AppWizardManageStatusNoTotp">應用鎖已啟用（尚未綁定雙因素驗證）。</sys:String>
-    <sys:String x:Key="AppWizardBtnDone">完成</sys:String>
     <sys:String x:Key="AppWizardTitle">啟用應用鎖</sys:String>
     <sys:String x:Key="AppWizardProgress">共 3 步，最後一步才會實際執行</sys:String>
 
@@ -1194,20 +861,66 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
 
     <sys:String x:Key="AppWizardIdleLockLabel">自動鎖定：</sys:String>
     <sys:String x:Key="AppWizardIdleLockHint">按「系統閒置」計時：整台電腦 N 分鐘沒有任何鍵鼠輸入後自動鎖定（在其他程式操作也算活動）。預設關閉。</sys:String>
-    <sys:String x:Key="AppWizardIdleLockOff">不自動鎖定</sys:String>
-    <sys:String x:Key="AppWizardIdleLockOption1">閒置 1 分鐘</sys:String>
-    <sys:String x:Key="AppWizardIdleLockOption5">閒置 5 分鐘</sys:String>
-    <sys:String x:Key="AppWizardIdleLockOption10">閒置 10 分鐘</sys:String>
-    <sys:String x:Key="AppWizardIdleLockOption15">閒置 15 分鐘</sys:String>
-    <sys:String x:Key="AppWizardIdleLockOption30">閒置 30 分鐘</sys:String>
 
     <sys:String x:Key="SecurityIdleLockCustom">自訂…</sys:String>
     <sys:String x:Key="SecurityIdleLockCustomUnit">分鐘</sys:String>
     <sys:String x:Key="SecurityIdleLockCustomApply">套用</sys:String>
 
-    <sys:String x:Key="TotpCardTitle">雙因素驗證（Google Authenticator）</sys:String>
     <sys:String x:Key="TotpCardNeedAppLock">請先啟用應用鎖，再綁定雙因素驗證。</sys:String>
-    <sys:String x:Key="TotpBtnBind">綁定驗證器</sys:String>
     <sys:String x:Key="TotpBtnChange">更換驗證器</sys:String>
     <sys:String x:Key="TotpErrServerRestarted">後台服務已重啟，請重新產生二維碼後再確認。</sys:String>
+
+    <!-- ==================== 程式碼內嵌文案收編（去硬編碼） ==================== -->
+
+    <!-- 安全頁：自動鎖定檔位 -->
+    <sys:String x:Key="SecurityIdleLockOff">關閉</sys:String>
+    <sys:String x:Key="SecurityIdleLock5">5 分鐘</sys:String>
+    <sys:String x:Key="SecurityIdleLock10">10 分鐘</sys:String>
+    <sys:String x:Key="SecurityIdleLock15">15 分鐘</sys:String>
+    <sys:String x:Key="SecurityIdleLock30">30 分鐘</sys:String>
+    <sys:String x:Key="SecurityIdleLock60">60 分鐘</sys:String>
+
+    <!-- 任務卡片：步驟文案 -->
+    <sys:String x:Key="TaskStep1Scan">掃描媒體與相簿清單</sys:String>
+    <sys:String x:Key="TaskStep1ScanDone">掃描媒體與相簿清單 (完成)</sys:String>
+    <sys:String x:Key="TaskStep2Transfer">傳輸媒體檔案</sys:String>
+    <sys:String x:Key="TaskStep2TransferWithFile">傳輸媒體檔案 ({0})</sys:String>
+    <sys:String x:Key="TaskStep2TransferAllDone">傳輸媒體檔案 (全部傳輸完畢)</sys:String>
+    <sys:String x:Key="TaskStep2TransferWaiting">傳輸媒體檔案 (等待啟動)</sys:String>
+    <sys:String x:Key="TaskStep3Exif">EXIF 拍攝時間與中繼資料校準</sys:String>
+    <sys:String x:Key="TaskStep3ExifDone">EXIF 拍攝時間與中繼資料校準 (完成)</sys:String>
+    <sys:String x:Key="TaskStep4Index">更新 SQLite 媒體庫索引</sys:String>
+    <sys:String x:Key="TaskStep4IndexDone">更新 SQLite 媒體庫索引 (完成)</sys:String>
+    <sys:String x:Key="TaskSpeedDone">已完成</sys:String>
+
+    <!-- Vault 服務生命週期訊息（GUI 端） -->
+    <sys:String x:Key="VaultErrExePathUnknown">無法確定目前可執行檔路徑。</sys:String>
+    <sys:String x:Key="VaultErrInstallFailed">安裝 Vault 服務失敗（退出碼 {0}）。</sys:String>
+    <sys:String x:Key="VaultErrNotLocalSystem">管道回應方不是 LocalSystem 服務，請檢查同名除錯程序。</sys:String>
+    <sys:String x:Key="VaultErrBuildMismatch">服務仍執行舊版本，狀態回應的組建識別碼與目前 GUI 不一致。</sys:String>
+    <sys:String x:Key="VaultMsgInstallOk">Vault 服務已安裝並啟動，一般用戶端狀態查詢成功。</sys:String>
+    <sys:String x:Key="VaultErrStatusQueryFailed">服務安裝完成，但狀態查詢失敗：{0}</sys:String>
+    <sys:String x:Key="VaultMsgMissingStatus">回應缺少 status。</sys:String>
+    <sys:String x:Key="VaultMsgUninstalled">Vault 服務已解除安裝。</sys:String>
+    <sys:String x:Key="VaultErrUninstallFailed">解除安裝 Vault 服務失敗（退出碼 {0}）。</sys:String>
+    <sys:String x:Key="VaultMsgDataPurged">服務資料已清除。</sys:String>
+    <sys:String x:Key="VaultErrPurgeFailed">清除服務資料失敗（退出碼 {0}）。</sys:String>
+    <sys:String x:Key="VaultMsgAppLockDisabled">應用鎖已關閉。</sys:String>
+    <sys:String x:Key="VaultErrDisableFailed">關閉應用鎖失敗。</sys:String>
+    <sys:String x:Key="VaultErrDisableFailedElevated">關閉應用鎖失敗（可能需要管理員權限或服務未執行）。</sys:String>
+
+    <!-- Vault 具名管道用戶端：階段名稱與錯誤 -->
+    <sys:String x:Key="VaultStageConnectPipe">連接具名管道</sys:String>
+    <sys:String x:Key="VaultStageSendRequest">傳送要求</sys:String>
+    <sys:String x:Key="VaultStageReadResponse">讀取回應</sys:String>
+    <sys:String x:Key="VaultStageParseResponse">解析回應</sys:String>
+    <sys:String x:Key="VaultErrConnClosed">服務關閉了連線，未傳回回應。</sys:String>
+    <sys:String x:Key="VaultErrEmptyJson">服務傳回了空 JSON 回應。</sys:String>
+    <sys:String x:Key="VaultErrStageTimeout">{0}逾時（{1} ms）。</sys:String>
+    <sys:String x:Key="VaultErrStageDenied">{0}被拒絕（Win32 5，管道存取權限）：{1}</sys:String>
+    <sys:String x:Key="VaultErrStageFailed">{0}失敗（0x{1}）：{2}</sys:String>
+
+    <!-- 媒體預覽詳情 -->
+    <sys:String x:Key="FmtPreviewDetailsVideo">{0} (實況動圖) | 拍攝時間: {1}</sys:String>
+    <sys:String x:Key="FmtPreviewDetailsMedia">{0} | 拍攝時間: {1} | 大小: {2}</sys:String>
 </ResourceDictionary>

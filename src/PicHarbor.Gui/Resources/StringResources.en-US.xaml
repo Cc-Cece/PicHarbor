@@ -4,101 +4,14 @@
 
     <!-- Application Title &amp; General -->
     <sys:String x:Key="AppTitle">PicHarbor</sys:String>
-    <sys:String x:Key="AppSubtitle">iPhone Media Backup &amp; Archive</sys:String>
-    <sys:String x:Key="DeviceConnected">Connected: iPhone 15 Pro (128GB)</sys:String>
     <sys:String x:Key="DeviceDisconnected">No iPhone Detected (USB / AFC)</sys:String>
-    <sys:String x:Key="DeviceBattery">Battery: 85% (Charging)</sys:String>
-
-    <!-- Sidebar Navigation -->
-    <sys:String x:Key="NavBackup">📱 Backup to PC (iPhone)</sys:String>
-    <sys:String x:Key="NavAndroidBackup">🤖 Backup to PC (Android)</sys:String>
-    <sys:String x:Key="NavIPhoneSync">📱 Restore to iPhone</sys:String>
-    <sys:String x:Key="NavAndroidSync">🤖 Restore to Android</sys:String>
-    <sys:String x:Key="NavGooglePhotos">☁️ Google Photos</sys:String>
-    <sys:String x:Key="NavStatus">📊 Archive Status</sys:String>
-    <sys:String x:Key="NavSearch">🔍 Media Search</sys:String>
-    <sys:String x:Key="NavReorganize">📁 Layout Reorganize</sys:String>
-    <sys:String x:Key="NavSettings">⚙️ Settings</sys:String>
 
     <!-- General UI Labels &amp; Buttons -->
-    <sys:String x:Key="LabelTransferred">Transferred</sys:String>
-    <sys:String x:Key="LabelSkipped">Skipped</sys:String>
-    <sys:String x:Key="LabelFailed">Failed</sys:String>
-    <sys:String x:Key="LabelTransferSize">Transferred / Total Size</sys:String>
-    <sys:String x:Key="LabelEta">Remaining Time</sys:String>
     <sys:String x:Key="CloseBtn">Close</sys:String>
-    <sys:String x:Key="LoadMoreBtn">⏬ Load More</sys:String>
-
-    <!-- Backup Tab -->
-    <sys:String x:Key="BackupTargetHeader">Backup Settings</sys:String>
-    <sys:String x:Key="DestPathLabel">Destination Path:</sys:String>
-    <sys:String x:Key="BrowseButton">Browse...</sys:String>
-    <sys:String x:Key="OrganizeSchemeLabel">Folder Structure:</sys:String>
-    <sys:String x:Key="StartBackupBtn">🚀 Start Incremental Backup</sys:String>
-    <sys:String x:Key="PauseBackupBtn">⏸️ Pause</sys:String>
-    <sys:String x:Key="DryRunBtn">🔍 Preview</sys:String>
-    <sys:String x:Key="ProgressHeader">Live Progress &amp; Logs</sys:String>
-    <sys:String x:Key="SpeedLabel">Speed:</sys:String>
-    <sys:String x:Key="CurrentFileLabel">Current File:</sys:String>
-    <sys:String x:Key="CopiedCountLabel">Copied:</sys:String>
-    <sys:String x:Key="SkippedCountLabel">Skipped:</sys:String>
-    <sys:String x:Key="FailedCountLabel">Failed:</sys:String>
-    <sys:String x:Key="BackupScopeHeader">🎯 Step 1: Select Backup Scope &amp; Filter</sys:String>
-    <sys:String x:Key="BackupScopeModeAll">All Media (Default Full Backup)</sys:String>
-    <sys:String x:Key="BackupScopeModeDateRange">By Date Range (For recent media)</sys:String>
-    <sys:String x:Key="BackupScopeModeSubfolder">By Folder / Album</sys:String>
-    <sys:String x:Key="BackupScopeSubfoldersLabel">Select subfolders/albums to back up:</sys:String>
-
-    <!-- Android Backup Tab -->
-    <sys:String x:Key="AndroidBackupHeader">🤖 Android Backup to PC</sys:String>
-    <sys:String x:Key="AndroidBackupConnHeader">📶 Step 1: Wi-Fi FTP Connection &amp; Settings</sys:String>
-    <sys:String x:Key="AndroidBackupFtpHostLabel">Device IP Address:</sys:String>
-    <sys:String x:Key="AndroidBackupFtpPortLabel">Port:</sys:String>
-    <sys:String x:Key="AndroidBackupFtpUserLabel">Username:</sys:String>
-    <sys:String x:Key="AndroidBackupFtpPassLabel">Password:</sys:String>
-    <sys:String x:Key="AndroidBackupDeviceNameLabel">Device Name:</sys:String>
-    <sys:String x:Key="AndroidBackupTestConnBtn">⚡ Test Connection</sys:String>
-    <sys:String x:Key="AndroidBackupScopeHeader">📂 Step 2: Albums &amp; Filter Rules (3-Gate Intelligent Pruning)</sys:String>
-    <sys:String x:Key="AndroidBackupScanBtn">🔍 Deep Scan Albums</sys:String>
-    <sys:String x:Key="AndroidBackupIgnoreSmallLabel">Ignore small junk images / thumbnails / emojis:</sys:String>
-    <sys:String x:Key="AndroidBackupTypeFilterLabel">Media Types:</sys:String>
-    <sys:String x:Key="AndroidBackupIncludePhotosLabel">Photos</sys:String>
-    <sys:String x:Key="AndroidBackupIncludeVideosLabel">Videos</sys:String>
-    <sys:String x:Key="AndroidBackupAdvancedToggle">⚙️ Advanced Album Scanner &amp; Custom Picker</sys:String>
-    <sys:String x:Key="AndroidBackupCustomPathLabel">Add Custom Path:</sys:String>
-    <sys:String x:Key="AndroidBackupAddCustomBtn">➕ Add</sys:String>
-    <sys:String x:Key="AndroidBackupSelectAllBtn">Select All</sys:String>
-    <sys:String x:Key="AndroidBackupDeselectAllBtn">Deselect All</sys:String>
-    <sys:String x:Key="AndroidBackupStartBtn">🚀 Start Android Incremental Backup</sys:String>
-    <sys:String x:Key="AndroidBackupCancelBtn">⏹️ Cancel Backup</sys:String>
 
     <!-- Android Sync Tab -->
-    <sys:String x:Key="AndroidSyncTitle">🤖 Restore to Android</sys:String>
-    <sys:String x:Key="AndroidSyncDescription">Incrementally transfer archived media files from PC to Android/Pixel FTP directory. Transfer records are maintained independently by SQLite, skipping already synced files automatically.</sys:String>
-    <sys:String x:Key="AndroidFtpHeader">⚙️ FTP Server &amp; Device Settings</sys:String>
-    <sys:String x:Key="AndroidDeviceNameLabel">Android Device Name:</sys:String>
-    <sys:String x:Key="FtpPortLabel">FTP Port:</sys:String>
-    <sys:String x:Key="FtpHostLabel">FTP Address/IP:</sys:String>
-    <sys:String x:Key="FtpUserLabel">FTP Username:</sys:String>
-    <sys:String x:Key="FtpPassLabel">FTP Password:</sys:String>
     <sys:String x:Key="AndroidTargetDirLabel">Target Directory:</sys:String>
-    <sys:String x:Key="TestFtpBtn">⚡ Test FTP Connection</sys:String>
-    <sys:String x:Key="AndroidControlHeader">🚀 Restore to Android</sys:String>
-    <sys:String x:Key="SourceArchiveDirLabel">Source Archive Path:</sys:String>
-    <sys:String x:Key="StartAndroidSyncBtn">🚀 Start Sync to Android</sys:String>
-    <sys:String x:Key="CancelAndroidSyncBtn">⏸️ Pause Sync</sys:String>
-    <sys:String x:Key="TransferLogHeader">📋 Transfer Log</sys:String>
 
-    <!-- Status Tab -->
-    <sys:String x:Key="StatusHeader">Archive Overview</sys:String>
-    <sys:String x:Key="TotalFilesLabel">Total Media Files:</sys:String>
-    <sys:String x:Key="TotalSizeLabel">Total Archived Size:</sys:String>
-    <sys:String x:Key="PhotosCountLabel">Photos (JPEG/HEIC/RAW):</sys:String>
-    <sys:String x:Key="VideosCountLabel">Videos or Live Photos (MOV/MP4):</sys:String>
-    <sys:String x:Key="LastBackupTimeLabel">Last Backup Date:</sys:String>
-    <sys:String x:Key="SqliteDbPathLabel">Database Path (Manifest):</sys:String>
-    <sys:String x:Key="DeviceHistoryHeader">Backup Device History</sys:String>
-    
     <!-- Table Columns for Device History -->
     <sys:String x:Key="ColDeviceName">Device Name</sys:String>
     <sys:String x:Key="ColDeviceModel">Model</sys:String>
@@ -106,18 +19,7 @@
     <sys:String x:Key="ColLastSeen">Last Seen</sys:String>
 
     <!-- Search Tab -->
-    <sys:String x:Key="SearchHeader">Search Media Files</sys:String>
-    <sys:String x:Key="SearchResultsHeader">Search Results</sys:String>
-    <sys:String x:Key="FileNameFilterLabel">Filename Keyword:</sys:String>
-    <sys:String x:Key="DateFromLabel">From Date:</sys:String>
-    <sys:String x:Key="DateToLabel">To Date:</sys:String>
-    <sys:String x:Key="TypeFilterLabel">Media Type:</sys:String>
-    <sys:String x:Key="CameraFilterLabel">Device Model:</sys:String>
-    <sys:String x:Key="CameraPickMode">Choose a model</sys:String>
-    <sys:String x:Key="CameraKeywordMode">Keyword</sys:String>
     <sys:String x:Key="CameraAllModels">All models</sys:String>
-    <sys:String x:Key="CameraKeywordPlaceholder">Type a model or make</sys:String>
-    <sys:String x:Key="SortHeader">Sort</sys:String>
     <sys:String x:Key="SortByCaptured">Capture time</sys:String>
     <sys:String x:Key="SortByName">File name</sys:String>
     <sys:String x:Key="SortBySize">Size</sys:String>
@@ -125,56 +27,13 @@
     <sys:String x:Key="SortByCamera">Camera model</sys:String>
     <sys:String x:Key="SortAscending">Ascending</sys:String>
     <sys:String x:Key="SortDescending">Descending</sys:String>
-    <sys:String x:Key="GpsFilterLabel">Has GPS Coordinates</sys:String>
-    <sys:String x:Key="IncludeHeicLabel">Include HEIC Files</sys:String>
-    <sys:String x:Key="SearchBtn">Start Search</sys:String>
-    <sys:String x:Key="ViewModeTableView">📋 Table View</sys:String>
-    <sys:String x:Key="ViewModeGalleryView">🖼️ Photo Gallery</sys:String>
-    
-    <!-- Table Columns for Search Results -->
-    <sys:String x:Key="ColRelativePath">Relative Archive Path</sys:String>
-    <sys:String x:Key="ColCaptureDate">Capture Date</sys:String>
-    <sys:String x:Key="ColSize">Size</sys:String>
-    <sys:String x:Key="ColType">Media Type</sys:String>
-    <sys:String x:Key="ColCamera">Device Model</sys:String>
-    <sys:String x:Key="ColGps">GPS Coordinates</sys:String>
 
     <!-- Read-Only Shell Context Menu for Search Results -->
     <sys:String x:Key="MenuOpen">Open</sys:String>
-    <sys:String x:Key="MenuOpenWith">Open with...</sys:String>
-    <sys:String x:Key="MenuCopy">Copy</sys:String>
-    <sys:String x:Key="MenuCopyPath">Copy file path</sys:String>
-    <sys:String x:Key="MenuShowInExplorer">Show in Explorer</sys:String>
-    <sys:String x:Key="MenuProperties">Properties</sys:String>
-
-    <!-- Reorganize Tab -->
-    <sys:String x:Key="ReorganizeHeader">Reorganize Archive Layout</sys:String>
-    <sys:String x:Key="CurrentSchemeLabel">Current Scheme:</sys:String>
-    <sys:String x:Key="TargetSchemeLabel">Target Scheme:</sys:String>
-    <sys:String x:Key="ReorganizeDryRunBtn">🔍 Preview Reorganize</sys:String>
-    <sys:String x:Key="ExecuteReorganizeBtn">📁 Execute Reorganize</sys:String>
-    <sys:String x:Key="ReorganizePreviewHeader">Results Preview</sys:String>
-    <sys:String x:Key="ColOriginalPath">Original Path</sys:String>
-    <sys:String x:Key="ColTargetPath">→ Planned Target Path</sys:String>
-
-    <!-- Settings Tab -->
-    <sys:String x:Key="SettingsHeader">Options &amp; Features</sys:String>
-    <sys:String x:Key="ResetFileTimeHeader">⏱️ Reset File Timestamps</sys:String>
-    <sys:String x:Key="SyncTimeOption">Sync photo EXIF capture date to Windows file modification time</sys:String>
-    <sys:String x:Key="SyncCreationTimeOption">Also sync Windows file creation time</sys:String>
-    <sys:String x:Key="ReadTimeoutLabel">Read Timeout (Seconds):</sys:String>
-    <sys:String x:Key="DisablePcSleepOption">Prompt to disable PC sleep to prevent transfer interruption</sys:String>
-    <sys:String x:Key="ExifSafetyNote">Note: By default, Windows displays the file modification time rather than the photo's capture time. Enabling this option syncs the photo's EXIF capture date to the Windows file modification time, without modifying the original EXIF content on the iPhone or the file itself. Note: Whether this option is enabled or not, it will not affect the ability of photo library software to recognize the accurate photo capture date.</sys:String>
-    <sys:String x:Key="SyncExifNowBtn">⚡ Sync EXIF Timestamps for All Files Now</sys:String>
 
     <!-- Lightbox Preview Modal -->
-    <sys:String x:Key="MediaPreviewHeader">🖼️ Media Preview</sys:String>
-    <sys:String x:Key="ClosePreviewBtn">✕ Close (Esc)</sys:String>
-    <sys:String x:Key="CopyPathBtn">📋 Copy Path</sys:String>
-    <sys:String x:Key="ShowInExplorerBtn">📁 Show in Explorer</sys:String>
     <sys:String x:Key="PreviewPlay">Play</sys:String>
     <sys:String x:Key="PreviewPause">Pause</sys:String>
-    <sys:String x:Key="PreviewVideoFailed">Can't play this video. Showing the paired still.</sys:String>
     <sys:String x:Key="PreviewVideoMissing">The video file is missing.</sys:String>
 
     <!-- Device Probe Messages -->
@@ -199,79 +58,18 @@
     <sys:String x:Key="MsgReadingDb">Reading archive database...</sys:String>
     <sys:String x:Key="MsgCompletedProgress">Completed: {0} / {1} files</sys:String>
     <sys:String x:Key="MsgUpdatedCount">Successfully updated: {0} items</sys:String>
-    <sys:String x:Key="MsgUpdatedZero">Updated: 0 items</sys:String>
     <sys:String x:Key="MsgNoFilesToSync">No syncable files found in archive manifest</sys:String>
     <sys:String x:Key="MsgSyncSuccess">✅ Sync complete! Checked {0} archive files, successfully updated EXIF timestamps for {1} files to Windows system time.</sys:String>
-    <!-- Details DataGrid Columns &amp; Tooltips -->
-    <sys:String x:Key="ColSourcePath">Source Path</sys:String>
-    <sys:String x:Key="ColStatus">Status</sys:String>
-    <sys:String x:Key="ColDetails">Details</sys:String>
-    <sys:String x:Key="ToolTipTransferred">Click to view transferred/copied files list</sys:String>
-    <sys:String x:Key="ToolTipSkipped">Click to view skipped files list</sys:String>
-    <sys:String x:Key="ToolTipFailed">Click to view failed files list</sys:String>
-    <sys:String x:Key="ReexifHeader">⏱️ Reset File Timestamps</sys:String>
-    <sys:String x:Key="SyncNowBtn">⚡ Sync EXIF Timestamps for All Files Now</sys:String>
-    <sys:String x:Key="CloseEscBtn">✕ Close (Esc)</sys:String>
     <!-- iPhone Sync Tab -->
-    <sys:String x:Key="IPhoneSyncTitle">📱 Restore to iPhone (Apple Devices Sync)</sys:String>
-    <sys:String x:Key="IPhoneSyncDescription">Incrementally export archived media files to a dedicated sync folder via PicHarbor, then use Apple Devices official app to sync to iPhone native Photos App (preserving Live Photos and EXIF metadata).</sys:String>
-    <sys:String x:Key="IPhoneSyncFolderHeader">⚙️ Sync Directory &amp; Album Settings</sys:String>
-    <sys:String x:Key="IPhoneSyncFolderLabel">Dedicated Sync Folder:</sys:String>
-    <sys:String x:Key="IPhoneDeviceModelLabel">iPhone Model:</sys:String>
-    <sys:String x:Key="IPhoneAlbumModeLabel">Album Mode:</sys:String>
-    <sys:String x:Key="AlbumModeYearMonth">Sub-albums by Year-Month (YYYY-MM)</sys:String>
-    <sys:String x:Key="AlbumModeFlat">Flat in root photo library</sys:String>
-    <sys:String x:Key="EnableMirrorDeleteLabel">Auto-clean deleted photos (Mirror Delete)</sys:String>
-    <sys:String x:Key="Step1PrepareBtn">🚀 Step 1: Prepare Sync Folder</sys:String>
-    <sys:String x:Key="Step2OpenAppleDevicesBtn">📱 Step 2: Open Apple Devices App</sys:String>
-    <sys:String x:Key="OpenSyncFolderBtn">📁 Open Sync Folder</sys:String>
-    <sys:String x:Key="GuideHeader">💡 Apple Devices Sync Guide:</sys:String>
-    <sys:String x:Key="GuideStep1">1. Connect iPhone to PC and unlock screen</sys:String>
-    <sys:String x:Key="GuideStep2">2. Open Apple Devices, select "Photos" on the left, check "Sync Photos"</sys:String>
-    <sys:String x:Key="GuideStep3">3. Set folder path to the dedicated sync folder above, click "Apply/Sync" at bottom right</sys:String>
-    <sys:String x:Key="LabelDeleted">Mirror Deleted</sys:String>
-    <sys:String x:Key="ToolTipDeleted">Click to view auto-cleaned redundant/deleted files</sys:String>
     <sys:String x:Key="MsgPathWarningTitle">⚠️ High-Risk Warning: Change iPhone Sync Folder</sys:String>
     <sys:String x:Key="MsgPathWarningBody">Detected that this iPhone was previously synced with a different folder. Switching sync source in Apple Devices will automatically remove all previously PC-synced photos from the iPhone (photos taken on iPhone are unaffected).&#x0a;Are you sure you want to change the sync folder?</sys:String>
     <sys:String x:Key="MsgAlbumModeWarningTitle">ℹ️ Confirm Album Structure Change</sys:String>
     <sys:String x:Key="MsgAlbumModeWarningBody">Changing album structure will reorganize subfolders in the sync directory. Albums on iPhone will be reorganized during the next sync in Apple Devices. Confirm change?</sys:String>
-    <sys:String x:Key="MsgMirrorDeleteWarningTitle">ℹ️ Disable Mirror Delete Notice</sys:String>
-    <sys:String x:Key="MsgMirrorDeleteWarningBody">After disabling, photos deleted from the archive will remain in the sync folder and won't be removed from iPhone during sync. Confirm?</sys:String>
 
     <!-- Restore Scope &amp; Manual Selection Strings -->
-    <sys:String x:Key="IPhoneScopeHeader">🎯 Step 1: Restore Scope &amp; Filter</sys:String>
-    <sys:String x:Key="AndroidRestoreModeLabel">Restore Mode:</sys:String>
-    <sys:String x:Key="AndroidRestoreModeDefault">Default Restore (Scope &amp; Target Equivalence, records history on success)</sys:String>
-    <sys:String x:Key="AndroidRestoreModeHistorical">Historical Incremental (Skips based on device history, records history on success)</sys:String>
-    <sys:String x:Key="IPhoneScopeModeLabel">Restore Scope:</sys:String>
-    <sys:String x:Key="ScopeModeAll">All (Default Full Mirror)</sys:String>
-    <sys:String x:Key="ScopeModeDateRange">By Date Range (For recent photos)</sys:String>
-    <sys:String x:Key="ScopeModeSubfolder">By Subfolder/Album</sys:String>
-    <sys:String x:Key="ScopeModeManual">Manual Selection Mode</sys:String>
-    <sys:String x:Key="ScopeDateFromLabel">Start Date:</sys:String>
-    <sys:String x:Key="ScopeDateToLabel">End Date:</sys:String>
-    <sys:String x:Key="ScopeSubfoldersLabel">Select subfolders/albums to restore:</sys:String>
     <sys:String x:Key="ScopeViewEditListBtn">👁️ View/Edit List ({0})</sys:String>
-    <sys:String x:Key="ScopeClearListBtn">🗑️ Clear List</sys:String>
-    <sys:String x:Key="MenuAddToIPhone">📱 Add to iPhone Restore Selection</sys:String>
-    <sys:String x:Key="MenuRemoveFromIPhone">❌ Remove from iPhone Selection</sys:String>
-    <sys:String x:Key="MenuAddToAndroid">🤖 Add to Android Restore Selection</sys:String>
-    <sys:String x:Key="MenuRemoveFromAndroid">❌ Remove from Android Selection</sys:String>
-    <sys:String x:Key="ManualSelectionModalTitle">Manual Selection List</sys:String>
-    <sys:String x:Key="AndroidManualSelectionModalTitle">Android Manual Selection List</sys:String>
-    <sys:String x:Key="ScopeManualEmptyHint">No media items in manual selection list</sys:String>
-    <sys:String x:Key="ScopeManualEmptySubHint">Go to "Media Search" tab and right-click any photo or video to add it to iPhone or Android selection list.</sys:String>
-    <sys:String x:Key="RemoveFromListBtn">🗑️ Remove</sys:String>
-    <sys:String x:Key="ClearAllListBtn">🗑️ Clear All</sys:String>
-    <sys:String x:Key="Step1HeaderCard">🎯 Step 1: Restore Scope &amp; Filter</sys:String>
-    <sys:String x:Key="Step2HeaderCard">⚙️ Step 2: Sync Folder &amp; Rule Settings</sys:String>
-    <sys:String x:Key="Step3HeaderCard">🚀 Step 3: Execution &amp; Guide Console</sys:String>
-    <sys:String x:Key="AndroidStep2HeaderCard">🌐 Step 2: Android FTP Connection &amp; Settings</sys:String>
-    <sys:String x:Key="AndroidStep3HeaderCard">🚀 Step 3: FTP Action Console</sys:String>
 
     <!-- Explorer Selection Integration Strings -->
-    <sys:String x:Key="PickFilesFromExplorerBtn">📂 Pick Photos from Explorer...</sys:String>
-    <sys:String x:Key="DragDropZoneHint">📥 Drag photos from Explorer here, or press Ctrl+V to paste</sys:String>
     <sys:String x:Key="TitlePickFilesFromExplorer">Pick Photos from Explorer...</sys:String>
     <sys:String x:Key="FilterMediaFiles">Media Files|*.jpg;*.jpeg;*.heic;*.png;*.webp;*.mov;*.mp4;*.dng;*.cr2;*.nef;*.arw|All Files|*.*</sys:String>
     <sys:String x:Key="MsgPickedSuccess">✅ Successfully added {0} photos to selection list.</sys:String>
@@ -285,92 +83,17 @@
     <sys:String x:Key="TitlePreflightIntercept">⚠️ Pre-Export Sanity Interception</sys:String>
     <sys:String x:Key="MsgPreflightBrokenPairs">💡 Detected {0} media items with missing Live Photo video/sidecar components:</sys:String>
     <sys:String x:Key="MsgPreflightMissingFiles">❌ Detected {0} physical files missing or deleted on PC disk:</sys:String>
-    <sys:String x:Key="FixPreflightAndProceedBtn">🪄 Auto-Fix Pairs &amp; Proceed</sys:String>
-    <sys:String x:Key="IgnorePreflightAndProceedBtn">⚠️ Ignore Warning &amp; Proceed</sys:String>
-    <sys:String x:Key="CancelPreflightModalBtn">✕ Cancel Export</sys:String>
-    <sys:String x:Key="SmartAutoPairHeaderCard">💡 Smart Media Pairing Suggestions</sys:String>
-    <sys:String x:Key="SettingAutoCompleteHeader">🪄 Media Restore Auto-Completion Settings</sys:String>
-    <sys:String x:Key="SettingAutoCompleteLivePhoto">Auto-complete matching .MOV video when selecting Live Photos (.HEIC/.JPG)</sys:String>
-    <sys:String x:Key="SettingAutoCompleteAae">Auto-complete matching .AAE sidecars when selecting edited photos</sys:String>
-    <sys:String x:Key="SettingAutoCompleteRawJpg">Auto-complete matching .JPG previews when selecting RAW photos (.DNG)</sys:String>
-    <sys:String x:Key="BadgeAutofilledLabel">🪄 Auto-filled</sys:String>
-    <sys:String x:Key="ToolTipAutofilledBadge">This item was automatically added by system auto-completion rules</sys:String>
     <sys:String x:Key="MsgPickedWithAutoPairNotice">✨ Added {0} photos! Automatically paired {1} associated files ({2}). Marked as [🪄 Auto-filled] in selection list.</sys:String>
-    <sys:String x:Key="OpenSettingsTabBtn">⚙️ Open Auto-Completion Settings</sys:String>
-
-    <!-- Date Picker &amp; Preset Quick Shortcut Strings -->
-    <sys:String x:Key="ScopeClearDateBtn">🗑️ Reset Dates</sys:String>
-    <sys:String x:Key="ScopeQuickPresetsLabel">Presets:</sys:String>
-    <sys:String x:Key="PresetLast30Days">⚡ Last 30 Days</sys:String>
-    <sys:String x:Key="PresetLast90Days">⚡ Last 3 Months</sys:String>
-    <sys:String x:Key="PresetLast1Year">⚡ Last 1 Year</sys:String>
-    <sys:String x:Key="PresetThisYear">⚡ This Year</sys:String>
 
     <!-- Google Photos Tab Strings -->
-    <sys:String x:Key="MenuAddToGooglePhotos">☁️ Add to Google Photos Upload List</sys:String>
-    <sys:String x:Key="MenuRemoveFromGooglePhotos">❌ Remove from Google Photos List</sys:String>
-    <sys:String x:Key="GooglePhotosManualSelectionModalTitle">Manual Google Photos Upload List</sys:String>
-    <sys:String x:Key="GooglePhotosTitle">☁️ Google Photos Incremental Upload</sys:String>
-    <sys:String x:Key="GooglePhotosDescription">Upload media to Google Photos via gpmc reverse-engineered mobile API, supporting Pixel unlimited original quality and auto albums.</sys:String>
-    <sys:String x:Key="GooglePhotosAccountHeader">🔑 Account &amp; Environment</sys:String>
-    <sys:String x:Key="GooglePhotosAuthMethodLabel">Sign-In Method:</sys:String>
-    <sys:String x:Key="GooglePhotosAuthMethodOAuthCookie">🌐 Web OAuth Cookie (Recommended / No Root or Android Required)</sys:String>
-    <sys:String x:Key="GooglePhotosAuthMethodAndroidData">🤖 Android GmsCore Credential (auth_data)</sys:String>
-    <sys:String x:Key="GooglePhotosOAuthCookieLabel">oauth_token Cookie:</sys:String>
-    <sys:String x:Key="GooglePhotosLoginWebViewBtn">✨ Sign In &amp; Auto-Capture</sys:String>
-    <sys:String x:Key="GooglePhotosOpenBrowserManualBtn">🌐 External Browser</sys:String>
-    <sys:String x:Key="GooglePhotosOpenSetupPageBtn">🌐 Open Sign-In Page</sys:String>
-    <sys:String x:Key="GooglePhotosOAuthCookieTip">💡 Tip: Recommended to click '✨ Sign In &amp; Auto-Capture' to sign in via the embedded browser and auto-capture credentials. Or click '🌐 External Browser' to sign in and manually copy the oauth_token cookie via DevTools F12.</sys:String>
     <sys:String x:Key="GoogleLoginWindowTitle">Google Account Sign-In</sys:String>
-    <sys:String x:Key="GoogleLoginWindowHeader">Google Account Sign-In Wizard</sys:String>
-    <sys:String x:Key="GoogleLoginWindowSubHeader">Sign in to your Google account below and click 'I agree'. Credentials will be captured automatically upon sign-in.</sys:String>
-    <sys:String x:Key="GoogleLoginWindowRefresh">🔄 Refresh</sys:String>
-    <sys:String x:Key="GoogleLoginWindowClearCookies">🗑️ Switch Account</sys:String>
-    <sys:String x:Key="GoogleLoginWindowClearCookiesTip">Clear cached browser session to sign in with a different Google account</sys:String>
-    <sys:String x:Key="GoogleLoginWindowCancel">Cancel</sys:String>
     <sys:String x:Key="GoogleLoginWindowLoading">Loading Google sign-in page...</sys:String>
     <sys:String x:Key="GoogleLoginWindowWaiting">Waiting for sign-in...</sys:String>
     <sys:String x:Key="GoogleLoginWindowCaptured">✅ Sign-in successful! Credentials captured, returning...</sys:String>
     <sys:String x:Key="GoogleLoginWindowCannotConnect">Cannot connect to Google services, please check your network or proxy configuration</sys:String>
     <sys:String x:Key="GoogleLoginWindowTimeout">Connection timed out, please verify that your proxy server is active</sys:String>
     <sys:String x:Key="GoogleLoginWindowProxyError">Cannot connect to proxy server, please check the proxy port and service status</sys:String>
-    <sys:String x:Key="GooglePhotosBundledGpmcNotice">⚡ gpmc core engine is ready</sys:String>
-    <sys:String x:Key="GooglePhotosAuthDataLabel">Google auth_data Token:</sys:String>
-    <sys:String x:Key="GooglePhotosEmailLabel">Google Account:</sys:String>
-    <sys:String x:Key="GooglePhotosProxyLabel">Network Proxy:</sys:String>
-    <sys:String x:Key="GooglePhotosTestProxyBtn">🌐 Test Proxy</sys:String>
-    <sys:String x:Key="GooglePhotosTestProxyToolTip">Test whether the configured proxy can connect to Google servers</sys:String>
-    <sys:String x:Key="GooglePhotosPythonPathLabel">Python Executable Path:</sys:String>
-    <sys:String x:Key="GooglePhotosGpmcPathLabel">gpmc Repository Path:</sys:String>
-    <sys:String x:Key="GooglePhotosTestConnBtn">⚡ Test Connection</sys:String>
-    <sys:String x:Key="GooglePhotosScopeHeader">🎯 Step 1: Select Upload Scope</sys:String>
-    <sys:String x:Key="GooglePhotosScopeAll">All Archive (Full Library)</sys:String>
-    <sys:String x:Key="GooglePhotosScopeDateRange">Filter by Date Range</sys:String>
-    <sys:String x:Key="GooglePhotosScopeSubfolder">Select by Subfolder / Month</sys:String>
-    <sys:String x:Key="GooglePhotosScopeManual">Manual Selection List</sys:String>
-    <sys:String x:Key="GooglePhotosScopeCustom">Custom External Path</sys:String>
-    <sys:String x:Key="GooglePhotosCustomPathLabel">External Path:</sys:String>
-    <sys:String x:Key="GooglePhotosAlbumHeader">📁 Step 2: Album Strategy</sys:String>
-    <sys:String x:Key="GooglePhotosAlbumNone">No Album (Main Stream Only)</sys:String>
-    <sys:String x:Key="GooglePhotosAlbumAuto">Smart Folder Albums (AUTO)</sys:String>
-    <sys:String x:Key="GooglePhotosAlbumCustom">Custom Album Name</sys:String>
     <sys:String x:Key="GooglePhotosAlbumId">Existing Album ID (Media Key)</sys:String>
-    <sys:String x:Key="GooglePhotosAlbumNameLabel">Custom Album Name:</sys:String>
-    <sys:String x:Key="GooglePhotosAlbumIdLabel">Album Media Key:</sys:String>
-    <sys:String x:Key="GooglePhotosOptionsHeader">⚙️ Step 3: Advanced Options</sys:String>
-    <sys:String x:Key="GooglePhotosThreadsLabel">Concurrent Threads:</sys:String>
-    <sys:String x:Key="GooglePhotosRetryCountLabel">Auto Retry Attempts:</sys:String>
-    <sys:String x:Key="GooglePhotosRetryDelayLabel">Retry Base Delay (s):</sys:String>
-    <sys:String x:Key="GooglePhotosRetryTip">💡 Tip: When encountering Google 429 rate limits or transient network errors, auto-retry will back off with randomized jitter. You can also click '🔁 Retry Failed Files' after upload finishes to re-upload recorded failures.</sys:String>
-    <sys:String x:Key="GooglePhotosUnlimitedQualityLabel">Unlimited Original Quality (Pixel Spoofing)</sys:String>
-    <sys:String x:Key="GooglePhotosSaverLabel">Upload with Compressed Quality</sys:String>
-    <sys:String x:Key="GooglePhotosSkipFilenamesLabel">Skip Duplicate Filenames</sys:String>
-    <sys:String x:Key="GooglePhotosControlHeader">🚀 Step 4: Execution &amp; Monitoring</sys:String>
-    <sys:String x:Key="StartGooglePhotosSyncBtn">🚀 Start Upload to Google Photos</sys:String>
-    <sys:String x:Key="PauseGooglePhotosSyncBtn">⏸️ Pause Upload</sys:String>
-    <sys:String x:Key="ResumeGooglePhotosSyncBtn">▶️ Resume Upload</sys:String>
-    <sys:String x:Key="StartNewGooglePhotosSyncBtn">🚀 Start New Plan</sys:String>
-    <sys:String x:Key="TerminateGooglePhotosSyncBtn">⏹️ End Plan</sys:String>
     <sys:String x:Key="GooglePhotosConfirmTerminateAndStartNew">An unfinished upload plan is currently paused ({0}/{1} processed, {2} failed).&#x0a;&#x0a;Do you want to end the current plan and start a new one?</sys:String>
     <sys:String x:Key="GooglePhotosConfirmTerminatePlan">Are you sure you want to end the current plan?&#x0a;Progress will be reset ({0} processed, {1} failed).</sys:String>
     <sys:String x:Key="GooglePhotosConfirmTerminateTitle">Confirm Plan Switch</sys:String>
@@ -379,23 +102,10 @@
     <sys:String x:Key="GooglePhotosPausedPhase">Paused</sys:String>
     <sys:String x:Key="GooglePhotosResumingPhase">Resuming...</sys:String>
     <sys:String x:Key="GooglePhotosPausingPhase">Pausing...</sys:String>
-    <sys:String x:Key="GooglePhotosRetryFailedBtn">🔁 Retry Failed Files</sys:String>
     <sys:String x:Key="GooglePhotosNoFailedToRetry">No failed files to retry.</sys:String>
-    <sys:String x:Key="CancelGooglePhotosSyncBtn">⏹️ Stop Upload</sys:String>
-    <sys:String x:Key="GooglePhotosUploadedCountLabel">Uploaded:</sys:String>
-    <sys:String x:Key="GooglePhotosSkippedCountLabel">Skipped:</sys:String>
-    <sys:String x:Key="GooglePhotosFailedCountLabel">Failed:</sys:String>
-    <sys:String x:Key="GooglePhotosCurrentPhaseLabel">Current Phase:</sys:String>
-    <sys:String x:Key="GooglePhotosClearLogsBtn">Clear Logs</sys:String>
     <sys:String x:Key="GooglePhotosViewEditListBtn">👁️ View/Edit Upload List ({0})</sys:String>
-    <sys:String x:Key="GooglePhotosGoToSearchBtn">🔍 Select from Media Search</sys:String>
-    <sys:String x:Key="GooglePhotosManualEmptyHint">No manually selected items in list</sys:String>
-    <sys:String x:Key="GooglePhotosManualEmptySubHint">Go to Media Search, right-click photo or video and select [☁️ Add to Google Photos Upload List]</sys:String>
 
     <!-- Google Photos Detail Modal &amp; Tooltips -->
-    <sys:String x:Key="ToolTipGooglePhotosUploaded">Click to view list of uploaded files</sys:String>
-    <sys:String x:Key="ToolTipGooglePhotosSkipped">Click to view list of skipped files (already exist in cloud)</sys:String>
-    <sys:String x:Key="ToolTipGooglePhotosFailed">Click to view list of failed files</sys:String>
     <sys:String x:Key="GooglePhotosModalTitleUploaded">☁️ Google Photos Uploaded Files (Uploaded)</sys:String>
     <sys:String x:Key="GooglePhotosModalTitleSkipped">☁️ Google Photos Skipped Files (Skipped - Already in Cloud)</sys:String>
     <sys:String x:Key="GooglePhotosModalTitleFailed">⚠️ Google Photos Failed Files (Failed)</sys:String>
@@ -403,24 +113,8 @@
     <sys:String x:Key="StatusSkipped">Skipped</sys:String>
     <sys:String x:Key="StatusFailed">Failed</sys:String>
     <!-- Storage &amp; Device Subdir Architecture -->
-    <sys:String x:Key="TargetDriveLabel">Primary Target Drive:</sys:String>
-    <sys:String x:Key="ChangePrimaryDriveButton">⚙ Change in Settings</sys:String>
-    <sys:String x:Key="DeviceSubdirLabel">Device Subfolder:</sys:String>
-    <sys:String x:Key="ResetDeviceNameButton">🔄 Reset Model</sys:String>
-    <sys:String x:Key="OpenFolderButton">📁 Open Folder</sys:String>
-    <sys:String x:Key="StorageArchitectureHeader">📦 Photo Library Storage &amp; Target Drive Architecture</sys:String>
-    <sys:String x:Key="StorageArchitectureDesc">PicHarbor standardizes archive paths across drives (&lt;Drive&gt;:\Pictures\PicHarbor or Pictures\PicHarbor). Plug-and-play migration across drives with automatic cross-volume deduplication.</sys:String>
-    <sys:String x:Key="PrimaryDriveLabel">Current Target Drive:</sys:String>
-    <sys:String x:Key="RefreshDrivesButton">🔄 Refresh Drives</sys:String>
-    <sys:String x:Key="ResolvedArchivePathLabel">Effective Archive Root:</sys:String>
-    <sys:String x:Key="GroupMediaByDeviceOption">Group media by device subfolders (Recommended, e.g. iPhone 15 Pro, Pixel 8)</sys:String>
     <sys:String x:Key="MsgDiscoveredOtherArchives">Discovered archive volumes: {0} (Cross-volume deduplication active)</sys:String>
     <sys:String x:Key="MsgNoOtherArchives">No other archive volumes detected on other drives</sys:String>
-    <sys:String x:Key="ColFileName">File Name</sys:String>
-    <sys:String x:Key="ColCapturedAt">Capture Date</sys:String>
-    <sys:String x:Key="ActionHeader">Action</sys:String>
-    <sys:String x:Key="LightboxToolTip">Click to preview in lightbox</sys:String>
-
 
     <!-- Modern PCL2 UI &amp; Settings Localized Strings -->
     <sys:String x:Key="TabBackup">Backup</sys:String>
@@ -473,9 +167,7 @@
     <sys:String x:Key="NavIPhoneSyncPill">Sync to iPhone</sys:String>
     <sys:String x:Key="NavAndroidSyncPill">Sync to Android</sys:String>
     <sys:String x:Key="SettingsSystemHeader">System Settings</sys:String>
-    <sys:String x:Key="SettingsNavBackup">Backup</sys:String>
     <sys:String x:Key="SettingsNavGallery">Gallery &amp; Selection</sys:String>
-    <sys:String x:Key="SettingsNavSync">Cloud Sync &amp; Return</sys:String>
     <sys:String x:Key="SettingsNavTools">Built-in Tools</sys:String>
     <sys:String x:Key="SettingsNavOther">Other</sys:String>
     <sys:String x:Key="SettingsCardBackupLocation">Backup Location</sys:String>
@@ -483,8 +175,6 @@
     <sys:String x:Key="SettingsBtnOpenFolder">Open Folder</sys:String>
     <sys:String x:Key="SettingsLabelArchivePath">Archive Root Path</sys:String>
     <sys:String x:Key="SettingsCardSubdirConfig">Subdirectory Configuration</sys:String>
-    <sys:String x:Key="SettingsLabelDeviceSubdir">Device Subdirectory</sys:String>
-    <sys:String x:Key="SettingsBtnResetDeviceName">Reset to Default</sys:String>
     <sys:String x:Key="SettingsLabelOrganizeFormat">Default Date Organize Format:</sys:String>
     <sys:String x:Key="SettingsSubdirDeviceOption">Separate into device subdirectories (e.g. D:\PicHarbor\iPhone 15\)</sys:String>
     <sys:String x:Key="SettingsCardCodecs">HEIC &amp; Live Photo Codecs</sys:String>
@@ -518,9 +208,7 @@
     <sys:String x:Key="BtnCopyHevcLink">Copy HEVC Product Link</sys:String>
     <sys:String x:Key="CodecThirdPartyWarning">This opens a third-party website. The software does not guarantee safety. Proceed at your own risk.</sys:String>
     <sys:String x:Key="SettingsCardProxy">Proxy</sys:String>
-    <sys:String x:Key="SettingsProxyDesc">Configure HTTP/SOCKS5 proxy for Google Photos and remote services.</sys:String>
     <sys:String x:Key="SettingsProxyLabel">Proxy Address:</sys:String>
-    <sys:String x:Key="SettingsBtnTestProxy">Test Connection</sys:String>
     <sys:String x:Key="SettingsCardPythonPath">Python Interpreter Path</sys:String>
     <sys:String x:Key="SettingsPythonPathDesc">Used by Google Photos sync engine. PicHarbor bundles its runtime, or specify a custom system Python here.</sys:String>
     <sys:String x:Key="SettingsPythonLabel">Interpreter Path:</sys:String>
@@ -545,12 +233,6 @@
     <sys:String x:Key="SettingsBtnExecuteReorg">⚡ Execute Reorganization</sys:String>
     <sys:String x:Key="SettingsCardToolDb">Database Maintenance Tool</sys:String>
     <sys:String x:Key="SettingsDbToolDesc">Monitor SQLite database size, clean audit trails to reclaim disk space, and run self-healing repairs for orphaned indexes.</sys:String>
-    <sys:String x:Key="SettingsDbSizeLabel">Database Size</sys:String>
-    <sys:String x:Key="SettingsDbTotalMediaLabel">Indexed Media</sys:String>
-    <sys:String x:Key="SettingsDbAuditCountLabel">Audit Records</sys:String>
-    <sys:String x:Key="SettingsBtnVacuumDb">⚡ Vacuum Database</sys:String>
-    <sys:String x:Key="SettingsBtnCleanAudit">🧹 Clean Audit Logs</sys:String>
-    <sys:String x:Key="SettingsBtnHealDb">🪄 Self-Healing Index Repair</sys:String>
     <sys:String x:Key="SettingsCardLangTheme">Language &amp; Appearance</sys:String>
     <sys:String x:Key="SettingsLabelDisplayLanguage">Display Language</sys:String>
     <sys:String x:Key="SettingsCardAbout">About PicHarbor</sys:String>
@@ -589,7 +271,6 @@
     <sys:String x:Key="PendingBadgeText">Queued</sys:String>
     <sys:String x:Key="CardGoogleAccount">Google Photos Authorization &amp; Connection</sys:String>
     <sys:String x:Key="LabelAuthorizedAccount">Authorized Account</sys:String>
-    <sys:String x:Key="AccountNotLoggedIn">Not signed in</sys:String>
     <sys:String x:Key="BtnLoginSwitchAccount">Sign In / Switch Account</sys:String>
     <sys:String x:Key="BtnLogoutAccount">Sign Out</sys:String>
     <sys:String x:Key="LabelProxyChannel">Network Proxy Channel</sys:String>
@@ -677,7 +358,6 @@
     <sys:String x:Key="TaskManagerRemaining">Remaining</sys:String>
     <sys:String x:Key="TaskManagerEmpty">No active or pending tasks right now</sys:String>
     <sys:String x:Key="BtnStop">Stop</sys:String>
-    <sys:String x:Key="BtnDismiss">Dismiss</sys:String>
     <sys:String x:Key="BtnCopiedDetails">Copied Details</sys:String>
     <sys:String x:Key="BtnSkippedDetails">Skipped Details</sys:String>
     <sys:String x:Key="BtnFailedDetails">Failed Details</sys:String>
@@ -699,8 +379,6 @@
     <sys:String x:Key="ScopeAndroidRestoreManual">Only restore photos selected and marked in gallery</sys:String>
     <sys:String x:Key="BtnTestConnection">Test Connectivity</sys:String>
     <sys:String x:Key="SettingsCardProxyDesc">Configure global HTTP/SOCKS5 proxy address for remote cloud services like Google Photos.</sys:String>
-    <sys:String x:Key="ReorgCurrentSchemeLabel">Current Structure</sys:String>
-    <sys:String x:Key="ReorgBtnDryRun">🔍 Dry Run Preview</sys:String>
     <sys:String x:Key="ReorgSummaryInitial">Click 'Dry Run Preview' to analyze directory rearrangement changes.</sys:String>
     <sys:String x:Key="ReorgColOriginalPath">Original File Path</sys:String>
     <sys:String x:Key="ReorgColTargetPath">Reorganized Target Path</sys:String>
@@ -1097,15 +775,9 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="AppLockBtnResetPassword">Reset password</sys:String>
     <sys:String x:Key="AppLockBtnBackToUnlock">Back to unlock</sys:String>
 
-    <sys:String x:Key="AppLockCardTitle">App Lock (Security)</sys:String>
-    <sys:String x:Key="AppLockCardDesc">When enabled, the photo archive becomes unreadable to the current user while locked — neither Explorer nor PicHarbor can open it. It is readable while unlocked. Note: this guards against someone at the keyboard; files are not encrypted and remain readable if the drive is removed.</sys:String>
     <sys:String x:Key="AppLockServiceUnavailable">Background service not running yet (it is installed automatically on first enable, requiring one admin approval).</sys:String>
-    <sys:String x:Key="AppLockEnableHint">Set an app password to enable App Lock; the current archive folder will be locked too. If you forget it, you can take ownership of the folder with administrator rights to recover your photos.</sys:String>
     <sys:String x:Key="AppLockBtnEnable">Enable App Lock</sys:String>
-    <sys:String x:Key="AppLockEnabledNotice">App Lock is enabled. Access is revoked immediately on lock, exit, screen lock, idle timeout, or crash.</sys:String>
-    <sys:String x:Key="AppLockTotpSectionTitle">Two-factor (Google Authenticator)</sys:String>
     <sys:String x:Key="AppLockTotpBound">✓ Authenticator bound</sys:String>
-    <sys:String x:Key="AppLockBtnBeginTotp">Bind authenticator</sys:String>
     <sys:String x:Key="AppLockScanQrHint">Scan the QR code with Google Authenticator, then enter the 6-digit code it shows to confirm.</sys:String>
     <sys:String x:Key="AppLockBtnConfirmTotp">Confirm binding</sys:String>
     <sys:String x:Key="AppLockDisableTitle">Disable App Lock</sys:String>
@@ -1142,14 +814,9 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="AppLockMsgRebindScan">Scan the new QR code with your authenticator to finish rebinding.</sys:String>
 
     <!-- App lock: status card + enable wizard + TOTP card -->
-    <sys:String x:Key="AppLockBtnManage">Manage app lock</sys:String>
     <sys:String x:Key="AppLockSummaryEnabled">App lock is on and protecting your archive folders.</sys:String>
     <sys:String x:Key="AppLockSummaryDisabled">App lock is off. When enabled, archive folders are inaccessible while locked.</sys:String>
 
-    <sys:String x:Key="AppWizardManageTitle">Manage app lock</sys:String>
-    <sys:String x:Key="AppWizardManageStatusTotp">App lock is on and two-factor authentication is bound.</sys:String>
-    <sys:String x:Key="AppWizardManageStatusNoTotp">App lock is on (two-factor authentication not yet bound).</sys:String>
-    <sys:String x:Key="AppWizardBtnDone">Done</sys:String>
     <sys:String x:Key="AppWizardTitle">Enable app lock</sys:String>
     <sys:String x:Key="AppWizardProgress">3 steps in total; only the last step makes changes</sys:String>
 
@@ -1194,20 +861,66 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
 
     <sys:String x:Key="AppWizardIdleLockLabel">Auto-lock:</sys:String>
     <sys:String x:Key="AppWizardIdleLockHint">Uses system idle time: locks automatically after N minutes with no keyboard or mouse input anywhere on the PC (activity in other apps counts as activity). Off by default.</sys:String>
-    <sys:String x:Key="AppWizardIdleLockOff">Do not auto-lock</sys:String>
-    <sys:String x:Key="AppWizardIdleLockOption1">After 1 minute idle</sys:String>
-    <sys:String x:Key="AppWizardIdleLockOption5">After 5 minutes idle</sys:String>
-    <sys:String x:Key="AppWizardIdleLockOption10">After 10 minutes idle</sys:String>
-    <sys:String x:Key="AppWizardIdleLockOption15">After 15 minutes idle</sys:String>
-    <sys:String x:Key="AppWizardIdleLockOption30">After 30 minutes idle</sys:String>
 
     <sys:String x:Key="SecurityIdleLockCustom">Custom…</sys:String>
     <sys:String x:Key="SecurityIdleLockCustomUnit">minutes</sys:String>
     <sys:String x:Key="SecurityIdleLockCustomApply">Apply</sys:String>
 
-    <sys:String x:Key="TotpCardTitle">Two-factor authentication (Google Authenticator)</sys:String>
     <sys:String x:Key="TotpCardNeedAppLock">Enable app lock before binding two-factor authentication.</sys:String>
-    <sys:String x:Key="TotpBtnBind">Bind authenticator</sys:String>
     <sys:String x:Key="TotpBtnChange">Change authenticator</sys:String>
     <sys:String x:Key="TotpErrServerRestarted">The background service restarted. Generate a new QR code and confirm again.</sys:String>
+
+    <!-- ==================== Inline code text extraction (de-hardcoding) ==================== -->
+
+    <!-- Security page: auto-lock presets -->
+    <sys:String x:Key="SecurityIdleLockOff">Off</sys:String>
+    <sys:String x:Key="SecurityIdleLock5">5 minutes</sys:String>
+    <sys:String x:Key="SecurityIdleLock10">10 minutes</sys:String>
+    <sys:String x:Key="SecurityIdleLock15">15 minutes</sys:String>
+    <sys:String x:Key="SecurityIdleLock30">30 minutes</sys:String>
+    <sys:String x:Key="SecurityIdleLock60">60 minutes</sys:String>
+
+    <!-- Task card: step labels -->
+    <sys:String x:Key="TaskStep1Scan">Scan media and album list</sys:String>
+    <sys:String x:Key="TaskStep1ScanDone">Scan media and album list (done)</sys:String>
+    <sys:String x:Key="TaskStep2Transfer">Transfer media files</sys:String>
+    <sys:String x:Key="TaskStep2TransferWithFile">Transfer media files ({0})</sys:String>
+    <sys:String x:Key="TaskStep2TransferAllDone">Transfer media files (all transferred)</sys:String>
+    <sys:String x:Key="TaskStep2TransferWaiting">Transfer media files (waiting to start)</sys:String>
+    <sys:String x:Key="TaskStep3Exif">Calibrate EXIF capture time and metadata</sys:String>
+    <sys:String x:Key="TaskStep3ExifDone">Calibrate EXIF capture time and metadata (done)</sys:String>
+    <sys:String x:Key="TaskStep4Index">Update SQLite media library index</sys:String>
+    <sys:String x:Key="TaskStep4IndexDone">Update SQLite media library index (done)</sys:String>
+    <sys:String x:Key="TaskSpeedDone">Done</sys:String>
+
+    <!-- Vault service lifecycle messages (GUI side) -->
+    <sys:String x:Key="VaultErrExePathUnknown">Unable to determine the current executable path.</sys:String>
+    <sys:String x:Key="VaultErrInstallFailed">Failed to install the Vault service (exit code {0}).</sys:String>
+    <sys:String x:Key="VaultErrNotLocalSystem">The pipe responder is not the LocalSystem service. Check for a same-named debug process.</sys:String>
+    <sys:String x:Key="VaultErrBuildMismatch">The service is still running an older build. Its reported build identity does not match the current GUI.</sys:String>
+    <sys:String x:Key="VaultMsgInstallOk">The Vault service is installed and running; a standard client status query succeeded.</sys:String>
+    <sys:String x:Key="VaultErrStatusQueryFailed">Service installation finished, but the status query failed: {0}</sys:String>
+    <sys:String x:Key="VaultMsgMissingStatus">Response is missing 'status'.</sys:String>
+    <sys:String x:Key="VaultMsgUninstalled">The Vault service has been uninstalled.</sys:String>
+    <sys:String x:Key="VaultErrUninstallFailed">Failed to uninstall the Vault service (exit code {0}).</sys:String>
+    <sys:String x:Key="VaultMsgDataPurged">Service data has been cleared.</sys:String>
+    <sys:String x:Key="VaultErrPurgeFailed">Failed to clear service data (exit code {0}).</sys:String>
+    <sys:String x:Key="VaultMsgAppLockDisabled">App lock has been disabled.</sys:String>
+    <sys:String x:Key="VaultErrDisableFailed">Failed to disable app lock.</sys:String>
+    <sys:String x:Key="VaultErrDisableFailedElevated">Failed to disable app lock (administrator rights may be required, or the service is not running).</sys:String>
+
+    <!-- Vault named-pipe client: stage names and errors -->
+    <sys:String x:Key="VaultStageConnectPipe">Connecting to named pipe</sys:String>
+    <sys:String x:Key="VaultStageSendRequest">Sending request</sys:String>
+    <sys:String x:Key="VaultStageReadResponse">Reading response</sys:String>
+    <sys:String x:Key="VaultStageParseResponse">Parsing response</sys:String>
+    <sys:String x:Key="VaultErrConnClosed">The service closed the connection without returning a response.</sys:String>
+    <sys:String x:Key="VaultErrEmptyJson">The service returned an empty JSON response.</sys:String>
+    <sys:String x:Key="VaultErrStageTimeout">{0} timed out ({1} ms).</sys:String>
+    <sys:String x:Key="VaultErrStageDenied">{0} was denied (Win32 5, pipe access rights): {1}</sys:String>
+    <sys:String x:Key="VaultErrStageFailed">{0} failed (0x{1}): {2}</sys:String>
+
+    <!-- Media preview details -->
+    <sys:String x:Key="FmtPreviewDetailsVideo">{0} (Live Photo) | Captured: {1}</sys:String>
+    <sys:String x:Key="FmtPreviewDetailsMedia">{0} | Captured: {1} | Size: {2}</sys:String>
 </ResourceDictionary>
