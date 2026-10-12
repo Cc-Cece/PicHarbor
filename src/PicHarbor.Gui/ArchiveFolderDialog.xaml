@@ -1,0 +1,94 @@
+<Window x:Class="PicHarbor.Gui.ArchiveFolderDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:PicHarbor.Gui.Controls"
+        Title="{DynamicResource ArchiveFolderTitle}"
+        Width="500" Height="300"
+        MinWidth="440" MinHeight="280"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="46"
+                      ResizeBorderThickness="6"
+                      CornerRadius="10"
+                      GlassFrameThickness="0"
+                      UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+
+    <Grid Margin="14">
+        <Border x:Name="RootBorder"
+                Background="#FFFFFF"
+                CornerRadius="10"
+                BorderBrush="{DynamicResource ColorBrush6}"
+                BorderThickness="1"
+                Opacity="0"
+                RenderTransformOrigin="0.5,0.5">
+            <Border.RenderTransform>
+                <ScaleTransform x:Name="RootScaleTransform" ScaleX="0.92" ScaleY="0.92" />
+            </Border.RenderTransform>
+            <Border.Effect>
+                <DropShadowEffect Color="#000000" BlurRadius="28" ShadowDepth="6" Direction="270" Opacity="0.22" />
+            </Border.Effect>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="46" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="56" />
+                </Grid.RowDefinitions>
+
+                <!-- 自绘标题栏 -->
+                <Border Grid.Row="0"
+                        Background="{DynamicResource ColorBrushTitleGradient}"
+                        CornerRadius="9,9,0,0"
+                        MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                    <Grid Margin="16,0,12,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="📁" FontSize="15" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource ArchiveFolderTitle}" FontSize="14" FontWeight="Bold"
+                                       Foreground="White" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <controls:PclIconButton Grid.Column="1" Click="CancelButton_Click"
+                                                Logo="{StaticResource PclIconClose}"
+                                                IconTheme="Close"
+                                                WindowChrome.IsHitTestVisibleInChrome="True" />
+                    </Grid>
+                </Border>
+
+                <!-- 内容 -->
+                <StackPanel Grid.Row="1" Margin="22,18,22,8">
+                    <TextBlock Text="{DynamicResource ArchiveFolderHint}" FontSize="12"
+                               Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,0,0,14" />
+
+                    <TextBlock Text="{DynamicResource ArchiveFolderLabel}" FontSize="12"
+                               Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,6" />
+                    <TextBox x:Name="FolderNameBox" Height="32" VerticalContentAlignment="Center" Padding="8,0"
+                             BorderBrush="{DynamicResource ColorBrush6}" FontSize="13" />
+
+                    <TextBlock x:Name="ErrorText" FontSize="12" Margin="0,10,0,0" TextWrapping="Wrap"
+                               Foreground="#E24B4A" Visibility="Collapsed" />
+                </StackPanel>
+
+                <!-- 按钮 -->
+                <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="{DynamicResource ColorBrush6}"
+                        BorderThickness="0,1,0,0" CornerRadius="0,0,9,9">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                Margin="22,0">
+                        <controls:PclButton Content="{DynamicResource BtnCancel}" Width="88" Height="30"
+                                            Click="CancelButton_Click" />
+                        <controls:PclButton Content="{DynamicResource ArchiveFolderConfirm}" Width="120" Height="30"
+                                            Margin="8,0,0,0" ButtonType="Hero" Click="ConfirmButton_Click" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

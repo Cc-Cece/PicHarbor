@@ -10,7 +10,7 @@
     <sys:String x:Key="CloseBtn">關閉</sys:String>
 
     <!-- Android Sync Tab -->
-    <sys:String x:Key="AndroidTargetDirLabel">目標目錄:</sys:String>
+    <sys:String x:Key="AndroidTargetDirLabel">固定目標目錄:</sys:String>
 
     <!-- Table Columns for Device History -->
     <sys:String x:Key="ColDeviceName">設備名稱</sys:String>
@@ -276,7 +276,16 @@
     <sys:String x:Key="LabelProxyChannel">網絡代理通道</sys:String>
     <sys:String x:Key="BtnGoToProxySettings">前往網絡設定</sys:String>
     <sys:String x:Key="CardGoogleScope">上傳策略</sys:String>
-    <sys:String x:Key="LabelUploadScope">上傳任務範圍</sys:String>
+    <sys:String x:Key="ScopeGoogleCustomTarget">上傳自定義外部目錄/檔案</sys:String>
+    <sys:String x:Key="LabelBaseScope">基礎範圍</sys:String>
+    <sys:String x:Key="LabelFilterSection">疊加過濾器（與基礎範圍取交集）</sys:String>
+    <sys:String x:Key="LabelSubfolderFilter">子目錄過濾（可多選、含子級）</sys:String>
+    <sys:String x:Key="LabelDateRangeFilter">日期過濾（按拍攝日期）</sys:String>
+    <sys:String x:Key="LabelCustomTargetPath">自定義外部路徑</sys:String>
+    <sys:String x:Key="ScopeSubfolderFilterOffHint">未勾選任何目錄 = 不啟用子目錄過濾</sys:String>
+    <sys:String x:Key="ScopeUndatedHint">發現 {0} 項無日期檔案</sys:String>
+    <sys:String x:Key="ScopeUndatedInclude">包含</sys:String>
+    <sys:String x:Key="ScopeUndatedSkip">跳過</sys:String>
     <sys:String x:Key="ScopeGoogleAll">全量同步 (將本地所有相片增量上傳至 Google 相簿)</sys:String>
     <sys:String x:Key="ScopeGoogleManual">自選清單同步 (僅上傳喺圖庫中挑選標記嘅相片)</sys:String>
     <sys:String x:Key="BtnViewEditPendingList">👁️ 檢視 / 編輯待傳清單</sys:String>
@@ -291,7 +300,6 @@
     <sys:String x:Key="BannerIPhoneSyncGuide">透過 Apple Devices / iTunes 檔案共享無損回傳相片與實況相片至 iPhone。流程：選擇回傳媒體範圍、按「開始匯出」，匯出完成後按頁面下方「步驟 2」提示喺 Apple Devices 完成同步。</sys:String>
     <sys:String x:Key="CardIPhoneRestoreScope">回傳媒體範圍</sys:String>
     <sys:String x:Key="ScopeRestoreAll">全量回傳 (將本地備份庫全部相片回傳)</sys:String>
-    <sys:String x:Key="ScopeRestoreDateRange">按拍攝日期範圍挑選</sys:String>
     <sys:String x:Key="LabelDateFrom">由:</sys:String>
     <sys:String x:Key="BtnClear">清空</sys:String>
     <sys:String x:Key="LabelDatePresets">快捷預設:</sys:String>
@@ -299,7 +307,6 @@
     <sys:String x:Key="BtnPresetLast90Days">近90日</sys:String>
     <sys:String x:Key="BtnPresetLast1Year">近1年</sys:String>
     <sys:String x:Key="BtnPresetThisYear">今年</sys:String>
-    <sys:String x:Key="ScopeRestoreSubfolder">按子目錄分類挑選</sys:String>
     <sys:String x:Key="ScopeRestoreManual">僅回傳自選清單中嘅相片</sys:String>
     <sys:String x:Key="CardIPhoneTargetAlbum">目標相簿與回傳選項</sys:String>
     <sys:String x:Key="FolderModeYearMonth">按拍攝年月組織資料夾 (如 2026-10)</sys:String>
@@ -337,12 +344,6 @@
     <sys:String x:Key="SettingsBtnSyncMerge">合併</sys:String>
     <sys:String x:Key="SettingsBtnSyncCleanup">清理</sys:String>
     <sys:String x:Key="SettingsBtnSyncIgnore">忽略</sys:String>
-    <sys:String x:Key="GridSyncColFolder">目錄</sys:String>
-    <sys:String x:Key="GridSyncColDevice">裝置</sys:String>
-    <sys:String x:Key="GridSyncColFiles">檔案數</sys:String>
-    <sys:String x:Key="GridSyncColSize">大小</sys:String>
-    <sys:String x:Key="GridSyncColEquiv">已併入</sys:String>
-    <sys:String x:Key="GridSyncColStatus">狀態</sys:String>
     <sys:String x:Key="MsgSyncScanning">正在掃描同步目錄…</sys:String>
     <sys:String x:Key="MsgSyncScanDone">掃描完成：發現 {0} 個同步目錄。</sys:String>
     <sys:String x:Key="MsgSyncScanNone">未發現散落的同步目錄。</sys:String>
@@ -359,6 +360,7 @@
     <sys:String x:Key="MsgSyncIgnored">已忽略該目錄，之後的掃描將不再列出。</sys:String>
     <sys:String x:Key="FmtSyncIgnoreError">❌ 記錄忽略失敗: {0}</sys:String>
     <sys:String x:Key="BannerAndroidSyncGuide">透過局域網 FTP 服務無損回傳相片與影片至 Android 設備相機相簿目錄。</sys:String>
+    <sys:String x:Key="FmtSyncItemMergeInfo">等價 {0} / {1}，缺失 {2}</sys:String>
     <sys:String x:Key="CardAndroidFtpConn">Android 設備 FTP 連接參數</sys:String>
     <sys:String x:Key="LabelPhoneIp">手機 IP 地址:</sys:String>
     <sys:String x:Key="LabelFtpPort">FTP 埠:</sys:String>
@@ -368,7 +370,7 @@
     <sys:String x:Key="BtnStartAndroidSync">開始同步回傳至 Android 設備</sys:String>
     <sys:String x:Key="BtnStopAndroidSync">停止回傳</sys:String>
     <sys:String x:Key="HeroBtnRename">✏️ 重新命名</sys:String>
-    <sys:String x:Key="HeroTooltipRename">自定義設備別名</sys:String>
+    <sys:String x:Key="HeroTooltipRename">自定義顯示名稱</sys:String>
     <sys:String x:Key="HeroBtnRefresh">🔄 刷新</sys:String>
     <sys:String x:Key="HeroTooltipRefresh">重新檢測連接狀態</sys:String>
     <sys:String x:Key="HeroBtnFtpParams">📡 連接參數</sys:String>
@@ -397,8 +399,8 @@
     <sys:String x:Key="ManualModalBadge">多端同步通用清單</sys:String>
     <sys:String x:Key="BtnClearPendingList">清空清單</sys:String>
     <sys:String x:Key="BtnDone">完成</sys:String>
-    <sys:String x:Key="RenameModalTitle">修改設備別名</sys:String>
-    <sys:String x:Key="RenameModalHint">設定後，備份文件將喺目標主盤對應子目錄中歸檔保存：</sys:String>
+    <sys:String x:Key="RenameModalTitle">修改顯示名稱</sys:String>
+    <sys:String x:Key="RenameModalHint">只改顯示名稱，不影響歸檔資料夾（歸檔資料夾於首次備份時確定）。</sys:String>
     <sys:String x:Key="BtnSaveApply">儲存並套用</sys:String>
     <sys:String x:Key="FtpModalTitle">📡 FTP 連接參數配置</sys:String>
     <sys:String x:Key="FtpModalHint">喺 Android 手機檔案管理或 FTP 客戶端開啟服務，輸入下方局域網連接參數。</sys:String>
@@ -424,7 +426,6 @@
 
     <sys:String x:Key="CardAndroidRestoreScope">回傳恢復範圍與篩選</sys:String>
     <sys:String x:Key="ScopeAndroidRestoreAll">全量恢復 (將電腦歸檔庫全部相片回傳至手機)</sys:String>
-    <sys:String x:Key="ScopeAndroidRestoreDateRange">按拍攝日期範圍回傳</sys:String>
     <sys:String x:Key="ScopeAndroidRestoreManual">僅回傳喺圖庫中挑選標記嘅相片</sys:String>
     <sys:String x:Key="BtnTestConnection">測試連通性</sys:String>
     <sys:String x:Key="SettingsCardProxyDesc">配置全局 HTTP/SOCKS5 代理地址，供 Google 相簿等遠程雲服務直接複用。</sys:String>
@@ -512,7 +513,75 @@
     <sys:String x:Key="HistSubtitle">已連線裝置嘅歷史備份檔案與來源追溯</sys:String>
     <sys:String x:Key="HistDeviceName">裝置名稱</sys:String>
     <sys:String x:Key="HistModel">型號規格</sys:String>
-    <sys:String x:Key="HistSerialLabel">出廠硬件序號 / UDID: </sys:String>
+    <sys:String x:Key="HistSerialLabel">裝置標識 / 序號: </sys:String>
+    <sys:String x:Key="HistSerialUnknown">未識別</sys:String>
+    <sys:String x:Key="HistSerialUnknownHint">此裝置尚未記錄有效的硬件序號，可點「修正標識」手動填寫。</sys:String>
+    <sys:String x:Key="HistSerialFixPlaceholder">請輸入手機「設定 → 關於手機 → 全部參數 → 狀態資訊 → 序號」中的值，或自訂一個穩定標識。</sys:String>
+    <sys:String x:Key="HistSerialDuplicate">此標識已被歸檔庫中的其他裝置使用，請換一個。</sys:String>
+    <sys:String x:Key="HistSerialUdidTaken">此標識已對應另一筆裝置記錄，無法合併，請換一個。</sys:String>
+    <sys:String x:Key="HistSerialNotPersisted">已更新目前顯示，但歸檔庫中找不到該裝置記錄，未能持久化。</sys:String>
+    <sys:String x:Key="FmtHistSerialInvalid">標識不可用（{0}）。{1}</sys:String>
+    <sys:String x:Key="FmtHistSerialFixed">裝置標識已更新為：{0}</sys:String>
+    <sys:String x:Key="FmtHistSerialFailed">儲存失敗：{0}</sys:String>
+    <sys:String x:Key="BtnFixIdentity">修正標識</sys:String>
+    <sys:String x:Key="BtnSave">儲存</sys:String>
+    <sys:String x:Key="LabelDeviceIdentity">裝置標識</sys:String>
+    <sys:String x:Key="FmtAndroidIdSuccess">已綁定裝置標識：{0}</sys:String>
+    <sys:String x:Key="AndroidIdManualAccepted">已使用手動填寫的裝置標識。</sys:String>
+    <sys:String x:Key="AndroidIdRejNotProvided">裝置未提供序號</sys:String>
+    <sys:String x:Key="AndroidIdRejDuplicate">此標識已被其他裝置使用</sys:String>
+    <sys:String x:Key="AndroidIdRejMalformed">格式不可信，可能是佔位字串或連接埠路徑</sys:String>
+    <sys:String x:Key="PairTitle">裝置配對</sys:String>
+    <sys:String x:Key="PairTargetDevice">目標裝置：</sys:String>
+    <sys:String x:Key="PairUseIdentity">使用標識：</sys:String>
+    <sys:String x:Key="PairHint">配對會把唯一碼寫入手機固定目錄，並回讀驗證。</sys:String>
+    <sys:String x:Key="PairStart">開始配對</sys:String>
+    <sys:String x:Key="PairRetry">重新配對</sys:String>
+    <sys:String x:Key="PairStageConnecting">連接 FTP</sys:String>
+    <sys:String x:Key="PairStageReading">讀取手機端識別檔案</sys:String>
+    <sys:String x:Key="PairStageWriting">寫入識別檔案</sys:String>
+    <sys:String x:Key="PairStageVerifying">回讀驗證</sys:String>
+    <sys:String x:Key="FmtPairOverwriteConfirm">此手機已綁定到標識 {0}，與你選擇的 {1} 不一致。可能是連錯了手機，或這台手機已屬於另一筆裝置記錄。確定要用 {1} 覆蓋嗎？</sys:String>
+    <sys:String x:Key="FmtPairOk">配對完成：{0}</sys:String>
+    <sys:String x:Key="FmtPairAlready">此手機已是 {0}，無需重新配對。</sys:String>
+    <sys:String x:Key="PairDeclined">已取消覆蓋，未做任何改動。</sys:String>
+    <sys:String x:Key="FmtPairFailed">配對失敗：{0}</sys:String>
+    <sys:String x:Key="BtnGenerateAndBind">產生並綁定</sys:String>
+    <sys:String x:Key="BtnGenerateAndBindTip">產生一個新唯一碼並寫入手機（含回讀驗證）</sys:String>
+    <sys:String x:Key="LabelDeviceIdentityTip">裝置唯一碼：由電腦產生並寫入手機固定目錄。一般無需手動修改。</sys:String>
+    <sys:String x:Key="AndroidIdPairNotCompleted">配對未完成，裝置標識未改動。</sys:String>
+    <sys:String x:Key="FmtAndroidIdReplaceUnknown">目前裝置標識：{0}&#x0a;&#x0a;「產生並綁定」會建立一個【新的】唯一碼並覆蓋手機上的現有標識。&#x0a;&#x0a;確定繼續嗎？</sys:String>
+    <sys:String x:Key="FmtAndroidIdReplaceKnown">目前裝置標識：{0}&#x0a;此標識已在歸檔庫中登記為裝置「{1}」，有 {2} 個備份批次。&#x0a;&#x0a;「產生並綁定」會建立一個【新的】唯一碼並覆蓋手機上的現有標識，該裝置的歷史記錄將與新碼脫鉤。&#x0a;&#x0a;如果只是想連接此裝置，請直接點「完成」——目前標識已經正確。&#x0a;&#x0a;確定要換碼嗎？</sys:String>
+    <sys:String x:Key="ArchiveFolderTitle">確認歸檔資料夾名稱</sys:String>
+    <sys:String x:Key="ArchiveFolderHint">此名稱用於在歸檔目錄下存放本裝置的照片。這是唯一一次修改機會——首次備份後將鎖定，不可更改。</sys:String>
+    <sys:String x:Key="ArchiveFolderLabel">歸檔資料夾名稱</sys:String>
+    <sys:String x:Key="ArchiveFolderConfirm">確定並備份</sys:String>
+    <sys:String x:Key="ArchiveFolderEmpty">資料夾名稱不能為空。</sys:String>
+    <sys:String x:Key="ArchiveFolderInvalid">此名稱不可用作資料夾名稱，請換一個。</sys:String>
+    <sys:String x:Key="FmtArchiveFolderTaken">名稱「{0}」已被另一台裝置使用，請換一個。</sys:String>
+    <sys:String x:Key="ArchiveFolderNotSet">首次備份時確定</sys:String>
+    <sys:String x:Key="RenameArchiveFolderLabel">歸檔資料夾（不可更改）</sys:String>
+    <sys:String x:Key="AndroidIdReading">正在讀取手機端標識...</sys:String>
+    <sys:String x:Key="FmtAndroidIdReadOk">已讀取手機端標識：{0}</sys:String>
+    <sys:String x:Key="FmtAndroidIdReadAdopted">已讀取並採用手機端標識：{0}</sys:String>
+    <sys:String x:Key="FmtAndroidIdReadMismatch">手機端標識 {0} 與本機記錄 {1} 不一致，請確認是否連錯了裝置。</sys:String>
+    <sys:String x:Key="AndroidIdReadMissing">手機端沒有識別檔案，需要先配對。</sys:String>
+    <sys:String x:Key="FmtAndroidIdReadFailed">讀取手機端標識失敗：{0}</sys:String>
+    <sys:String x:Key="RenameNameTaken">此名稱已被另一台裝置使用，請換一個。</sys:String>
+    <sys:String x:Key="BtnRandomId">隨機</sys:String>
+    <sys:String x:Key="BtnRandomIdTip">由電腦產生一個內部自訂標識（裝置未提供序號時使用）</sys:String>
+    <sys:String x:Key="BtnRebindPhone">重新綁定到手機</sys:String>
+    <sys:String x:Key="BtnRebindPhoneTip">把目前裝置標識寫回手機固定目錄（用於手機端識別檔案遺失時）</sys:String>
+    <sys:String x:Key="AndroidTargetDirFixedHint">此目錄已固定，不可修改（識別檔案的讀寫位置必須一致）</sys:String>
+    <sys:String x:Key="FmtAndroidTestMismatch">連線成功，但裝置標識不符（遠端 {0} / 本機 {1}），請確認是否連錯了 FTP 裝置。</sys:String>
+    <sys:String x:Key="FmtAndroidTestUnverifiable">連線成功，但裝置端缺少識別檔案，無法核對身分（本機標識 {0}）。</sys:String>
+    <sys:String x:Key="FmtAndroidIdentityMismatch">目標裝置標識與本機記錄不一致。本機已確認：{0}；目前連到：{1}。可能是連錯了 FTP 伺服器，或這是一台不同的裝置。繼續將按【目前連到的裝置】重新記錄回傳進度。是否繼續？</sys:String>
+    <sys:String x:Key="FmtAndroidIdentityUnverifiable">目前裝置缺少識別檔案，無法核對身分。本機已確認：{0}。可能是手機上的識別檔案已被刪除，或連到了另一台裝置。繼續將按本機已確認標識記錄回傳進度。是否繼續？</sys:String>
+    <sys:String x:Key="AndroidSyncIdentityAborted">已中止：未確認目標裝置身分，未傳輸任何檔案。</sys:String>
+    <sys:String x:Key="HistRandomGenerated">已產生內部自訂標識，確認無誤後點「儲存」。</sys:String>
+    <sys:String x:Key="HistRebindNoSerial">目前裝置標識不可用，請先點「修正標識」填入有效標識。</sys:String>
+    <sys:String x:Key="HistRebindNoFtp">尚未設定安卓 FTP 連線，請先在「同步到 Android」頁填寫 FTP 參數。</sys:String>
+    <sys:String x:Key="FmtHistRebindOk">已把裝置標識寫入手機：{0}</sys:String>
     <sys:String x:Key="HistFirstSeenLabel">  •  首次連線: </sys:String>
     <sys:String x:Key="HistSessionCountLabel">累計備份批次</sys:String>
     <sys:String x:Key="HistFileVolumeLabel">累計備份檔案與體積</sys:String>
@@ -590,6 +659,9 @@
     <sys:String x:Key="GalleryNoWebView">無法建立 CoreWebView2 實例</sys:String>
     <sys:String x:Key="GalleryPageNotLoaded">圖庫頁面未載入完成</sys:String>
     <sys:String x:Key="AndroidConnUntested">未測試連線</sys:String>
+    <sys:String x:Key="FmtAndroidPillConnected">已連接 {0}</sys:String>
+    <sys:String x:Key="AndroidPillConnected">已連接</sys:String>
+    <sys:String x:Key="AndroidPillNotConnected">未連接或參數錯誤</sys:String>
     <sys:String x:Key="AndroidConnTesting">連線緊 FTP 伺服器...</sys:String>
     <sys:String x:Key="FmtAndroidConnOk">✅ 連線成功 ({0}:{1})</sys:String>
     <sys:String x:Key="FmtAndroidConnFail">❌ 連線失敗: {0}</sys:String>
@@ -710,7 +782,6 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="FmtBackupRunning">備份緊 ({0:F0}%)</sys:String>
     <sys:String x:Key="FmtBackupDoneFailed">完成（{0} 已傳，{1} 失敗）</sys:String>
     <sys:String x:Key="FmtBackupDoneSkipped">完成（{0} 已傳，{1} 略過）</sys:String>
-    <sys:String x:Key="AndroidConnectedReady">已連線 · 準備就緒</sys:String>
     <sys:String x:Key="StatusScanning">掃描緊檔案...</sys:String>
     <sys:String x:Key="StatusDoneShort">完成</sys:String>
     <sys:String x:Key="StatusCancelledShort">已取消</sys:String>

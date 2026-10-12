@@ -78,7 +78,14 @@ public partial class MainViewModel : ObservableObject
 
     public bool HasVisibleTaskCard => TaskCards.Any(card => card.IsShown);
 
-    public bool ShowTaskBall => SelectedTabIndex == 0 || HasVisibleTaskCard;
+    /// <summary>
+    /// 是否显示右下角的「任务中心」悬浮球。
+    /// </summary>
+    /// <remarks>
+    /// 图库页（索引 1）是纯浏览场景，悬浮球会遮挡内容，因此<b>始终隐藏</b>；
+    /// 其余页面维持原逻辑（备份页常驻，其它页在有可见任务卡片时显示）。
+    /// </remarks>
+    public bool ShowTaskBall => SelectedTabIndex != 1 && (SelectedTabIndex == 0 || HasVisibleTaskCard);
 
     public string TotalSpeedText
     {
@@ -250,7 +257,7 @@ public partial class MainViewModel : ObservableObject
                 NotifyTaskChanged();
                 if (e.PropertyName == nameof(BackupViewModel.IsTransferring) && !BackupVM.IsTransferring)
                 {
-                    OnTransferFinished();
+                    RunOnUi(OnTransferFinished);
                 }
             }
         };
@@ -262,7 +269,7 @@ public partial class MainViewModel : ObservableObject
                 NotifyTaskChanged();
                 if (e.PropertyName == nameof(AndroidBackupViewModel.IsTransferring) && !AndroidBackupVM.IsTransferring)
                 {
-                    OnTransferFinished();
+                    RunOnUi(OnTransferFinished);
                 }
             }
         };
@@ -362,6 +369,25 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ActiveTaskStep2Text));
         OnPropertyChanged(nameof(ActiveTaskStep3Text));
         OnPropertyChanged(nameof(ActiveTaskStep4Text));
+    }
+
+    /// <summary>把动作派发回 UI 线程执行。</summary>
+    /// <remarks>
+    /// 传输收尾（<c>IsTransferring = false</c>）发生在后台线程（<c>Task.Run + ConfigureAwait(false)</c>），
+    /// 而这里的处理器会触发 <c>AsyncRelayCommand</c> 的 CanExecute 重算，进而访问 ButtonBase 等 UI 对象——
+    /// 必须切回 UI 线程，否则抛「调用线程无法访问此对象」。
+    /// </remarks>
+    private void RunOnUi(Action action)
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            action();
+        }
+        else
+        {
+            dispatcher.Invoke(action);
+        }
     }
 
     private void OnTransferFinished()
@@ -524,7 +550,7 @@ public partial class MainViewModel : ObservableObject
             if (!string.IsNullOrWhiteSpace(device.Name))
             {
                 IPhoneSyncVM.DeviceModel = device.Name;
-                BackupVM.SetDetectedDevice(device.Name);
+                BackupVM.SetDetectedDevice(device.Name, device.Udid);
             }
             if (!string.IsNullOrWhiteSpace(device.Udid))
             {
@@ -878,29 +904,83 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void OpenRenameModal()
     {
-        DeviceCustomName = SelectedDeviceIndex == 0 ? BackupVM.DeviceSubdir : AndroidBackupVM.DetectedDeviceModel;
+        DeviceCustomName = SelectedDeviceIndex == 0 ? BackupVM.DetectedDeviceModel : AndroidBackupVM.DetectedDeviceModel;
+        OnPropertyChanged(nameof(ArchiveFolderReadonlyText));
         IsRenameModalOpen = true;
     }
 
+    /// <summary>
+    /// 重命名弹窗里只读展示的归档文件夹名——它<b>不随显示名改变</b>，避免已有文件与新文件落进不同目录。
+    /// </summary>
+    public string ArchiveFolderReadonlyText
+    {
+        get
+        {
+            string folder = SelectedDeviceIndex == 0 ? BackupVM.DeviceSubdir : AndroidBackupVM.DeviceSubdir;
+            return string.IsNullOrWhiteSpace(folder)
+                ? App.GetString("ArchiveFolderNotSet", "首次备份时确定")
+                : folder;
+        }
+    }
+
     [RelayCommand]
-    public void SaveRenameModal()
+    public async Task SaveRenameModalAsync()
     {
         if (!string.IsNullOrWhiteSpace(DeviceCustomName))
         {
             string clean = DeviceCustomName.Trim();
             if (SelectedDeviceIndex == 0)
             {
-                BackupVM.DeviceSubdir = clean;
-                BackupVM.SetDetectedDevice(clean);
+                // iPhone：只改显示名，绝不触碰归档文件夹名。
+                BackupVM.ApplyUserDisplayName(clean);
+                BackupVM.SaveAndroidConfig();
                 // Same device (UDID unchanged): migrate legacy name-keyed rows to the new alias.
                 IPhoneSyncVM.ApplyDeviceIdentity(IPhoneSyncVM.DeviceUdid, clean, null);
+                await PersistDeviceNameAsync(BackupVM.DestinationPath, IPhoneSyncVM.DeviceUdid, clean).ConfigureAwait(true);
             }
             else
             {
                 AndroidBackupVM.DetectedDeviceModel = clean;
+                AndroidBackupVM.SaveConfig();
+                await PersistDeviceNameAsync(AndroidBackupVM.DestinationPath, AndroidBackupVM.CurrentDeviceUid, clean).ConfigureAwait(true);
             }
         }
+
         IsRenameModalOpen = false;
+    }
+
+    /// <summary>
+    /// 把显示名写回归档库。<b>只改显示名，绝不触碰归档目录名</b>——归档目录名参与 manifest
+    /// 的相对路径，改动会让已有文件与新备份文件落进不同目录。
+    /// </summary>
+    private async Task PersistDeviceNameAsync(string? archivePath, string? udid, string name)
+    {
+        if (string.IsNullOrWhiteSpace(archivePath) ||
+            string.IsNullOrWhiteSpace(udid) ||
+            !System.IO.Directory.Exists(archivePath))
+        {
+            return;
+        }
+
+        try
+        {
+            bool updated = await PicHarbor.Core.Search.ArchiveRepository
+                .UpdateDeviceNameAsync(archivePath, udid, name)
+                .ConfigureAwait(true);
+
+            if (!updated)
+            {
+                MessageBox.Show(
+                    App.GetString("RenameNameTaken", "该名称已被另一台设备使用，请换一个。"),
+                    App.GetString("MsgBoxTitle", "提示"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+        }
+        catch
+        {
+            // 写库失败不影响界面显示。
+        }
     }
 
     [RelayCommand]
@@ -931,6 +1011,18 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     public void CloseAndroidFtpModal() => IsAndroidFtpModalOpen = false;
+
+    /// <summary>
+    /// 打开 FTP 弹窗时静默读一次手机端已有的唯一码并填入设备标识（失败不打扰，
+    /// 因为用户可能还没把 FTP 参数填好）。
+    /// </summary>
+    partial void OnIsAndroidFtpModalOpenChanged(bool value)
+    {
+        if (value)
+        {
+            _ = AndroidBackupVM.ReadDeviceIdentityAsync(silent: true);
+        }
+    }
 
     [RelayCommand]
     public void OpenTaskManager()

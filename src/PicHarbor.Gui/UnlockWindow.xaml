@@ -88,6 +88,7 @@
                            FontSize="12.5" Margin="0,0,0,6" />
                 <PasswordBox x:Name="PasswordBox" Height="34" Padding="8,0" VerticalContentAlignment="Center"
                              FontSize="13" Margin="0,0,0,14"
+                             KeyDown="UnlockInput_KeyDown"
                              PasswordChanged="PasswordBox_PasswordChanged" />
 
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
@@ -106,12 +107,14 @@
                 <TextBlock Text="{DynamicResource AppLockLabelTotpCode}" Foreground="{DynamicResource ColorBrush1}"
                            FontSize="12.5" Margin="0,0,0,6" />
                 <TextBox x:Name="ResetTotpBox" Height="34" Padding="8,0" VerticalContentAlignment="Center"
-                         FontSize="15" MaxLength="6" Margin="0,0,0,12" TextChanged="ResetTotpBox_TextChanged" />
+                         FontSize="15" MaxLength="6" Margin="0,0,0,12" TextChanged="ResetTotpBox_TextChanged"
+                         KeyDown="ResetInput_KeyDown" />
 
                 <TextBlock Text="{DynamicResource AppLockLabelNewPassword}" Foreground="{DynamicResource ColorBrush1}"
                            FontSize="12.5" Margin="0,0,0,6" />
                 <PasswordBox x:Name="ResetNewPasswordBox" Height="34" Padding="8,0" VerticalContentAlignment="Center"
-                             FontSize="13" Margin="0,0,0,14" PasswordChanged="ResetNewPasswordBox_PasswordChanged" />
+                             FontSize="13" Margin="0,0,0,14" PasswordChanged="ResetNewPasswordBox_PasswordChanged"
+                             KeyDown="ResetInput_KeyDown" />
 
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                     <controls:PclButton Content="{DynamicResource AppLockBtnResetPassword}" ButtonType="Hero"

@@ -144,7 +144,6 @@ public sealed class V3SemanticRefactorTests : IDisposable
         string relPath = "2024/2024-01/PHOTO.JPG";
 
         // Record history for Device A
-        journal.UpsertAndroidDevice(deviceA, "Pixel A", DateTimeOffset.UtcNow);
         journal.RecordAndroidSync(relPath, deviceA, DateTimeOffset.UtcNow);
 
         // 1. Historical Incremental on Device A => Skips because deviceA history contains relPath

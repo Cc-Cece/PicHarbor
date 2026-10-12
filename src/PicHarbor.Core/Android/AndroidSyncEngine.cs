@@ -10,12 +10,19 @@ namespace PicHarbor.Core.Android;
 /// <summary>
 /// Execution summary for an Android FTP incremental synchronization run.
 /// </summary>
+/// <param name="DeviceId">本次同步所使用的目标设备标识。</param>
+/// <param name="CopiedCount">成功上传的文件数。</param>
+/// <param name="SkippedCount">按增量规则跳过的文件数。</param>
+/// <param name="FailedCount">上传失败的文件数。</param>
+/// <param name="BytesCopied">成功上传的字节总数。</param>
+/// <param name="Aborted">是否因设备身份未获确认而中止（此时未传输任何文件）。</param>
 public sealed record AndroidSyncResult(
     string DeviceId,
     int CopiedCount,
     int SkippedCount,
     int FailedCount,
-    long BytesCopied);
+    long BytesCopied,
+    bool Aborted = false);
 
 /// <summary>
 /// Incremental synchronization engine that transfers PC-archived files to an Android device via FTP.
@@ -25,9 +32,20 @@ public static class AndroidSyncEngine
     /// <summary>
     /// Executes incremental synchronization from PC archive to Android over LAN FTP using specified configuration.
     /// </summary>
+    /// <param name="pcDestinationRoot">PC 侧归档根目录。</param>
+    /// <param name="config">同步配置。</param>
+    /// <param name="confirmIdentity">
+    /// 当目标设备身份与 PC 侧已确认标识不一致、或设备端缺少识别文件而无法核对时调用，
+    /// 返回 <c>false</c> 表示用户中止。为 <c>null</c> 时一律中止（保守）。
+    /// </param>
+    /// <param name="progressTarget">进度上报目标。</param>
+    /// <param name="onLog">日志回调。</param>
+    /// <param name="onItemOutcome">单个文件结果回调。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     public static async Task<AndroidSyncResult> SyncAsync(
         string pcDestinationRoot,
         AndroidSyncConfig config,
+        Func<DeviceIdentityResult, bool>? confirmIdentity = null,
         IProgress<ProgressSnapshot>? progressTarget = null,
         Action<string>? onLog = null,
         Action<string, string, long, CopyStatus, string?>? onItemOutcome = null,
@@ -46,10 +64,26 @@ public static class AndroidSyncEngine
         await ftp.ConnectAsync(config.FtpHost, config.FtpPort, config.FtpUser, config.FtpPassword, cancellationToken).ConfigureAwait(false);
 
         onLog?.Invoke($"[ANDROID] Identifying Android device at '{config.RemoteTargetDir}'...");
-        string deviceId = await AndroidDeviceDetector.IdentifyOrPairDeviceAsync(
-            ftp, config.RemoteTargetDir, config.ConfiguredDeviceId, config.DeviceName, cancellationToken).ConfigureAwait(false);
+        DeviceIdentityResult identity = await AndroidDeviceDetector
+            .ResolveIdentityAsync(ftp, config.RemoteTargetDir, config.ConfiguredDeviceId, cancellationToken)
+            .ConfigureAwait(false);
 
-        journal.UpsertAndroidDevice(deviceId, string.IsNullOrWhiteSpace(config.DeviceName) ? "Android Device" : config.DeviceName, DateTimeOffset.UtcNow);
+        // 不一致 / 无法核对时必须先获得用户确认，绝不静默按本机标识继续
+        // —— 否则文件可能传到 B 却被记录成 A，下次回传给 A 会错误跳过。
+        if (identity.RequiresConfirmation && (confirmIdentity is null || !confirmIdentity(identity)))
+        {
+            onLog?.Invoke($"[ANDROID ABORTED] 设备身份未获确认（{identity.Match}），已中止回传。");
+            return new AndroidSyncResult(identity.DeviceId, 0, 0, 0, 0, Aborted: true);
+        }
+
+        string deviceId = identity.DeviceId;
+        if (string.IsNullOrWhiteSpace(deviceId))
+        {
+            onLog?.Invoke("[ANDROID ABORTED] 无法确定目标设备身份，已中止回传。");
+            return new AndroidSyncResult(string.Empty, 0, 0, 0, 0, Aborted: true);
+        }
+
+        onLog?.Invoke($"[ANDROID] Device identity resolved: {deviceId} (source={identity.Source}, match={identity.Match}).");
 
         // Load manual selections if ScopeMode is ManualSelection and set is null
         if (config.ScopeMode == IPhoneRestoreScopeMode.ManualSelection && config.ManualSelectedPaths is null)
@@ -179,7 +213,6 @@ public static class AndroidSyncEngine
         string ftpUser,
         string ftpPassword,
         string remoteTargetDir,
-        string deviceName,
         string configuredDeviceId,
         IProgress<ProgressSnapshot>? progressTarget = null,
         Action<string>? onLog = null,
@@ -193,10 +226,15 @@ public static class AndroidSyncEngine
             FtpUser = ftpUser,
             FtpPassword = ftpPassword,
             RemoteTargetDir = remoteTargetDir,
-            DeviceName = deviceName,
             ConfiguredDeviceId = configuredDeviceId
         };
 
-        return SyncAsync(pcDestinationRoot, config, progressTarget, onLog, onItemOutcome, cancellationToken);
+        return SyncAsync(
+            pcDestinationRoot: pcDestinationRoot,
+            config: config,
+            progressTarget: progressTarget,
+            onLog: onLog,
+            onItemOutcome: onItemOutcome,
+            cancellationToken: cancellationToken);
     }
 }

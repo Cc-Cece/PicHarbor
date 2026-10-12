@@ -176,6 +176,146 @@ public static class ArchiveRepository
         });
     }
 
+    /// <summary>
+    /// 仅更新既有设备的硬件序列号（人工修正自动识别结果），不改名、不新建记录。
+    /// </summary>
+    public static Task<bool> UpdateDeviceHardwareSerialAsync(
+        string destinationRoot,
+        string deviceUid,
+        string? hardwareSerial)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceUid);
+        return Task.Run(() =>
+        {
+            using var journal = TransferJournal.Open(destinationRoot);
+            return journal.UpdateDeviceHardwareSerial(deviceUid, hardwareSerial);
+        });
+    }
+
+    /// <summary>
+    /// 判断该硬件序列号是否已被归档库中<b>其它</b>设备占用（唯一性校验）。
+    /// </summary>
+    public static Task<bool> IsHardwareSerialTakenByOtherAsync(
+        string destinationRoot,
+        string hardwareSerial,
+        string? excludeUid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(hardwareSerial);
+        return Task.Run(() =>
+        {
+            using var journal = TransferJournal.OpenReadOnly(destinationRoot);
+            return journal.IsHardwareSerialTakenByOther(hardwareSerial, excludeUid);
+        });
+    }
+
+    /// <summary>
+    /// 将既有设备的标识迁移为新值，保留其全部备份历史（用于重新识别后修复旧记录）。
+    /// </summary>
+    public static Task<bool> MigrateDeviceUdidAsync(
+        string destinationRoot,
+        string oldDeviceUid,
+        string newDeviceUid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(oldDeviceUid);
+        ArgumentException.ThrowIfNullOrWhiteSpace(newDeviceUid);
+        return Task.Run(() =>
+        {
+            using var journal = TransferJournal.Open(destinationRoot);
+            return journal.MigrateDeviceUdid(oldDeviceUid, newDeviceUid);
+        });
+    }
+
+    /// <summary>读取设备的显示名称；设备不存在时返回 <c>null</c>。</summary>
+    public static Task<string?> GetDeviceNameAsync(string destinationRoot, string deviceUid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceUid);
+        return Task.Run(() =>
+        {
+            using var journal = TransferJournal.OpenReadOnly(destinationRoot);
+            return journal.GetDeviceName(deviceUid);
+        });
+    }
+
+    /// <summary>
+    /// 更新设备显示名（重命名）。只改显示名，不触碰归档目录名；与其它设备重名时返回 <c>false</c>。
+    /// </summary>
+    public static Task<bool> UpdateDeviceNameAsync(string destinationRoot, string deviceUid, string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceUid);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        return Task.Run(() =>
+        {
+            using var journal = TransferJournal.Open(destinationRoot);
+            return journal.UpdateDeviceName(deviceUid, name);
+        });
+    }
+
+    /// <summary>判断某个显示名称是否已被归档库中其它设备占用。</summary>
+    public static Task<bool> IsDeviceNameTakenByOtherAsync(string destinationRoot, string name, string? excludeUid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        return Task.Run(() =>
+        {
+            using var journal = TransferJournal.OpenReadOnly(destinationRoot);
+            return journal.IsDeviceNameTakenByOther(name, excludeUid);
+        });
+    }
+
+    /// <summary>读取设备的归档文件夹名；未记录时返回 <c>null</c>。</summary>
+    public static Task<string?> GetDeviceArchiveFolderAsync(string destinationRoot, string deviceUid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceUid);
+        return Task.Run(() =>
+        {
+            using var journal = TransferJournal.OpenReadOnly(destinationRoot);
+            return journal.GetDeviceArchiveFolder(deviceUid);
+        });
+    }
+
+    /// <summary>记录设备的归档文件夹名。</summary>
+    public static Task<bool> SetDeviceArchiveFolderAsync(string destinationRoot, string deviceUid, string folder)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceUid);
+        ArgumentException.ThrowIfNullOrWhiteSpace(folder);
+        return Task.Run(() =>
+        {
+            using var journal = TransferJournal.Open(destinationRoot);
+            return journal.SetDeviceArchiveFolder(deviceUid, folder);
+        });
+    }
+
+    /// <summary>判断某个归档文件夹名是否已被归档库中其它设备占用。</summary>
+    public static Task<bool> IsDeviceArchiveFolderTakenByOtherAsync(string destinationRoot, string folder, string? excludeUid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(folder);
+        return Task.Run(() =>
+        {
+            using var journal = TransferJournal.OpenReadOnly(destinationRoot);
+            return journal.IsDeviceArchiveFolderTakenByOther(folder, excludeUid);
+        });
+    }
+
+    /// <summary>从该设备已备份文件的相对路径推导归档文件夹名（取路径第一段）。</summary>
+    public static Task<string?> InferDeviceArchiveFolderFromHistoryAsync(string destinationRoot, string deviceUid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceUid);
+        return Task.Run(() =>
+        {
+            using var journal = TransferJournal.OpenReadOnly(destinationRoot);
+            return journal.InferDeviceArchiveFolderFromHistory(deviceUid);
+        });
+    }
+
     /// <summary>Prunes redundant audit history data older than cutoff time and vacuums database.</summary>
     public static Task<(int PrunedSessions, int PrunedRecords)> PruneRedundantHistoryAsync(string destinationRoot, DateTimeOffset cutoffTime)
     {

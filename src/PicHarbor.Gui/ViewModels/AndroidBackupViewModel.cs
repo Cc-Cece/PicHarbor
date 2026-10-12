@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
@@ -12,6 +13,7 @@ using PicHarbor.Core.Organize;
 using PicHarbor.Core.Preflight;
 using PicHarbor.Core.Progress;
 using PicHarbor.Core.Scope;
+using PicHarbor.Core.Search;
 using PicHarbor.Core.Storage;
 using PicHarbor.Core.Transfer;
 using PicHarbor.Core.Util;
@@ -92,12 +94,20 @@ public partial class AndroidBackupViewModel : ObservableObject
     private string destinationPath = MainViewModel.DefaultArchivePath;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HeroPillText))]
     private string detectedDeviceModel = "Pixel 8";
 
+    /// <summary>
+    /// 归档文件夹名。<b>首次备份时确定后不可更改</b>——它参与 manifest 的相对路径，
+    /// 改动会让已有文件与新备份文件落进不同目录。
+    /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FullDestinationPreview))]
     [NotifyPropertyChangedFor(nameof(DestinationSubtitle))]
-    private string deviceSubdir = "Pixel 8";
+    private string deviceSubdir = string.Empty;
+
+    /// <summary>归档文件夹名是否已锁定（已写入配置）。</summary>
+    private bool archiveFolderLocked;
 
     public string FullDestinationPreview =>
         Path.Combine(DestinationPath, LibraryStorageService.SanitizeDeviceFolderName(DeviceSubdir));
@@ -159,7 +169,12 @@ public partial class AndroidBackupViewModel : ObservableObject
     private void NavigateToSettings() => NavigateToSettingsAction?.Invoke();
 
     [RelayCommand]
-    private void ResetDeviceSubdir() => DeviceSubdir = DetectedDeviceModel;
+    private void ResetDeviceSubdir()
+    {
+        // 已锁定（首次备份已确定）时不允许再改，否则文件会散到两个目录。
+        if (archiveFolderLocked) return;
+        DeviceSubdir = DetectedDeviceModel;
+    }
 
     [RelayCommand]
     private void OpenDestinationFolder()
@@ -181,11 +196,162 @@ public partial class AndroidBackupViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(model)) return;
         string sanitized = LibraryStorageService.SanitizeDeviceFolderName(model);
         DetectedDeviceModel = sanitized;
-        if (string.IsNullOrWhiteSpace(DeviceSubdir) ||
-            DeviceSubdir.Equals("Pixel 8", StringComparison.OrdinalIgnoreCase) ||
-            DeviceSubdir.Equals("Android", StringComparison.OrdinalIgnoreCase))
+
+        // 归档文件夹名一旦锁定就不再跟随显示名（已有文件在旧目录里）。
+        if (!archiveFolderLocked)
         {
             DeviceSubdir = sanitized;
+        }
+    }
+
+    /// <summary>
+    /// 确保归档文件夹名已确定。
+    /// </summary>
+    /// <remarks>
+    /// 判据顺序：<b>先按设备身份查归档库</b>（归档目录名与设备记录同生共死，是唯一权威），
+    /// 库里没有才问用户。这样老归档不会因配置缺字段被重复询问，也不会把照片写进新目录。
+    /// </remarks>
+    private async Task<bool> EnsureArchiveFolderAsync()
+    {
+        if (archiveFolderLocked && !string.IsNullOrWhiteSpace(DeviceSubdir))
+        {
+            return true;
+        }
+
+        string uid = CurrentDeviceUid;
+        bool archiveReady = !string.IsNullOrWhiteSpace(DestinationPath) && Directory.Exists(DestinationPath);
+
+        if (archiveReady)
+        {
+            try
+            {
+                // ① 库里有明确记录 → 直接采用，不打扰用户。
+                string? stored = await ArchiveRepository
+                    .GetDeviceArchiveFolderAsync(DestinationPath, uid)
+                    .ConfigureAwait(true);
+
+                if (!string.IsNullOrWhiteSpace(stored))
+                {
+                    DeviceSubdir = stored;
+                    archiveFolderLocked = true;
+                    AddLog($"[INFO] 归档文件夹沿用既有记录：{DeviceSubdir}");
+                    return true;
+                }
+
+                // ② 已知设备、但库里没记归档目录名（升级上来的老记录）：
+                //    旧版本用显示名当目录名，且目录确实存在 → 采用并回写库。
+                string? storedName = await ArchiveRepository
+                    .GetDeviceNameAsync(DestinationPath, uid)
+                    .ConfigureAwait(true);
+
+                if (!string.IsNullOrWhiteSpace(storedName))
+                {
+                    string candidate = LibraryStorageService.SanitizeDeviceFolderName(storedName);
+                    if (!string.IsNullOrWhiteSpace(candidate) &&
+                        Directory.Exists(Path.Combine(DestinationPath, candidate)))
+                    {
+                        DeviceSubdir = candidate;
+                        archiveFolderLocked = true;
+                        await ArchiveRepository
+                            .SetDeviceArchiveFolderAsync(DestinationPath, uid, candidate)
+                            .ConfigureAwait(true);
+                        AddLog($"[INFO] 归档文件夹沿用既有目录：{DeviceSubdir}");
+                        return true;
+                    }
+                }
+
+                // ③ 显示名对不上（用户改过显示名）→ 从已备份文件的相对路径推导真实归档目录名。
+                string? inferred = await ArchiveRepository
+                    .InferDeviceArchiveFolderFromHistoryAsync(DestinationPath, uid)
+                    .ConfigureAwait(true);
+
+                if (!string.IsNullOrWhiteSpace(inferred))
+                {
+                    string inferredFolder = LibraryStorageService.SanitizeDeviceFolderName(inferred);
+                    if (!string.IsNullOrWhiteSpace(inferredFolder) &&
+                        Directory.Exists(Path.Combine(DestinationPath, inferredFolder)))
+                    {
+                        DeviceSubdir = inferredFolder;
+                        archiveFolderLocked = true;
+                        await ArchiveRepository
+                            .SetDeviceArchiveFolderAsync(DestinationPath, uid, inferredFolder)
+                            .ConfigureAwait(true);
+                        AddLog($"[INFO] 归档文件夹由备份历史推导：{DeviceSubdir}");
+                        return true;
+                    }
+                }
+            }
+            catch
+            {
+                // 读库失败时退回到询问用户。
+            }
+        }
+
+        // ③ 库里查不到这台设备 → 真正的新设备，弹框确认（唯一一次机会）。
+        string suggested = string.IsNullOrWhiteSpace(DeviceSubdir)
+            ? (string.IsNullOrWhiteSpace(DetectedDeviceModel) ? "Android" : DetectedDeviceModel)
+            : DeviceSubdir;
+
+        var dialog = new ArchiveFolderDialog(suggested, name => ValidateArchiveFolderNameAsync(name, uid))
+        {
+            Owner = Application.Current?.MainWindow
+        };
+
+        dialog.ShowDialog();
+        if (!dialog.Confirmed)
+        {
+            return false;
+        }
+
+        DeviceSubdir = LibraryStorageService.SanitizeDeviceFolderName(dialog.FolderName);
+        archiveFolderLocked = true;
+        SaveConfig();
+
+        if (archiveReady)
+        {
+            try
+            {
+                await ArchiveRepository
+                    .SetDeviceArchiveFolderAsync(DestinationPath, uid, DeviceSubdir)
+                    .ConfigureAwait(true);
+            }
+            catch
+            {
+                // 写库失败不影响本次备份；下次会走 ② 兜底。
+            }
+        }
+
+        AddLog($"[INFO] 归档文件夹已确定为 {DeviceSubdir}，之后不可更改。");
+        return true;
+    }
+
+    /// <summary>归档文件夹名校验：与<b>其它</b>设备已占用的名字冲突时拒绝（按设备身份排除自己）。</summary>
+    private async Task<string?> ValidateArchiveFolderNameAsync(string name, string uid)
+    {
+        string sanitized = LibraryStorageService.SanitizeDeviceFolderName(name);
+        if (string.IsNullOrWhiteSpace(sanitized))
+        {
+            return App.GetString("ArchiveFolderInvalid", "该名称不可用作文件夹名，请换一个。");
+        }
+
+        if (string.IsNullOrWhiteSpace(DestinationPath) || !Directory.Exists(DestinationPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            bool taken = await ArchiveRepository
+                .IsDeviceArchiveFolderTakenByOtherAsync(DestinationPath, sanitized, uid)
+                .ConfigureAwait(true);
+
+            return taken
+                ? string.Format(App.GetString("FmtArchiveFolderTaken", "名称「{0}」已被另一台设备使用，请换一个。"), sanitized)
+                : null;
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -206,9 +372,6 @@ public partial class AndroidBackupViewModel : ObservableObject
     private string androidFtpPassword = "";
 
     [ObservableProperty]
-    private string androidDeviceName = "Pixel 8";
-
-    [ObservableProperty]
     private string androidDeviceId = "";
 
     [ObservableProperty]
@@ -221,6 +384,23 @@ public partial class AndroidBackupViewModel : ObservableObject
 
     [ObservableProperty]
     private bool isTestingConnection = false;
+
+    /// <summary>设备标识区域的状态 / 指引文案（为空则不显示该行）。</summary>
+    [ObservableProperty]
+    private string deviceIdentityStatusText = "";
+
+    /// <summary>设备标识状态是否为警示（识别失败 / 需人工核对）而非成功。</summary>
+    [ObservableProperty]
+    private bool isDeviceIdentityWarning = false;
+
+    /// <summary>
+    /// 设备标识是否已确认（自动识别成功或用户手工填写）。
+    /// 仅用于持久化，避免下次进入时重复打扰。
+    /// </summary>
+    private bool deviceIdConfirmed = false;
+
+    /// <summary>加载配置期间抑制设备标识状态刷新，避免启动时弹出「已手动填写」提示。</summary>
+    private bool suppressDeviceIdStatus = false;
 
     // Filter and Scope Properties
     [ObservableProperty]
@@ -342,9 +522,12 @@ public partial class AndroidBackupViewModel : ObservableObject
 
                 return string.Format(App.GetString("FmtBackupDoneSkipped", "完成 ({0}传输, {1}跳过)"), CopiedCount, SkippedCount);
             }
+            string model = DetectedDeviceModel;
             return IsConnectionOk
-                ? App.GetString("AndroidConnectedReady", "已连接 · 准备就绪")
-                : App.GetString("MsgReady", "准备就绪");
+                ? string.IsNullOrWhiteSpace(model)
+                    ? App.GetString("AndroidPillConnected", "已连接")
+                    : string.Format(App.GetString("FmtAndroidPillConnected", "已连接 {0}"), model)
+                : App.GetString("AndroidPillNotConnected", "未连接或参数错误");
         }
     }
 
@@ -794,24 +977,39 @@ public partial class AndroidBackupViewModel : ObservableObject
     private void LoadConfig()
     {
         var config = AppSettings.Load();
-        if (!string.IsNullOrWhiteSpace(config.DestinationPath))
+        suppressDeviceIdStatus = true;
+        try
         {
-            DestinationPath = config.DestinationPath;
+            if (!string.IsNullOrWhiteSpace(config.DestinationPath))
+            {
+                DestinationPath = config.DestinationPath;
+            }
+            if (!string.IsNullOrWhiteSpace(config.SelectedScheme))
+            {
+                SelectedScheme = config.SelectedScheme;
+            }
+            AndroidFtpHost = config.AndroidBackupFtpHost;
+            AndroidFtpPort = config.AndroidBackupFtpPort;
+            AndroidFtpUser = config.AndroidBackupFtpUser;
+            AndroidFtpPassword = config.AndroidBackupFtpPassword;
+
+            if (!string.IsNullOrWhiteSpace(config.AndroidBackupDeviceName))
+            {
+                DetectedDeviceModel = config.AndroidBackupDeviceName;
+            }
+            // 归档文件夹名由归档库持有，首次备份前通过 EnsureArchiveFolderAsync 确定。
+
+            AndroidDeviceId = config.AndroidBackupDeviceId;
+            deviceIdConfirmed = config.AndroidBackupDeviceIdConfirmed;
+            MinFileSizeKb = config.AndroidBackupMinFileSizeKb;
+            IgnoreSmallImages = config.AndroidBackupIgnoreSmallImages;
+            IncludePhotos = config.AndroidBackupIncludePhotos;
+            IncludeVideos = config.AndroidBackupIncludeVideos;
         }
-        if (!string.IsNullOrWhiteSpace(config.SelectedScheme))
+        finally
         {
-            SelectedScheme = config.SelectedScheme;
+            suppressDeviceIdStatus = false;
         }
-        AndroidFtpHost = config.AndroidBackupFtpHost;
-        AndroidFtpPort = config.AndroidBackupFtpPort;
-        AndroidFtpUser = config.AndroidBackupFtpUser;
-        AndroidFtpPassword = config.AndroidBackupFtpPassword;
-        AndroidDeviceName = config.AndroidBackupDeviceName;
-        AndroidDeviceId = config.AndroidBackupDeviceId;
-        MinFileSizeKb = config.AndroidBackupMinFileSizeKb;
-        IgnoreSmallImages = config.AndroidBackupIgnoreSmallImages;
-        IncludePhotos = config.AndroidBackupIncludePhotos;
-        IncludeVideos = config.AndroidBackupIncludeVideos;
     }
 
     public void SaveConfig()
@@ -823,8 +1021,9 @@ public partial class AndroidBackupViewModel : ObservableObject
         config.AndroidBackupFtpPort = AndroidFtpPort;
         config.AndroidBackupFtpUser = AndroidFtpUser;
         config.AndroidBackupFtpPassword = AndroidFtpPassword;
-        config.AndroidBackupDeviceName = AndroidDeviceName;
+        config.AndroidBackupDeviceName = DetectedDeviceModel;
         config.AndroidBackupDeviceId = AndroidDeviceId;
+        config.AndroidBackupDeviceIdConfirmed = deviceIdConfirmed;
         config.AndroidBackupMinFileSizeKb = MinFileSizeKb;
         config.AndroidBackupIgnoreSmallImages = IgnoreSmallImages;
         config.AndroidBackupIncludePhotos = IncludePhotos;
@@ -849,6 +1048,302 @@ public partial class AndroidBackupViewModel : ObservableObject
         }
     }
 
+    // ── 自动连接检测：FTP 配置变化后防抖 800ms 自动测试（手动按钮保留，随时可重测）──
+    private DispatcherTimer? autoConnTestTimer;
+
+    private void ScheduleAutoConnectionTest()
+    {
+        if (autoConnTestTimer is null)
+        {
+            autoConnTestTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
+            autoConnTestTimer.Tick += AutoConnTestTimer_Tick;
+        }
+
+        autoConnTestTimer.Stop();
+        autoConnTestTimer.Start();
+    }
+
+    private void AutoConnTestTimer_Tick(object? sender, EventArgs e)
+    {
+        autoConnTestTimer!.Stop();
+        if (IsTransferring || IsTestingConnection)
+        {
+            return;
+        }
+
+        TestConnectionCommand.Execute(null);
+    }
+
+    partial void OnAndroidFtpHostChanged(string value) => ScheduleAutoConnectionTest();
+
+    partial void OnAndroidFtpPortChanged(int value) => ScheduleAutoConnectionTest();
+
+    partial void OnAndroidFtpUserChanged(string value) => ScheduleAutoConnectionTest();
+
+    partial void OnAndroidFtpPasswordChanged(string value) => ScheduleAutoConnectionTest();
+
+    /// <summary>把配对成功的设备标识落到本地配置与归档库（设备端写入由配对对话框完成）。</summary>
+    private async Task ApplyDeviceIdentityAsync(string serial)
+    {
+        string oldUid = BuildCurrentDeviceUid();
+        string newUid = $"android:{serial}";
+        string displayOld = string.IsNullOrWhiteSpace(AndroidDeviceId) ? AndroidFtpHost : AndroidDeviceId;
+
+        AndroidDeviceId = serial;
+        deviceIdConfirmed = true;
+        SaveConfig();
+
+        bool migrated = false;
+        if (!string.IsNullOrWhiteSpace(DestinationPath) && Directory.Exists(DestinationPath))
+        {
+            try
+            {
+                if (!string.Equals(oldUid, newUid, StringComparison.OrdinalIgnoreCase))
+                {
+                    migrated = await ArchiveRepository
+                        .MigrateDeviceUdidAsync(DestinationPath, oldUid, newUid)
+                        .ConfigureAwait(true);
+                }
+
+                // 迁移只改 udid；hardware_serial 列必须一并同步，
+                // 否则设备历史弹窗仍把旧值判为占位值、显示「未识别」，与「识别成功」自相矛盾。
+                await ArchiveRepository
+                    .UpdateDeviceHardwareSerialAsync(DestinationPath, newUid, serial)
+                    .ConfigureAwait(true);
+            }
+            catch
+            {
+                // 归档库写入失败不影响标识本身的保存。
+            }
+        }
+
+        SetDeviceIdentityStatus("FmtAndroidIdSuccess", "已绑定设备标识：{0}", isWarning: false, serial);
+        AddLog($"[INFO] Android 设备标识已设为 {serial}（原：{displayOld}）{(migrated ? "，既有备份历史已迁移至新标识" : string.Empty)}");
+
+        // 用码查归档库：命中就把该设备的显示名填回来，避免用户重新起名。
+        await TryFillDisplayNameAsync(serial).ConfigureAwait(true);
+    }
+
+    /// <summary>用唯一码查归档库，命中就把该设备的显示名填回界面。</summary>
+    private async Task TryFillDisplayNameAsync(string deviceId)
+    {
+        if (string.IsNullOrWhiteSpace(deviceId) ||
+            string.IsNullOrWhiteSpace(DestinationPath) ||
+            !Directory.Exists(DestinationPath))
+        {
+            return;
+        }
+
+        try
+        {
+            string? storedName = await ArchiveRepository
+                .GetDeviceNameAsync(DestinationPath, $"android:{deviceId}")
+                .ConfigureAwait(true);
+
+            if (!string.IsNullOrWhiteSpace(storedName))
+            {
+                DetectedDeviceModel = storedName;
+                SaveConfig();
+            }
+        }
+        catch
+        {
+            // 查不到不影响绑定结果。
+        }
+    }
+
+    /// <summary>
+    /// 读取手机端已有的唯一码并填入「设备标识」。
+    /// </summary>
+    /// <param name="silent">静默模式：失败不提示（用于打开弹窗时的自动尝试）。</param>
+    public async Task ReadDeviceIdentityAsync(bool silent = false)
+    {
+        if (IsTransferring || string.IsNullOrWhiteSpace(AndroidFtpHost))
+        {
+            return;
+        }
+
+        if (!silent)
+        {
+            SetDeviceIdentityStatus("AndroidIdReading", "正在读取手机端标识...", isWarning: false);
+        }
+
+        try
+        {
+            using var ftp = new SimpleFtpClient();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            await ftp.ConnectAsync(AndroidFtpHost, AndroidFtpPort, AndroidFtpUser, AndroidFtpPassword, cts.Token).ConfigureAwait(true);
+
+            DeviceIdentityResult identity = await AndroidDeviceDetector
+                .ResolveIdentityAsync(ftp, AndroidRemoteLayout.RootDirectory, AndroidDeviceId, cts.Token)
+                .ConfigureAwait(true);
+
+            string baseline = AndroidDeviceId;
+            string remoteId = identity.RemoteId ?? string.Empty;
+
+            switch (identity.Match)
+            {
+                case DeviceIdentityMatch.Matched:
+                    SetDeviceIdentityStatus("FmtAndroidIdReadOk", "已读取手机端标识：{0}", isWarning: false, remoteId);
+                    await TryFillDisplayNameAsync(remoteId).ConfigureAwait(true);
+                    break;
+
+                case DeviceIdentityMatch.NoBaseline when !string.IsNullOrWhiteSpace(remoteId):
+                    // 本机还没有记录：直接采用手机端的码。
+                    AndroidDeviceId = remoteId;
+                    deviceIdConfirmed = true;
+                    SaveConfig();
+                    await TryFillDisplayNameAsync(remoteId).ConfigureAwait(true);
+                    SetDeviceIdentityStatus("FmtAndroidIdReadAdopted", "已读取并采用手机端标识：{0}", isWarning: false, remoteId);
+                    break;
+
+                case DeviceIdentityMatch.Mismatched:
+                    SetDeviceIdentityStatus(
+                        "FmtAndroidIdReadMismatch",
+                        "手机端标识 {0} 与本机记录 {1} 不一致，请确认是否连错了设备。",
+                        isWarning: true,
+                        remoteId,
+                        baseline);
+                    break;
+
+                default:
+                    SetDeviceIdentityStatus("AndroidIdReadMissing", "手机端没有识别文件，需要先配对。", isWarning: true);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            if (!silent)
+            {
+                SetDeviceIdentityStatus("FmtAndroidIdReadFailed", "读取手机端标识失败：{0}", isWarning: true, ex.Message);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 生成一个新唯一码并配对到当前手机：生成码 → 打开配对对话框（分步反馈 + 回读验证 + 覆盖保护）
+    /// → 配对成功后落库。
+    /// </summary>
+    /// <remarks>
+    /// 若当前<b>已有</b>设备标识，这个动作会换码（覆盖手机上的现有标识），必须先二次确认——
+    /// 否则用户想"连接这台设备"却误点此按钮，会导致设备历史与新码脱钩。
+    /// </remarks>
+    [RelayCommand]
+    private async Task GenerateAndBindDeviceIdAsync()
+    {
+        string current = (AndroidDeviceId ?? string.Empty).Trim();
+
+        if (!string.IsNullOrWhiteSpace(current) &&
+            !await ConfirmReplaceIdentityAsync(current).ConfigureAwait(true))
+        {
+            return;
+        }
+
+        string generated = DeviceSerialGenerator.CreateInternalId();
+
+        if (!RunPairing(generated))
+        {
+            SetDeviceIdentityStatus("AndroidIdPairNotCompleted", "配对未完成，设备标识未改动。", isWarning: true);
+            return;
+        }
+
+        await ApplyDeviceIdentityAsync(generated).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// 换码前的二次确认。若该标识已在归档库中登记，明确告知它属于哪台设备、有多少历史批次，
+    /// 以及换码会让历史脱钩；并提示"只是想连接这台设备的话不必换码"。
+    /// </summary>
+    private async Task<bool> ConfirmReplaceIdentityAsync(string current)
+    {
+        string? knownName = null;
+        int sessions = 0;
+
+        if (!string.IsNullOrWhiteSpace(DestinationPath) && Directory.Exists(DestinationPath))
+        {
+            try
+            {
+                string uid = $"android:{current}";
+                knownName = await ArchiveRepository.GetDeviceNameAsync(DestinationPath, uid).ConfigureAwait(true);
+
+                if (!string.IsNullOrWhiteSpace(knownName))
+                {
+                    var summary = await ArchiveRepository
+                        .GetDeviceBackupSummaryAsync(DestinationPath, uid)
+                        .ConfigureAwait(true);
+                    sessions = summary.TotalSessions;
+                }
+            }
+            catch
+            {
+                // 查不到就按未知设备处理。
+            }
+        }
+
+        string message = string.IsNullOrWhiteSpace(knownName)
+            ? string.Format(
+                App.GetString(
+                    "FmtAndroidIdReplaceUnknown",
+                    "当前设备标识：{0}\n\n「生成并绑定」会创建一个【新的】唯一码并覆盖手机上的现有标识。\n\n确定继续吗？"),
+                current)
+            : string.Format(
+                App.GetString(
+                    "FmtAndroidIdReplaceKnown",
+                    "当前设备标识：{0}\n该标识已在归档库中登记为设备「{1}」，有 {2} 个备份批次。\n\n「生成并绑定」会创建一个【新的】唯一码并覆盖手机上的现有标识，该设备的历史记录将与新码脱钩。\n\n如果只是想连接这台设备，请直接点「完成」——当前标识已经正确。\n\n确定要换码吗？"),
+                current,
+                knownName,
+                sessions);
+
+        return MessageBox.Show(
+            message,
+            App.GetString("MsgBoxTitle", "提示"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning) == MessageBoxResult.Yes;
+    }
+
+    /// <summary>打开配对对话框，返回是否达成配对。</summary>
+    private bool RunPairing(string targetDeviceId)
+    {
+        var dialog = new AndroidPairingDialog(
+            DetectedDeviceModel,
+            targetDeviceId,
+            AndroidFtpHost,
+            AndroidFtpPort,
+            AndroidFtpUser,
+            AndroidFtpPassword)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+
+        dialog.ShowDialog();
+        return dialog.IsPaired;
+    }
+
+    /// <summary>输入框内容被手动修改即视为已确认。</summary>
+    partial void OnAndroidDeviceIdChanged(string value)
+    {
+        if (suppressDeviceIdStatus || string.IsNullOrWhiteSpace(value)) return;
+
+        deviceIdConfirmed = true;
+        SaveConfig();
+        SetDeviceIdentityStatus("AndroidIdManualAccepted", "已使用手动填写的设备标识。", isWarning: false);
+    }
+
+    /// <summary>与 FtpAndroidBackupClient 的 Device.Udid 保持一致。</summary>
+    private string BuildCurrentDeviceUid() =>
+        $"android:{(string.IsNullOrWhiteSpace(AndroidDeviceId) ? AndroidFtpHost : AndroidDeviceId)}";
+
+    /// <summary>当前设备在归档库中的 udid。</summary>
+    public string CurrentDeviceUid => BuildCurrentDeviceUid();
+
+    private void SetDeviceIdentityStatus(string key, string fallback, bool isWarning, params object[] args)
+    {
+        IsDeviceIdentityWarning = isWarning;
+        DeviceIdentityStatusText = args.Length == 0
+            ? App.GetString(key, fallback)
+            : string.Format(App.GetString(key, fallback), args);
+    }
+
     [RelayCommand]
     private async Task TestConnectionAsync()
     {
@@ -869,6 +1364,9 @@ public partial class AndroidBackupViewModel : ObservableObject
                 AddLog($"[SUCCESS] 成功连接至 Android FTP 服务器。");
                 SaveConfig();
             });
+
+            // 连接成功顺带读一次手机端标识，设备标识区域会给出核对结果。
+            await ReadDeviceIdentityAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
         {
@@ -1126,6 +1624,11 @@ public partial class AndroidBackupViewModel : ObservableObject
 
         SaveConfig();
 
+        if (!await EnsureArchiveFolderAsync().ConfigureAwait(true))
+        {
+            return;
+        }
+
         IsTransferring = true;
         backupCts = new CancellationTokenSource();
         var ct = backupCts.Token;
@@ -1160,7 +1663,7 @@ public partial class AndroidBackupViewModel : ObservableObject
                     AndroidFtpUser,
                     AndroidFtpPassword,
                     deviceId: string.IsNullOrWhiteSpace(AndroidDeviceId) ? AndroidFtpHost : AndroidDeviceId,
-                    deviceName: AndroidDeviceName);
+                    deviceName: DetectedDeviceModel);
 
                 await client.ConnectAsync(ct).ConfigureAwait(false);
 
@@ -1204,7 +1707,12 @@ public partial class AndroidBackupViewModel : ObservableObject
                 long backupSessionId = 0;
                 if (client.Device is not null)
                 {
-                    string effectiveName = journal.RegisterOrUpdateDevice(client.Device.Udid, client.Device.Name, client.Device.ProductType, client.Device.Udid, "Android", runStartedAt);
+                    // hardware_serial 必须是「码」本身（如 PH-KAZ565GJ），而不是 udid（android:PH-...）——
+                    // 否则设备历史弹窗会把它判成占位值、显示「未识别」。
+                    string deviceSerial = client.Device.Udid.StartsWith("android:", StringComparison.OrdinalIgnoreCase)
+                        ? client.Device.Udid["android:".Length..]
+                        : client.Device.Udid;
+                    string effectiveName = journal.RegisterOrUpdateDevice(client.Device.Udid, client.Device.Name, client.Device.ProductType, deviceSerial, "Android", runStartedAt);
                     backupSessionId = journal.BeginBackupSession(client.Device.Udid, effectiveName, client.Device.ProductType, runStartedAt);
                 }
 

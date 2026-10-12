@@ -859,6 +859,17 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>点击任务中心面板外的任意位置时收起面板。</summary>
+    private void TaskManagerBackdrop_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is MainViewModel mainVM)
+        {
+            mainVM.CloseTaskManager();
+        }
+
+        e.Handled = true;
+    }
+
     protected override void OnKeyDown(KeyEventArgs e)
     {
         try

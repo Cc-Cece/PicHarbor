@@ -36,6 +36,12 @@ public partial class SyncFolderScanItemViewModel : ObservableObject
     public string TotalSizeText => FormatByteSize(TotalBytes);
     public string EquivalentText => IsCurrent ? "-" : $"{EquivalentCount} / {FileCount}";
     public string MissingText => IsCurrent ? "-" : MissingCount.ToString("N0");
+    public string DeviceDisplay => string.IsNullOrWhiteSpace(DeviceName) ? "-" : DeviceName!;
+    public string FilesSummaryText => $"{FileCountText} · {TotalSizeText}";
+
+    public string MergeInfoText => IsCurrent
+        ? string.Empty
+        : string.Format(App.GetString("FmtSyncItemMergeInfo", "等价 {0} / {1}，缺失 {2}"), EquivalentCount, FileCount, MissingCount);
 
     public string StatusText
     {

@@ -1,5 +1,6 @@
 using System.Globalization;
 using PicHarbor.Core.Journal;
+using PicHarbor.Core.Scope;
 
 namespace PicHarbor.Core.iPhone;
 
@@ -39,6 +40,14 @@ public sealed class IPhoneExportConfig
     public HashSet<string>? ManualSelectedPaths { get; set; }
 
     /// <summary>
+    /// Combined filter set (subfolder AND date, day granularity). When non-null, combination semantics
+    /// are enabled: <see cref="ScopeMode"/> acts as the base set (All passes everything,
+    /// ManualSelection restricts to <see cref="ManualSelectedPaths"/>) and the filters are ANDed on top.
+    /// When null, the legacy exclusive <see cref="ScopeMode"/> switch is used for backward compatibility.
+    /// </summary>
+    public ScopeFilterSet? Filters { get; set; }
+
+    /// <summary>
     /// Computes the effective export folder path based on <see cref="CustomSyncFolder"/> or the default
     /// <c>&lt;pcDestinationRoot&gt;/.AppleSync/&lt;DeviceModel&gt;/</c> pattern.
     /// </summary>
@@ -54,11 +63,27 @@ public sealed class IPhoneExportConfig
     }
 
     /// <summary>
-    /// Determines whether the specified manifest entry should be included for export under the current <see cref="ScopeMode"/>.
+    /// Determines whether the specified manifest entry should be included for export under the current
+    /// configuration. When <see cref="Filters"/> is set, combination semantics apply (base scope ANDed
+    /// with filters); otherwise the legacy exclusive <see cref="ScopeMode"/> switch is evaluated.
     /// </summary>
     public bool IsEntryIncluded(ManifestEntry entry)
     {
         ArgumentNullException.ThrowIfNull(entry);
+
+        if (Filters is not null)
+        {
+            if (ScopeMode == IPhoneRestoreScopeMode.ManualSelection &&
+                (ManualSelectedPaths is null ||
+                 !(ManualSelectedPaths.Contains(entry.DestPath) ||
+                   ManualSelectedPaths.Contains(entry.DestPath.Replace('\\', '/')) ||
+                   ManualSelectedPaths.Contains(entry.DestPath.Replace('/', '\\')))))
+            {
+                return false;
+            }
+
+            return Filters.IsEntryIncluded(entry);
+        }
 
         return ScopeMode switch
         {
@@ -77,7 +102,7 @@ public sealed class IPhoneExportConfig
 
     private bool MatchesDateRange(ManifestEntry entry)
     {
-        DateTimeOffset? captureDate = ParseCaptureDate(entry);
+        DateTimeOffset? captureDate = ScopeFilterSet.ParseCaptureDate(entry);
         if (!captureDate.HasValue) return true;
 
         DateTime dt = captureDate.Value.LocalDateTime;
@@ -89,28 +114,6 @@ public sealed class IPhoneExportConfig
 
     private bool MatchesSubfolder(ManifestEntry entry)
     {
-        if (SelectedSubfolders is null || SelectedSubfolders.Count == 0) return true;
-
-        string normalizedDest = entry.DestPath.Replace('\\', '/');
-        string dir = Path.GetDirectoryName(normalizedDest)?.Replace('\\', '/') ?? string.Empty;
-
-        return SelectedSubfolders.Contains(dir) || SelectedSubfolders.Any(s => normalizedDest.StartsWith(s.TrimEnd('/') + "/", StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static DateTimeOffset? ParseCaptureDate(ManifestEntry entry)
-    {
-        if (!string.IsNullOrEmpty(entry.ExifDateTimeOriginalIso) &&
-            DateTimeOffset.TryParse(entry.ExifDateTimeOriginalIso, CultureInfo.InvariantCulture, DateTimeStyles.None, out var exifDt))
-        {
-            return exifDt;
-        }
-
-        if (!string.IsNullOrEmpty(entry.SourceMtimeIso) &&
-            DateTimeOffset.TryParse(entry.SourceMtimeIso, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var mtimeDt))
-        {
-            return mtimeDt;
-        }
-
-        return null;
+        return ScopeFilterSet.MatchSubfolder(entry.DestPath, SelectedSubfolders);
     }
 }

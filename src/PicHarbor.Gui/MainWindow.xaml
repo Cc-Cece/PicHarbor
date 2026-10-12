@@ -343,6 +343,7 @@
                                 <!-- Hero Action Button (Idle) -->
                                 <controls:PclButton Content="{DynamicResource HeroStartBackup}"
                                                     Subtitle="{Binding BackupVM.DestinationSubtitle}"
+                                                    IsEnabled="{Binding IsDeviceConnected}"
                                                     Command="{Binding BackupVM.StartBackupCommand}"
                                                     ButtonType="Hero"
                                                     Height="56"
@@ -386,6 +387,7 @@
                                 <!-- Hero Action Button (Idle) -->
                                 <controls:PclButton Content="{DynamicResource HeroStartBackup}"
                                                     Subtitle="{Binding AndroidBackupVM.DestinationSubtitle}"
+                                                    IsEnabled="{Binding AndroidBackupVM.IsConnectionOk}"
                                                     Command="{Binding AndroidBackupVM.StartBackupCommand}"
                                                     ButtonType="Hero"
                                                     Height="56"
@@ -1091,9 +1093,10 @@
                                 <!-- Card 2: 上传策略 -->
                                 <controls:PclCard Title="{DynamicResource CardGoogleScope}" CanSwap="False">
                                     <StackPanel>
-                                        <TextBlock Text="{DynamicResource LabelUploadScope}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,6" />
+                                        <TextBlock Text="{DynamicResource LabelBaseScope}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,6" />
                                         <controls:PclRadioBox Content="{DynamicResource ScopeGoogleAll}" IsChecked="{Binding IsScopeAll, Mode=TwoWay}" Margin="0,0,0,6" />
                                         <controls:PclRadioBox Content="{DynamicResource ScopeGoogleManual}" IsChecked="{Binding IsScopeManualSelection, Mode=TwoWay}" Margin="0,0,0,6" />
+                                        <controls:PclRadioBox Content="{DynamicResource ScopeGoogleCustomTarget}" IsChecked="{Binding IsScopeCustomTarget, Mode=TwoWay}" Margin="0,0,0,6" />
 
                                         <Border Margin="24,0,0,12" Padding="10" Background="#F8FAFC" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1"
                                                 Visibility="{Binding IsScopeManualSelection, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -1104,7 +1107,68 @@
                                             </StackPanel>
                                         </Border>
 
-                                        <TextBlock Text="{DynamicResource LabelGoogleAlbumMode}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" Margin="0,4,0,8" />
+                                        <Grid Margin="24,0,0,12" Visibility="{Binding IsScopeCustomTarget, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{DynamicResource LabelCustomTargetPath}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="12" />
+                                            <TextBox Grid.Column="1" Text="{Binding CustomTargetPath, UpdateSourceTrigger=PropertyChanged}" Height="28" VerticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" Margin="0,0,8,0" />
+                                            <controls:PclButton Grid.Column="2" Content="{DynamicResource SettingsBtnBrowse}" Command="{Binding BrowseCustomTargetCommand}" Height="28" Padding="10,2" />
+                                        </Grid>
+
+                                        <!-- 叠加过滤器（CustomTarget 模式直接枚举外部路径，不适用） -->
+                                        <StackPanel Visibility="{Binding IsScopeCustomTarget, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                            <TextBlock Text="{DynamicResource LabelFilterSection}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" Margin="0,4,0,6" />
+
+                                            <Expander IsExpanded="False" Margin="0,0,0,6">
+                                                <Expander.Header>
+                                                    <TextBlock Text="{DynamicResource LabelSubfolderFilter}" FontSize="12" Foreground="{DynamicResource ColorBrush2}" />
+                                                </Expander.Header>
+                                                <Border Margin="0,4,0,0" Padding="10" Background="#F8FAFC" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
+                                                    <StackPanel>
+                                                        <controls:ScopeFolderTreeControl ItemsSource="{Binding FolderTree}" />
+                                                        <TextBlock Text="{DynamicResource ScopeSubfolderFilterOffHint}" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,6,0,0"
+                                                                   Visibility="{Binding HasSubfolderFilter, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </Expander>
+
+                                            <Expander IsExpanded="False" Margin="0,0,0,10">
+                                                <Expander.Header>
+                                                    <TextBlock Text="{DynamicResource LabelDateRangeFilter}" FontSize="12" Foreground="{DynamicResource ColorBrush2}" />
+                                                </Expander.Header>
+                                                <Border Margin="0,4,0,0" Padding="12" Background="#F8FAFC" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
+                                                    <StackPanel>
+                                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                                            <TextBlock Text="{DynamicResource LabelDateFrom}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12" />
+                                                            <DatePicker SelectedDate="{Binding ScopeDateFrom, Mode=TwoWay}" Width="130" Height="28" Margin="0,0,12,0" />
+                                                            <TextBlock Text="{DynamicResource LabelDateTo}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12" />
+                                                            <DatePicker SelectedDate="{Binding ScopeDateTo, Mode=TwoWay}" Width="130" Height="28" Margin="0,0,12,0" />
+                                                            <controls:PclButton Content="{DynamicResource BtnClear}" Command="{Binding ClearDateRangeCommand}" Height="28" Padding="10,2" />
+                                                        </StackPanel>
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="{DynamicResource LabelDatePresets}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" />
+                                                            <controls:PclButton Content="{DynamicResource BtnPresetLast30Days}" Command="{Binding SetDatePresetLast30DaysCommand}" Height="24" Margin="0,0,6,0" Padding="8,2" />
+                                                            <controls:PclButton Content="{DynamicResource BtnPresetLast90Days}" Command="{Binding SetDatePresetLast90DaysCommand}" Height="24" Margin="0,0,6,0" Padding="8,2" />
+                                                            <controls:PclButton Content="{DynamicResource BtnPresetLast1Year}" Command="{Binding SetDatePresetLast1YearCommand}" Height="24" Margin="0,0,6,0" Padding="8,2" />
+                                                            <controls:PclButton Content="{DynamicResource BtnPresetThisYear}" Command="{Binding SetDatePresetThisYearCommand}" Height="24" Padding="8,2" />
+                                                        </StackPanel>
+                                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                                                    Visibility="{Binding IsUndatedHintVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                            <TextBlock Text="{Binding UndatedHintText}" FontSize="12" Foreground="#B45309" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                                            <controls:PclRadioBox Content="{DynamicResource ScopeUndatedInclude}" IsChecked="{Binding IncludeUndatedFiles, Mode=TwoWay}" Margin="0,0,10,0" />
+                                                            <controls:PclRadioBox Content="{DynamicResource ScopeUndatedSkip}" IsChecked="{Binding IncludeUndatedFiles, Mode=TwoWay, Converter={StaticResource InverseBooleanConverter}}" />
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Border>
+                                            </Expander>
+                                        </StackPanel>
+
+                                        <TextBlock Text="{Binding ScopeSummaryText}" FontSize="12" Foreground="{DynamicResource ColorBrush2}" TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                                        <TextBlock Text="{DynamicResource LabelGoogleAlbumMode}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" Margin="0,12,0,8" />
                                         <controls:PclRadioBox Content="{DynamicResource AlbumModeAuto}" IsChecked="{Binding IsAlbumAuto, Mode=TwoWay}" Margin="0,0,0,6" />
                                         <controls:PclRadioBox Content="{DynamicResource AlbumModeNone}" IsChecked="{Binding IsAlbumNone, Mode=TwoWay}" Margin="0,0,0,6" />
                                         <controls:PclRadioBox Content="{DynamicResource AlbumModeCustom}" IsChecked="{Binding IsAlbumCustom, Mode=TwoWay}" Margin="0,0,0,6" />
@@ -1161,49 +1225,10 @@
                                 <controls:PclCard Title="{DynamicResource CardIPhoneRestoreScope}" CanSwap="False"
                                                   IsEnabled="{Binding IsConfigEditable}">
                                     <StackPanel>
-                                        <controls:PclRadioBox Content="{DynamicResource ScopeRestoreAll}" IsChecked="{Binding IsScopeAll, Mode=TwoWay}" Margin="0,0,0,8" />
-                                        <controls:PclRadioBox Content="{DynamicResource ScopeRestoreDateRange}" IsChecked="{Binding IsScopeDateRange, Mode=TwoWay}" Margin="0,0,0,8" />
-
-                                        <!-- Date Range Inputs with Presets -->
-                                        <Border Margin="24,0,0,10" Padding="12" Background="#F8FAFC" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1"
-                                                Visibility="{Binding IsScopeDateRange, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                            <StackPanel>
-                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                                    <TextBlock Text="{DynamicResource LabelDateFrom}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12" />
-                                                    <DatePicker SelectedDate="{Binding ScopeDateFrom, Mode=TwoWay}" Width="130" Height="28" Margin="0,0,12,0" />
-                                                    <TextBlock Text="{DynamicResource LabelDateTo}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12" />
-                                                    <DatePicker SelectedDate="{Binding ScopeDateTo, Mode=TwoWay}" Width="130" Height="28" Margin="0,0,12,0" />
-                                                    <controls:PclButton Content="{DynamicResource BtnClear}" Command="{Binding ClearDateRangeCommand}" Height="28" Padding="10,2" />
-                                                </StackPanel>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="{DynamicResource LabelDatePresets}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" />
-                                                    <controls:PclButton Content="{DynamicResource BtnPresetLast30Days}" Command="{Binding SetDatePresetLast30DaysCommand}" Height="24" Margin="0,0,6,0" Padding="8,2" />
-                                                    <controls:PclButton Content="{DynamicResource BtnPresetLast90Days}" Command="{Binding SetDatePresetLast90DaysCommand}" Height="24" Margin="0,0,6,0" Padding="8,2" />
-                                                    <controls:PclButton Content="{DynamicResource BtnPresetLast1Year}" Command="{Binding SetDatePresetLast1YearCommand}" Height="24" Margin="0,0,6,0" Padding="8,2" />
-                                                    <controls:PclButton Content="{DynamicResource BtnPresetThisYear}" Command="{Binding SetDatePresetThisYearCommand}" Height="24" Padding="8,2" />
-                                                </StackPanel>
-                                            </StackPanel>
-                                        </Border>
-
-                                        <controls:PclRadioBox Content="{DynamicResource ScopeRestoreSubfolder}" IsChecked="{Binding IsScopeSubfolder, Mode=TwoWay}" Margin="0,0,0,8" />
-                                        <Border Margin="24,0,0,10" Padding="10" Background="#F8FAFC" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1"
-                                                Visibility="{Binding IsScopeSubfolder, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                            <ItemsControl ItemsSource="{Binding Subfolders}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <CheckBox Content="{Binding FolderName}" IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="0,2,12,2" />
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                                <ItemsControl.ItemsPanel>
-                                                    <ItemsPanelTemplate>
-                                                        <WrapPanel />
-                                                    </ItemsPanelTemplate>
-                                                </ItemsControl.ItemsPanel>
-                                            </ItemsControl>
-                                        </Border>
-
-                                        <controls:PclRadioBox Content="{DynamicResource ScopeRestoreManual}" IsChecked="{Binding IsScopeManualSelection, Mode=TwoWay}" Margin="0,0,0,8" />
-                                        <Border Margin="24,0,0,0" Padding="10" Background="#F8FAFC" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1"
+                                        <TextBlock Text="{DynamicResource LabelBaseScope}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,6" />
+                                        <controls:PclRadioBox Content="{DynamicResource ScopeRestoreAll}" IsChecked="{Binding IsScopeAll, Mode=TwoWay}" Margin="0,0,0,6" />
+                                        <controls:PclRadioBox Content="{DynamicResource ScopeRestoreManual}" IsChecked="{Binding IsScopeManualSelection, Mode=TwoWay}" Margin="0,0,0,6" />
+                                        <Border Margin="24,0,0,12" Padding="10" Background="#F8FAFC" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1"
                                                 Visibility="{Binding IsScopeManualSelection, Converter={StaticResource BooleanToVisibilityConverter}}">
                                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding ManualSelectionCountText}" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center" Margin="0,0,12,0" />
@@ -1211,6 +1236,53 @@
                                                 <controls:PclButton Content="{DynamicResource BtnPickFromExplorer}" Command="{Binding PickFilesFromExplorerCommand}" Height="28" Padding="10,2" />
                                             </StackPanel>
                                         </Border>
+
+                                        <TextBlock Text="{DynamicResource LabelFilterSection}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,6" />
+
+                                        <Expander IsExpanded="False" Margin="0,0,0,6">
+                                            <Expander.Header>
+                                                <TextBlock Text="{DynamicResource LabelSubfolderFilter}" FontSize="12" Foreground="{DynamicResource ColorBrush2}" />
+                                            </Expander.Header>
+                                            <Border Margin="0,4,0,0" Padding="10" Background="#F8FAFC" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
+                                                <StackPanel>
+                                                    <controls:ScopeFolderTreeControl ItemsSource="{Binding FolderTree}" />
+                                                    <TextBlock Text="{DynamicResource ScopeSubfolderFilterOffHint}" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,6,0,0"
+                                                               Visibility="{Binding HasSubfolderFilter, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                                                </StackPanel>
+                                            </Border>
+                                        </Expander>
+
+                                        <Expander IsExpanded="False" Margin="0,0,0,10">
+                                            <Expander.Header>
+                                                <TextBlock Text="{DynamicResource LabelDateRangeFilter}" FontSize="12" Foreground="{DynamicResource ColorBrush2}" />
+                                            </Expander.Header>
+                                            <Border Margin="0,4,0,0" Padding="12" Background="#F8FAFC" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
+                                                <StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                                        <TextBlock Text="{DynamicResource LabelDateFrom}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12" />
+                                                        <DatePicker SelectedDate="{Binding ScopeDateFrom, Mode=TwoWay}" Width="130" Height="28" Margin="0,0,12,0" />
+                                                        <TextBlock Text="{DynamicResource LabelDateTo}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12" />
+                                                        <DatePicker SelectedDate="{Binding ScopeDateTo, Mode=TwoWay}" Width="130" Height="28" Margin="0,0,12,0" />
+                                                        <controls:PclButton Content="{DynamicResource BtnClear}" Command="{Binding ClearDateRangeCommand}" Height="28" Padding="10,2" />
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{DynamicResource LabelDatePresets}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" />
+                                                        <controls:PclButton Content="{DynamicResource BtnPresetLast30Days}" Command="{Binding SetDatePresetLast30DaysCommand}" Height="24" Margin="0,0,6,0" Padding="8,2" />
+                                                        <controls:PclButton Content="{DynamicResource BtnPresetLast90Days}" Command="{Binding SetDatePresetLast90DaysCommand}" Height="24" Margin="0,0,6,0" Padding="8,2" />
+                                                        <controls:PclButton Content="{DynamicResource BtnPresetLast1Year}" Command="{Binding SetDatePresetLast1YearCommand}" Height="24" Margin="0,0,6,0" Padding="8,2" />
+                                                        <controls:PclButton Content="{DynamicResource BtnPresetThisYear}" Command="{Binding SetDatePresetThisYearCommand}" Height="24" Padding="8,2" />
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                                                Visibility="{Binding IsUndatedHintVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                        <TextBlock Text="{Binding UndatedHintText}" FontSize="12" Foreground="#B45309" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                                        <controls:PclRadioBox Content="{DynamicResource ScopeUndatedInclude}" IsChecked="{Binding IncludeUndatedFiles, Mode=TwoWay}" Margin="0,0,10,0" />
+                                                        <controls:PclRadioBox Content="{DynamicResource ScopeUndatedSkip}" IsChecked="{Binding IncludeUndatedFiles, Mode=TwoWay, Converter={StaticResource InverseBooleanConverter}}" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </Expander>
+
+                                        <TextBlock Text="{Binding ScopeSummaryText}" FontSize="12" Foreground="{DynamicResource ColorBrush2}" TextWrapping="Wrap" Margin="0,4,0,0" />
                                     </StackPanel>
                                 </controls:PclCard>
 
@@ -1333,7 +1405,7 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Text="{DynamicResource AndroidTargetDirLabel}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                            <TextBox Grid.Column="1" Text="{Binding AndroidTargetDir, UpdateSourceTrigger=PropertyChanged}" Height="28" VerticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" />
+                                            <TextBox Grid.Column="1" Text="{Binding AndroidTargetDir}" IsReadOnly="True" IsTabStop="False" Height="28" VerticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" ToolTip="{DynamicResource AndroidTargetDirFixedHint}" />
                                             <controls:PclButton Grid.Column="2" Content="{DynamicResource BtnTestConnection}" Command="{Binding TestConnectionCommand}" Height="28" Margin="10,0,0,0" />
                                         </Grid>
 
@@ -1345,31 +1417,10 @@
                                 <!-- Card 2: 恢复归档范围 -->
                                 <controls:PclCard Title="{DynamicResource CardAndroidRestoreScope}" CanSwap="False">
                                     <StackPanel>
-                                        <controls:PclRadioBox Content="{DynamicResource ScopeAndroidRestoreAll}" IsChecked="{Binding IsScopeAll, Mode=TwoWay}" Margin="0,0,0,8" />
-                                        <controls:PclRadioBox Content="{DynamicResource ScopeAndroidRestoreDateRange}" IsChecked="{Binding IsScopeDateRange, Mode=TwoWay}" Margin="0,0,0,8" />
-
-                                        <Border Margin="24,0,0,10" Padding="12" Background="#F8FAFC" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1"
-                                                Visibility="{Binding IsScopeDateRange, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                            <StackPanel>
-                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                                    <TextBlock Text="{DynamicResource LabelDateFrom}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12" />
-                                                    <DatePicker SelectedDate="{Binding ScopeDateFrom, Mode=TwoWay}" Width="130" Height="28" Margin="0,0,12,0" />
-                                                    <TextBlock Text="{DynamicResource LabelDateTo}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12" />
-                                                    <DatePicker SelectedDate="{Binding ScopeDateTo, Mode=TwoWay}" Width="130" Height="28" Margin="0,0,12,0" />
-                                                    <controls:PclButton Content="{DynamicResource BtnClear}" Command="{Binding ClearDateRangeCommand}" Height="28" Padding="10,2" />
-                                                </StackPanel>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="{DynamicResource LabelDatePresets}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" />
-                                                    <controls:PclButton Content="{DynamicResource BtnPresetLast30Days}" Command="{Binding SetDatePresetLast30DaysCommand}" Height="24" Margin="0,0,6,0" Padding="8,2" />
-                                                    <controls:PclButton Content="{DynamicResource BtnPresetLast90Days}" Command="{Binding SetDatePresetLast90DaysCommand}" Height="24" Margin="0,0,6,0" Padding="8,2" />
-                                                    <controls:PclButton Content="{DynamicResource BtnPresetLast1Year}" Command="{Binding SetDatePresetLast1YearCommand}" Height="24" Margin="0,0,6,0" Padding="8,2" />
-                                                    <controls:PclButton Content="{DynamicResource BtnPresetThisYear}" Command="{Binding SetDatePresetThisYearCommand}" Height="24" Padding="8,2" />
-                                                </StackPanel>
-                                            </StackPanel>
-                                        </Border>
-
-                                        <controls:PclRadioBox Content="{DynamicResource ScopeAndroidRestoreManual}" IsChecked="{Binding IsScopeManualSelection, Mode=TwoWay}" Margin="0,0,0,8" />
-                                        <Border Margin="24,0,0,0" Padding="10" Background="#F8FAFC" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1"
+                                        <TextBlock Text="{DynamicResource LabelBaseScope}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,6" />
+                                        <controls:PclRadioBox Content="{DynamicResource ScopeAndroidRestoreAll}" IsChecked="{Binding IsScopeAll, Mode=TwoWay}" Margin="0,0,0,6" />
+                                        <controls:PclRadioBox Content="{DynamicResource ScopeAndroidRestoreManual}" IsChecked="{Binding IsScopeManualSelection, Mode=TwoWay}" Margin="0,0,0,6" />
+                                        <Border Margin="24,0,0,12" Padding="10" Background="#F8FAFC" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1"
                                                 Visibility="{Binding IsScopeManualSelection, Converter={StaticResource BooleanToVisibilityConverter}}">
                                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding ManualSelectionCountText}" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center" Margin="0,0,12,0" />
@@ -1377,6 +1428,53 @@
                                                 <controls:PclButton Content="{DynamicResource BtnPickFromExplorer}" Command="{Binding PickFilesFromExplorerCommand}" Height="28" Padding="10,2" />
                                             </StackPanel>
                                         </Border>
+
+                                        <TextBlock Text="{DynamicResource LabelFilterSection}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,6" />
+
+                                        <Expander IsExpanded="False" Margin="0,0,0,6">
+                                            <Expander.Header>
+                                                <TextBlock Text="{DynamicResource LabelSubfolderFilter}" FontSize="12" Foreground="{DynamicResource ColorBrush2}" />
+                                            </Expander.Header>
+                                            <Border Margin="0,4,0,0" Padding="10" Background="#F8FAFC" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
+                                                <StackPanel>
+                                                    <controls:ScopeFolderTreeControl ItemsSource="{Binding FolderTree}" />
+                                                    <TextBlock Text="{DynamicResource ScopeSubfolderFilterOffHint}" FontSize="11" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,6,0,0"
+                                                               Visibility="{Binding HasSubfolderFilter, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                                                </StackPanel>
+                                            </Border>
+                                        </Expander>
+
+                                        <Expander IsExpanded="False" Margin="0,0,0,10">
+                                            <Expander.Header>
+                                                <TextBlock Text="{DynamicResource LabelDateRangeFilter}" FontSize="12" Foreground="{DynamicResource ColorBrush2}" />
+                                            </Expander.Header>
+                                            <Border Margin="0,4,0,0" Padding="12" Background="#F8FAFC" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1">
+                                                <StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                                        <TextBlock Text="{DynamicResource LabelDateFrom}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12" />
+                                                        <DatePicker SelectedDate="{Binding ScopeDateFrom, Mode=TwoWay}" Width="130" Height="28" Margin="0,0,12,0" />
+                                                        <TextBlock Text="{DynamicResource LabelDateTo}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12" />
+                                                        <DatePicker SelectedDate="{Binding ScopeDateTo, Mode=TwoWay}" Width="130" Height="28" Margin="0,0,12,0" />
+                                                        <controls:PclButton Content="{DynamicResource BtnClear}" Command="{Binding ClearDateRangeCommand}" Height="28" Padding="10,2" />
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{DynamicResource LabelDatePresets}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" />
+                                                        <controls:PclButton Content="{DynamicResource BtnPresetLast30Days}" Command="{Binding SetDatePresetLast30DaysCommand}" Height="24" Margin="0,0,6,0" Padding="8,2" />
+                                                        <controls:PclButton Content="{DynamicResource BtnPresetLast90Days}" Command="{Binding SetDatePresetLast90DaysCommand}" Height="24" Margin="0,0,6,0" Padding="8,2" />
+                                                        <controls:PclButton Content="{DynamicResource BtnPresetLast1Year}" Command="{Binding SetDatePresetLast1YearCommand}" Height="24" Margin="0,0,6,0" Padding="8,2" />
+                                                        <controls:PclButton Content="{DynamicResource BtnPresetThisYear}" Command="{Binding SetDatePresetThisYearCommand}" Height="24" Padding="8,2" />
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                                                Visibility="{Binding IsUndatedHintVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                        <TextBlock Text="{Binding UndatedHintText}" FontSize="12" Foreground="#B45309" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                                        <controls:PclRadioBox Content="{DynamicResource ScopeUndatedInclude}" IsChecked="{Binding IncludeUndatedFiles, Mode=TwoWay}" Margin="0,0,10,0" />
+                                                        <controls:PclRadioBox Content="{DynamicResource ScopeUndatedSkip}" IsChecked="{Binding IncludeUndatedFiles, Mode=TwoWay, Converter={StaticResource InverseBooleanConverter}}" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </Expander>
+
+                                        <TextBlock Text="{Binding ScopeSummaryText}" FontSize="12" Foreground="{DynamicResource ColorBrush2}" TextWrapping="Wrap" Margin="0,4,0,0" />
                                     </StackPanel>
                                 </controls:PclCard>
 
@@ -2022,33 +2120,52 @@
                                                          Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" />
                                         </StackPanel>
 
-                                        <DataGrid ItemsSource="{Binding Items}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
-                                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Disabled"
-                                                  FontSize="12" Margin="0,0,0,10" MaxHeight="260"
-                                                  Visibility="{Binding HasScanned, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                            <DataGrid.Columns>
-                                                <DataGridTextColumn Header="{DynamicResource GridSyncColFolder}" Binding="{Binding Folder}" Width="2*" MinWidth="180" />
-                                                <DataGridTextColumn Header="{DynamicResource GridSyncColDevice}" Binding="{Binding DeviceName}" Width="110" />
-                                                <DataGridTextColumn Header="{DynamicResource GridSyncColFiles}" Binding="{Binding FileCountText}" Width="64" />
-                                                <DataGridTextColumn Header="{DynamicResource GridSyncColSize}" Binding="{Binding TotalSizeText}" Width="80" />
-                                                <DataGridTextColumn Header="{DynamicResource GridSyncColEquiv}" Binding="{Binding EquivalentText}" Width="76" />
-                                                <DataGridTextColumn Header="{DynamicResource GridSyncColStatus}" Binding="{Binding StatusText}" Width="96" />
-                                                <DataGridTemplateColumn Width="230">
-                                                    <DataGridTemplateColumn.CellTemplate>
-                                                        <DataTemplate>
-                                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                                <controls:PclButton Content="{DynamicResource SettingsBtnSyncMerge}" Command="{Binding DataContext.MergeItemCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" Height="24" Padding="8,0" Margin="0,0,6,0"
+                                        <ItemsControl ItemsSource="{Binding Items}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="#F8FAFC" CornerRadius="6" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1"
+                                                            Padding="12" Margin="0,0,0,8">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                                    <TextBlock Text="{Binding StatusText}" FontSize="12" FontWeight="Bold">
+                                                                        <TextBlock.Style>
+                                                                            <Style TargetType="TextBlock">
+                                                                                <Setter Property="Foreground" Value="#B45309" />
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                                                                                        <Setter Property="Foreground" Value="#047857" />
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </TextBlock.Style>
+                                                                    </TextBlock>
+                                                                    <TextBlock Text="{Binding DeviceDisplay}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="10,0,0,0" />
+                                                                </StackPanel>
+                                                                <TextBlock Text="{Binding Folder}" FontSize="12" Foreground="{DynamicResource ColorBrush1}" FontFamily="Consolas" TextWrapping="Wrap" Margin="0,0,0,4" />
+                                                                <TextBlock FontSize="11.5" Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap">
+                                                                    <Run Text="{Binding FilesSummaryText, Mode=OneWay}" />
+                                                                    <Run Text="  " />
+                                                                    <Run Text="{Binding MergeInfoText, Mode=OneWay}" />
+                                                                </TextBlock>
+                                                            </StackPanel>
+                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                                <controls:PclButton Content="{DynamicResource SettingsBtnSyncMerge}" Command="{Binding DataContext.MergeItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" Height="26" Padding="10,0" Margin="0,0,6,0"
                                                                                     IsEnabled="{Binding CanMerge}" />
-                                                                <controls:PclButton Content="{DynamicResource SettingsBtnSyncCleanup}" Command="{Binding DataContext.CleanupItemCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" Height="24" Padding="8,0" Margin="0,0,6,0"
+                                                                <controls:PclButton Content="{DynamicResource SettingsBtnSyncCleanup}" Command="{Binding DataContext.CleanupItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" Height="26" Padding="10,0" Margin="0,0,6,0"
                                                                                     IsEnabled="{Binding CanCleanup}" />
-                                                                <controls:PclButton Content="{DynamicResource SettingsBtnSyncIgnore}" Command="{Binding DataContext.IgnoreItemCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" Height="24" Padding="8,0"
+                                                                <controls:PclButton Content="{DynamicResource SettingsBtnSyncIgnore}" Command="{Binding DataContext.IgnoreItemCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" Height="26" Padding="10,0"
                                                                                     IsEnabled="{Binding CanIgnore}" />
                                                             </StackPanel>
-                                                        </DataTemplate>
-                                                    </DataGridTemplateColumn.CellTemplate>
-                                                </DataGridTemplateColumn>
-                                            </DataGrid.Columns>
-                                        </DataGrid>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
 
                                         <TextBlock Text="{Binding StatusMessage}" FontSize="12" Foreground="#10B981" TextWrapping="Wrap"
                                                    Visibility="{Binding StatusMessage, Converter={x:Static controls:StringNotEmptyToVisibilityConverter.Instance}}" />
@@ -3199,8 +3316,16 @@
                         <TextBlock Text="{DynamicResource RenameModalTitle}" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center" />
                         <controls:PclIconButton Logo="{StaticResource PclIconClose}" IconTheme="Close" Command="{Binding CloseRenameModalCommand}" HorizontalAlignment="Right" />
                     </Grid>
-                    <TextBlock Text="{DynamicResource RenameModalHint}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,10" />
-                    <TextBox Text="{Binding DeviceCustomName, UpdateSourceTrigger=PropertyChanged}" Height="32" VerticalContentAlignment="Center" Padding="8,0" BorderBrush="{DynamicResource ColorBrush6}" FontSize="13" Margin="0,0,0,18" />
+                    <TextBlock Text="{DynamicResource RenameModalHint}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,0,0,10" />
+                    <TextBox Text="{Binding DeviceCustomName, UpdateSourceTrigger=PropertyChanged}" Height="32" VerticalContentAlignment="Center" Padding="8,0" BorderBrush="{DynamicResource ColorBrush6}" FontSize="13" Margin="0,0,0,14" />
+
+                    <TextBlock Text="{DynamicResource RenameArchiveFolderLabel}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,4" />
+                    <Border Height="30" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1" CornerRadius="4"
+                            Background="#F8FAFC" Padding="8,0" Margin="0,0,0,18">
+                        <TextBlock Text="{Binding ArchiveFolderReadonlyText}" FontSize="13"
+                                   Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" />
+                    </Border>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                         <controls:PclButton Content="{DynamicResource BtnCancel}" Command="{Binding CloseRenameModalCommand}" Width="80" Height="30" Margin="0,0,8,0" />
                         <controls:PclButton Content="{DynamicResource BtnSaveApply}" Command="{Binding SaveRenameModalCommand}" Width="100" Height="30" ButtonType="Hero" />
@@ -3256,6 +3381,31 @@
                         <TextBox Grid.Column="4" Text="{Binding AndroidFtpPassword, UpdateSourceTrigger=PropertyChanged}" Height="28" VerticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" />
                     </Grid>
 
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{DynamicResource LabelDeviceIdentity}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <TextBox Grid.Column="1" Text="{Binding AndroidDeviceId}" Height="28" VerticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" ToolTip="{DynamicResource LabelDeviceIdentityTip}" />
+                        <controls:PclButton Grid.Column="2" Content="{DynamicResource BtnGenerateAndBind}" Command="{Binding GenerateAndBindDeviceIdCommand}" Height="28" Margin="10,0,0,0" Padding="12,0" ToolTip="{DynamicResource BtnGenerateAndBindTip}" />
+                    </Grid>
+
+                    <TextBlock Text="{Binding DeviceIdentityStatusText}" FontSize="12" Margin="0,0,0,10" TextWrapping="Wrap"
+                               Visibility="{Binding DeviceIdentityStatusText, Converter={x:Static controls:StringNotEmptyToVisibilityConverter.Instance}}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{DynamicResource ColorBrushGray2}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsDeviceIdentityWarning}" Value="True">
+                                        <Setter Property="Foreground" Value="#E24B4A" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
                     <TextBlock Text="{Binding ConnectionStatusText}" FontSize="12" FontWeight="SemiBold"
                                Foreground="{DynamicResource ColorBrush2}" Margin="0,0,0,14"
                                Visibility="{Binding ConnectionStatusText, Converter={x:Static controls:StringNotEmptyToVisibilityConverter.Instance}}" />
@@ -3270,12 +3420,19 @@
         </controls:PclModalHost>
 
         <controls:PclExtraButton Grid.RowSpan="2"
-                                 Logo="{StaticResource PclIconDownload}"
+                                 Logo="{StaticResource PclIconList}"
                                  Command="{Binding OpenTaskManagerCommand}"
                                  HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                  Margin="0,0,24,20" Panel.ZIndex="1200"
                                  ToolTip="{DynamicResource TaskManagerTitle}"
                                  Visibility="{Binding ShowTaskBall, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+        <!-- 任务中心展开时的全屏透明点击捕获层：点面板外任意处收起。
+             ZIndex 1010 高于普通内容、低于模态弹窗（1020/1025）与面板本体（1100）。 -->
+        <Border Grid.RowSpan="2" Panel.ZIndex="1010"
+                Background="Transparent"
+                Visibility="{Binding IsTaskManagerOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
+                MouseLeftButtonDown="TaskManagerBackdrop_MouseLeftButtonDown" />
 
         <!-- Task center panel anchored to the floating ball. -->
         <Grid x:Name="TaskManagerOverlay" Grid.RowSpan="2" Panel.ZIndex="1100"

@@ -9,6 +9,7 @@ using PicHarbor.Core.iPhone;
 using PicHarbor.Core.Journal;
 using PicHarbor.Core.Organize;
 using PicHarbor.Core.Progress;
+using PicHarbor.Core.Scope;
 using PicHarbor.Gui.Util;
 
 namespace PicHarbor.Gui.ViewModels;
@@ -204,34 +205,6 @@ public partial class IPhoneSyncViewModel : ObservableObject
         }
     }
 
-    public bool IsScopeDateRange
-    {
-        get => ScopeMode == IPhoneRestoreScopeMode.DateRange;
-        set
-        {
-            if (value && ScopeMode != IPhoneRestoreScopeMode.DateRange)
-            {
-                ScopeMode = IPhoneRestoreScopeMode.DateRange;
-                NotifyScopeProperties();
-                RecalculateScopeSummary();
-            }
-        }
-    }
-
-    public bool IsScopeSubfolder
-    {
-        get => ScopeMode == IPhoneRestoreScopeMode.Subfolder;
-        set
-        {
-            if (value && ScopeMode != IPhoneRestoreScopeMode.Subfolder)
-            {
-                ScopeMode = IPhoneRestoreScopeMode.Subfolder;
-                NotifyScopeProperties();
-                RecalculateScopeSummary();
-            }
-        }
-    }
-
     public bool IsScopeManualSelection
     {
         get => ScopeMode == IPhoneRestoreScopeMode.ManualSelection;
@@ -249,8 +222,6 @@ public partial class IPhoneSyncViewModel : ObservableObject
     private void NotifyScopeProperties()
     {
         OnPropertyChanged(nameof(IsScopeAll));
-        OnPropertyChanged(nameof(IsScopeDateRange));
-        OnPropertyChanged(nameof(IsScopeSubfolder));
         OnPropertyChanged(nameof(IsScopeManualSelection));
     }
 
@@ -367,7 +338,57 @@ public partial class IPhoneSyncViewModel : ObservableObject
     [ObservableProperty]
     private bool isManualModalOpen = false;
 
-    public ObservableCollection<SubfolderOptionViewModel> Subfolders { get; } = new();
+    /// <summary>Multi-level subfolder tree for the unified scope filter (checked set = active subfolder filter).</summary>
+    public ObservableCollection<SubfolderNodeViewModel> FolderTree { get; } = new();
+
+    /// <summary>Indicates whether any node in the folder tree is checked (= subfolder filter enabled).</summary>
+    public bool HasSubfolderFilter => FolderTree.Any(HasCheckedDescendant);
+
+    private ScopeSelectionPersistence? selectionPersist;
+
+    /// <summary>Debounced journal persistence of the subfolder tree selection (kind: iphone_restore).</summary>
+    private ScopeSelectionPersistence SelectionPersist => selectionPersist ??= new ScopeSelectionPersistence(
+        () => ArchivePath,
+        () => "iphone_restore",
+        () => string.IsNullOrWhiteSpace(DeviceUdid) ? (DeviceModel ?? "iphone") : DeviceUdid,
+        () => FolderTree);
+
+    private static bool HasCheckedDescendant(SubfolderNodeViewModel node) =>
+        node.IsChecked == true || node.Children.Any(HasCheckedDescendant);
+
+    /// <summary>Inline policy for entries without capture date while the date filter is active (default: include).</summary>
+    [ObservableProperty]
+    private bool includeUndatedFiles = true;
+
+    partial void OnIncludeUndatedFilesChanged(bool value) => RecalculateScopeSummary();
+
+    /// <summary>Count of entries passing other conditions but lacking any capture date (only tracked while the date filter is active).</summary>
+    [ObservableProperty]
+    private int undatedCandidateCount = 0;
+
+    partial void OnUndatedCandidateCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsUndatedHintVisible));
+        OnPropertyChanged(nameof(UndatedHintText));
+    }
+
+    /// <summary>Indicates whether the inline undated-files hint row should be shown.</summary>
+    public bool IsUndatedHintVisible => UndatedCandidateCount > 0;
+
+    /// <summary>Formatted inline hint text for entries without capture date (refreshed with language).</summary>
+    public string UndatedHintText => string.Format(App.GetString("ScopeUndatedHint", "发现 {0} 项无日期文件"), UndatedCandidateCount);
+
+    /// <summary>Builds the unified combination filter from the folder tree, date range and undated policy.</summary>
+    private ScopeFilterSet BuildScopeFilters(DateTime? dateFrom, DateTime? dateTo)
+    {
+        return new ScopeFilterSet
+        {
+            SelectedSubfolders = SubfolderTreeBuilder.CollectSelected(FolderTree),
+            DateFrom = dateFrom,
+            DateTo = dateTo,
+            UndatedPolicy = IncludeUndatedFiles ? UndatedFilePolicy.Include : UndatedFilePolicy.Skip
+        };
+    }
     public ObservableCollection<ManualSelectedItemViewModel> ManualSelectedItems { get; } = new();
 
     // --- End Restore Scope Properties ---
@@ -439,7 +460,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
     private string modalMessage = "";
 
     [ObservableProperty]
-    private string modalConfirmText = App.GetString("CloseBtn", "确认");
+    private string modalConfirmText = App.GetString("BtnConfirm", "确定");
 
     // Risk-acknowledgement state for the second-confirmation modal (directory change etc.)
     [ObservableProperty]
@@ -525,7 +546,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
         HasExported = false;
         stickyResolvedForCurrentIdentity = false;
         RefreshStickyFolderName(null);
-        LoadSubfolders();
+        LoadFolderTree();
         LoadManualSelectionsFromDb();
         RecalculateScopeSummary();
         OnPropertyChanged(nameof(EffectiveSyncFolder));
@@ -639,9 +660,11 @@ public partial class IPhoneSyncViewModel : ObservableObject
         ManualSelectionModalBtnText = string.Format(App.GetString("ScopeViewEditListBtn", "👁️ 查看/编辑清单 ({0})"), ManualSelectionCount);
     }
 
-    public void LoadSubfolders()
+    public void LoadFolderTree()
     {
-        Subfolders.Clear();
+        SelectionPersist.Flush();
+        SelectionPersist.Invalidate();
+        FolderTree.Clear();
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
             return;
 
@@ -649,30 +672,23 @@ public partial class IPhoneSyncViewModel : ObservableObject
         {
             using var journal = TransferJournal.OpenReadOnly(ArchivePath);
             var manifest = journal.ReadManifest();
-            var rootDirs = manifest
-                .Select(m =>
-                {
-                    string norm = m.DestPath.Replace('\\', '/');
-                    int idx = norm.IndexOf('/');
-                    return idx > 0 ? norm.Substring(0, idx) : norm;
-                })
-                .Where(d => !string.IsNullOrWhiteSpace(d) && !d.StartsWith("."))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(d => d);
-
-            foreach (var dir in rootDirs)
+            var tree = SubfolderTreeBuilder.Build(manifest.Select(m => m.DestPath));
+            SelectionPersist.RestoreInto(ArchivePath, tree);
+            foreach (var root in tree)
             {
-                Subfolders.Add(new SubfolderOptionViewModel
+                root.OnCheckedChanged = () =>
                 {
-                    FolderName = dir,
-                    RelativePath = dir,
-                    IsChecked = true,
-                    OnCheckedChanged = () => RecalculateScopeSummary()
-                });
+                    OnPropertyChanged(nameof(HasSubfolderFilter));
+                    RecalculateScopeSummary();
+                    SelectionPersist.ScheduleSave();
+                };
+                FolderTree.Add(root);
             }
+            OnPropertyChanged(nameof(HasSubfolderFilter));
         }
         catch
         {
+            SelectionPersist.Invalidate();
         }
     }
 
@@ -681,6 +697,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
         {
             ScopeSummaryText = App.GetString("MsgTargetDirNotExist", "目标归档路径不存在");
+            UndatedCandidateCount = 0;
             return;
         }
 
@@ -691,9 +708,6 @@ public partial class IPhoneSyncViewModel : ObservableObject
 
             DateTime? dateFrom = DateTime.TryParse(ScopeDateFromText, out var df) ? df : null;
             DateTime? dateTo = DateTime.TryParse(ScopeDateToText, out var dt) ? dt : null;
-            var selectedFolders = ScopeMode == IPhoneRestoreScopeMode.Subfolder
-                ? Subfolders.Where(s => s.IsChecked).Select(s => s.RelativePath).ToHashSet(StringComparer.OrdinalIgnoreCase)
-                : null;
             var manualPaths = ScopeMode == IPhoneRestoreScopeMode.ManualSelection
                 ? ManualSelectedItems.Select(m => m.RelativePath.Replace('\\', '/')).ToHashSet(StringComparer.OrdinalIgnoreCase)
                 : null;
@@ -702,13 +716,29 @@ public partial class IPhoneSyncViewModel : ObservableObject
             {
                 DeviceModel = DeviceModel,
                 ScopeMode = ScopeMode,
-                DateFrom = dateFrom,
-                DateTo = dateTo,
-                SelectedSubfolders = selectedFolders,
-                ManualSelectedPaths = manualPaths
+                ManualSelectedPaths = manualPaths,
+                Filters = BuildScopeFilters(dateFrom, dateTo)
             };
+            var filters = config.Filters!;
+            bool dateFilterActive = filters.HasDateFilter;
+            int undated = 0;
 
-            var filtered = manifest.Where(config.IsEntryIncluded).ToList();
+            var filtered = manifest.Where(e =>
+            {
+                if (!config.IsEntryIncluded(e))
+                {
+                    return false;
+                }
+
+                if (dateFilterActive && ScopeFilterSet.ParseCaptureDate(e) is null)
+                {
+                    undated++;
+                }
+
+                return true;
+            }).ToList();
+
+            UndatedCandidateCount = undated;
 
             int photoCount = filtered.Count(e => IsPhotoExtension(Path.GetExtension(e.DestPath)));
             int videoCount = filtered.Count - photoCount;
@@ -1413,9 +1443,6 @@ public partial class IPhoneSyncViewModel : ObservableObject
             var manifest = journal.ReadManifest();
             DateTime? dateFrom = DateTime.TryParse(ScopeDateFromText, out var df) ? df : null;
             DateTime? dateTo = DateTime.TryParse(ScopeDateToText, out var dt) ? dt : null;
-            var selectedSubfolders = ScopeMode == IPhoneRestoreScopeMode.Subfolder
-                ? Subfolders.Where(s => s.IsChecked).Select(s => s.RelativePath).ToHashSet(StringComparer.OrdinalIgnoreCase)
-                : null;
             var manualSelectedPaths = ScopeMode == IPhoneRestoreScopeMode.ManualSelection
                 ? ManualSelectedItems.Select(m => m.RelativePath).ToHashSet(StringComparer.OrdinalIgnoreCase)
                 : null;
@@ -1424,10 +1451,8 @@ public partial class IPhoneSyncViewModel : ObservableObject
             {
                 DeviceModel = DeviceModel,
                 ScopeMode = ScopeMode,
-                DateFrom = dateFrom,
-                DateTo = dateTo,
-                SelectedSubfolders = selectedSubfolders,
-                ManualSelectedPaths = manualSelectedPaths
+                ManualSelectedPaths = manualSelectedPaths,
+                Filters = BuildScopeFilters(dateFrom, dateTo)
             };
 
             var targetFiles = manifest.Where(configCheck.IsEntryIncluded).Select(e => e.DestPath).ToList();
@@ -1494,9 +1519,6 @@ public partial class IPhoneSyncViewModel : ObservableObject
 
         DateTime? dateFrom = DateTime.TryParse(ScopeDateFromText, out var df) ? df : null;
         DateTime? dateTo = DateTime.TryParse(ScopeDateToText, out var dt) ? dt : null;
-        var selectedSubfolders = ScopeMode == IPhoneRestoreScopeMode.Subfolder
-            ? Subfolders.Where(s => s.IsChecked).Select(s => s.RelativePath).ToHashSet(StringComparer.OrdinalIgnoreCase)
-            : null;
         var manualSelectedPaths = ScopeMode == IPhoneRestoreScopeMode.ManualSelection
             ? ManualSelectedItems.Select(m => m.RelativePath).ToHashSet(StringComparer.OrdinalIgnoreCase)
             : null;
@@ -1509,10 +1531,8 @@ public partial class IPhoneSyncViewModel : ObservableObject
             CustomSyncFolder = string.IsNullOrWhiteSpace(CustomSyncFolder) ? null : CustomSyncFolder,
             AlbumMode = AlbumMode,
             ScopeMode = ScopeMode,
-            DateFrom = dateFrom,
-            DateTo = dateTo,
-            SelectedSubfolders = selectedSubfolders,
-            ManualSelectedPaths = manualSelectedPaths
+            ManualSelectedPaths = manualSelectedPaths,
+            Filters = BuildScopeFilters(dateFrom, dateTo)
         };
 
         var progress = new Progress<ProgressSnapshot>(s =>
@@ -1647,8 +1667,9 @@ public partial class IPhoneSyncViewModel : ObservableObject
             ProgressText = progressSticky.Current;
         }
 
-        ModalConfirmText = App.GetString("CloseBtn", "确认");
+        ModalConfirmText = App.GetString("BtnConfirm", "确定");
         UpdateManualSelectionTexts();
+        OnPropertyChanged(nameof(UndatedHintText));
         RecalculateScopeSummary();
     }
 }

@@ -7,6 +7,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using PicHarbor.Core.Journal;
+using PicHarbor.Core.Scope;
 using PicHarbor.Core.Search;
 using PicHarbor.Core.Util;
 
@@ -425,36 +426,88 @@ public static class GooglePhotosSyncEngine
         using var journal = TransferJournal.OpenReadOnly(pcDestinationRoot);
 
         IReadOnlyList<ManifestEntry> fullManifest = journal.ReadManifest();
-        HashSet<string> manualSet = config.ScopeMode == GooglePhotosScopeMode.ManualSelection
+        bool baseIsManual = config.ScopeMode == GooglePhotosScopeMode.ManualSelection;
+        HashSet<string> manualSet = baseIsManual
             ? (config.ManualSelectedPaths != null ? new HashSet<string>(config.ManualSelectedPaths, StringComparer.OrdinalIgnoreCase) : journal.GetGooglePhotosManualSelections())
             : [];
+
+        // Resolve combined filters: new Filters property wins; otherwise derive from legacy exclusive fields.
+        HashSet<string>? subfolderFilter;
+        DateTimeOffset? dateStart;
+        DateTimeOffset? dateEnd;
+        UndatedFilePolicy undatedPolicy;
+        if (config.Filters is { } filters)
+        {
+            subfolderFilter = filters.HasSubfolderFilter ? filters.SelectedSubfolders : null;
+            dateStart = filters.DateFrom;
+            dateEnd = filters.DateTo?.AddDays(1).AddTicks(-1);
+            undatedPolicy = filters.UndatedPolicy;
+        }
+        else
+        {
+#pragma warning disable CS0618 // legacy single-select compatibility
+            subfolderFilter = config.ScopeMode == GooglePhotosScopeMode.Subfolder
+                ? (string.IsNullOrWhiteSpace(config.SelectedSubfolder)
+                    ? config.SelectedSubfolders
+                    : new HashSet<string>(StringComparer.OrdinalIgnoreCase) { config.SelectedSubfolder })
+                : null;
+#pragma warning restore CS0618
+            if (config.ScopeMode == GooglePhotosScopeMode.DateRange)
+            {
+                dateStart = config.DateRangeStart;
+                dateEnd = config.DateRangeEnd;
+            }
+            else
+            {
+                dateStart = null;
+                dateEnd = null;
+            }
+
+            undatedPolicy = UndatedFilePolicy.Include;
+        }
+
+        bool dateFilterActive = dateStart is not null || dateEnd is not null;
+        int undatedCount = 0;
 
         List<ManifestEntry> filtered = [];
         int nonMediaCount = 0;
         foreach (var item in fullManifest)
         {
-            bool include = config.ScopeMode switch
+            if (baseIsManual && !manualSet.Contains(item.DestPath))
             {
-                GooglePhotosScopeMode.All => true,
-                GooglePhotosScopeMode.DateRange => MatchesDate(item, config.DateRangeStart, config.DateRangeEnd),
-                GooglePhotosScopeMode.Subfolder => !string.IsNullOrWhiteSpace(config.SelectedSubfolder) &&
-                                                   (item.DestPath.StartsWith(config.SelectedSubfolder, StringComparison.OrdinalIgnoreCase) ||
-                                                    item.DestPath.StartsWith(config.SelectedSubfolder.TrimEnd('/') + "/", StringComparison.OrdinalIgnoreCase)),
-                GooglePhotosScopeMode.ManualSelection => manualSet.Contains(item.DestPath),
-                _ => true
-            };
+                continue;
+            }
 
-            if (include)
+            if (subfolderFilter is not null && !ScopeFilterSet.MatchSubfolder(item.DestPath, subfolderFilter))
             {
-                // Google Photos only accepts photos and videos; exclude non-media files (.AAE, .plist, etc.)
-                if (MediaTypeClassifier.Classify(item.DestPath) == MediaType.Other)
+                continue;
+            }
+
+            if (dateFilterActive)
+            {
+                DateTimeOffset? captureDate = ParseCaptureDate(item);
+                if (!captureDate.HasValue)
                 {
-                    nonMediaCount++;
+                    if (undatedPolicy == UndatedFilePolicy.Skip)
+                    {
+                        undatedCount++;
+                        continue;
+                    }
+                }
+                else if ((dateStart.HasValue && captureDate.Value < dateStart.Value) ||
+                         (dateEnd.HasValue && captureDate.Value > dateEnd.Value))
+                {
                     continue;
                 }
-
-                filtered.Add(item);
             }
+
+            if (MediaTypeClassifier.Classify(item.DestPath) == MediaType.Other)
+            {
+                nonMediaCount++;
+                continue;
+            }
+
+            filtered.Add(item);
         }
 
         if (nonMediaCount > 0)
@@ -462,13 +515,20 @@ public static class GooglePhotosSyncEngine
             onLog?.Invoke($"[Google Photos] 已自动排除 {nonMediaCount:N0} 个非图片/视频侧车文件 (如 .AAE 等)。");
         }
 
-        totalBytes = filtered.Sum(f => f.SizeBytes);
+        if (dateFilterActive && undatedCount > 0)
+        {
+            string policyText = undatedPolicy == UndatedFilePolicy.Include ? "已包含" : "已跳过";
+            onLog?.Invoke($"[Google Photos] {undatedCount:N0} 项无拍摄日期（无 EXIF 且无修改时间），按策略{policyText}。");
+        }
+
+        totalBytes = 0;
         foreach (var item in filtered)
         {
             string fullPath = Path.Combine(pcDestinationRoot, item.DestPath);
             if (File.Exists(fullPath))
             {
                 targetAbsoluteFiles.Add(fullPath);
+                totalBytes += new FileInfo(fullPath).Length;
             }
         }
 
@@ -820,15 +880,6 @@ public static class GooglePhotosSyncEngine
             journal?.Dispose();
             try { if (File.Exists(tempConfigFile)) File.Delete(tempConfigFile); } catch { }
         }
-    }
-
-    private static bool MatchesDate(ManifestEntry entry, DateTimeOffset? dateFrom, DateTimeOffset? dateEnd)
-    {
-        DateTimeOffset? captureDate = ParseCaptureDate(entry);
-        if (!captureDate.HasValue) return true;
-        if (dateFrom.HasValue && captureDate.Value < dateFrom.Value) return false;
-        if (dateEnd.HasValue && captureDate.Value > dateEnd.Value) return false;
-        return true;
     }
 
     private static DateTimeOffset? ParseCaptureDate(ManifestEntry entry)

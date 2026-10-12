@@ -84,19 +84,6 @@ public sealed class AndroidSyncTests : IDisposable
     }
 
     [Fact]
-    public void Android_device_record_can_be_upserted_and_read()
-    {
-        using TransferJournal journal = TransferJournal.Open(dir.Path);
-
-        journal.UpsertAndroidDevice("DEV-123456", "Pixel 8 Pro", DateTimeOffset.UtcNow);
-
-        IReadOnlyList<AndroidDeviceRecord> devices = journal.ReadAndroidDevices();
-        devices.ShouldHaveSingleItem();
-        devices[0].DeviceId.ShouldBe("DEV-123456");
-        devices[0].Name.ShouldBe("Pixel 8 Pro");
-    }
-
-    [Fact]
     public void Android_sync_records_can_be_added_and_queried()
     {
         using TransferJournal journal = TransferJournal.Open(dir.Path);

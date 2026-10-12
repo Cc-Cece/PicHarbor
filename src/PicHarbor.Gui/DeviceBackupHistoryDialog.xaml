@@ -91,12 +91,29 @@
                                 </Border>
                             </StackPanel>
 
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{DynamicResource HistSerialLabel}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" />
-                                <TextBlock x:Name="DeviceSerialText" Text="N/A" FontFamily="Consolas" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush2}" />
-                                <TextBlock Text="{DynamicResource HistFirstSeenLabel}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="12,0,0,0" />
-                                <TextBlock x:Name="FirstSeenText" Text="-" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" />
+                            <StackPanel x:Name="SerialDisplayRow" Orientation="Horizontal">
+                                <TextBlock Text="{DynamicResource HistSerialLabel}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" />
+                                <TextBlock x:Name="DeviceSerialText" Text="N/A" FontFamily="Consolas" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush2}" VerticalAlignment="Center" />
+                                <controls:PclButton x:Name="FixIdentityButton" Content="{DynamicResource BtnFixIdentity}" Height="22" Margin="8,0,0,0" Padding="8,0" Click="FixIdentityButton_Click" VerticalAlignment="Center" />
+                                <controls:PclButton x:Name="RebindPhoneButton" Content="{DynamicResource BtnRebindPhone}" Height="22" Margin="8,0,0,0" Padding="8,0" Click="RebindPhoneButton_Click" VerticalAlignment="Center" ToolTip="{DynamicResource BtnRebindPhoneTip}" />
+                                <TextBlock Text="{DynamicResource HistFirstSeenLabel}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                <TextBlock x:Name="FirstSeenText" Text="-" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" />
                             </StackPanel>
+
+                            <StackPanel x:Name="SerialEditRow" Margin="0,6,0,0" Visibility="Collapsed">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBox x:Name="SerialEditBox" Width="240" Height="26" VerticalContentAlignment="Center" Padding="6,0"
+                                             BorderBrush="{DynamicResource ColorBrush6}"
+                                             ToolTip="{DynamicResource HistSerialFixPlaceholder}" />
+                                    <controls:PclButton Content="{DynamicResource BtnRandomId}" Height="26" Margin="8,0,0,0" Padding="10,0" Click="RandomSerialButton_Click" ToolTip="{DynamicResource BtnRandomIdTip}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                    <controls:PclButton Content="{DynamicResource BtnSave}" Height="26" Padding="12,0" Click="SerialSaveButton_Click" />
+                                    <controls:PclButton Content="{DynamicResource BtnCancel}" Height="26" Margin="8,0,0,0" Padding="12,0" Click="SerialCancelButton_Click" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <TextBlock x:Name="SerialHintText" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
                         </StackPanel>
 
                         <!-- Totals on right -->

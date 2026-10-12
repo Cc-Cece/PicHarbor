@@ -7,8 +7,12 @@ public sealed class AppConfig
 {
     public string DestinationPath { get; set; } = string.Empty;
     public string PrimaryDriveLetter { get; set; } = string.Empty;
-    public string IPhoneCustomSubdir { get; set; } = string.Empty;
-    public string AndroidCustomSubdir { get; set; } = string.Empty;
+    // 归档文件夹名已改由归档库的 devices.archive_folder 持有（与设备身份同生共死），不再存配置。
+
+    /// <summary>
+    /// iPhone 设备显示名（用户可通过「重命名」修改）。为空时回落到设备自身报告的名字。
+    /// </summary>
+    public string IPhoneDeviceName { get; set; } = string.Empty;
     public bool GroupMediaByDevice { get; set; } = true;
     public string CurrentLanguage { get; set; } = "zh-CN";
     public string SelectedScheme { get; set; } = "month (YYYY-MM)";
@@ -18,12 +22,21 @@ public sealed class AppConfig
 
     // Android FTP Sync Settings (Restore to Android)
     public bool EnableAndroidSync { get; set; } = false;
-    public string AndroidDeviceName { get; set; } = "Pixel 8";
     public string AndroidFtpHost { get; set; } = "192.168.1.100";
     public int AndroidFtpPort { get; set; } = 2121;
     public string AndroidFtpUser { get; set; } = "anonymous";
     public string AndroidFtpPassword { get; set; } = "";
-    public string AndroidTargetDir { get; set; } = "/DCIM/PicHarbor/iPhone/";
+
+    /// <summary>
+    /// 安卓同步目标目录。<b>已固定为 <c>/DCIM/PicHarbor/</c>，不再由用户配置。</b>
+    /// 保留字段只为兼容既有配置文件；读写一律经 <c>AndroidRemoteLayout.Normalize</c> 收敛。
+    /// </summary>
+    public string AndroidTargetDir { get; set; } = Core.Android.AndroidRemoteLayout.RootDirectory;
+
+    /// <summary>
+    /// 已退役：旧的「同步页设备标识」字段。现统一使用 <see cref="AndroidBackupDeviceId"/>。
+    /// 保留仅为兼容既有配置文件，加载时会自动迁移过去。
+    /// </summary>
     public string AndroidDeviceId { get; set; } = "";
 
     // Android Backup Settings (Backup to PC)
@@ -33,6 +46,12 @@ public sealed class AppConfig
     public string AndroidBackupFtpUser { get; set; } = "anonymous";
     public string AndroidBackupFtpPassword { get; set; } = "";
     public string AndroidBackupDeviceId { get; set; } = "";
+
+    /// <summary>
+    /// 安卓备份的设备标识是否已由用户确认（自动识别成功或人工输入）。
+    /// 为 <c>true</c> 时不再重复提示核对，避免每次插线都弹窗。
+    /// </summary>
+    public bool AndroidBackupDeviceIdConfirmed { get; set; } = false;
     public int AndroidBackupMinFileSizeKb { get; set; } = 100;
     public bool AndroidBackupIgnoreSmallImages { get; set; } = true;
     public bool AndroidBackupIncludePhotos { get; set; } = true;
@@ -92,12 +111,37 @@ public static class AppSettings
                 var config = JsonSerializer.Deserialize<AppConfig>(json, JsonOptions);
                 if (config is not null)
                 {
+                    bool dirty = false;
+
                     if (!string.IsNullOrWhiteSpace(config.GooglePhotosGpmcPath) &&
                         config.GooglePhotosGpmcPath.Contains(@"Code\vscode\gpmc", StringComparison.OrdinalIgnoreCase))
                     {
                         config.GooglePhotosGpmcPath = string.Empty;
+                        dirty = true;
+                    }
+
+                    // 一次性迁移：旧的同步页标识字段并入备份页字段（AndroidDeviceId 已退役）。
+                    if (string.IsNullOrWhiteSpace(config.AndroidBackupDeviceId) &&
+                        !string.IsNullOrWhiteSpace(config.AndroidDeviceId))
+                    {
+                        config.AndroidBackupDeviceId = config.AndroidDeviceId;
+                        config.AndroidBackupDeviceIdConfirmed = true;
+                        dirty = true;
+                    }
+
+                    // 目标目录已固定，历史/用户自填值一律收敛。
+                    string normalizedDir = Core.Android.AndroidRemoteLayout.Normalize(config.AndroidTargetDir);
+                    if (!string.Equals(normalizedDir, config.AndroidTargetDir, StringComparison.Ordinal))
+                    {
+                        config.AndroidTargetDir = normalizedDir;
+                        dirty = true;
+                    }
+
+                    if (dirty)
+                    {
                         Save(config);
                     }
+
                     return config;
                 }
             }

@@ -46,6 +46,34 @@ public partial class UnlockWindow : Window
     private void Minimize_Click(object sender, RoutedEventArgs e)
         => WindowState = WindowState.Minimized;
 
+    /// <summary>解锁视图：在密码框内按回车等价于点击「解锁」。</summary>
+    private void UnlockInput_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        if (_vm.UnlockCommand.CanExecute(null))
+        {
+            _vm.UnlockCommand.Execute(null);
+        }
+
+        e.Handled = true;
+    }
+
+    /// <summary>重置视图：在动态码/新密码输入框内按回车等价于点击「重置密码」。</summary>
+    private void ResetInput_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        ResetPassword_Click(sender, e);
+        e.Handled = true;
+    }
+
     /// <summary>
     /// 关闭：等价于「取消解锁」。
     /// DialogResult=false 让主窗口走退出流程（见 MainWindow.PromptUnlockAsync）。

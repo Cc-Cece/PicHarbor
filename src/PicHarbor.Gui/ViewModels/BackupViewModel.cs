@@ -40,7 +40,7 @@ public partial class BackupViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FullDestinationPreview))]
     [NotifyPropertyChangedFor(nameof(DestinationSubtitle))]
-    private string deviceSubdir = "iPhone";
+    private string deviceSubdir = string.Empty;
 
     public string FullDestinationPreview =>
         Path.Combine(DestinationPath, LibraryStorageService.SanitizeDeviceFolderName(DeviceSubdir));
@@ -133,7 +133,12 @@ public partial class BackupViewModel : ObservableObject
     private void NavigateToSettings() => NavigateToSettingsAction?.Invoke();
 
     [RelayCommand]
-    private void ResetDeviceSubdir() => DeviceSubdir = DetectedDeviceModel;
+    private void ResetDeviceSubdir()
+    {
+        // 已锁定（首次备份已确定）时不允许再改，否则文件会散到两个目录。
+        if (archiveFolderLocked) return;
+        DeviceSubdir = DetectedDeviceModel;
+    }
 
     [RelayCommand]
     private void OpenDestinationFolder()
@@ -150,14 +155,196 @@ public partial class BackupViewModel : ObservableObject
         }
     }
 
-    public void SetDetectedDevice(string model)
+    /// <summary>最近一次识别到的 iPhone UDID；用于按设备身份查归档库。</summary>
+    public string DeviceUdid { get; private set; } = string.Empty;
+
+    public void SetDetectedDevice(string model, string? udid = null)
     {
+        if (!string.IsNullOrWhiteSpace(udid))
+        {
+            DeviceUdid = udid.Trim();
+        }
+
         if (string.IsNullOrWhiteSpace(model)) return;
         string sanitized = LibraryStorageService.SanitizeDeviceFolderName(model);
-        DetectedDeviceModel = sanitized;
-        if (string.IsNullOrWhiteSpace(DeviceSubdir) || DeviceSubdir.Equals("iPhone", StringComparison.OrdinalIgnoreCase))
+
+        // 用户重命名过的显示名优先于设备自报的名字。
+        if (!displayNameLocked)
         {
-            DeviceSubdir = sanitized;
+            DetectedDeviceModel = sanitized;
+        }
+
+        // 归档文件夹名一旦锁定就不再跟随显示名（已有文件在旧目录里）。
+        if (!archiveFolderLocked)
+        {
+            DeviceSubdir = DetectedDeviceModel;
+        }
+    }
+
+    /// <summary>用户通过「重命名」设定显示名；设定后不再被设备自报的名字覆盖。</summary>
+    public void ApplyUserDisplayName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return;
+        DetectedDeviceModel = LibraryStorageService.SanitizeDeviceFolderName(name);
+        displayNameLocked = true;
+    }
+
+    /// <summary>显示名是否已由用户设定（或从配置恢复）。</summary>
+    private bool displayNameLocked;
+
+    /// <summary>归档文件夹名是否已锁定（已写入配置）。</summary>
+    private bool archiveFolderLocked;
+
+    /// <summary>
+    /// 确保归档文件夹名已确定。
+    /// </summary>
+    /// <remarks>
+    /// 判据顺序：<b>先按设备身份（UDID）查归档库</b>（归档目录名与设备记录同生共死，是唯一权威），
+    /// 库里没有才问用户。这样老归档不会因配置缺字段被重复询问，也不会把照片写进新目录。
+    /// </remarks>
+    private async Task<bool> EnsureArchiveFolderAsync()
+    {
+        if (archiveFolderLocked && !string.IsNullOrWhiteSpace(DeviceSubdir))
+        {
+            return true;
+        }
+
+        // iPhone 的身份键：优先 UDID；尚未识别到设备时回落显示名（与旧版本语义一致）。
+        string uid = string.IsNullOrWhiteSpace(DeviceUdid) ? DetectedDeviceModel : DeviceUdid;
+        bool archiveReady = !string.IsNullOrWhiteSpace(DestinationPath) && Directory.Exists(DestinationPath);
+        bool hasUid = !string.IsNullOrWhiteSpace(uid);
+
+        if (archiveReady && hasUid)
+        {
+            try
+            {
+                // ① 库里有明确记录 → 直接采用，不打扰用户。
+                string? stored = await PicHarbor.Core.Search.ArchiveRepository
+                    .GetDeviceArchiveFolderAsync(DestinationPath, uid)
+                    .ConfigureAwait(true);
+
+                if (!string.IsNullOrWhiteSpace(stored))
+                {
+                    DeviceSubdir = stored;
+                    archiveFolderLocked = true;
+                    AddLog($"[INFO] 归档文件夹沿用既有记录：{DeviceSubdir}");
+                    return true;
+                }
+
+                // ② 已知设备、但库里没记归档目录名（升级上来的老记录）：
+                //    旧版本用显示名当目录名，且目录确实存在 → 采用并回写库。
+                string? storedName = await PicHarbor.Core.Search.ArchiveRepository
+                    .GetDeviceNameAsync(DestinationPath, uid)
+                    .ConfigureAwait(true);
+
+                if (!string.IsNullOrWhiteSpace(storedName))
+                {
+                    string candidate = LibraryStorageService.SanitizeDeviceFolderName(storedName);
+                    if (!string.IsNullOrWhiteSpace(candidate) &&
+                        Directory.Exists(Path.Combine(DestinationPath, candidate)))
+                    {
+                        DeviceSubdir = candidate;
+                        archiveFolderLocked = true;
+                        await PicHarbor.Core.Search.ArchiveRepository
+                            .SetDeviceArchiveFolderAsync(DestinationPath, uid, candidate)
+                            .ConfigureAwait(true);
+                        AddLog($"[INFO] 归档文件夹沿用既有目录：{DeviceSubdir}");
+                        return true;
+                    }
+                }
+
+                // ③ 显示名对不上（用户改过显示名）→ 从已备份文件的相对路径推导真实归档目录名。
+                string? inferred = await PicHarbor.Core.Search.ArchiveRepository
+                    .InferDeviceArchiveFolderFromHistoryAsync(DestinationPath, uid)
+                    .ConfigureAwait(true);
+
+                if (!string.IsNullOrWhiteSpace(inferred))
+                {
+                    string inferredFolder = LibraryStorageService.SanitizeDeviceFolderName(inferred);
+                    if (!string.IsNullOrWhiteSpace(inferredFolder) &&
+                        Directory.Exists(Path.Combine(DestinationPath, inferredFolder)))
+                    {
+                        DeviceSubdir = inferredFolder;
+                        archiveFolderLocked = true;
+                        await PicHarbor.Core.Search.ArchiveRepository
+                            .SetDeviceArchiveFolderAsync(DestinationPath, uid, inferredFolder)
+                            .ConfigureAwait(true);
+                        AddLog($"[INFO] 归档文件夹由备份历史推导：{DeviceSubdir}");
+                        return true;
+                    }
+                }
+            }
+            catch
+            {
+                // 读库失败时退回到询问用户。
+            }
+        }
+
+        // ③ 库里查不到这台设备 → 真正的新设备，弹框确认（唯一一次机会）。
+        string suggested = string.IsNullOrWhiteSpace(DeviceSubdir)
+            ? (string.IsNullOrWhiteSpace(DetectedDeviceModel) ? "iPhone" : DetectedDeviceModel)
+            : DeviceSubdir;
+
+        var dialog = new ArchiveFolderDialog(suggested, name => ValidateArchiveFolderNameAsync(name, uid))
+        {
+            Owner = Application.Current?.MainWindow
+        };
+
+        dialog.ShowDialog();
+        if (!dialog.Confirmed)
+        {
+            return false;
+        }
+
+        DeviceSubdir = LibraryStorageService.SanitizeDeviceFolderName(dialog.FolderName);
+        archiveFolderLocked = true;
+        SaveAndroidConfig();
+
+        if (archiveReady && hasUid)
+        {
+            try
+            {
+                await PicHarbor.Core.Search.ArchiveRepository
+                    .SetDeviceArchiveFolderAsync(DestinationPath, uid, DeviceSubdir)
+                    .ConfigureAwait(true);
+            }
+            catch
+            {
+                // 写库失败不影响本次备份；下次会走 ② 兜底。
+            }
+        }
+
+        AddLog($"[INFO] 归档文件夹已确定为 {DeviceSubdir}，之后不可更改。");
+        return true;
+    }
+
+    /// <summary>归档文件夹名校验：与<b>其它</b>设备已占用的名字冲突时拒绝（按设备身份排除自己）。</summary>
+    private async Task<string?> ValidateArchiveFolderNameAsync(string name, string uid)
+    {
+        string sanitized = LibraryStorageService.SanitizeDeviceFolderName(name);
+        if (string.IsNullOrWhiteSpace(sanitized))
+        {
+            return App.GetString("ArchiveFolderInvalid", "该名称不可用作文件夹名，请换一个。");
+        }
+
+        if (string.IsNullOrWhiteSpace(DestinationPath) || !Directory.Exists(DestinationPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            bool taken = await PicHarbor.Core.Search.ArchiveRepository
+                .IsDeviceArchiveFolderTakenByOtherAsync(DestinationPath, sanitized, uid)
+                .ConfigureAwait(true);
+
+            return taken
+                ? string.Format(App.GetString("FmtArchiveFolderTaken", "名称「{0}」已被另一台设备使用，请换一个。"), sanitized)
+                : null;
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -417,8 +604,6 @@ public partial class BackupViewModel : ObservableObject
     [ObservableProperty]
     private bool enableAndroidSync = false;
 
-    [ObservableProperty]
-    private string androidDeviceName = "Pixel 8";
 
     [ObservableProperty]
     private string androidFtpHost = "192.168.1.100";
@@ -468,38 +653,77 @@ public partial class BackupViewModel : ObservableObject
     {
         var config = Config.AppSettings.Load();
         EnableAndroidSync = config.EnableAndroidSync;
-        AndroidDeviceName = config.AndroidDeviceName;
         AndroidFtpHost = config.AndroidFtpHost;
         AndroidFtpPort = config.AndroidFtpPort;
         AndroidFtpUser = config.AndroidFtpUser;
         AndroidFtpPassword = config.AndroidFtpPassword;
-        AndroidTargetDir = config.AndroidTargetDir;
-        AndroidDeviceId = config.AndroidDeviceId;
+        AndroidTargetDir = PicHarbor.Core.Android.AndroidRemoteLayout.Normalize(config.AndroidTargetDir);
+
+        // 设备标识统一使用备份页的字段（AndroidDeviceId 已退役）。
+        suppressAndroidDeviceIdSave = true;
+        try
+        {
+            AndroidDeviceId = config.AndroidBackupDeviceId;
+        }
+        finally
+        {
+            suppressAndroidDeviceIdSave = false;
+        }
+
+        // iPhone：用户重命名过的显示名优先。
+        // 归档文件夹名由归档库持有，首次备份前通过 EnsureArchiveFolderAsync 确定。
+        if (!string.IsNullOrWhiteSpace(config.IPhoneDeviceName))
+        {
+            DetectedDeviceModel = config.IPhoneDeviceName;
+            displayNameLocked = true;
+        }
     }
+
+    /// <summary>加载配置期间抑制标识回写，避免启动时覆盖用户设置。</summary>
+    private bool suppressAndroidDeviceIdSave;
 
     public void SaveAndroidConfig()
     {
         var config = Config.AppSettings.Load();
         config.EnableAndroidSync = EnableAndroidSync;
-        config.AndroidDeviceName = AndroidDeviceName;
         config.AndroidFtpHost = AndroidFtpHost;
         config.AndroidFtpPort = AndroidFtpPort;
         config.AndroidFtpUser = AndroidFtpUser;
         config.AndroidFtpPassword = AndroidFtpPassword;
-        config.AndroidTargetDir = AndroidTargetDir;
-        config.AndroidDeviceId = AndroidDeviceId;
+        config.AndroidTargetDir = PicHarbor.Core.Android.AndroidRemoteLayout.RootDirectory;
+        config.AndroidBackupDeviceId = AndroidDeviceId;
+
+        // iPhone 显示名：未由用户设定时不写配置，保持回落设备自报名字的语义。
+        config.IPhoneDeviceName = displayNameLocked ? DetectedDeviceModel : string.Empty;
+
         Config.AppSettings.Save(config);
     }
 
     partial void OnSelectedSchemeChanged(string value) => SaveAndroidConfig();
     partial void OnEnableAndroidSyncChanged(bool value) => SaveAndroidConfig();
-    partial void OnAndroidDeviceNameChanged(string value) => SaveAndroidConfig();
     partial void OnAndroidFtpHostChanged(string value) => SaveAndroidConfig();
     partial void OnAndroidFtpPortChanged(int value) => SaveAndroidConfig();
     partial void OnAndroidFtpUserChanged(string value) => SaveAndroidConfig();
     partial void OnAndroidFtpPasswordChanged(string value) => SaveAndroidConfig();
-    partial void OnAndroidTargetDirChanged(string value) => SaveAndroidConfig();
-    partial void OnAndroidDeviceIdChanged(string value) => SaveAndroidConfig();
+
+    partial void OnAndroidTargetDirChanged(string value)
+    {
+        // 目录已固定：任何偏离都收敛回常量。
+        string normalized = PicHarbor.Core.Android.AndroidRemoteLayout.Normalize(value);
+        if (!string.Equals(normalized, value, StringComparison.Ordinal))
+        {
+            AndroidTargetDir = normalized;
+            return;
+        }
+
+        SaveAndroidConfig();
+    }
+
+    partial void OnAndroidDeviceIdChanged(string value)
+    {
+        if (suppressAndroidDeviceIdSave) return;
+        SaveAndroidConfig();
+    }
 
     partial void OnDestinationPathChanged(string value)
     {
@@ -535,6 +759,11 @@ public partial class BackupViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(DestinationPath))
         {
             AddLog("[ERROR] Destination path cannot be empty.");
+            return;
+        }
+
+        if (!await EnsureArchiveFolderAsync().ConfigureAwait(true))
+        {
             return;
         }
 
@@ -909,13 +1138,30 @@ public partial class BackupViewModel : ObservableObject
             {
                 using var ftp = new PicHarbor.Core.Android.SimpleFtpClient();
                 await ftp.ConnectAsync(AndroidFtpHost, AndroidFtpPort, AndroidFtpUser, AndroidFtpPassword).ConfigureAwait(false);
-                string verifiedId = await PicHarbor.Core.Android.AndroidDeviceDetector.IdentifyOrPairDeviceAsync(
-                    ftp, AndroidTargetDir, AndroidDeviceId, AndroidDeviceName).ConfigureAwait(false);
+
+                // 只解析身份并核对，不写设备端文件（测试连接应为只读操作）。
+                var identity = await PicHarbor.Core.Android.AndroidDeviceDetector
+                    .ResolveIdentityAsync(ftp, AndroidTargetDir, AndroidDeviceId).ConfigureAwait(false);
+
+                string baseline = AndroidDeviceId;
+                string resolvedId = string.IsNullOrWhiteSpace(identity.DeviceId) ? baseline : identity.DeviceId;
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    AndroidDeviceId = verifiedId;
-                    AndroidTestStatus = androidTestSticky.Set("FmtAndroidTestOk", "连接成功！设备 ID: {0}", verifiedId);
+                    AndroidDeviceId = resolvedId;
+
+                    AndroidTestStatus = identity.Match switch
+                    {
+                        PicHarbor.Core.Android.DeviceIdentityMatch.Matched =>
+                            androidTestSticky.Set("FmtAndroidTestOk", "连接成功！设备 ID: {0}", resolvedId),
+                        PicHarbor.Core.Android.DeviceIdentityMatch.Mismatched =>
+                            androidTestSticky.Set("FmtAndroidTestMismatch", "连接成功，但设备标识不符（远端 {0} / 本机 {1}），请确认是否连错了 FTP 设备。", identity.RemoteId ?? "-", baseline),
+                        PicHarbor.Core.Android.DeviceIdentityMatch.Unverifiable =>
+                            androidTestSticky.Set("FmtAndroidTestUnverifiable", "连接成功，但设备端缺少识别文件，无法核对身份（本机标识 {0}）。", baseline),
+                        _ =>
+                            androidTestSticky.Set("FmtAndroidTestOk", "连接成功！设备 ID: {0}", resolvedId)
+                    };
+
                     SaveAndroidConfig();
                 });
             }).ConfigureAwait(false);

@@ -10,7 +10,7 @@
     <sys:String x:Key="CloseBtn">Close</sys:String>
 
     <!-- Android Sync Tab -->
-    <sys:String x:Key="AndroidTargetDirLabel">Target Directory:</sys:String>
+    <sys:String x:Key="AndroidTargetDirLabel">Fixed target directory:</sys:String>
 
     <!-- Table Columns for Device History -->
     <sys:String x:Key="ColDeviceName">Device Name</sys:String>
@@ -276,7 +276,16 @@
     <sys:String x:Key="LabelProxyChannel">Network Proxy Channel</sys:String>
     <sys:String x:Key="BtnGoToProxySettings">Open Network Settings</sys:String>
     <sys:String x:Key="CardGoogleScope">Upload Policy</sys:String>
-    <sys:String x:Key="LabelUploadScope">Upload Scope</sys:String>
+    <sys:String x:Key="ScopeGoogleCustomTarget">Upload custom external path</sys:String>
+    <sys:String x:Key="LabelBaseScope">Base scope</sys:String>
+    <sys:String x:Key="LabelFilterSection">Filters (ANDed with base scope)</sys:String>
+    <sys:String x:Key="LabelSubfolderFilter">Subfolder filter (multi-select, includes children)</sys:String>
+    <sys:String x:Key="LabelDateRangeFilter">Date filter (by capture date)</sys:String>
+    <sys:String x:Key="LabelCustomTargetPath">Custom external path</sys:String>
+    <sys:String x:Key="ScopeSubfolderFilterOffHint">No folder checked = subfolder filter disabled</sys:String>
+    <sys:String x:Key="ScopeUndatedHint">{0} items without capture date</sys:String>
+    <sys:String x:Key="ScopeUndatedInclude">Include</sys:String>
+    <sys:String x:Key="ScopeUndatedSkip">Skip</sys:String>
     <sys:String x:Key="ScopeGoogleAll">Full Sync (Incrementally upload all local photos to Google Photos)</sys:String>
     <sys:String x:Key="ScopeGoogleManual">Queue Sync (Upload only selected photos marked in gallery)</sys:String>
     <sys:String x:Key="BtnViewEditPendingList">👁️ View / Edit Transfer Queue</sys:String>
@@ -291,7 +300,6 @@
     <sys:String x:Key="BannerIPhoneSyncGuide">Losslessly transfer photos and Live Photos back to iPhone via Apple Devices / iTunes File Sharing. Steps: choose the restore scope, click “Start Export”, then follow the “Step 2” prompts below to finish syncing in Apple Devices.</sys:String>
     <sys:String x:Key="CardIPhoneRestoreScope">Restore Media Scope</sys:String>
     <sys:String x:Key="ScopeRestoreAll">Full Restore (restore all photos in the local library)</sys:String>
-    <sys:String x:Key="ScopeRestoreDateRange">Filter by capture date range</sys:String>
     <sys:String x:Key="LabelDateFrom">From:</sys:String>
     <sys:String x:Key="BtnClear">Clear</sys:String>
     <sys:String x:Key="LabelDatePresets">Quick Presets:</sys:String>
@@ -299,7 +307,6 @@
     <sys:String x:Key="BtnPresetLast90Days">Last 90 Days</sys:String>
     <sys:String x:Key="BtnPresetLast1Year">Last 1 Year</sys:String>
     <sys:String x:Key="BtnPresetThisYear">This Year</sys:String>
-    <sys:String x:Key="ScopeRestoreSubfolder">Select by subfolder category</sys:String>
     <sys:String x:Key="ScopeRestoreManual">Only restore photos in transfer queue</sys:String>
     <sys:String x:Key="CardIPhoneTargetAlbum">Target Album &amp; Restore Options</sys:String>
     <sys:String x:Key="FolderModeYearMonth">Organize folders by year and month (e.g. 2026-10)</sys:String>
@@ -337,12 +344,6 @@
     <sys:String x:Key="SettingsBtnSyncMerge">Merge</sys:String>
     <sys:String x:Key="SettingsBtnSyncCleanup">Cleanup</sys:String>
     <sys:String x:Key="SettingsBtnSyncIgnore">Ignore</sys:String>
-    <sys:String x:Key="GridSyncColFolder">Folder</sys:String>
-    <sys:String x:Key="GridSyncColDevice">Device</sys:String>
-    <sys:String x:Key="GridSyncColFiles">Files</sys:String>
-    <sys:String x:Key="GridSyncColSize">Size</sys:String>
-    <sys:String x:Key="GridSyncColEquiv">Merged</sys:String>
-    <sys:String x:Key="GridSyncColStatus">Status</sys:String>
     <sys:String x:Key="MsgSyncScanning">Scanning sync folders…</sys:String>
     <sys:String x:Key="MsgSyncScanDone">Scan complete: {0} sync folders found.</sys:String>
     <sys:String x:Key="MsgSyncScanNone">No scattered sync folders found.</sys:String>
@@ -359,6 +360,7 @@
     <sys:String x:Key="MsgSyncIgnored">Folder ignored — it will no longer be listed in scans.</sys:String>
     <sys:String x:Key="FmtSyncIgnoreError">❌ Failed to record ignore: {0}</sys:String>
     <sys:String x:Key="BannerAndroidSyncGuide">Losslessly transfer photos and videos to Android Camera folder via local Wi-Fi FTP service.</sys:String>
+    <sys:String x:Key="FmtSyncItemMergeInfo">{0} / {1} equivalent, {2} missing</sys:String>
     <sys:String x:Key="CardAndroidFtpConn">Android Device FTP Connection Parameters</sys:String>
     <sys:String x:Key="LabelPhoneIp">Phone IP Address:</sys:String>
     <sys:String x:Key="LabelFtpPort">FTP Port:</sys:String>
@@ -368,7 +370,7 @@
     <sys:String x:Key="BtnStartAndroidSync">Start Sync to Android Device</sys:String>
     <sys:String x:Key="BtnStopAndroidSync">Stop Restore</sys:String>
     <sys:String x:Key="HeroBtnRename">✏️ Rename</sys:String>
-    <sys:String x:Key="HeroTooltipRename">Customize device alias</sys:String>
+    <sys:String x:Key="HeroTooltipRename">Customize display name</sys:String>
     <sys:String x:Key="HeroBtnRefresh">🔄 Refresh</sys:String>
     <sys:String x:Key="HeroTooltipRefresh">Re-check connection status</sys:String>
     <sys:String x:Key="HeroBtnFtpParams">📡 FTP Params</sys:String>
@@ -397,8 +399,8 @@
     <sys:String x:Key="ManualModalBadge">Universal Multi-device Queue</sys:String>
     <sys:String x:Key="BtnClearPendingList">Clear Queue</sys:String>
     <sys:String x:Key="BtnDone">Done</sys:String>
-    <sys:String x:Key="RenameModalTitle">Rename Device Alias</sys:String>
-    <sys:String x:Key="RenameModalHint">Backed up files will be organized under this subfolder on the target drive:</sys:String>
+    <sys:String x:Key="RenameModalTitle">Rename Display Name</sys:String>
+    <sys:String x:Key="RenameModalHint">Changes the display name only. The archive folder is fixed on the first backup.</sys:String>
     <sys:String x:Key="BtnSaveApply">Save &amp; Apply</sys:String>
     <sys:String x:Key="FtpModalTitle">📡 FTP Connection Settings</sys:String>
     <sys:String x:Key="FtpModalHint">Start FTP service on your Android phone and enter the local Wi-Fi parameters below.</sys:String>
@@ -424,7 +426,6 @@
 
     <sys:String x:Key="CardAndroidRestoreScope">Restore Scope &amp; Filtering</sys:String>
     <sys:String x:Key="ScopeAndroidRestoreAll">Full Restore (Restore all PC archive photos to phone)</sys:String>
-    <sys:String x:Key="ScopeAndroidRestoreDateRange">Restore by capture date range</sys:String>
     <sys:String x:Key="ScopeAndroidRestoreManual">Only restore photos selected and marked in gallery</sys:String>
     <sys:String x:Key="BtnTestConnection">Test Connectivity</sys:String>
     <sys:String x:Key="SettingsCardProxyDesc">Configure global HTTP/SOCKS5 proxy address for remote cloud services like Google Photos.</sys:String>
@@ -512,7 +513,75 @@
     <sys:String x:Key="HistSubtitle">Backup history and source trace for connected devices</sys:String>
     <sys:String x:Key="HistDeviceName">Device name</sys:String>
     <sys:String x:Key="HistModel">Model</sys:String>
-    <sys:String x:Key="HistSerialLabel">Serial / UDID: </sys:String>
+    <sys:String x:Key="HistSerialLabel">Device ID / Serial: </sys:String>
+    <sys:String x:Key="HistSerialUnknown">Not identified</sys:String>
+    <sys:String x:Key="HistSerialUnknownHint">No valid hardware serial recorded for this device yet. Click "Fix ID" to enter one manually.</sys:String>
+    <sys:String x:Key="HistSerialFixPlaceholder">Enter the value from Settings → About phone → All specs → Status → Serial number, or define your own stable ID.</sys:String>
+    <sys:String x:Key="HistSerialDuplicate">This ID is already used by another device in this archive. Please choose a different one.</sys:String>
+    <sys:String x:Key="HistSerialUdidTaken">This ID already maps to another device record and cannot be merged. Please choose a different one.</sys:String>
+    <sys:String x:Key="HistSerialNotPersisted">Display updated, but no matching device record was found in the archive — not persisted.</sys:String>
+    <sys:String x:Key="FmtHistSerialInvalid">ID not usable ({0}). {1}</sys:String>
+    <sys:String x:Key="FmtHistSerialFixed">Device ID updated to: {0}</sys:String>
+    <sys:String x:Key="FmtHistSerialFailed">Save failed: {0}</sys:String>
+    <sys:String x:Key="BtnFixIdentity">Fix ID</sys:String>
+    <sys:String x:Key="BtnSave">Save</sys:String>
+    <sys:String x:Key="LabelDeviceIdentity">Device ID</sys:String>
+    <sys:String x:Key="FmtAndroidIdSuccess">Device ID bound: {0}</sys:String>
+    <sys:String x:Key="AndroidIdManualAccepted">Using the manually entered device ID.</sys:String>
+    <sys:String x:Key="AndroidIdRejNotProvided">the device did not provide a serial number</sys:String>
+    <sys:String x:Key="AndroidIdRejDuplicate">this ID is already used by another device</sys:String>
+    <sys:String x:Key="AndroidIdRejMalformed">the value is not trustworthy — likely a placeholder or a port path</sys:String>
+    <sys:String x:Key="PairTitle">Device pairing</sys:String>
+    <sys:String x:Key="PairTargetDevice">Target device:</sys:String>
+    <sys:String x:Key="PairUseIdentity">Using identity:</sys:String>
+    <sys:String x:Key="PairHint">Pairing writes the identity code to the phone's fixed folder and reads it back to verify.</sys:String>
+    <sys:String x:Key="PairStart">Start pairing</sys:String>
+    <sys:String x:Key="PairRetry">Pair again</sys:String>
+    <sys:String x:Key="PairStageConnecting">Connect FTP</sys:String>
+    <sys:String x:Key="PairStageReading">Read phone-side identity file</sys:String>
+    <sys:String x:Key="PairStageWriting">Write identity file</sys:String>
+    <sys:String x:Key="PairStageVerifying">Read back and verify</sys:String>
+    <sys:String x:Key="FmtPairOverwriteConfirm">This phone is already bound to {0}, which differs from the {1} you selected. You may be connected to the wrong phone, or this phone already belongs to another device record. Overwrite with {1}?</sys:String>
+    <sys:String x:Key="FmtPairOk">Pairing complete: {0}</sys:String>
+    <sys:String x:Key="FmtPairAlready">This phone is already {0}; no re-pairing needed.</sys:String>
+    <sys:String x:Key="PairDeclined">Overwrite cancelled; nothing was changed.</sys:String>
+    <sys:String x:Key="FmtPairFailed">Pairing failed: {0}</sys:String>
+    <sys:String x:Key="BtnGenerateAndBind">Generate &amp; bind</sys:String>
+    <sys:String x:Key="BtnGenerateAndBindTip">Generate a new identity code and write it to the phone (with read-back verification)</sys:String>
+    <sys:String x:Key="LabelDeviceIdentityTip">Device identity code: generated on the PC and written to the phone's fixed folder. Normally no manual editing is needed.</sys:String>
+    <sys:String x:Key="AndroidIdPairNotCompleted">Pairing was not completed; the device ID was left unchanged.</sys:String>
+    <sys:String x:Key="FmtAndroidIdReplaceUnknown">Current device ID: {0}&#x0a;&#x0a;"Generate &amp; bind" creates a NEW identity code and overwrites the one currently on the phone.&#x0a;&#x0a;Continue?</sys:String>
+    <sys:String x:Key="FmtAndroidIdReplaceKnown">Current device ID: {0}&#x0a;This ID is already registered in the archive as device "{1}", with {2} backup batches.&#x0a;&#x0a;"Generate &amp; bind" creates a NEW identity code and overwrites the one on the phone; this device's history will be decoupled from the new code.&#x0a;&#x0a;If you only want to connect this device, click "Done" instead — the current ID is already correct.&#x0a;&#x0a;Replace the code anyway?</sys:String>
+    <sys:String x:Key="ArchiveFolderTitle">Confirm archive folder</sys:String>
+    <sys:String x:Key="ArchiveFolderHint">This name is used as the folder that holds this device's photos under the archive root. This is your only chance to change it — it locks after the first backup.</sys:String>
+    <sys:String x:Key="ArchiveFolderLabel">Archive folder name</sys:String>
+    <sys:String x:Key="ArchiveFolderConfirm">Confirm &amp; back up</sys:String>
+    <sys:String x:Key="ArchiveFolderEmpty">The folder name cannot be empty.</sys:String>
+    <sys:String x:Key="ArchiveFolderInvalid">That name cannot be used as a folder name. Please choose another.</sys:String>
+    <sys:String x:Key="FmtArchiveFolderTaken">The name "{0}" is already used by another device. Please choose another.</sys:String>
+    <sys:String x:Key="ArchiveFolderNotSet">Set on first backup</sys:String>
+    <sys:String x:Key="RenameArchiveFolderLabel">Archive folder (read-only)</sys:String>
+    <sys:String x:Key="AndroidIdReading">Reading the phone-side identity...</sys:String>
+    <sys:String x:Key="FmtAndroidIdReadOk">Phone-side identity: {0}</sys:String>
+    <sys:String x:Key="FmtAndroidIdReadAdopted">Adopted the phone-side identity: {0}</sys:String>
+    <sys:String x:Key="FmtAndroidIdReadMismatch">The phone reports {0} but this PC has {1}. Please check whether the wrong device is connected.</sys:String>
+    <sys:String x:Key="AndroidIdReadMissing">The phone has no identity file; pairing is required first.</sys:String>
+    <sys:String x:Key="FmtAndroidIdReadFailed">Failed to read the phone-side identity: {0}</sys:String>
+    <sys:String x:Key="RenameNameTaken">That name is already used by another device. Please choose another.</sys:String>
+    <sys:String x:Key="BtnRandomId">Random</sys:String>
+    <sys:String x:Key="BtnRandomIdTip">Generate an internal device ID on the PC (used when the device provides no serial number)</sys:String>
+    <sys:String x:Key="BtnRebindPhone">Rebind to phone</sys:String>
+    <sys:String x:Key="BtnRebindPhoneTip">Write the current device ID back to the phone's fixed folder (for when the phone-side file was lost)</sys:String>
+    <sys:String x:Key="AndroidTargetDirFixedHint">This directory is fixed and cannot be changed (the identity file must be read and written in the same place)</sys:String>
+    <sys:String x:Key="FmtAndroidTestMismatch">Connected, but the device ID does not match (remote {0} / local {1}). Please check whether the wrong FTP device is connected.</sys:String>
+    <sys:String x:Key="FmtAndroidTestUnverifiable">Connected, but the device has no identity file, so its identity cannot be verified (local ID {0}).</sys:String>
+    <sys:String x:Key="FmtAndroidIdentityMismatch">The target device ID does not match the local record. Locally confirmed: {0}; currently connected: {1}. This may be the wrong FTP server, or a different device. Continuing will re-record sync progress under the currently connected device. Continue?</sys:String>
+    <sys:String x:Key="FmtAndroidIdentityUnverifiable">The connected device has no identity file, so its identity cannot be verified. Locally confirmed: {0}. The phone-side identity file may have been deleted, or a different device is connected. Continuing will record sync progress under the locally confirmed ID. Continue?</sys:String>
+    <sys:String x:Key="AndroidSyncIdentityAborted">Aborted: target device identity was not confirmed; no files were transferred.</sys:String>
+    <sys:String x:Key="HistRandomGenerated">An internal device ID has been generated. Click "Save" to confirm.</sys:String>
+    <sys:String x:Key="HistRebindNoSerial">The current device ID is not usable. Click "Fix ID" to enter a valid one first.</sys:String>
+    <sys:String x:Key="HistRebindNoFtp">No Android FTP connection configured yet. Fill in the FTP settings on the "Sync to Android" page first.</sys:String>
+    <sys:String x:Key="FmtHistRebindOk">Device ID written to the phone: {0}</sys:String>
     <sys:String x:Key="HistFirstSeenLabel">  •  First seen: </sys:String>
     <sys:String x:Key="HistSessionCountLabel">Backup sessions</sys:String>
     <sys:String x:Key="HistFileVolumeLabel">Files and size</sys:String>
@@ -590,6 +659,9 @@ Open the page in your system browser and paste the credential by hand.</sys:Stri
     <sys:String x:Key="GalleryNoWebView">Could not create the WebView2 instance</sys:String>
     <sys:String x:Key="GalleryPageNotLoaded">The gallery page did not finish loading</sys:String>
     <sys:String x:Key="AndroidConnUntested">Connection not tested</sys:String>
+    <sys:String x:Key="FmtAndroidPillConnected">Connected {0}</sys:String>
+    <sys:String x:Key="AndroidPillConnected">Connected</sys:String>
+    <sys:String x:Key="AndroidPillNotConnected">Not connected or invalid settings</sys:String>
     <sys:String x:Key="AndroidConnTesting">Connecting to the FTP server...</sys:String>
     <sys:String x:Key="FmtAndroidConnOk">✅ Connected ({0}:{1})</sys:String>
     <sys:String x:Key="FmtAndroidConnFail">❌ Connection failed: {0}</sys:String>
@@ -710,7 +782,6 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="FmtBackupRunning">Backing up ({0:F0}%)</sys:String>
     <sys:String x:Key="FmtBackupDoneFailed">Done ({0} copied, {1} failed)</sys:String>
     <sys:String x:Key="FmtBackupDoneSkipped">Done ({0} copied, {1} skipped)</sys:String>
-    <sys:String x:Key="AndroidConnectedReady">Connected · ready</sys:String>
     <sys:String x:Key="StatusScanning">Scanning files...</sys:String>
     <sys:String x:Key="StatusDoneShort">Done</sys:String>
     <sys:String x:Key="StatusCancelledShort">Cancelled</sys:String>

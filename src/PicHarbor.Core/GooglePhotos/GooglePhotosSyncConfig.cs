@@ -1,3 +1,5 @@
+using PicHarbor.Core.Scope;
+
 namespace PicHarbor.Core.GooglePhotos;
 
 /// <summary>
@@ -83,8 +85,20 @@ public sealed class GooglePhotosSyncConfig
     /// <summary>End date when ScopeMode is DateRange.</summary>
     public DateTimeOffset? DateRangeEnd { get; set; }
 
-    /// <summary>Subfolder relative path when ScopeMode is Subfolder.</summary>
+    /// <summary>Subfolder relative path when ScopeMode is Subfolder (legacy single-select; use <see cref="SelectedSubfolders"/>).</summary>
+    [Obsolete("Use SelectedSubfolders (combination semantics via Filters).")]
     public string? SelectedSubfolder { get; set; }
+
+    /// <summary>Selected subfolder relative paths (multi-select, deep paths allowed) for combination filtering via <see cref="Filters"/>.</summary>
+    public HashSet<string>? SelectedSubfolders { get; set; }
+
+    /// <summary>
+    /// Combined filter set (subfolder AND date). When non-null, combination semantics are enabled:
+    /// <see cref="ScopeMode"/> acts as the base set (All passes everything, ManualSelection restricts to
+    /// <see cref="ManualSelectedPaths"/>) and the filters are ANDed on top. When null, the legacy
+    /// exclusive <see cref="ScopeMode"/> switch is used for backward compatibility.
+    /// </summary>
+    public ScopeFilterSet? Filters { get; set; }
 
     /// <summary>Set of relative destination paths when ScopeMode is ManualSelection.</summary>
     public IReadOnlySet<string>? ManualSelectedPaths { get; set; }

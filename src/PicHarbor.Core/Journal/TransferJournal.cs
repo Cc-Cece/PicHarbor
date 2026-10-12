@@ -282,15 +282,6 @@ public sealed class TransferJournal : IDisposable
             """);
         Execute(
             """
-            CREATE TABLE IF NOT EXISTS android_devices (
-                device_id    TEXT PRIMARY KEY,
-                name         TEXT NOT NULL,
-                created_at   TEXT NOT NULL,
-                last_seen_at TEXT NOT NULL
-            );
-            """);
-        Execute(
-            """
             CREATE TABLE IF NOT EXISTS android_sync_records (
                 dest_path TEXT NOT NULL,
                 device_id TEXT NOT NULL,
@@ -339,6 +330,16 @@ public sealed class TransferJournal : IDisposable
             """);
         Execute(
             """
+            CREATE TABLE IF NOT EXISTS scope_subfolder_selections (
+                scope_kind     TEXT NOT NULL,
+                device_key     TEXT NOT NULL,
+                node_path      TEXT NOT NULL,
+                updated_at     TEXT NOT NULL,
+                PRIMARY KEY (scope_kind, device_key, node_path)
+            );
+            """);
+        Execute(
+            """
             CREATE TABLE IF NOT EXISTS android_manual_selections (
                 device_id      TEXT NOT NULL,
                 dest_path      TEXT NOT NULL,
@@ -374,6 +375,9 @@ public sealed class TransferJournal : IDisposable
         EnsureColumnExists("iphone_manual_selections", "udid", "TEXT");
         EnsureColumnExists("iphone_exported_files", "udid", "TEXT");
 
+        // 主键迁移必须在补齐 udid 列之后执行。
+        EnsureIphoneUdidPrimaryKey();
+
         Execute(
             """
             CREATE TABLE IF NOT EXISTS backup_sessions (
@@ -408,6 +412,8 @@ public sealed class TransferJournal : IDisposable
 
         EnsureColumnExists("devices", "hardware_serial", "TEXT");
         EnsureColumnExists("devices", "device_type", "TEXT");
+        // 归档文件夹名与设备身份一起持久化——两者同生共死（库就在归档目录里），不会不同步。
+        EnsureColumnExists("devices", "archive_folder", "TEXT");
 
         Migrate();
     }
@@ -484,15 +490,6 @@ public sealed class TransferJournal : IDisposable
 
         if (version < 4)
         {
-            Execute(
-                """
-                CREATE TABLE IF NOT EXISTS android_devices (
-                    device_id    TEXT PRIMARY KEY,
-                    name         TEXT NOT NULL,
-                    created_at   TEXT NOT NULL,
-                    last_seen_at TEXT NOT NULL
-                );
-                """);
             Execute(
                 """
                 CREATE TABLE IF NOT EXISTS android_sync_records (
@@ -585,6 +582,7 @@ public sealed class TransferJournal : IDisposable
 
             EnsureColumnExists("devices", "hardware_serial", "TEXT");
             EnsureColumnExists("devices", "device_type", "TEXT");
+            EnsureColumnExists("devices", "archive_folder", "TEXT");
 
             BackfillLegacySessionsIfEmpty();
         }
@@ -1125,6 +1123,250 @@ public sealed class TransferJournal : IDisposable
         insertCmd.ExecuteNonQuery();
 
         return disambiguatedName;
+    }
+
+    /// <summary>
+    /// 仅更新既有设备的硬件序列号（用于人工修正自动识别的结果），不改名、不新建记录。
+    /// </summary>
+    /// <param name="udid">设备 UDID（本项目中安卓侧即配置的设备标识）。</param>
+    /// <param name="hardwareSerial">修正后的硬件序列号；传 <c>null</c> 表示清空。</param>
+    /// <returns>是否命中了设备记录。</returns>
+    public bool UpdateDeviceHardwareSerial(string udid, string? hardwareSerial)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(udid);
+
+        if (!ColumnExists("devices", "hardware_serial"))
+        {
+            return false;
+        }
+
+        using SqliteCommand command = CreateCommand(
+            "UPDATE devices SET hardware_serial = $serial WHERE udid = $udid;");
+        command.Parameters.AddWithValue("$udid", udid);
+        command.Parameters.AddWithValue("$serial", (object?)hardwareSerial ?? DBNull.Value);
+        return command.ExecuteNonQuery() > 0;
+    }
+
+    /// <summary>
+    /// 判断该硬件序列号是否已被<b>其它</b>设备占用。
+    /// </summary>
+    /// <remarks>
+    /// 用于拦截「同一个通用串被多台设备上报」的情况——这类序列号单看一台设备无法发现，
+    /// 必须拿已登记的记录做交叉比对。
+    /// </remarks>
+    public bool IsHardwareSerialTakenByOther(string hardwareSerial, string? excludeUdid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(hardwareSerial);
+
+        if (!ColumnExists("devices", "hardware_serial"))
+        {
+            return false;
+        }
+
+        using SqliteCommand command = CreateCommand(
+            "SELECT COUNT(*) FROM devices WHERE hardware_serial = $serial AND udid != $udid;");
+        command.Parameters.AddWithValue("$serial", hardwareSerial.Trim());
+        command.Parameters.AddWithValue("$udid", excludeUdid ?? string.Empty);
+        long count = (long)(command.ExecuteScalar() ?? 0L);
+        return count > 0;
+    }
+
+    /// <summary>
+    /// 将既有设备的标识（udid）迁移为新值，保留其全部备份历史。
+    /// </summary>
+    /// <remarks>
+    /// 用于「旧版本已备份、更新后重新识别」的场景：设备身份从旧的软件 ID（如 FTP 主机名）
+    /// 换成真实硬件序列号时，必须<b>迁移</b>而不是新建记录，否则历史批次会与新设备脱钩。
+    /// 目标标识已被占用时拒绝迁移并返回 <c>false</c>。
+    /// </remarks>
+    /// <returns>是否完成了迁移。</returns>
+    public bool MigrateDeviceUdid(string oldUdid, string newUdid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(oldUdid);
+        ArgumentException.ThrowIfNullOrWhiteSpace(newUdid);
+
+        if (string.Equals(oldUdid, newUdid, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // 目标标识已被别的设备占用 → 拒绝，避免主键冲突。
+        using (SqliteCommand exists = CreateCommand("SELECT COUNT(*) FROM devices WHERE udid = $udid;"))
+        {
+            exists.Parameters.AddWithValue("$udid", newUdid);
+            if ((long)(exists.ExecuteScalar() ?? 0L) > 0)
+            {
+                return false;
+            }
+        }
+
+        using var transaction = connection.BeginTransaction();
+        try
+        {
+            (string Table, string Column)[] references =
+            {
+                ("devices", "udid"),
+                ("runs", "device_udid"),
+                ("backup_sessions", "device_uid"),
+            };
+
+            int affectedRows = 0;
+            foreach ((string table, string column) in references)
+            {
+                using SqliteCommand update = CreateCommand(
+                    $"UPDATE {table} SET {column} = $new WHERE {column} = $old;");
+                update.Transaction = transaction;
+                update.Parameters.AddWithValue("$new", newUdid);
+                update.Parameters.AddWithValue("$old", oldUdid);
+                affectedRows += update.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+
+            // 只有真的改到了行才算迁移成功；源记录不存在时不能谎报「已迁移」。
+            return affectedRows > 0;
+        }
+        catch
+        {
+            transaction.Rollback();
+            return false;
+        }
+    }
+
+    /// <summary>读取设备的显示名称；设备不存在时返回 <c>null</c>。</summary>
+    public string? GetDeviceName(string udid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(udid);
+
+        using SqliteCommand command = CreateCommand("SELECT name FROM devices WHERE udid = $udid;");
+        command.Parameters.AddWithValue("$udid", udid);
+        return command.ExecuteScalar() as string;
+    }
+
+    /// <summary>判断某个显示名称是否已被<b>其它</b>设备占用。</summary>
+    public bool IsDeviceNameTakenByOther(string name, string? excludeUdid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        using SqliteCommand command = CreateCommand(
+            "SELECT COUNT(*) FROM devices WHERE name = $name AND udid != $udid;");
+        command.Parameters.AddWithValue("$name", name.Trim());
+        command.Parameters.AddWithValue("$udid", excludeUdid ?? string.Empty);
+        return (long)(command.ExecuteScalar() ?? 0L) > 0;
+    }
+
+    /// <summary>
+    /// 更新设备的显示名称（重命名）。
+    /// </summary>
+    /// <remarks>
+    /// <b>只改显示名，绝不触碰归档目录名</b>——归档目录名参与 manifest 的相对路径，
+    /// 改动会让已备份文件与新备份文件落进不同目录。
+    /// 与其它设备重名时拒绝更新（显示名是用户区分设备的唯一依据）。
+    /// </remarks>
+    /// <returns>是否更新成功。</returns>
+    public bool UpdateDeviceName(string udid, string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(udid);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        string trimmed = name.Trim();
+
+        if (IsDeviceNameTakenByOther(trimmed, udid))
+        {
+            return false;
+        }
+
+        using SqliteCommand command = CreateCommand("UPDATE devices SET name = $name WHERE udid = $udid;");
+        command.Parameters.AddWithValue("$udid", udid);
+        command.Parameters.AddWithValue("$name", trimmed);
+        return command.ExecuteNonQuery() > 0;
+    }
+
+    /// <summary>
+    /// 读取设备的归档文件夹名（与设备身份一起持久化，不会因配置丢失而失联）。
+    /// </summary>
+    /// <returns>未记录或设备不存在时返回 <c>null</c>。</returns>
+    public string? GetDeviceArchiveFolder(string udid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(udid);
+        if (!ColumnExists("devices", "archive_folder")) return null;
+
+        using SqliteCommand command = CreateCommand("SELECT archive_folder FROM devices WHERE udid = $udid;");
+        command.Parameters.AddWithValue("$udid", udid);
+        return command.ExecuteScalar() as string;
+    }
+
+    /// <summary>记录设备的归档文件夹名。</summary>
+    public bool SetDeviceArchiveFolder(string udid, string folder)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(udid);
+        ArgumentException.ThrowIfNullOrWhiteSpace(folder);
+        if (!ColumnExists("devices", "archive_folder")) return false;
+
+        using SqliteCommand command = CreateCommand(
+            "UPDATE devices SET archive_folder = $folder WHERE udid = $udid;");
+        command.Parameters.AddWithValue("$udid", udid);
+        command.Parameters.AddWithValue("$folder", folder.Trim());
+        return command.ExecuteNonQuery() > 0;
+    }
+
+    /// <summary>
+    /// 判断某个归档文件夹名是否已被<b>其它</b>设备占用。
+    /// </summary>
+    /// <remarks>
+    /// 老记录没有 <c>archive_folder</c>，此时以显示名（<c>name</c>）为准——旧版本正是拿显示名当目录名。
+    /// </remarks>
+    public bool IsDeviceArchiveFolderTakenByOther(string folder, string? excludeUdid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(folder);
+
+        string sql = ColumnExists("devices", "archive_folder")
+            ? "SELECT COUNT(*) FROM devices WHERE udid != $udid AND (archive_folder = $folder OR (archive_folder IS NULL AND name = $folder));"
+            : "SELECT COUNT(*) FROM devices WHERE udid != $udid AND name = $folder;";
+
+        using SqliteCommand command = CreateCommand(sql);
+        command.Parameters.AddWithValue("$folder", folder.Trim());
+        command.Parameters.AddWithValue("$udid", excludeUdid ?? string.Empty);
+        return (long)(command.ExecuteScalar() ?? 0L) > 0;
+    }
+
+    /// <summary>
+    /// 从该设备已备份文件的相对路径推导归档文件夹名（取路径第一段）。
+    /// </summary>
+    /// <remarks>
+    /// 兜底用途：库里没记 <c>archive_folder</c>，且显示名与目录名已不一致（用户改过显示名）时，
+    /// 显示名匹配不到目录——但 manifest 里的相对路径第一段就是真实归档目录名。
+    /// </remarks>
+    /// <returns>推导出的目录名；无从推导时返回 <c>null</c>。</returns>
+    public string? InferDeviceArchiveFolderFromHistory(string udid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(udid);
+        if (!TableExists("backup_history_records") || !TableExists("backup_sessions")) return null;
+
+        try
+        {
+            using SqliteCommand command = CreateCommand(
+                """
+                SELECT dest_path FROM backup_history_records
+                WHERE session_id IN (SELECT id FROM backup_sessions WHERE device_uid = $uid)
+                LIMIT 1;
+                """);
+            command.Parameters.AddWithValue("$uid", udid);
+
+            if (command.ExecuteScalar() is not string destPath || string.IsNullOrWhiteSpace(destPath))
+            {
+                return null;
+            }
+
+            string normalized = destPath.Replace('\\', '/').TrimStart('/');
+            int slash = normalized.IndexOf('/');
+            string first = slash > 0 ? normalized[..slash] : normalized;
+            return string.IsNullOrWhiteSpace(first) ? null : first;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>Starts a new backup session batch for a device.</summary>
@@ -1764,27 +2006,6 @@ public sealed class TransferJournal : IDisposable
     private static DateTimeOffset? ParseIsoOrNull(string? value) =>
         value is null ? null : ParseIso(value);
 
-    /// <summary>Registers or updates an Android device record in SQLite.</summary>
-    public void UpsertAndroidDevice(string deviceId, string name, DateTimeOffset lastSeenAt)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
-
-        using SqliteCommand command = CreateCommand(
-            """
-            INSERT INTO android_devices (device_id, name, created_at, last_seen_at)
-            VALUES ($device_id, $name, $created_at, $last_seen_at)
-            ON CONFLICT(device_id) DO UPDATE SET
-                name = excluded.name,
-                last_seen_at = excluded.last_seen_at;
-            """);
-        command.Parameters.AddWithValue("$device_id", deviceId);
-        command.Parameters.AddWithValue("$name", name);
-        command.Parameters.AddWithValue("$created_at", lastSeenAt.ToString("o", CultureInfo.InvariantCulture));
-        command.Parameters.AddWithValue("$last_seen_at", lastSeenAt.ToString("o", CultureInfo.InvariantCulture));
-        command.ExecuteNonQuery();
-    }
-
     /// <summary>Records that a file was successfully transferred over FTP to a specific Android device.</summary>
     public void RecordAndroidSync(string destPath, string deviceId, DateTimeOffset syncedAt)
     {
@@ -1825,29 +2046,142 @@ public sealed class TransferJournal : IDisposable
         return set;
     }
 
-    /// <summary>Reads all registered Android devices from SQLite.</summary>
-    public IReadOnlyList<Android.AndroidDeviceRecord> ReadAndroidDevices()
+    /// <summary>一次性迁移标记：iPhone 三张表的主键已迁到 <c>udid</c>。</summary>
+    private const string IphoneUdidPkMarker = "iphone_udid_pk_v1";
+
+    /// <summary>旧行没有 udid 时的占位值；设备真正连接后会被回填成真实 udid。</summary>
+    private static string LegacyUdid(string deviceModel) => "legacy:" + deviceModel;
+
+    /// <summary>
+    /// 一次性迁移：把 iPhone 三张表的主键从「显示名 / 目标路径」迁到 <c>udid</c>。
+    /// </summary>
+    /// <remarks>
+    /// 旧主键 <c>device_model</c> 里实际存的是<b>显示名</b>，两台同名设备会互相覆盖；
+    /// 而 <c>iphone_exported_files</c> 的旧主键是 <c>dest_path</c>，导致「已导出」记录被<b>所有</b> iPhone 共享
+    /// ——第二台 iPhone 会跳过全部照片。迁移后每台设备各自记账。
+    /// 旧行 <c>udid</c> 为空时回填 <see cref="LegacyUdid"/>；设备真正连接后由 <c>BackfillDeviceUdid</c>
+    /// 改成真实 udid，历史记录得以保留。
+    /// </remarks>
+    private void EnsureIphoneUdidPrimaryKey()
     {
-        var list = new List<Android.AndroidDeviceRecord>();
-        if (!TableExists("android_devices"))
+        if (!TableExists("iphone_devices")) return;
+        if (GetRawSetting(IphoneUdidPkMarker) is not null) return;
+
+        using var transaction = connection.BeginTransaction();
+        try
         {
-            return list;
-        }
+            // ① iphone_devices：device_model → udid
+            ExecuteIn(transaction, """
+                CREATE TABLE iphone_devices_new (
+                    udid           TEXT PRIMARY KEY,
+                    device_model   TEXT NOT NULL,
+                    sync_folder    TEXT NOT NULL,
+                    last_exported  TEXT NOT NULL,
+                    folder_name    TEXT
+                );
+                """);
+            ExecuteIn(transaction, """
+                INSERT INTO iphone_devices_new (udid, device_model, sync_folder, last_exported, folder_name)
+                SELECT COALESCE(NULLIF(TRIM(udid), ''), 'legacy:' || device_model),
+                       device_model, sync_folder, last_exported, folder_name
+                FROM iphone_devices;
+                """);
+            ExecuteIn(transaction, "DROP TABLE iphone_devices;");
+            ExecuteIn(transaction, "ALTER TABLE iphone_devices_new RENAME TO iphone_devices;");
 
-        using SqliteCommand command = CreateCommand(
-            "SELECT device_id, name, created_at, last_seen_at FROM android_devices ORDER BY last_seen_at DESC;");
-        using SqliteDataReader reader = command.ExecuteReader();
-        while (reader.Read())
+            // ② iphone_manual_selections：(device_model, dest_path) → (udid, dest_path)
+            if (TableExists("iphone_manual_selections"))
+            {
+                ExecuteIn(transaction, """
+                    CREATE TABLE iphone_manual_selections_new (
+                        udid           TEXT NOT NULL,
+                        dest_path      TEXT NOT NULL,
+                        device_model   TEXT NOT NULL,
+                        added_at       TEXT NOT NULL,
+                        is_autofilled  INTEGER NOT NULL DEFAULT 0,
+                        PRIMARY KEY (udid, dest_path)
+                    );
+                    """);
+                ExecuteIn(transaction, """
+                    INSERT INTO iphone_manual_selections_new (udid, dest_path, device_model, added_at, is_autofilled)
+                    SELECT COALESCE(NULLIF(TRIM(udid), ''), 'legacy:' || device_model),
+                           dest_path, device_model, added_at, is_autofilled
+                    FROM iphone_manual_selections;
+                    """);
+                ExecuteIn(transaction, "DROP TABLE iphone_manual_selections;");
+                ExecuteIn(transaction, "ALTER TABLE iphone_manual_selections_new RENAME TO iphone_manual_selections;");
+            }
+
+            // ③ iphone_exported_files：dest_path → (udid, dest_path)
+            if (TableExists("iphone_exported_files"))
+            {
+                ExecuteIn(transaction, """
+                    CREATE TABLE iphone_exported_files_new (
+                        udid           TEXT NOT NULL,
+                        dest_path      TEXT NOT NULL,
+                        exported_path  TEXT NOT NULL,
+                        device_model   TEXT NOT NULL,
+                        exported_at    TEXT NOT NULL,
+                        file_size      INTEGER NOT NULL,
+                        sha256         TEXT,
+                        PRIMARY KEY (udid, dest_path)
+                    );
+                    """);
+                ExecuteIn(transaction, """
+                    INSERT INTO iphone_exported_files_new (udid, dest_path, exported_path, device_model, exported_at, file_size, sha256)
+                    SELECT COALESCE(NULLIF(TRIM(udid), ''), 'legacy:' || device_model),
+                           dest_path, exported_path, device_model, exported_at, file_size, sha256
+                    FROM iphone_exported_files;
+                    """);
+                ExecuteIn(transaction, "DROP TABLE iphone_exported_files;");
+                ExecuteIn(transaction, "ALTER TABLE iphone_exported_files_new RENAME TO iphone_exported_files;");
+            }
+
+            SetRawSetting(transaction, IphoneUdidPkMarker, "1");
+            transaction.Commit();
+        }
+        catch
         {
-            string id = reader.GetString(0);
-            string name = reader.GetString(1);
-            DateTimeOffset created = DateTimeOffset.TryParse(reader.GetString(2), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var c) ? c : DateTimeOffset.MinValue;
-            DateTimeOffset last = DateTimeOffset.TryParse(reader.GetString(3), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var l) ? l : DateTimeOffset.MinValue;
-
-            list.Add(new Android.AndroidDeviceRecord(id, name, created, last));
+            transaction.Rollback();
+            throw;
         }
+    }
 
-        return list;
+    /// <summary>在指定事务内执行一条语句。</summary>
+    private void ExecuteIn(SqliteTransaction transaction, string sql)
+    {
+        using SqliteCommand command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = sql;
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>读取 <c>settings</c> 表中的原始值；不存在时返回 <c>null</c>。</summary>
+    private string? GetRawSetting(string key)
+    {
+        if (!TableExists("settings")) return null;
+        try
+        {
+            using SqliteCommand command = CreateCommand("SELECT value FROM settings WHERE key = $key;");
+            command.Parameters.AddWithValue("$key", key);
+            return command.ExecuteScalar() as string;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>在指定事务内写入 <c>settings</c> 表。</summary>
+    private void SetRawSetting(SqliteTransaction transaction, string key, string value)
+    {
+        using SqliteCommand command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            "INSERT INTO settings (key, value) VALUES ($key, $value) ON CONFLICT(key) DO UPDATE SET value = excluded.value;";
+        command.Parameters.AddWithValue("$key", key);
+        command.Parameters.AddWithValue("$value", value);
+        command.ExecuteNonQuery();
     }
 
     /// <summary>Returns all exported file records for the given device model from <c>iphone_exported_files</c>.</summary>
@@ -1886,52 +2220,48 @@ public sealed class TransferJournal : IDisposable
     public void UpsertIPhoneExportedFile(IPhoneExportedFileRecord record)
     {
         ArgumentNullException.ThrowIfNull(record);
-        bool hasUdidCol = ColumnExists("iphone_exported_files", "udid");
+
+        string udid = string.IsNullOrWhiteSpace(record.Udid)
+            ? LegacyUdid(record.DeviceModel)
+            : record.Udid.Trim();
+
         using SqliteCommand command = CreateCommand(
-            hasUdidCol
-            ? """
-            INSERT INTO iphone_exported_files (dest_path, exported_path, device_model, exported_at, file_size, sha256, udid)
-            VALUES ($dest, $exported, $model, $at, $size, $sha, $udid)
-            ON CONFLICT(dest_path) DO UPDATE SET
-                exported_path = excluded.exported_path,
-                device_model = excluded.device_model,
-                exported_at = excluded.exported_at,
-                file_size = excluded.file_size,
-                sha256 = excluded.sha256,
-                udid = COALESCE(excluded.udid, udid);
             """
-            : """
-            INSERT INTO iphone_exported_files (dest_path, exported_path, device_model, exported_at, file_size, sha256)
-            VALUES ($dest, $exported, $model, $at, $size, $sha)
-            ON CONFLICT(dest_path) DO UPDATE SET
+            INSERT INTO iphone_exported_files (udid, dest_path, exported_path, device_model, exported_at, file_size, sha256)
+            VALUES ($udid, $dest, $exported, $model, $at, $size, $sha)
+            ON CONFLICT(udid, dest_path) DO UPDATE SET
                 exported_path = excluded.exported_path,
                 device_model = excluded.device_model,
                 exported_at = excluded.exported_at,
                 file_size = excluded.file_size,
                 sha256 = excluded.sha256;
             """);
+        command.Parameters.AddWithValue("$udid", udid);
         command.Parameters.AddWithValue("$dest", record.DestPath);
         command.Parameters.AddWithValue("$exported", record.ExportedPath);
         command.Parameters.AddWithValue("$model", record.DeviceModel);
         command.Parameters.AddWithValue("$at", IsoUtc(record.ExportedAt)!);
         command.Parameters.AddWithValue("$size", record.FileSize);
         command.Parameters.AddWithValue("$sha", (object?)record.Sha256 ?? DBNull.Value);
-        if (hasUdidCol)
-        {
-            command.Parameters.AddWithValue("$udid", (object?)record.Udid ?? DBNull.Value);
-        }
         command.ExecuteNonQuery();
     }
 
-    /// <summary>Removes a row from <c>iphone_exported_files</c> by its destination relative path.</summary>
-    public void DeleteIPhoneExportedFile(string destPath)
+    /// <summary>
+    /// Removes a row from <c>iphone_exported_files</c> for the referenced device.
+    /// </summary>
+    /// <remarks>
+    /// 必须带设备身份——「已导出」记录是<b>按设备</b>记账的，只按 dest_path 删除会误伤其它设备。
+    /// </remarks>
+    public void DeleteIPhoneExportedFile(IPhoneDeviceRef reference, string destPath)
     {
+        ArgumentNullException.ThrowIfNull(reference);
         ArgumentException.ThrowIfNullOrEmpty(destPath);
         if (!TableExists("iphone_exported_files")) return;
 
         using SqliteCommand command = CreateCommand(
-            "DELETE FROM iphone_exported_files WHERE dest_path = $dest;");
+            "DELETE FROM iphone_exported_files WHERE dest_path = $dest AND udid = $dev_udid;");
         command.Parameters.AddWithValue("$dest", destPath);
+        command.Parameters.AddWithValue("$dev_udid", EffectiveUdid(reference));
         command.ExecuteNonQuery();
     }
 
@@ -1964,9 +2294,9 @@ public sealed class TransferJournal : IDisposable
 
         using SqliteCommand command = CreateCommand(
             """
-            INSERT INTO iphone_devices (device_model, sync_folder, last_exported)
-            VALUES ($model, $folder, $at)
-            ON CONFLICT(device_model) DO UPDATE SET
+            INSERT INTO iphone_devices (udid, device_model, sync_folder, last_exported)
+            VALUES ('legacy:' || $model, $model, $folder, $at)
+            ON CONFLICT(udid) DO UPDATE SET
                 sync_folder = excluded.sync_folder,
                 last_exported = excluded.last_exported;
             """);
@@ -2043,9 +2373,9 @@ public sealed class TransferJournal : IDisposable
 
         using SqliteCommand command = CreateCommand(
             """
-            INSERT INTO iphone_manual_selections (device_model, dest_path, added_at, is_autofilled)
-            VALUES ($model, $dest, $at, $is_autofilled)
-            ON CONFLICT(device_model, dest_path) DO UPDATE SET is_autofilled = excluded.is_autofilled;
+            INSERT INTO iphone_manual_selections (udid, device_model, dest_path, added_at, is_autofilled)
+            VALUES ('legacy:' || $model, $model, $dest, $at, $is_autofilled)
+            ON CONFLICT(udid, dest_path) DO UPDATE SET is_autofilled = excluded.is_autofilled;
             """);
         command.Parameters.AddWithValue("$model", deviceModel);
         command.Parameters.AddWithValue("$dest", destPath);
@@ -2116,9 +2446,9 @@ public sealed class TransferJournal : IDisposable
         command.Transaction = transaction;
         command.CommandText =
             """
-            INSERT INTO iphone_manual_selections (device_model, dest_path, added_at, is_autofilled)
-            VALUES ($model, $dest, $at, $is_autofilled)
-            ON CONFLICT(device_model, dest_path) DO UPDATE SET is_autofilled = excluded.is_autofilled;
+            INSERT INTO iphone_manual_selections (udid, device_model, dest_path, added_at, is_autofilled)
+            VALUES ('legacy:' || $model, $model, $dest, $at, $is_autofilled)
+            ON CONFLICT(udid, dest_path) DO UPDATE SET is_autofilled = excluded.is_autofilled;
             """;
         var modelParam = command.Parameters.Add("$model", SqliteType.Text);
         var destParam = command.Parameters.Add("$dest", SqliteType.Text);
@@ -2182,29 +2512,46 @@ public sealed class TransferJournal : IDisposable
     // keyed by the legacy device_model name; writes always carry the udid.
     // ------------------------------------------------------------------
 
+    /// <summary>设备在归档库中的有效身份键：有 udid 用 udid，否则用 legacy 占位（迁移前的旧行）。</summary>
+    private static string EffectiveUdid(IPhoneDeviceRef reference) =>
+        reference.HasUdid ? reference.Udid!.Trim() : LegacyUdid(reference.FallbackKey);
+
     private static string DeviceMatchSql(IPhoneDeviceRef reference, bool hasUdidColumn) =>
-        reference.HasUdid && hasUdidColumn
-            ? "(udid = $dev_udid OR (device_model = $dev_fb AND (udid IS NULL OR udid = '')))"
+        hasUdidColumn
+            ? "(udid = $dev_udid OR udid = $dev_legacy)"
             : "device_model = $dev_fb";
 
     private static void BindDeviceParams(SqliteCommand command, IPhoneDeviceRef reference)
     {
-        if (reference.HasUdid)
-        {
-            command.Parameters.AddWithValue("$dev_udid", reference.Udid!);
-        }
+        // 无 udid 时绑定空串：udid 列迁移后永不为空，因此不会误匹配。
+        command.Parameters.AddWithValue("$dev_udid", reference.HasUdid ? reference.Udid!.Trim() : string.Empty);
+        command.Parameters.AddWithValue("$dev_legacy", LegacyUdid(reference.FallbackKey));
+        command.Parameters.AddWithValue("$dev_eff", EffectiveUdid(reference));
         command.Parameters.AddWithValue("$dev_fb", reference.FallbackKey);
     }
 
+    /// <summary>
+    /// 把某张表里属于该设备的 legacy 行改写成真实 udid。
+    /// </summary>
+    /// <remarks>
+    /// 用 <c>UPDATE OR IGNORE</c>：目标表可能是复合主键（如 <c>(udid, dest_path)</c>），
+    /// 真实 udid 行已存在时跳过冲突项；随后清掉残留的 legacy 行（已迁移或重复）。
+    /// </remarks>
     private void BackfillDeviceUdid(string table, IPhoneDeviceRef reference)
     {
         if (!reference.HasUdid || !TableExists(table) || !ColumnExists(table, "udid")) return;
         try
         {
-            using SqliteCommand command = CreateCommand(
-                $"UPDATE {table} SET udid = $dev_udid WHERE udid IS NULL AND device_model = $dev_fb;");
-            BindDeviceParams(command, reference);
-            command.ExecuteNonQuery();
+            using (SqliteCommand update = CreateCommand(
+                $"UPDATE OR IGNORE {table} SET udid = $dev_udid WHERE udid = $dev_legacy;"))
+            {
+                BindDeviceParams(update, reference);
+                update.ExecuteNonQuery();
+            }
+
+            using SqliteCommand cleanup = CreateCommand($"DELETE FROM {table} WHERE udid = $dev_legacy;");
+            BindDeviceParams(cleanup, reference);
+            cleanup.ExecuteNonQuery();
         }
         catch { }
     }
@@ -2287,11 +2634,7 @@ public sealed class TransferJournal : IDisposable
                     {(hasFolderCol ? ", folder_name = COALESCE(folder_name, $fname)" : string.Empty)}
                 WHERE {DeviceMatchSql(reference, hasUdidCol)};
                 """);
-            if (hasUdidCol)
-            {
-                updateCmd.Parameters.AddWithValue("$dev_udid", (object?)reference.Udid ?? DBNull.Value);
-            }
-            updateCmd.Parameters.AddWithValue("$dev_fb", reference.FallbackKey);
+            BindDeviceParams(updateCmd, reference);
             updateCmd.Parameters.AddWithValue("$folder", syncFolder);
             updateCmd.Parameters.AddWithValue("$at", IsoUtc(lastExported)!);
             updateCmd.Parameters.AddWithValue("$fname", (object?)folderName ?? reference.FallbackKey);
@@ -2302,18 +2645,15 @@ public sealed class TransferJournal : IDisposable
         {
             using SqliteCommand insertCmd = CreateCommand(
                 $"""
-                INSERT INTO iphone_devices (device_model, sync_folder, last_exported
-                    {(hasUdidCol ? ", udid" : string.Empty)}
+                INSERT INTO iphone_devices (udid, device_model, sync_folder, last_exported
                     {(hasFolderCol ? ", folder_name" : string.Empty)})
-                VALUES ($dev_fb, $folder, $at
-                    {(hasUdidCol ? ", $dev_udid" : string.Empty)}
-                    {(hasFolderCol ? ", $fname" : string.Empty)});
+                VALUES ($dev_eff, $dev_fb, $folder, $at
+                    {(hasFolderCol ? ", $fname" : string.Empty)})
+                ON CONFLICT(udid) DO UPDATE SET
+                    sync_folder = excluded.sync_folder,
+                    last_exported = excluded.last_exported;
                 """);
-            if (hasUdidCol)
-            {
-                insertCmd.Parameters.AddWithValue("$dev_udid", (object?)reference.Udid ?? DBNull.Value);
-            }
-            insertCmd.Parameters.AddWithValue("$dev_fb", reference.FallbackKey);
+            BindDeviceParams(insertCmd, reference);
             insertCmd.Parameters.AddWithValue("$folder", syncFolder);
             insertCmd.Parameters.AddWithValue("$at", IsoUtc(lastExported)!);
             if (hasFolderCol)
@@ -2384,11 +2724,9 @@ public sealed class TransferJournal : IDisposable
         bool hasUdidCol = ColumnExists("iphone_manual_selections", "udid");
         using SqliteCommand command = CreateCommand(
             $"""
-            INSERT INTO iphone_manual_selections (device_model, dest_path, added_at, is_autofilled
-                {(hasUdidCol && reference.HasUdid ? ", udid" : string.Empty)})
-            VALUES ($dev_fb, $dest, $at, $is_autofilled
-                {(hasUdidCol && reference.HasUdid ? ", $dev_udid" : string.Empty)})
-            ON CONFLICT(device_model, dest_path) DO UPDATE SET is_autofilled = excluded.is_autofilled;
+            INSERT INTO iphone_manual_selections (udid, device_model, dest_path, added_at, is_autofilled)
+            VALUES ($dev_eff, $dev_fb, $dest, $at, $is_autofilled)
+            ON CONFLICT(udid, dest_path) DO UPDATE SET is_autofilled = excluded.is_autofilled;
             """);
         BindDeviceParams(command, reference);
         command.Parameters.AddWithValue("$dest", destPath);
@@ -2459,18 +2797,14 @@ public sealed class TransferJournal : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(reference.FallbackKey);
         ArgumentNullException.ThrowIfNull(destPaths);
 
-        bool hasUdidCol = ColumnExists("iphone_manual_selections", "udid");
-        string udidInsert = hasUdidCol && reference.HasUdid ? ", udid" : string.Empty;
-        string udidValue = hasUdidCol && reference.HasUdid ? ", $dev_udid" : string.Empty;
-
         using var transaction = connection.BeginTransaction();
         using SqliteCommand command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText =
             $"""
-            INSERT INTO iphone_manual_selections (device_model, dest_path, added_at, is_autofilled{udidInsert})
-            VALUES ($dev_fb, $dest, $at, $is_autofilled{udidValue})
-            ON CONFLICT(device_model, dest_path) DO UPDATE SET is_autofilled = excluded.is_autofilled;
+            INSERT INTO iphone_manual_selections (udid, device_model, dest_path, added_at, is_autofilled)
+            VALUES ($dev_eff, $dev_fb, $dest, $at, $is_autofilled)
+            ON CONFLICT(udid, dest_path) DO UPDATE SET is_autofilled = excluded.is_autofilled;
             """;
         BindDeviceParams(command, reference);
         var destParam = command.Parameters.Add("$dest", SqliteType.Text);
@@ -2781,6 +3115,87 @@ public sealed class TransferJournal : IDisposable
         if (!TableExists("settings")) return;
         using SqliteCommand command = CreateCommand("DELETE FROM settings WHERE key = $key;");
         command.Parameters.AddWithValue("$key", $"iphone_pending_merge_{deviceKey}");
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Returns the checked subfolder relative paths stored for the given scope kind and device key. Empty set when the table is absent (old journal).</summary>
+    public HashSet<string> GetScopeSubfolderSelections(string scopeKind, string deviceKey)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(scopeKind);
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!TableExists("scope_subfolder_selections"))
+        {
+            return set;
+        }
+
+        using SqliteCommand command = CreateCommand(
+            "SELECT node_path FROM scope_subfolder_selections WHERE scope_kind = $kind AND device_key = $device;");
+        command.Parameters.AddWithValue("$kind", scopeKind);
+        command.Parameters.AddWithValue("$device", deviceKey);
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            set.Add(reader.GetString(0));
+        }
+
+        return set;
+    }
+
+    /// <summary>Replaces the checked subfolder set for the given scope kind and device key (full overwrite in one transaction).</summary>
+    public void SetScopeSubfolderSelections(string scopeKind, string deviceKey, IEnumerable<string> checkedPaths)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(scopeKind);
+        using var transaction = connection.BeginTransaction();
+        try
+        {
+            using (var delete = CreateCommand("DELETE FROM scope_subfolder_selections WHERE scope_kind = $kind AND device_key = $device;"))
+            {
+                delete.Transaction = transaction;
+                delete.Parameters.AddWithValue("$kind", scopeKind);
+                delete.Parameters.AddWithValue("$device", deviceKey);
+                delete.ExecuteNonQuery();
+            }
+
+            using (var insert = CreateCommand(
+                """
+                INSERT INTO scope_subfolder_selections (scope_kind, device_key, node_path, updated_at)
+                VALUES ($kind, $device, $path, $at)
+                ON CONFLICT(scope_kind, device_key, node_path) DO UPDATE SET updated_at = excluded.updated_at;
+                """))
+            {
+                insert.Transaction = transaction;
+                insert.Parameters.AddWithValue("$kind", scopeKind);
+                insert.Parameters.AddWithValue("$device", deviceKey);
+                var at = insert.Parameters.Add("$at", SqliteType.Text);
+                var path = insert.Parameters.Add("$path", SqliteType.Text);
+                string timestamp = DateTimeOffset.UtcNow.ToString("O");
+                at.Value = timestamp;
+                foreach (string pathValue in checkedPaths)
+                {
+                    if (string.IsNullOrWhiteSpace(pathValue)) continue;
+                    path.Value = pathValue;
+                    insert.ExecuteNonQuery();
+                }
+            }
+
+            transaction.Commit();
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
+    /// <summary>Clears the stored checked subfolder set for the given scope kind and device key.</summary>
+    public void ClearScopeSubfolderSelections(string scopeKind, string deviceKey)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(scopeKind);
+        if (!TableExists("scope_subfolder_selections")) return;
+        using SqliteCommand command = CreateCommand(
+            "DELETE FROM scope_subfolder_selections WHERE scope_kind = $kind AND device_key = $device;");
+        command.Parameters.AddWithValue("$kind", scopeKind);
+        command.Parameters.AddWithValue("$device", deviceKey);
         command.ExecuteNonQuery();
     }
 

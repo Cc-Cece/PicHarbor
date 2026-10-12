@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PicHarbor.Core.Android;
@@ -9,6 +10,7 @@ using PicHarbor.Core.iPhone;
 using PicHarbor.Core.Journal;
 using PicHarbor.Core.Organize;
 using PicHarbor.Core.Progress;
+using PicHarbor.Core.Scope;
 using PicHarbor.Core.Transfer;
 using PicHarbor.Gui.Config;
 using PicHarbor.Gui.Util;
@@ -22,8 +24,6 @@ public partial class AndroidSyncViewModel : ObservableObject
     [ObservableProperty]
     private string archivePath = "";
 
-    [ObservableProperty]
-    private string androidDeviceName = "Pixel 8";
 
     [ObservableProperty]
     private string androidFtpHost = "192.168.1.100";
@@ -37,8 +37,9 @@ public partial class AndroidSyncViewModel : ObservableObject
     [ObservableProperty]
     private string androidFtpPassword = "";
 
+    /// <summary>安卓同步目标目录。<b>已固定为 <see cref="AndroidRemoteLayout.RootDirectory"/>，UI 只读。</b></summary>
     [ObservableProperty]
-    private string androidTargetDir = "/DCIM/PicHarbor/iPhone/";
+    private string androidTargetDir = AndroidRemoteLayout.RootDirectory;
 
     [ObservableProperty]
     private string androidDeviceId = "";
@@ -92,34 +93,6 @@ public partial class AndroidSyncViewModel : ObservableObject
         }
     }
 
-    public bool IsScopeDateRange
-    {
-        get => ScopeMode == IPhoneRestoreScopeMode.DateRange;
-        set
-        {
-            if (value && ScopeMode != IPhoneRestoreScopeMode.DateRange)
-            {
-                ScopeMode = IPhoneRestoreScopeMode.DateRange;
-                NotifyScopeProperties();
-                RecalculateScopeSummary();
-            }
-        }
-    }
-
-    public bool IsScopeSubfolder
-    {
-        get => ScopeMode == IPhoneRestoreScopeMode.Subfolder;
-        set
-        {
-            if (value && ScopeMode != IPhoneRestoreScopeMode.Subfolder)
-            {
-                ScopeMode = IPhoneRestoreScopeMode.Subfolder;
-                NotifyScopeProperties();
-                RecalculateScopeSummary();
-            }
-        }
-    }
-
     public bool IsScopeManualSelection
     {
         get => ScopeMode == IPhoneRestoreScopeMode.ManualSelection;
@@ -137,8 +110,6 @@ public partial class AndroidSyncViewModel : ObservableObject
     private void NotifyScopeProperties()
     {
         OnPropertyChanged(nameof(IsScopeAll));
-        OnPropertyChanged(nameof(IsScopeDateRange));
-        OnPropertyChanged(nameof(IsScopeSubfolder));
         OnPropertyChanged(nameof(IsScopeManualSelection));
     }
 
@@ -255,13 +226,63 @@ public partial class AndroidSyncViewModel : ObservableObject
     [ObservableProperty]
     private bool isManualModalOpen = false;
 
-    public ObservableCollection<SubfolderOptionViewModel> Subfolders { get; } = new();
+    /// <summary>Multi-level subfolder tree for the unified scope filter (checked set = active subfolder filter).</summary>
+    public ObservableCollection<SubfolderNodeViewModel> FolderTree { get; } = new();
+
+    /// <summary>Indicates whether any node in the folder tree is checked (= subfolder filter enabled).</summary>
+    public bool HasSubfolderFilter => FolderTree.Any(HasCheckedDescendant);
+
+    private ScopeSelectionPersistence? selectionPersist;
+
+    /// <summary>Debounced journal persistence of the subfolder tree selection (kind: android_sync).</summary>
+    private ScopeSelectionPersistence SelectionPersist => selectionPersist ??= new ScopeSelectionPersistence(
+        () => ArchivePath,
+        () => "android_sync",
+        () => CurrentDeviceId,
+        () => FolderTree);
+
+    private static bool HasCheckedDescendant(SubfolderNodeViewModel node) =>
+        node.IsChecked == true || node.Children.Any(HasCheckedDescendant);
+
+    /// <summary>Inline policy for entries without capture date while the date filter is active (default: include).</summary>
+    [ObservableProperty]
+    private bool includeUndatedFiles = true;
+
+    partial void OnIncludeUndatedFilesChanged(bool value) => RecalculateScopeSummary();
+
+    /// <summary>Count of entries passing other conditions but lacking any capture date (only tracked while the date filter is active).</summary>
+    [ObservableProperty]
+    private int undatedCandidateCount = 0;
+
+    partial void OnUndatedCandidateCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsUndatedHintVisible));
+        OnPropertyChanged(nameof(UndatedHintText));
+    }
+
+    /// <summary>Indicates whether the inline undated-files hint row should be shown.</summary>
+    public bool IsUndatedHintVisible => UndatedCandidateCount > 0;
+
+    /// <summary>Formatted inline hint text for entries without capture date (refreshed with language).</summary>
+    public string UndatedHintText => string.Format(App.GetString("ScopeUndatedHint", "发现 {0} 项无日期文件"), UndatedCandidateCount);
+
+    /// <summary>Builds the unified combination filter from the folder tree, date range and undated policy.</summary>
+    private ScopeFilterSet BuildScopeFilters(DateTime? dateFrom, DateTime? dateTo)
+    {
+        return new ScopeFilterSet
+        {
+            SelectedSubfolders = SubfolderTreeBuilder.CollectSelected(FolderTree),
+            DateFrom = dateFrom,
+            DateTo = dateTo,
+            UndatedPolicy = IncludeUndatedFiles ? UndatedFilePolicy.Include : UndatedFilePolicy.Skip
+        };
+    }
     public ObservableCollection<ManualSelectedItemViewModel> ManualSelectedItems { get; } = new();
 
     // --- End Restore Scope Properties ---
 
     [ObservableProperty]
-    private string testStatus = "";
+    private string testStatus = App.GetString("AndroidConnUntested", "未测试连接");
 
     [ObservableProperty]
     private bool isSyncing = false;
@@ -329,48 +350,137 @@ public partial class AndroidSyncViewModel : ObservableObject
         LoadConfig();
     }
 
+    /// <summary>
+    /// 当前设备的同步标识：与备份侧保持一致——优先唯一码，回落 FTP 主机。
+    /// 用于给 <c>android_sync_records</c> / <c>android_manual_selections</c> 分区。
+    /// </summary>
+    private string CurrentDeviceId =>
+        string.IsNullOrWhiteSpace(AndroidDeviceId) ? AndroidFtpHost : AndroidDeviceId;
+
     private void LoadConfig()
     {
         var config = AppSettings.Load();
-        AndroidDeviceName = config.AndroidDeviceName;
         AndroidFtpHost = config.AndroidFtpHost;
         AndroidFtpPort = config.AndroidFtpPort;
         AndroidFtpUser = config.AndroidFtpUser;
         AndroidFtpPassword = config.AndroidFtpPassword;
-        AndroidTargetDir = config.AndroidTargetDir;
-        AndroidDeviceId = config.AndroidDeviceId;
+        AndroidTargetDir = AndroidRemoteLayout.Normalize(config.AndroidTargetDir);
+
+        // 设备标识统一使用备份页的字段（AndroidDeviceId 已退役）。
+        suppressDeviceIdSave = true;
+        try
+        {
+            AndroidDeviceId = config.AndroidBackupDeviceId;
+        }
+        finally
+        {
+            suppressDeviceIdSave = false;
+        }
     }
 
     public void SaveConfig()
     {
         var config = AppSettings.Load();
-        config.AndroidDeviceName = AndroidDeviceName;
         config.AndroidFtpHost = AndroidFtpHost;
         config.AndroidFtpPort = AndroidFtpPort;
         config.AndroidFtpUser = AndroidFtpUser;
         config.AndroidFtpPassword = AndroidFtpPassword;
-        config.AndroidTargetDir = AndroidTargetDir;
-        config.AndroidDeviceId = AndroidDeviceId;
+        config.AndroidTargetDir = AndroidRemoteLayout.RootDirectory;
+        config.AndroidBackupDeviceId = AndroidDeviceId;
         AppSettings.Save(config);
     }
 
+    /// <summary>加载配置期间抑制标识回写，避免启动时误标「已确认」。</summary>
+    private bool suppressDeviceIdSave;
+
     partial void OnArchivePathChanged(string value)
     {
-        LoadSubfolders();
+        LoadFolderTree();
         LoadManualSelectionsFromDb();
         RecalculateScopeSummary();
     }
 
-    partial void OnAndroidDeviceNameChanged(string value) => SaveConfig();
-    partial void OnAndroidFtpHostChanged(string value) => SaveConfig();
-    partial void OnAndroidFtpPortChanged(int value) => SaveConfig();
-    partial void OnAndroidFtpUserChanged(string value) => SaveConfig();
-    partial void OnAndroidFtpPasswordChanged(string value) => SaveConfig();
-    partial void OnAndroidTargetDirChanged(string value) => SaveConfig();
-    partial void OnAndroidDeviceIdChanged(string value)
+    partial void OnAndroidFtpHostChanged(string value)
     {
         SaveConfig();
+        ScheduleAutoConnectionTest();
+    }
+
+    partial void OnAndroidFtpPortChanged(int value)
+    {
+        SaveConfig();
+        ScheduleAutoConnectionTest();
+    }
+
+    partial void OnAndroidFtpUserChanged(string value)
+    {
+        SaveConfig();
+        ScheduleAutoConnectionTest();
+    }
+
+    partial void OnAndroidFtpPasswordChanged(string value)
+    {
+        SaveConfig();
+        ScheduleAutoConnectionTest();
+    }
+
+    partial void OnAndroidTargetDirChanged(string value)
+    {
+        // 目录已固定：任何偏离都收敛回常量，避免识别文件读写位置漂移。
+        string normalized = AndroidRemoteLayout.Normalize(value);
+        if (!string.Equals(normalized, value, StringComparison.Ordinal))
+        {
+            AndroidTargetDir = normalized;
+            return;
+        }
+
+        SaveConfig();
+        ScheduleAutoConnectionTest();
+    }
+
+    partial void OnAndroidDeviceIdChanged(string value)
+    {
+        if (suppressDeviceIdSave) return;
+
+        SaveConfig();
         LoadManualSelectionsFromDb();
+    }
+
+    /// <summary>
+    /// 目标设备身份与 PC 侧记录不一致、或设备端缺少识别文件而无法核对时的<b>阻塞确认</b>。
+    /// </summary>
+    /// <remarks>
+    /// 由 <see cref="AndroidSyncEngine.SyncAsync"/> 在后台线程调用，因此必须切回 UI 线程弹框。
+    /// 之所以不静默继续：若文件实际传到 B 却记录成 A，下次回传给 A 会错误跳过这些文件，
+    /// 而 A 手机上其实并没有——这是静默的数据不一致。
+    /// </remarks>
+    private bool ConfirmDeviceIdentity(DeviceIdentityResult identity)
+    {
+        bool confirmed = false;
+
+        App.Current.Dispatcher.Invoke(() =>
+        {
+            string message = identity.Match == DeviceIdentityMatch.Mismatched
+                ? string.Format(
+                    App.GetString(
+                        "FmtAndroidIdentityMismatch",
+                        "目标设备标识与本地记录不一致。本机已确认：{0}；当前连到：{1}。可能是连错了 FTP 服务器，或这是一台不同的设备。继续将按【当前连到的设备】重新记录回传进度。是否继续？"),
+                    identity.BaselineId,
+                    identity.RemoteId ?? "-")
+                : string.Format(
+                    App.GetString(
+                        "FmtAndroidIdentityUnverifiable",
+                        "当前设备缺少识别文件，无法核对身份。本机已确认：{0}。可能是手机上的识别文件已被删除，或连到了另一台设备。继续将按本机已确认标识记录回传进度。是否继续？"),
+                    identity.BaselineId);
+
+            confirmed = MessageBox.Show(
+                message,
+                App.GetString("MsgBoxTitle", "提示"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) == MessageBoxResult.Yes;
+        });
+
+        return confirmed;
     }
 
     public HashSet<string> GetManualSelectionPathsSet()
@@ -380,7 +490,7 @@ public partial class AndroidSyncViewModel : ObservableObject
         try
         {
             using var journal = TransferJournal.OpenReadOnly(ArchivePath);
-            string devId = string.IsNullOrWhiteSpace(AndroidDeviceId) ? (string.IsNullOrWhiteSpace(AndroidDeviceName) ? "Android Device" : AndroidDeviceName) : AndroidDeviceId;
+            string devId = CurrentDeviceId;
             return journal.GetAndroidManualSelections(devId);
         }
         catch
@@ -409,7 +519,7 @@ public partial class AndroidSyncViewModel : ObservableObject
         try
         {
             using var journal = TransferJournal.OpenReadOnly(ArchivePath);
-            string devId = string.IsNullOrWhiteSpace(AndroidDeviceId) ? (string.IsNullOrWhiteSpace(AndroidDeviceName) ? "Android Device" : AndroidDeviceName) : AndroidDeviceId;
+            string devId = CurrentDeviceId;
             var autofilledMap = journal.GetAndroidManualSelectionsWithAutofilled(devId);
             var manifest = journal.ReadManifest();
             var dict = manifest.ToDictionary(m => m.DestPath.Replace('\\', '/'), m => m, StringComparer.OrdinalIgnoreCase);
@@ -483,9 +593,11 @@ public partial class AndroidSyncViewModel : ObservableObject
         ManualSelectionModalBtnText = string.Format(App.GetString("ScopeViewEditListBtn", "👁️ 查看/编辑清单 ({0})"), ManualSelectionCount);
     }
 
-    public void LoadSubfolders()
+    public void LoadFolderTree()
     {
-        Subfolders.Clear();
+        SelectionPersist.Flush();
+        SelectionPersist.Invalidate();
+        FolderTree.Clear();
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
             return;
 
@@ -493,30 +605,23 @@ public partial class AndroidSyncViewModel : ObservableObject
         {
             using var journal = TransferJournal.OpenReadOnly(ArchivePath);
             var manifest = journal.ReadManifest();
-            var rootDirs = manifest
-                .Select(m =>
-                {
-                    string norm = m.DestPath.Replace('\\', '/');
-                    int idx = norm.IndexOf('/');
-                    return idx > 0 ? norm.Substring(0, idx) : norm;
-                })
-                .Where(d => !string.IsNullOrWhiteSpace(d) && !d.StartsWith("."))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(d => d);
-
-            foreach (var dir in rootDirs)
+            var tree = SubfolderTreeBuilder.Build(manifest.Select(m => m.DestPath));
+            SelectionPersist.RestoreInto(ArchivePath, tree);
+            foreach (var root in tree)
             {
-                Subfolders.Add(new SubfolderOptionViewModel
+                root.OnCheckedChanged = () =>
                 {
-                    FolderName = dir,
-                    RelativePath = dir,
-                    IsChecked = true,
-                    OnCheckedChanged = () => RecalculateScopeSummary()
-                });
+                    OnPropertyChanged(nameof(HasSubfolderFilter));
+                    RecalculateScopeSummary();
+                    SelectionPersist.ScheduleSave();
+                };
+                FolderTree.Add(root);
             }
+            OnPropertyChanged(nameof(HasSubfolderFilter));
         }
         catch
         {
+            SelectionPersist.Invalidate();
         }
     }
 
@@ -525,6 +630,7 @@ public partial class AndroidSyncViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
         {
             ScopeSummaryText = App.GetString("MsgTargetDirNotExist", "目标归档路径不存在");
+            UndatedCandidateCount = 0;
             return;
         }
 
@@ -535,26 +641,38 @@ public partial class AndroidSyncViewModel : ObservableObject
 
             DateTime? dateFrom = DateTime.TryParse(ScopeDateFromText, out var df) ? df : null;
             DateTime? dateTo = DateTime.TryParse(ScopeDateToText, out var dt) ? dt : null;
-            var selectedFolders = ScopeMode == IPhoneRestoreScopeMode.Subfolder
-                ? Subfolders.Where(s => s.IsChecked).Select(s => s.RelativePath).ToHashSet(StringComparer.OrdinalIgnoreCase)
-                : null;
             var manualPaths = ScopeMode == IPhoneRestoreScopeMode.ManualSelection
                 ? ManualSelectedItems.Select(m => m.RelativePath.Replace('\\', '/')).ToHashSet(StringComparer.OrdinalIgnoreCase)
                 : null;
 
-            string devId = string.IsNullOrWhiteSpace(AndroidDeviceId) ? (string.IsNullOrWhiteSpace(AndroidDeviceName) ? "Android Device" : AndroidDeviceName) : AndroidDeviceId;
+            string devId = CurrentDeviceId;
             var config = new AndroidSyncConfig
             {
-                DeviceName = AndroidDeviceName,
                 ConfiguredDeviceId = devId,
                 ScopeMode = ScopeMode,
-                DateFrom = dateFrom,
-                DateTo = dateTo,
-                SelectedSubfolders = selectedFolders,
-                ManualSelectedPaths = manualPaths
+                ManualSelectedPaths = manualPaths,
+                Filters = BuildScopeFilters(dateFrom, dateTo)
             };
+            var filters = config.Filters!;
+            bool dateFilterActive = filters.HasDateFilter;
+            int undated = 0;
 
-            var filtered = manifest.Where(config.IsEntryIncluded).ToList();
+            var filtered = manifest.Where(e =>
+            {
+                if (!config.IsEntryIncluded(e))
+                {
+                    return false;
+                }
+
+                if (dateFilterActive && ScopeFilterSet.ParseCaptureDate(e) is null)
+                {
+                    undated++;
+                }
+
+                return true;
+            }).ToList();
+
+            UndatedCandidateCount = undated;
 
             int photoCount = filtered.Count(e => IsPhotoExtension(Path.GetExtension(e.DestPath)));
             int videoCount = filtered.Count - photoCount;
@@ -589,7 +707,7 @@ public partial class AndroidSyncViewModel : ObservableObject
 
         int addedCount = 0;
         int ignoredCount = 0;
-        string devId = string.IsNullOrWhiteSpace(AndroidDeviceId) ? (string.IsNullOrWhiteSpace(AndroidDeviceName) ? "Android Device" : AndroidDeviceName) : AndroidDeviceId;
+        string devId = CurrentDeviceId;
 
         try
         {
@@ -729,7 +847,7 @@ public partial class AndroidSyncViewModel : ObservableObject
         try
         {
             using var journal = TransferJournal.Open(ArchivePath);
-            string devId = string.IsNullOrWhiteSpace(AndroidDeviceId) ? (string.IsNullOrWhiteSpace(AndroidDeviceName) ? "Android Device" : AndroidDeviceName) : AndroidDeviceId;
+            string devId = CurrentDeviceId;
             var toAdd = MissingPairSuggestions.Select(s => s.SuggestedRelativePath).ToList();
             journal.BatchAddAndroidManualSelections(devId, toAdd, isAutofilled: true);
         }
@@ -827,7 +945,7 @@ public partial class AndroidSyncViewModel : ObservableObject
             try
             {
                 using var journal = TransferJournal.Open(ArchivePath);
-                string devId = string.IsNullOrWhiteSpace(AndroidDeviceId) ? (string.IsNullOrWhiteSpace(AndroidDeviceName) ? "Android Device" : AndroidDeviceName) : AndroidDeviceId;
+                string devId = CurrentDeviceId;
                 journal.RemoveAndroidManualSelection(devId, item.RelativePath);
             }
             catch { }
@@ -845,7 +963,7 @@ public partial class AndroidSyncViewModel : ObservableObject
             try
             {
                 using var journal = TransferJournal.Open(ArchivePath);
-                string devId = string.IsNullOrWhiteSpace(AndroidDeviceId) ? (string.IsNullOrWhiteSpace(AndroidDeviceName) ? "Android Device" : AndroidDeviceName) : AndroidDeviceId;
+                string devId = CurrentDeviceId;
                 journal.ClearAndroidManualSelections(devId);
             }
             catch { }
@@ -885,9 +1003,40 @@ public partial class AndroidSyncViewModel : ObservableObject
         {
             TestStatus = ftpTestSticky.Current;
         }
+        else
+        {
+            TestStatus = App.GetString("AndroidConnUntested", "未测试连接");
+        }
 
         UpdateManualSelectionTexts();
+        OnPropertyChanged(nameof(UndatedHintText));
         RecalculateScopeSummary();
+    }
+
+    // ── 自动连接检测：FTP 配置变化后防抖 800ms 自动测试（手动按钮保留，随时可重测）──
+    private DispatcherTimer? autoConnTestTimer;
+
+    private void ScheduleAutoConnectionTest()
+    {
+        if (autoConnTestTimer is null)
+        {
+            autoConnTestTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
+            autoConnTestTimer.Tick += AutoConnTestTimer_Tick;
+        }
+
+        autoConnTestTimer.Stop();
+        autoConnTestTimer.Start();
+    }
+
+    private void AutoConnTestTimer_Tick(object? sender, EventArgs e)
+    {
+        autoConnTestTimer!.Stop();
+        if (IsSyncing)
+        {
+            return;
+        }
+
+        TestConnectionCommand.Execute(null);
     }
 
     [RelayCommand]
@@ -970,7 +1119,7 @@ public partial class AndroidSyncViewModel : ObservableObject
                 var suggestions = MediaPairMatcher.FindMissingPairs(currentPaths, manifest, true, true, config.AutoCompleteRawJpg);
                 if (suggestions.Count > 0)
                 {
-                    string devId = string.IsNullOrWhiteSpace(AndroidDeviceId) ? (string.IsNullOrWhiteSpace(AndroidDeviceName) ? "Android Device" : AndroidDeviceName) : AndroidDeviceId;
+                    string devId = CurrentDeviceId;
                     journal.BatchAddAndroidManualSelections(devId, suggestions.Select(s => s.SuggestedRelativePath), isAutofilled: true);
                     LoadManualSelectionsFromDb();
                     RecalculateScopeSummary();
@@ -1016,23 +1165,17 @@ public partial class AndroidSyncViewModel : ObservableObject
             var manifest = journal.ReadManifest();
             DateTime? dateFrom = DateTime.TryParse(ScopeDateFromText, out var df) ? df : null;
             DateTime? dateTo = DateTime.TryParse(ScopeDateToText, out var dt) ? dt : null;
-            var selectedSubfolders = ScopeMode == IPhoneRestoreScopeMode.Subfolder
-                ? Subfolders.Where(s => s.IsChecked).Select(s => s.RelativePath).ToHashSet(StringComparer.OrdinalIgnoreCase)
-                : null;
             var manualSelectedPaths = ScopeMode == IPhoneRestoreScopeMode.ManualSelection
                 ? ManualSelectedItems.Select(m => m.RelativePath).ToHashSet(StringComparer.OrdinalIgnoreCase)
                 : null;
 
-            string devId = string.IsNullOrWhiteSpace(AndroidDeviceId) ? (string.IsNullOrWhiteSpace(AndroidDeviceName) ? "Android Device" : AndroidDeviceName) : AndroidDeviceId;
+            string devId = CurrentDeviceId;
             var configCheck = new AndroidSyncConfig
             {
-                DeviceName = AndroidDeviceName,
                 ConfiguredDeviceId = devId,
                 ScopeMode = ScopeMode,
-                DateFrom = dateFrom,
-                DateTo = dateTo,
-                SelectedSubfolders = selectedSubfolders,
-                ManualSelectedPaths = manualSelectedPaths
+                ManualSelectedPaths = manualSelectedPaths,
+                Filters = BuildScopeFilters(dateFrom, dateTo)
             };
 
             var targetFiles = manifest.Where(configCheck.IsEntryIncluded).Select(e => e.DestPath).ToList();
@@ -1118,21 +1261,17 @@ public partial class AndroidSyncViewModel : ObservableObject
             });
         });
 
-        AddLog($"[START] Starting standalone sync to Android device '{AndroidDeviceName}'...");
+        AddLog($"[START] Starting standalone sync to Android device '{CurrentDeviceId}'...");
 
         DateTime? dateFrom = DateTime.TryParse(ScopeDateFromText, out var df) ? df : null;
         DateTime? dateTo = DateTime.TryParse(ScopeDateToText, out var dt) ? dt : null;
-        var selectedSubfolders = ScopeMode == IPhoneRestoreScopeMode.Subfolder
-            ? Subfolders.Where(s => s.IsChecked).Select(s => s.RelativePath).ToHashSet(StringComparer.OrdinalIgnoreCase)
-            : null;
         var manualSelectedPaths = ScopeMode == IPhoneRestoreScopeMode.ManualSelection
             ? ManualSelectedItems.Select(m => m.RelativePath).ToHashSet(StringComparer.OrdinalIgnoreCase)
             : null;
 
-        string devId = string.IsNullOrWhiteSpace(AndroidDeviceId) ? (string.IsNullOrWhiteSpace(AndroidDeviceName) ? "Android Device" : AndroidDeviceName) : AndroidDeviceId;
+        string devId = CurrentDeviceId;
         var config = new AndroidSyncConfig
         {
-            DeviceName = AndroidDeviceName,
             ConfiguredDeviceId = devId,
             FtpHost = AndroidFtpHost,
             FtpPort = AndroidFtpPort,
@@ -1141,10 +1280,8 @@ public partial class AndroidSyncViewModel : ObservableObject
             RemoteTargetDir = AndroidTargetDir,
             RestoreMode = RestoreMode,
             ScopeMode = ScopeMode,
-            DateFrom = dateFrom,
-            DateTo = dateTo,
-            SelectedSubfolders = selectedSubfolders,
-            ManualSelectedPaths = manualSelectedPaths
+            ManualSelectedPaths = manualSelectedPaths,
+            Filters = BuildScopeFilters(dateFrom, dateTo)
         };
 
         try
@@ -1152,6 +1289,7 @@ public partial class AndroidSyncViewModel : ObservableObject
             var result = await AndroidSyncEngine.SyncAsync(
                 ArchivePath,
                 config,
+                ConfirmDeviceIdentity,
                 progressHandler,
                 msg => App.Current.Dispatcher.Invoke(() => AddLog(msg)),
                 (srcPath, targetPath, size, status, details) =>
@@ -1182,6 +1320,14 @@ public partial class AndroidSyncViewModel : ObservableObject
                     });
                 },
                 cts.Token);
+
+            if (result.Aborted)
+            {
+                ProgressValue = 0;
+                ProgressText = progressSticky.Set("AndroidSyncIdentityAborted", "已中止：未确认目标设备身份，未传输任何文件。");
+                AddLog("[ABORTED] 设备身份未获确认，回传已中止。");
+                return;
+            }
 
             AndroidDeviceId = result.DeviceId;
             SaveConfig();

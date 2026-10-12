@@ -9,6 +9,7 @@ using Microsoft.Win32;
 using PicHarbor.Core.GooglePhotos;
 using PicHarbor.Core.Journal;
 using PicHarbor.Core.Search;
+using PicHarbor.Core.Scope;
 using PicHarbor.Gui.Config;
 using PicHarbor.Gui.Util;
 
@@ -125,34 +126,6 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         }
     }
 
-    public bool IsScopeDateRange
-    {
-        get => ScopeMode == GooglePhotosScopeMode.DateRange;
-        set
-        {
-            if (value && ScopeMode != GooglePhotosScopeMode.DateRange)
-            {
-                ScopeMode = GooglePhotosScopeMode.DateRange;
-                NotifyScopeProperties();
-                RecalculateScopeSummary();
-            }
-        }
-    }
-
-    public bool IsScopeSubfolder
-    {
-        get => ScopeMode == GooglePhotosScopeMode.Subfolder;
-        set
-        {
-            if (value && ScopeMode != GooglePhotosScopeMode.Subfolder)
-            {
-                ScopeMode = GooglePhotosScopeMode.Subfolder;
-                NotifyScopeProperties();
-                RecalculateScopeSummary();
-            }
-        }
-    }
-
     public bool IsScopeManualSelection
     {
         get => ScopeMode == GooglePhotosScopeMode.ManualSelection;
@@ -184,8 +157,6 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     private void NotifyScopeProperties()
     {
         OnPropertyChanged(nameof(IsScopeAll));
-        OnPropertyChanged(nameof(IsScopeDateRange));
-        OnPropertyChanged(nameof(IsScopeSubfolder));
         OnPropertyChanged(nameof(IsScopeManualSelection));
         OnPropertyChanged(nameof(IsScopeCustomTarget));
     }
@@ -305,7 +276,58 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     [ObservableProperty]
     private bool isManualModalOpen = false;
 
-    public ObservableCollection<SubfolderOptionViewModel> Subfolders { get; } = new();
+    /// <summary>Multi-level subfolder tree for the unified scope filter (checked set = active subfolder filter).</summary>
+    public ObservableCollection<SubfolderNodeViewModel> FolderTree { get; } = new();
+
+    /// <summary>Indicates whether any node in the folder tree is checked (= subfolder filter enabled).</summary>
+    public bool HasSubfolderFilter => FolderTree.Any(HasCheckedDescendant);
+
+    private ScopeSelectionPersistence? selectionPersist;
+
+    /// <summary>Debounced journal persistence of the subfolder tree selection (kind: google_upload).</summary>
+    private ScopeSelectionPersistence SelectionPersist => selectionPersist ??= new ScopeSelectionPersistence(
+        () => ArchivePath,
+        () => "google_upload",
+        () => "default",
+        () => FolderTree);
+
+    private static bool HasCheckedDescendant(SubfolderNodeViewModel node) =>
+        node.IsChecked == true || node.Children.Any(HasCheckedDescendant);
+
+    /// <summary>Inline policy for entries without capture date while the date filter is active (default: include).</summary>
+    [ObservableProperty]
+    private bool includeUndatedFiles = true;
+
+    partial void OnIncludeUndatedFilesChanged(bool value) => RecalculateScopeSummary();
+
+    /// <summary>Count of entries passing other conditions but lacking any capture date (only tracked while the date filter is active).</summary>
+    [ObservableProperty]
+    private int undatedCandidateCount = 0;
+
+    partial void OnUndatedCandidateCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsUndatedHintVisible));
+        OnPropertyChanged(nameof(UndatedHintText));
+    }
+
+    /// <summary>Indicates whether the inline undated-files hint row should be shown.</summary>
+    public bool IsUndatedHintVisible => UndatedCandidateCount > 0;
+
+    /// <summary>Formatted inline hint text for entries without capture date (refreshed with language).</summary>
+    public string UndatedHintText => string.Format(App.GetString("ScopeUndatedHint", "发现 {0} 项无日期文件"), UndatedCandidateCount);
+
+    /// <summary>Builds the unified combination filter from the folder tree, date range and undated policy.</summary>
+    private ScopeFilterSet BuildScopeFilters(DateTime? dateFrom, DateTime? dateTo)
+    {
+        return new ScopeFilterSet
+        {
+            SelectedSubfolders = SubfolderTreeBuilder.CollectSelected(FolderTree),
+            DateFrom = dateFrom,
+            DateTo = dateTo,
+            UndatedPolicy = IncludeUndatedFiles ? UndatedFilePolicy.Include : UndatedFilePolicy.Skip
+        };
+    }
+
     public ObservableCollection<ManualSelectedItemViewModel> ManualSelectedItems { get; } = new();
 
     // --- Album Mode Properties ---
@@ -595,6 +617,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         RefreshAccountLabel();
         UpdateConnectionStatusDisplay();
         RefreshManualTexts();
+        OnPropertyChanged(nameof(UndatedHintText));
         RecalculateScopeSummary();
         if (IsPaused)
         {
@@ -808,7 +831,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
 
     partial void OnArchivePathChanged(string value)
     {
-        LoadSubfolders();
+        LoadFolderTree();
         LoadManualSelectionsFromDb();
         RecalculateScopeSummary();
     }
@@ -1104,38 +1127,35 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         }
     }
 
-    public void LoadSubfolders()
+    public void LoadFolderTree()
     {
-        Subfolders.Clear();
+        SelectionPersist.Flush();
+        SelectionPersist.Invalidate();
+        FolderTree.Clear();
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath)) return;
 
         try
         {
             using var journal = TransferJournal.OpenReadOnly(ArchivePath);
             var manifest = journal.ReadManifest();
-            var folderGroups = manifest
-                .Select(m => Path.GetDirectoryName(m.DestPath.Replace('\\', '/'))?.Replace('\\', '/'))
-                .Where(d => !string.IsNullOrWhiteSpace(d))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(d => d)
-                .ToList();
-
-            foreach (var folder in folderGroups)
+            var tree = SubfolderTreeBuilder.Build(manifest.Select(m => m.DestPath));
+            SelectionPersist.RestoreInto(ArchivePath, tree);
+            foreach (var root in tree)
             {
-                if (string.IsNullOrWhiteSpace(folder)) continue;
-                var opt = new SubfolderOptionViewModel
+                root.OnCheckedChanged = () =>
                 {
-                    FolderName = folder,
-                    RelativePath = folder,
-                    IsChecked = true,
-                    OnCheckedChanged = RecalculateScopeSummary
+                    OnPropertyChanged(nameof(HasSubfolderFilter));
+                    RecalculateScopeSummary();
+                    SelectionPersist.ScheduleSave();
                 };
-                Subfolders.Add(opt);
+                FolderTree.Add(root);
             }
+            OnPropertyChanged(nameof(HasSubfolderFilter));
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Failed to load subfolders: {ex.Message}");
+            Debug.WriteLine($"Failed to load folder tree: {ex.Message}");
+            SelectionPersist.Invalidate();
         }
     }
 
@@ -1246,12 +1266,14 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             {
                 ScopeSummaryText = App.GetString("GoogleScopeMissing", "❌ 指定的路径不存在");
             }
+            UndatedCandidateCount = 0;
             return;
         }
 
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
         {
             ScopeSummaryText = App.GetString("GoogleScopeArchiveInvalid", "📊 归档路径无效");
+            UndatedCandidateCount = 0;
             return;
         }
 
@@ -1259,21 +1281,24 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         {
             using var journal = TransferJournal.OpenReadOnly(ArchivePath);
             var manifest = journal.ReadManifest();
-            var checkedFolders = Subfolders.Where(s => s.IsChecked).Select(s => s.RelativePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var manualPaths = journal.GetGooglePhotosManualSelections();
+
+            DateTime? dateFrom = DateTime.TryParse(ScopeDateFromText, out var df) ? df : null;
+            DateTime? dateTo = DateTime.TryParse(ScopeDateToText, out var dt) ? dt : null;
+            var filters = BuildScopeFilters(dateFrom, dateTo);
+            bool dateFilterActive = filters.HasDateFilter;
+            int undated = 0;
 
             var filtered = manifest.Where(item =>
             {
                 if (MediaTypeClassifier.Classify(item.DestPath) == MediaType.Other) return false;
-                return ScopeMode switch
-                {
-                    GooglePhotosScopeMode.All => true,
-                    GooglePhotosScopeMode.DateRange => MatchesDate(item, ScopeDateFrom, ScopeDateTo?.AddDays(1).AddTicks(-1)),
-                    GooglePhotosScopeMode.Subfolder => checkedFolders.Any(f => item.DestPath.StartsWith(f, StringComparison.OrdinalIgnoreCase)),
-                    GooglePhotosScopeMode.ManualSelection => manualPaths.Contains(item.DestPath),
-                    _ => true
-                };
+                if (ScopeMode == GooglePhotosScopeMode.ManualSelection && !manualPaths.Contains(item.DestPath)) return false;
+                if (!filters.IsEntryIncluded(item)) return false;
+                if (dateFilterActive && ScopeFilterSet.ParseCaptureDate(item) is null) undated++;
+                return true;
             }).ToList();
+
+            UndatedCandidateCount = undated;
 
             long totalBytes = filtered.Sum(f => f.SizeBytes);
             int photos = filtered.Count(f => IsPhoto(f.DestPath));
@@ -1470,7 +1495,8 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             ScopeMode = ScopeMode,
             DateRangeStart = ScopeDateFrom,
             DateRangeEnd = ScopeDateTo?.AddDays(1).AddTicks(-1),
-            SelectedSubfolder = Subfolders.FirstOrDefault(s => s.IsChecked)?.RelativePath,
+            SelectedSubfolders = SubfolderTreeBuilder.CollectSelected(FolderTree),
+            Filters = BuildScopeFilters(ScopeDateFrom, ScopeDateTo),
             ManualSelectedPaths = GetManualSelectionPathsSet(),
             CustomTargetPath = CustomTargetPath
         };
