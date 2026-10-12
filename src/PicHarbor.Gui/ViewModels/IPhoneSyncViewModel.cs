@@ -81,6 +81,105 @@ public partial class IPhoneSyncViewModel : ObservableObject
     [ObservableProperty]
     private string deviceModel = "iPhone 15 Pro";
 
+    /// <summary>Device UDID (unique identifier) when known; journal records are keyed by it.</summary>
+    [ObservableProperty]
+    private string? deviceUdid;
+
+    partial void OnDeviceUdidChanged(string? value)
+    {
+        LoadManualSelectionsFromDb();
+        RecalculateScopeSummary();
+        OnPropertyChanged(nameof(EffectiveSyncFolder));
+    }
+
+    /// <summary>Sticky sync-folder device name resolved from the journal (survives device renames).</summary>
+    private string? stickyFolderName;
+
+    private bool stickyResolvedForCurrentIdentity;
+
+    /// <summary>Journal lookup key for the currently selected device.</summary>
+    public IPhoneDeviceRef GetDeviceRef() => new IPhoneDeviceRef(DeviceUdid, DeviceModel);
+
+    /// <summary>The device name used for the default sync directory (sticky when already established).</summary>
+    private string ResolveSyncFolderDeviceName() =>
+        string.IsNullOrWhiteSpace(stickyFolderName)
+            ? (string.IsNullOrWhiteSpace(DeviceModel) ? "iPhone" : DeviceModel)
+            : stickyFolderName;
+
+    /// <summary>
+    /// Applies the probed device identity (UDID + display name). When the name changes but the UDID
+    /// does not, legacy name-keyed journal rows are migrated so manual selections survive a rename.
+    /// </summary>
+    public void ApplyDeviceIdentity(string? udid, string? displayName, string? productType)
+    {
+        string? newUdid = string.IsNullOrWhiteSpace(udid) ? DeviceUdid : udid;
+        string newName = string.IsNullOrWhiteSpace(displayName) ? DeviceModel : displayName;
+        bool udidChanged = !string.Equals(newUdid, DeviceUdid, StringComparison.Ordinal);
+        bool nameChanged = !string.Equals(newName, DeviceModel, StringComparison.Ordinal);
+        if (!udidChanged && !nameChanged && stickyResolvedForCurrentIdentity)
+        {
+            return;
+        }
+
+        string? oldName = DeviceModel;
+        DeviceUdid = newUdid;
+        DeviceModel = newName;
+
+        if (udidChanged)
+        {
+            // A different device took over the context: the previous "ready" state no longer applies.
+            HasExported = false;
+        }
+
+        if (nameChanged && !string.IsNullOrWhiteSpace(oldName) &&
+            !string.IsNullOrWhiteSpace(ArchivePath) && Directory.Exists(ArchivePath))
+        {
+            try
+            {
+                using var journal = TransferJournal.Open(ArchivePath);
+                journal.RenameIPhoneDeviceLegacyRows(GetDeviceRef(), oldName);
+            }
+            catch { }
+        }
+
+        RefreshStickyFolderName(productType);
+        LoadManualSelectionsFromDb();
+        RecalculateScopeSummary();
+    }
+
+    /// <summary>
+    /// Resolves the sticky sync-folder device name: an existing journal row wins; otherwise the
+    /// shared devices registry provides a collision-free ("(2)", "(3)"…) name for the same display name.
+    /// </summary>
+    private void RefreshStickyFolderName(string? productType)
+    {
+        stickyResolvedForCurrentIdentity = true;
+        stickyFolderName = null;
+        if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
+        {
+            OnPropertyChanged(nameof(EffectiveSyncFolder));
+            return;
+        }
+
+        try
+        {
+            using var journal = TransferJournal.OpenReadOnly(ArchivePath);
+            var reference = GetDeviceRef();
+            var row = journal.GetIPhoneDevice(reference);
+            if (!string.IsNullOrWhiteSpace(row?.FolderName))
+            {
+                stickyFolderName = row.FolderName;
+            }
+            else if (reference.HasUdid)
+            {
+                stickyFolderName = journal.RegisterOrUpdateDevice(
+                    reference.Udid!, DeviceModel, productType, reference.Udid, "iPhone", DateTimeOffset.UtcNow);
+            }
+        }
+        catch { }
+        OnPropertyChanged(nameof(EffectiveSyncFolder));
+    }
+
     [ObservableProperty]
     private string customSyncFolder = "";
 
@@ -279,7 +378,11 @@ public partial class IPhoneSyncViewModel : ObservableObject
     partial void OnIsExportingChanged(bool value)
     {
         OnPropertyChanged(nameof(ShowSyncStep2Panel));
+        OnPropertyChanged(nameof(IsConfigEditable));
     }
+
+    /// <summary>Scope / album / folder configuration is locked while an export is running.</summary>
+    public bool IsConfigEditable => !IsExporting;
 
     [ObservableProperty]
     private bool hasExported = false;
@@ -388,7 +491,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
     };
 
     public string EffectiveSyncFolder => string.IsNullOrWhiteSpace(CustomSyncFolder)
-        ? (string.IsNullOrWhiteSpace(ArchivePath) ? "" : Path.Combine(ArchivePath, ".AppleSync", string.IsNullOrWhiteSpace(DeviceModel) ? "iPhone" : DeviceModel))
+        ? (string.IsNullOrWhiteSpace(ArchivePath) ? "" : Path.Combine(ArchivePath, ".AppleSync", ResolveSyncFolderDeviceName()))
         : CustomSyncFolder;
 
     public bool IsYearMonthMode
@@ -417,6 +520,11 @@ public partial class IPhoneSyncViewModel : ObservableObject
 
     partial void OnArchivePathChanged(string value)
     {
+        // Archive context changed: the previous "sync folder ready" state no longer applies,
+        // and the sticky folder name must be re-resolved against the new archive's journal.
+        HasExported = false;
+        stickyResolvedForCurrentIdentity = false;
+        RefreshStickyFolderName(null);
         LoadSubfolders();
         LoadManualSelectionsFromDb();
         RecalculateScopeSummary();
@@ -425,6 +533,8 @@ public partial class IPhoneSyncViewModel : ObservableObject
 
     partial void OnDeviceModelChanged(string value)
     {
+        // Note: HasExported is intentionally NOT reset here — a pure rename of the same device
+        // (same UDID) keeps its sticky folder; the reset happens in ApplyDeviceIdentity on UDID change.
         LoadManualSelectionsFromDb();
         RecalculateScopeSummary();
         OnPropertyChanged(nameof(EffectiveSyncFolder));
@@ -437,7 +547,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
         try
         {
             using var journal = TransferJournal.OpenReadOnly(ArchivePath);
-            return journal.GetManualSelections(DeviceModel);
+            return journal.GetManualSelections(GetDeviceRef());
         }
         catch
         {
@@ -466,7 +576,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
         try
         {
             using var journal = TransferJournal.OpenReadOnly(ArchivePath);
-            var autofilledMap = journal.GetManualSelectionsWithAutofilled(DeviceModel);
+            var autofilledMap = journal.GetManualSelectionsWithAutofilled(GetDeviceRef());
             var manifest = journal.ReadManifest();
             var dict = manifest.ToDictionary(m => m.DestPath.Replace('\\', '/'), m => m, StringComparer.OrdinalIgnoreCase);
 
@@ -654,7 +764,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
                     continue;
                 }
 
-                if (journal.AddManualSelection(DeviceModel, relPath))
+                if (journal.AddManualSelection(GetDeviceRef(), relPath))
                 {
                     addedCount++;
                 }
@@ -688,7 +798,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
                 if (suggestions.Count > 0)
                 {
                     var autoAdd = suggestions.Select(s => s.SuggestedRelativePath).ToList();
-                    journal.BatchAddManualSelections(DeviceModel, autoAdd, isAutofilled: true);
+                    journal.BatchAddManualSelections(GetDeviceRef(), autoAdd, isAutofilled: true);
                     autoAddedCount = autoAdd.Count;
                     LoadManualSelectionsFromDb();
                     RecalculateScopeSummary();
@@ -773,7 +883,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
         {
             using var journal = TransferJournal.Open(ArchivePath);
             var toAdd = MissingPairSuggestions.Select(s => s.SuggestedRelativePath).ToList();
-            journal.BatchAddManualSelections(DeviceModel, toAdd, isAutofilled: true);
+            journal.BatchAddManualSelections(GetDeviceRef(), toAdd, isAutofilled: true);
         }
         catch { }
 
@@ -871,7 +981,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
             try
             {
                 using var journal = TransferJournal.Open(ArchivePath);
-                journal.RemoveManualSelection(DeviceModel, item.RelativePath);
+                journal.RemoveManualSelection(GetDeviceRef(), item.RelativePath);
             }
             catch { }
         }
@@ -888,7 +998,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
             try
             {
                 using var journal = TransferJournal.Open(ArchivePath);
-                journal.ClearManualSelections(DeviceModel);
+                journal.ClearManualSelections(GetDeviceRef());
             }
             catch { }
         }
@@ -946,16 +1056,12 @@ public partial class IPhoneSyncViewModel : ObservableObject
         bool hasPreviousSync = HasExported || CheckPreviousSyncExists();
         if (hasPreviousSync)
         {
-            // High-risk: a previous sync exists on this device. Require explicit risk acknowledgement.
+            // High-risk: a previous sync exists on this device. Require explicit risk acknowledgement,
+            // then offer to carry the old folder's files along (three-choice dialog).
             ShowConfirmationModal(
                 App.GetString("MsgPathWarningTitle", "⚠️ 高危操作警告：更改 iPhone 同步目录"),
-                App.GetString("MsgPathWarningBody", "检测到该 iPhone 先前已与原有目录进行过同步。在 Apple Devices 中将同步源切换到新目录后，iPhone 上原先通过电脑同步的所有照片将被系统自动移除（手机本机拍摄的照片不受影响）。\n是否确认更改同步路径？"),
-                () =>
-                {
-                    CustomSyncFolder = newPath;
-                    OnPropertyChanged(nameof(EffectiveSyncFolder));
-                    AddLog($"[WARN] 用户确认更换同步目录: {newPath}");
-                },
+                App.GetString("MsgPathWarningBody", "检测到该 iPhone 先前已与原有目录进行过同步。在 Apple Devices 中将同步源切换到新目录后，iPhone 上原先通过电脑同步的所有照片将被系统自动移除（手机本机拍摄的照片不受影响）。目录内的外来文件也会被同步导入手机，请确保目录仅包含希望导入的内容。\n是否确认更改同步路径？"),
+                () => OpenMergeChoice(newPath),
                 () => { },
                 requireRiskAck: true);
         }
@@ -967,14 +1073,16 @@ public partial class IPhoneSyncViewModel : ObservableObject
                 string.Format(
                     App.GetString("MsgPathChangeFirstBody", "即将把 iPhone 回传目录从默认位置更改为自定义目录：\n{0}\n\n更改后需在 Apple Devices 中重新选定新目录作为同步源。是否确认更改？"),
                     newPath),
-                () =>
-                {
-                    CustomSyncFolder = newPath;
-                    OnPropertyChanged(nameof(EffectiveSyncFolder));
-                    AddLog($"[INFO] 用户更改同步目录: {newPath}");
-                },
+                () => ApplyNewSyncFolder(newPath, $"[INFO] 用户更改同步目录: {newPath}"),
                 () => { });
         }
+    }
+
+    private void ApplyNewSyncFolder(string newPath, string logLine)
+    {
+        CustomSyncFolder = newPath;
+        OnPropertyChanged(nameof(EffectiveSyncFolder));
+        AddLog(logLine);
     }
 
     private bool CheckPreviousSyncExists()
@@ -983,7 +1091,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
         try
         {
             using var journal = TransferJournal.Open(ArchivePath);
-            return journal.GetIPhoneDevice(DeviceModel) is not null;
+            return journal.GetIPhoneDevice(GetDeviceRef()) is not null;
         }
         catch
         {
@@ -1030,6 +1138,217 @@ public partial class IPhoneSyncViewModel : ObservableObject
         action?.Invoke();
     }
 
+    // --- Three-choice "carry old files along" dialog (directory change with previous sync) ---
+
+    [ObservableProperty]
+    private bool isMergeChoiceOpen = false;
+
+    [ObservableProperty]
+    private bool mergeChoiceKeepOld = true;
+
+    partial void OnMergeChoiceKeepOldChanged(bool value)
+    {
+        OnPropertyChanged(nameof(MergeChoiceFresh));
+    }
+
+    /// <summary>Inverse of <see cref="MergeChoiceKeepOld"/> for the "start fresh" radio.</summary>
+    public bool MergeChoiceFresh
+    {
+        get => !MergeChoiceKeepOld;
+        set
+        {
+            if (value)
+            {
+                MergeChoiceKeepOld = false;
+            }
+        }
+    }
+
+    [ObservableProperty]
+    private bool mergeTimingNow = true;
+
+    partial void OnMergeTimingNowChanged(bool value)
+    {
+        OnPropertyChanged(nameof(MergeTimingNextExport));
+    }
+
+    /// <summary>Inverse of <see cref="MergeTimingNow"/> for the "merge on next export" radio.</summary>
+    public bool MergeTimingNextExport
+    {
+        get => !MergeTimingNow;
+        set
+        {
+            if (value)
+            {
+                MergeTimingNow = false;
+            }
+        }
+    }
+
+    [ObservableProperty]
+    private bool isMergeRunning = false;
+
+    [ObservableProperty]
+    private double mergeProgressPercentage = 0;
+
+    [ObservableProperty]
+    private string mergeStatusText = "";
+
+    private string? pendingPathChangeNewFolder;
+    private string? pendingPathChangeOldFolder;
+
+    /// <summary>Stable settings-table key for the current device (UDID preferred).</summary>
+    private string GetDeviceKeyValue() =>
+        string.IsNullOrWhiteSpace(DeviceUdid) ? DeviceModel : DeviceUdid!;
+
+    private void OpenMergeChoice(string newPath)
+    {
+        string? oldFolder = null;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(ArchivePath) && Directory.Exists(ArchivePath))
+            {
+                using var journal = TransferJournal.OpenReadOnly(ArchivePath);
+                oldFolder = journal.GetIPhoneDevice(GetDeviceRef())?.SyncFolder;
+            }
+        }
+        catch { }
+
+        if (string.IsNullOrWhiteSpace(oldFolder))
+        {
+            // No recorded old folder: nothing to carry along — plain change.
+            ApplyNewSyncFolder(newPath, $"[INFO] 用户更改同步目录: {newPath}");
+            return;
+        }
+
+        pendingPathChangeNewFolder = newPath;
+        pendingPathChangeOldFolder = oldFolder;
+        MergeChoiceKeepOld = true;
+        MergeTimingNow = true;
+        ModalMessage = string.Format(
+            App.GetString("MsgMergeChoiceBody", "检测到旧同步目录仍有内容。\n旧目录：{0}\n新目录：{1}\n\n「带上旧文件」会把旧目录内容并入新目录，手机端相册保持不变（推荐）。\n「重新开始」则新目录仅包含之后导出的内容，手机端旧同步照片将被移除。"),
+            oldFolder, newPath);
+        IsMergeChoiceOpen = true;
+    }
+
+    [RelayCommand]
+    private void ConfirmMergeChoice()
+    {
+        IsMergeChoiceOpen = false;
+        string? newPath = pendingPathChangeNewFolder;
+        string? oldFolder = pendingPathChangeOldFolder;
+        pendingPathChangeNewFolder = null;
+        pendingPathChangeOldFolder = null;
+        if (string.IsNullOrWhiteSpace(newPath)) return;
+
+        if (!MergeChoiceKeepOld)
+        {
+            // "Start fresh": light second confirmation (reversible — old files stay on disk).
+            ShowConfirmationModal(
+                App.GetString("MsgMergeFreshConfirmTitle", "确认不带上旧文件？"),
+                App.GetString("MsgMergeFreshConfirmBody", "新目录将只包含之后导出的内容，手机端旧同步照片将被移除。\n旧目录文件保留在磁盘上，之后可在「设置 → 内置工具」中合并或清理。是否继续？"),
+                () => ApplyNewSyncFolder(newPath, $"[WARN] 用户确认更换同步目录（不带上旧文件）: {newPath}"),
+                () => { });
+            return;
+        }
+
+        ApplyNewSyncFolder(newPath, $"[WARN] 用户确认更换同步目录（带上旧文件）: {newPath}");
+
+        if (MergeTimingNow)
+        {
+            _ = RunImmediateMergeAsync(oldFolder!, newPath);
+        }
+        else
+        {
+            try
+            {
+                using var journal = TransferJournal.Open(ArchivePath);
+                journal.SetPendingSyncFolderMerge(GetDeviceKeyValue(), oldFolder!, newPath);
+                AddLog("[INFO] 已记录待迁移：下次「开始导出」时将自动并入旧同步目录内容。");
+            }
+            catch (Exception ex)
+            {
+                AddLog($"[WARN] 记录待迁移失败 ({ex.Message})，可稍后在「设置 → 内置工具」中手动合并。");
+            }
+        }
+    }
+
+    [RelayCommand]
+    private void CancelMergeChoice()
+    {
+        IsMergeChoiceOpen = false;
+        pendingPathChangeNewFolder = null;
+        pendingPathChangeOldFolder = null;
+    }
+
+    private async Task RunImmediateMergeAsync(string oldFolder, string newFolder)
+    {
+        IsMergeRunning = true;
+        MergeProgressPercentage = 0;
+        MergeStatusText = App.GetString("MsgMergingNow", "正在并入旧同步目录内容…");
+        try
+        {
+            var result = await IPhoneSyncFolderMaintenanceService.MergeSyncFolderAsync(
+                oldFolder, newFolder,
+                new Progress<IPhoneSyncFolderMergeProgress>(p =>
+                {
+                    MergeProgressPercentage = p.TotalBytes > 0 ? p.ProcessedBytes * 100.0 / p.TotalBytes : 0;
+                    MergeStatusText = $"{p.ProcessedFiles} / {p.TotalFiles}  {p.CurrentFile}";
+                }),
+                msg => Application.Current.Dispatcher.Invoke(() => AddLog(msg)));
+
+            MergeProgressPercentage = 100;
+            MergeStatusText = string.Format(
+                App.GetString("FmtMergeDone", "合并完成：复制 {0} 项，已存在 {1} 项，失败 {2} 项"),
+                result.CopiedCount, result.SkippedCount, result.FailedCount);
+            AddLog($"[SUCCESS] 旧同步目录已并入新目录（复制 {result.CopiedCount}，已存在 {result.SkippedCount}，失败 {result.FailedCount}）。");
+            await Task.Delay(900);
+        }
+        catch (Exception ex)
+        {
+            AddLog($"[ERROR] ❌ 合并旧同步目录失败: {ex.Message}");
+        }
+        finally
+        {
+            IsMergeRunning = false;
+        }
+    }
+
+    /// <summary>Before an export, runs any recorded pending sync-folder merge (progress merged into the export bar).</summary>
+    private async Task TryRunPendingSyncFolderMergeAsync(IProgress<ProgressSnapshot> progress)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath)) return;
+            (string OldFolder, string NewFolder)? pending;
+            using (var journal = TransferJournal.OpenReadOnly(ArchivePath))
+            {
+                pending = journal.GetPendingSyncFolderMerge(GetDeviceKeyValue());
+            }
+
+            if (pending is null) return;
+
+            AddLog("[INFO] 检测到待迁移的旧同步目录，先并入新目录再导出…");
+            var mergeProgress = new Progress<IPhoneSyncFolderMergeProgress>(p => progress.Report(new ProgressSnapshot(
+                p.TotalFiles, p.ProcessedFiles, 0, 0,
+                p.TotalBytes, p.ProcessedBytes, 0, 0, null,
+                p.CurrentFile, 0, 0)));
+            var result = await IPhoneSyncFolderMaintenanceService.MergeSyncFolderAsync(
+                pending.Value.OldFolder, pending.Value.NewFolder, mergeProgress);
+            AddLog($"[SUCCESS] 旧同步目录已并入（复制 {result.CopiedCount}，已存在 {result.SkippedCount}，失败 {result.FailedCount}），继续导出。");
+
+            using (var journal = TransferJournal.Open(ArchivePath))
+            {
+                journal.ClearPendingSyncFolderMerge(GetDeviceKeyValue());
+            }
+        }
+        catch (Exception ex)
+        {
+            // Keep the pending marker so the merge is retried on the next export.
+            AddLog($"[WARN] 待迁移合并失败 ({ex.Message})，将在下次导出时重试；本次继续增量导出。");
+        }
+    }
+
     [RelayCommand]
     private void FixPreflightAndProceed()
     {
@@ -1046,7 +1365,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
                 var suggestions = MediaPairMatcher.FindMissingPairs(currentPaths, manifest, true, true, config.AutoCompleteRawJpg);
                 if (suggestions.Count > 0)
                 {
-                    journal.BatchAddManualSelections(DeviceModel, suggestions.Select(s => s.SuggestedRelativePath), isAutofilled: true);
+                    journal.BatchAddManualSelections(GetDeviceRef(), suggestions.Select(s => s.SuggestedRelativePath), isAutofilled: true);
                     LoadManualSelectionsFromDb();
                     RecalculateScopeSummary();
                 }
@@ -1166,6 +1485,13 @@ public partial class IPhoneSyncViewModel : ObservableObject
         cts = new CancellationTokenSource();
         AddLog("[INFO] 开始整理并准备 iPhone 专有同步目录...");
 
+        var earlyProgress = new Progress<ProgressSnapshot>(s =>
+        {
+            ProgressValue = s.ByteFraction * 100;
+            ProgressText = $"{s.ProcessedFiles} / {s.TotalFiles} ({s.ByteFraction * 100:F1}%)";
+        });
+        await TryRunPendingSyncFolderMergeAsync(earlyProgress);
+
         DateTime? dateFrom = DateTime.TryParse(ScopeDateFromText, out var df) ? df : null;
         DateTime? dateTo = DateTime.TryParse(ScopeDateToText, out var dt) ? dt : null;
         var selectedSubfolders = ScopeMode == IPhoneRestoreScopeMode.Subfolder
@@ -1177,7 +1503,9 @@ public partial class IPhoneSyncViewModel : ObservableObject
 
         var config = new IPhoneExportConfig
         {
-            DeviceModel = DeviceModel,
+            // Use the sticky sync-folder device name (not the display name) so renames never move the folder.
+            DeviceModel = ResolveSyncFolderDeviceName(),
+            DeviceUdid = DeviceUdid,
             CustomSyncFolder = string.IsNullOrWhiteSpace(CustomSyncFolder) ? null : CustomSyncFolder,
             AlbumMode = AlbumMode,
             ScopeMode = ScopeMode,

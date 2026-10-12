@@ -158,6 +158,7 @@ public partial class MainViewModel : ObservableObject
     public StatusViewModel StatusVM { get; } = new();
     public SearchViewModel SearchVM { get; } = new();
     public ReorganizeViewModel ReorganizeVM { get; } = new();
+    public SyncFolderMaintenanceViewModel SyncFolderMaintenanceVM { get; } = new();
     public SettingsViewModel SettingsVM { get; }
 
     public MainViewModel()
@@ -494,6 +495,7 @@ public partial class MainViewModel : ObservableObject
         StatusVM.DatabasePath = path;
         SearchVM.ArchivePath = path;
         ReorganizeVM.ArchivePath = path;
+        SyncFolderMaintenanceVM.ArchivePath = path;
         SettingsVM.ArchivePath = path;
 
         // Auto refresh stats and search if directory exists
@@ -523,6 +525,11 @@ public partial class MainViewModel : ObservableObject
             {
                 IPhoneSyncVM.DeviceModel = device.Name;
                 BackupVM.SetDetectedDevice(device.Name);
+            }
+            if (!string.IsNullOrWhiteSpace(device.Udid))
+            {
+                // Key the restore chain by UDID (sticky folder name, per-device journal records).
+                IPhoneSyncVM.ApplyDeviceIdentity(device.Udid, device.Name, device.ProductType);
             }
         }
         else if (result.Status == DeviceProbeStatus.TrustRequired)
@@ -885,7 +892,8 @@ public partial class MainViewModel : ObservableObject
             {
                 BackupVM.DeviceSubdir = clean;
                 BackupVM.SetDetectedDevice(clean);
-                IPhoneSyncVM.DeviceModel = clean;
+                // Same device (UDID unchanged): migrate legacy name-keyed rows to the new alias.
+                IPhoneSyncVM.ApplyDeviceIdentity(IPhoneSyncVM.DeviceUdid, clean, null);
             }
             else
             {

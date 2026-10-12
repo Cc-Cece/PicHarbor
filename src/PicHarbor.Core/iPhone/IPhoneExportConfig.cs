@@ -11,6 +11,9 @@ public sealed class IPhoneExportConfig
     /// <summary>Target iPhone device model/identifier (e.g. "iPhone 15 Pro" or "iPhone").</summary>
     public string DeviceModel { get; set; } = "iPhone";
 
+    /// <summary>Device UDID (unique identifier) when known; used to key journal records.</summary>
+    public string? DeviceUdid { get; set; }
+
     /// <summary>
     /// Custom export folder path override. When null or empty, defaults to
     /// <c>&lt;pcDestinationRoot&gt;/.AppleSync/&lt;DeviceModel&gt;/</c>.

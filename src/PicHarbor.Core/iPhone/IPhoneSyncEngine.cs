@@ -39,11 +39,12 @@ public static class IPhoneSyncEngine
         // 1. Open database and read manifest
         using var journal = TransferJournal.Open(pcDestinationRoot);
         var fullManifest = journal.ReadManifest();
+        var deviceRef = new IPhoneDeviceRef(config.DeviceUdid, config.DeviceModel);
 
         // Load manual selections from database if ScopeMode is ManualSelection and set is null
         if (config.ScopeMode == IPhoneRestoreScopeMode.ManualSelection && config.ManualSelectedPaths is null)
         {
-            config.ManualSelectedPaths = journal.GetManualSelections(config.DeviceModel);
+            config.ManualSelectedPaths = journal.GetManualSelections(deviceRef);
         }
 
         var manifest = fullManifest.Where(config.IsEntryIncluded).ToList();
@@ -100,7 +101,8 @@ public static class IPhoneSyncEngine
                     targetRelPath,
                     config.DeviceModel,
                     DateTimeOffset.UtcNow,
-                    sourceFileInfo.Length));
+                    sourceFileInfo.Length,
+                    Udid: config.DeviceUdid));
             }
             else
             {
@@ -135,7 +137,8 @@ public static class IPhoneSyncEngine
                         targetRelPath,
                         config.DeviceModel,
                         DateTimeOffset.UtcNow,
-                        sourceFileInfo.Length));
+                        sourceFileInfo.Length,
+                        Udid: config.DeviceUdid));
 
                     onLog?.Invoke($"[iPhoneSync] Copied: {targetRelPath}");
                 }
@@ -174,7 +177,7 @@ public static class IPhoneSyncEngine
         }
 
         // 6. Record device sync history
-        journal.UpsertIPhoneDevice(config.DeviceModel, exportRoot, DateTimeOffset.UtcNow);
+        journal.UpsertIPhoneDevice(deviceRef, exportRoot, DateTimeOffset.UtcNow, config.DeviceModel);
 
         stopwatch.Stop();
         onLog?.Invoke($"[iPhoneSync] Finished in {stopwatch.Elapsed:mm\\:ss}. Copied: {copiedCount}, Skipped: {skippedCount}, Deleted: {deletedCount}, Failed: {failedCount}");

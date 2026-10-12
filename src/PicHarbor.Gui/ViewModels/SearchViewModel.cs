@@ -1586,14 +1586,14 @@ public partial class SearchViewModel : ObservableObject
         if (destPaths.Count == 0) return;
 
         string path = ArchivePath;
-        string deviceModel = IPhoneSyncVM?.DeviceModel ?? "iPhone 15 Pro";
+        var deviceRef = IPhoneSyncVM?.GetDeviceRef() ?? new IPhoneDeviceRef(null, "iPhone 15 Pro");
 
         if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
         {
             try
             {
                 using var journal = TransferJournal.Open(path);
-                journal.BatchAddManualSelections(deviceModel, destPaths);
+                journal.BatchAddManualSelections(deviceRef, destPaths);
             }
             catch (Exception ex)
             {
@@ -1620,14 +1620,14 @@ public partial class SearchViewModel : ObservableObject
         if (destPaths.Count == 0) return;
 
         string path = ArchivePath;
-        string deviceModel = IPhoneSyncVM?.DeviceModel ?? "iPhone 15 Pro";
+        var deviceRef = IPhoneSyncVM?.GetDeviceRef() ?? new IPhoneDeviceRef(null, "iPhone 15 Pro");
 
         if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
         {
             try
             {
                 using var journal = TransferJournal.Open(path);
-                journal.BatchRemoveManualSelections(deviceModel, destPaths);
+                journal.BatchRemoveManualSelections(deviceRef, destPaths);
             }
             catch (Exception ex)
             {

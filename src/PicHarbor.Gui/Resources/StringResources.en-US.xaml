@@ -62,7 +62,7 @@
     <sys:String x:Key="MsgSyncSuccess">✅ Sync complete! Checked {0} archive files, successfully updated EXIF timestamps for {1} files to Windows system time.</sys:String>
     <!-- iPhone Sync Tab -->
     <sys:String x:Key="MsgPathWarningTitle">⚠️ High-Risk Warning: Change iPhone Sync Folder</sys:String>
-    <sys:String x:Key="MsgPathWarningBody">Detected that this iPhone was previously synced with the original folder. After switching the sync source to a new folder in Apple Devices, all photos previously synced from the PC will be automatically removed from the iPhone by iOS (photos taken on the phone are unaffected). (Tip: to keep existing photos, do not change the folder — keep using the original sync folder.)&#x0a;Are you sure you want to change the sync folder?</sys:String>
+    <sys:String x:Key="MsgPathWarningBody">Detected that this iPhone was previously synced with the original folder. After switching the sync source to a new folder in Apple Devices, all photos previously synced from the PC will be automatically removed from the iPhone by iOS (photos taken on the phone are unaffected). Foreign files inside the folder will also be synced and imported to the phone — make sure the folder contains only the content you want to import. (Tip: to keep existing photos, do not change the folder — keep using the original sync folder.)&#x0a;Are you sure you want to change the sync folder?</sys:String>
     <sys:String x:Key="MsgAlbumModeWarningTitle">ℹ️ Confirm Album Structure Change</sys:String>
     <sys:String x:Key="MsgAlbumModeWarningBody">Changing album structure will reorganize subfolders in the sync directory. Albums on iPhone will be reorganized during the next sync in Apple Devices. Confirm change?</sys:String>
 
@@ -316,6 +316,48 @@
     <sys:String x:Key="MsgPathRiskAck">I understand that after switching the sync source, photos previously synced from this PC will be removed from the iPhone (photos taken on the phone are unaffected)</sys:String>
     <sys:String x:Key="MsgPathChangeFirstTitle">Change iPhone Sync Folder</sys:String>
     <sys:String x:Key="MsgPathChangeFirstBody">The iPhone restore folder will be changed from the default location to a custom folder:&#x0a;{0}&#x0a;&#x0a;After the change, you need to re-select the new folder as the sync source in Apple Devices. Confirm change?</sys:String>
+    <sys:String x:Key="IPhoneStep2OpenFolder">📂 Open Sync Folder</sys:String>
+
+    <sys:String x:Key="MsgMergeChoiceTitle">Change Sync Folder: Carry the Old Files Along?</sys:String>
+    <sys:String x:Key="MsgMergeChoiceBody">The old sync folder still has content.&#x0a;Old folder: {0}&#x0a;New folder: {1}&#x0a;&#x0a;“Carry old files” merges the old folder's content into the new one so the phone's albums stay unchanged (recommended).&#x0a;“Start fresh” makes the new folder contain only future exports; previously synced photos will be removed from the phone.</sys:String>
+    <sys:String x:Key="MsgMergeKeepOption">Carry old files along (recommended — phone albums stay unchanged)</sys:String>
+    <sys:String x:Key="MsgMergeFreshOption">Start fresh without old files</sys:String>
+    <sys:String x:Key="MsgMergeTimingTitle">Merge timing:</sys:String>
+    <sys:String x:Key="MsgMergeTimingNow">Merge now</sys:String>
+    <sys:String x:Key="MsgMergeTimingNext">Automatically merge on next export</sys:String>
+    <sys:String x:Key="MsgMergingTitle">Merging Old Sync Folder</sys:String>
+    <sys:String x:Key="MsgMergingNow">Merging old sync folder contents…</sys:String>
+    <sys:String x:Key="FmtMergeDone">Merge complete: {0} copied, {1} already existed, {2} failed</sys:String>
+    <sys:String x:Key="MsgMergeFreshConfirmTitle">Start fresh without the old files?</sys:String>
+    <sys:String x:Key="MsgMergeFreshConfirmBody">The new folder will contain only future exports; previously synced photos will be removed from the phone.&#x0a;Old folder files stay on disk — you can merge or clean them up later in “Settings → Built-in Tools”. Continue?</sys:String>
+
+    <sys:String x:Key="SettingsCardToolSyncFolderTitle">📱 iPhone Sync Folder Maintenance</sys:String>
+    <sys:String x:Key="SettingsSyncFolderToolDesc">Scans the archive for scattered Apple Devices sync folders (leftovers and mis-selected folders), merges old folder contents into the device's current folder, moves fully-merged folders to the Recycle Bin, or ignores them. Foreign files inside a folder are never deleted.</sys:String>
+    <sys:String x:Key="SettingsBtnSyncScan">Scan Sync Folders</sys:String>
+    <sys:String x:Key="SettingsBtnSyncMerge">Merge</sys:String>
+    <sys:String x:Key="SettingsBtnSyncCleanup">Cleanup</sys:String>
+    <sys:String x:Key="SettingsBtnSyncIgnore">Ignore</sys:String>
+    <sys:String x:Key="GridSyncColFolder">Folder</sys:String>
+    <sys:String x:Key="GridSyncColDevice">Device</sys:String>
+    <sys:String x:Key="GridSyncColFiles">Files</sys:String>
+    <sys:String x:Key="GridSyncColSize">Size</sys:String>
+    <sys:String x:Key="GridSyncColEquiv">Merged</sys:String>
+    <sys:String x:Key="GridSyncColStatus">Status</sys:String>
+    <sys:String x:Key="MsgSyncScanning">Scanning sync folders…</sys:String>
+    <sys:String x:Key="MsgSyncScanDone">Scan complete: {0} sync folders found.</sys:String>
+    <sys:String x:Key="MsgSyncScanNone">No scattered sync folders found.</sys:String>
+    <sys:String x:Key="FmtSyncScanError">❌ Scan failed: {0}</sys:String>
+    <sys:String x:Key="SyncFolderStatusCurrent">Current sync folder</sys:String>
+    <sys:String x:Key="SyncFolderStatusEmpty">Empty folder</sys:String>
+    <sys:String x:Key="SyncFolderStatusMerged">Fully merged</sys:String>
+    <sys:String x:Key="SyncFolderStatusMergeable">Mergeable</sys:String>
+    <sys:String x:Key="FmtSyncMergeError">❌ Merge failed: {0}</sys:String>
+    <sys:String x:Key="MsgSyncCleanupWarnMissing">{0} files in this folder have not been merged into the current sync folder yet. They will be moved to the Recycle Bin together with the folder. Continue?</sys:String>
+    <sys:String x:Key="MsgSyncCleanupConfirm">All {0} files in this folder already exist in the current sync folder. Move it to the Recycle Bin?</sys:String>
+    <sys:String x:Key="MsgSyncCleanupDone">Moved to the Recycle Bin.</sys:String>
+    <sys:String x:Key="FmtSyncCleanupBlocked">❌ Cleanup blocked: {0}</sys:String>
+    <sys:String x:Key="MsgSyncIgnored">Folder ignored — it will no longer be listed in scans.</sys:String>
+    <sys:String x:Key="FmtSyncIgnoreError">❌ Failed to record ignore: {0}</sys:String>
     <sys:String x:Key="BannerAndroidSyncGuide">Losslessly transfer photos and videos to Android Camera folder via local Wi-Fi FTP service.</sys:String>
     <sys:String x:Key="CardAndroidFtpConn">Android Device FTP Connection Parameters</sys:String>
     <sys:String x:Key="LabelPhoneIp">Phone IP Address:</sys:String>

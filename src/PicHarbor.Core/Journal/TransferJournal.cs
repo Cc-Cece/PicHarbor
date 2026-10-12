@@ -329,6 +329,16 @@ public sealed class TransferJournal : IDisposable
             """);
         Execute(
             """
+            CREATE TABLE IF NOT EXISTS iphone_sync_folder_history (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                udid           TEXT,
+                device_model   TEXT NOT NULL,
+                folder         TEXT NOT NULL,
+                changed_at     TEXT NOT NULL
+            );
+            """);
+        Execute(
+            """
             CREATE TABLE IF NOT EXISTS android_manual_selections (
                 device_id      TEXT NOT NULL,
                 dest_path      TEXT NOT NULL,
@@ -359,6 +369,10 @@ public sealed class TransferJournal : IDisposable
         EnsureColumnExists("iphone_manual_selections", "is_autofilled", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumnExists("android_manual_selections", "is_autofilled", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumnExists("google_photos_manual_selections", "is_autofilled", "INTEGER NOT NULL DEFAULT 0");
+        EnsureColumnExists("iphone_devices", "udid", "TEXT");
+        EnsureColumnExists("iphone_devices", "folder_name", "TEXT");
+        EnsureColumnExists("iphone_manual_selections", "udid", "TEXT");
+        EnsureColumnExists("iphone_exported_files", "udid", "TEXT");
 
         Execute(
             """
@@ -1872,8 +1886,21 @@ public sealed class TransferJournal : IDisposable
     public void UpsertIPhoneExportedFile(IPhoneExportedFileRecord record)
     {
         ArgumentNullException.ThrowIfNull(record);
+        bool hasUdidCol = ColumnExists("iphone_exported_files", "udid");
         using SqliteCommand command = CreateCommand(
+            hasUdidCol
+            ? """
+            INSERT INTO iphone_exported_files (dest_path, exported_path, device_model, exported_at, file_size, sha256, udid)
+            VALUES ($dest, $exported, $model, $at, $size, $sha, $udid)
+            ON CONFLICT(dest_path) DO UPDATE SET
+                exported_path = excluded.exported_path,
+                device_model = excluded.device_model,
+                exported_at = excluded.exported_at,
+                file_size = excluded.file_size,
+                sha256 = excluded.sha256,
+                udid = COALESCE(excluded.udid, udid);
             """
+            : """
             INSERT INTO iphone_exported_files (dest_path, exported_path, device_model, exported_at, file_size, sha256)
             VALUES ($dest, $exported, $model, $at, $size, $sha)
             ON CONFLICT(dest_path) DO UPDATE SET
@@ -1889,6 +1916,10 @@ public sealed class TransferJournal : IDisposable
         command.Parameters.AddWithValue("$at", IsoUtc(record.ExportedAt)!);
         command.Parameters.AddWithValue("$size", record.FileSize);
         command.Parameters.AddWithValue("$sha", (object?)record.Sha256 ?? DBNull.Value);
+        if (hasUdidCol)
+        {
+            command.Parameters.AddWithValue("$udid", (object?)record.Udid ?? DBNull.Value);
+        }
         command.ExecuteNonQuery();
     }
 
@@ -2144,6 +2175,615 @@ public sealed class TransferJournal : IDisposable
         command.Parameters.AddWithValue("$model", deviceModel);
         command.ExecuteNonQuery();
     }
+
+    // ------------------------------------------------------------------
+    // UDID-aware iPhone APIs (IPhoneDeviceRef).
+    // Reads match by udid first and lazily backfill the udid column on rows
+    // keyed by the legacy device_model name; writes always carry the udid.
+    // ------------------------------------------------------------------
+
+    private static string DeviceMatchSql(IPhoneDeviceRef reference, bool hasUdidColumn) =>
+        reference.HasUdid && hasUdidColumn
+            ? "(udid = $dev_udid OR (device_model = $dev_fb AND (udid IS NULL OR udid = '')))"
+            : "device_model = $dev_fb";
+
+    private static void BindDeviceParams(SqliteCommand command, IPhoneDeviceRef reference)
+    {
+        if (reference.HasUdid)
+        {
+            command.Parameters.AddWithValue("$dev_udid", reference.Udid!);
+        }
+        command.Parameters.AddWithValue("$dev_fb", reference.FallbackKey);
+    }
+
+    private void BackfillDeviceUdid(string table, IPhoneDeviceRef reference)
+    {
+        if (!reference.HasUdid || !TableExists(table) || !ColumnExists(table, "udid")) return;
+        try
+        {
+            using SqliteCommand command = CreateCommand(
+                $"UPDATE {table} SET udid = $dev_udid WHERE udid IS NULL AND device_model = $dev_fb;");
+            BindDeviceParams(command, reference);
+            command.ExecuteNonQuery();
+        }
+        catch { }
+    }
+
+    /// <summary>Returns the recorded <c>iphone_devices</c> row for the referenced device, preferring the UDID row.</summary>
+    public IPhoneDeviceRecord? GetIPhoneDevice(IPhoneDeviceRef reference)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reference.FallbackKey);
+        if (!TableExists("iphone_devices")) return null;
+
+        bool hasUdidCol = ColumnExists("iphone_devices", "udid");
+        bool hasFolderCol = ColumnExists("iphone_devices", "folder_name");
+        string selectCols = hasUdidCol && hasFolderCol
+            ? "device_model, sync_folder, last_exported, udid, folder_name"
+            : "device_model, sync_folder, last_exported";
+        using SqliteCommand command = CreateCommand(
+            $"SELECT {selectCols} FROM iphone_devices WHERE {DeviceMatchSql(reference, hasUdidCol)} LIMIT 1;");
+        BindDeviceParams(command, reference);
+        using SqliteDataReader reader = command.ExecuteReader();
+        if (reader.Read())
+        {
+            var record = hasUdidCol && hasFolderCol && !reader.IsDBNull(3)
+                ? new IPhoneDeviceRecord(
+                    reader.GetString(0),
+                    reader.GetString(1),
+                    DateTimeOffset.Parse(reader.GetString(2), CultureInfo.InvariantCulture),
+                    reader.IsDBNull(3) ? null : reader.GetString(3),
+                    reader.IsDBNull(4) ? null : reader.GetString(4))
+                : new IPhoneDeviceRecord(
+                    reader.GetString(0),
+                    reader.GetString(1),
+                    DateTimeOffset.Parse(reader.GetString(2), CultureInfo.InvariantCulture));
+            BackfillDeviceUdid("iphone_devices", reference);
+            return record;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Upserts the iPhone device row for the referenced device. <paramref name="folderName"/> is the
+    /// sticky sync-folder name: it is only written when the row has none, so later device renames
+    /// never move the directory. A sync-folder change is appended to the history table.
+    /// </summary>
+    public void UpsertIPhoneDevice(IPhoneDeviceRef reference, string syncFolder, DateTimeOffset lastExported, string? folderName = null)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reference.FallbackKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(syncFolder);
+
+        bool hasUdidCol = ColumnExists("iphone_devices", "udid");
+        bool hasFolderCol = ColumnExists("iphone_devices", "folder_name");
+
+        string? previousFolder = null;
+        if (TableExists("iphone_devices"))
+        {
+            using SqliteCommand readCmd = CreateCommand(
+                $"SELECT sync_folder FROM iphone_devices WHERE {DeviceMatchSql(reference, hasUdidCol)} LIMIT 1;");
+            BindDeviceParams(readCmd, reference);
+            previousFolder = readCmd.ExecuteScalar() as string;
+        }
+
+        if (!string.IsNullOrWhiteSpace(previousFolder) &&
+            !string.Equals(previousFolder, syncFolder, StringComparison.OrdinalIgnoreCase))
+        {
+            AppendIPhoneSyncFolderHistory(reference, previousFolder, DateTimeOffset.UtcNow);
+        }
+
+        int updated = 0;
+        if (TableExists("iphone_devices"))
+        {
+            using SqliteCommand updateCmd = CreateCommand(
+                $"""
+                UPDATE iphone_devices
+                SET sync_folder = $folder,
+                    last_exported = $at,
+                    device_model = $dev_fb
+                    {(hasUdidCol ? ", udid = COALESCE(udid, $dev_udid)" : string.Empty)}
+                    {(hasFolderCol ? ", folder_name = COALESCE(folder_name, $fname)" : string.Empty)}
+                WHERE {DeviceMatchSql(reference, hasUdidCol)};
+                """);
+            if (hasUdidCol)
+            {
+                updateCmd.Parameters.AddWithValue("$dev_udid", (object?)reference.Udid ?? DBNull.Value);
+            }
+            updateCmd.Parameters.AddWithValue("$dev_fb", reference.FallbackKey);
+            updateCmd.Parameters.AddWithValue("$folder", syncFolder);
+            updateCmd.Parameters.AddWithValue("$at", IsoUtc(lastExported)!);
+            updateCmd.Parameters.AddWithValue("$fname", (object?)folderName ?? reference.FallbackKey);
+            updated = updateCmd.ExecuteNonQuery();
+        }
+
+        if (updated == 0)
+        {
+            using SqliteCommand insertCmd = CreateCommand(
+                $"""
+                INSERT INTO iphone_devices (device_model, sync_folder, last_exported
+                    {(hasUdidCol ? ", udid" : string.Empty)}
+                    {(hasFolderCol ? ", folder_name" : string.Empty)})
+                VALUES ($dev_fb, $folder, $at
+                    {(hasUdidCol ? ", $dev_udid" : string.Empty)}
+                    {(hasFolderCol ? ", $fname" : string.Empty)});
+                """);
+            if (hasUdidCol)
+            {
+                insertCmd.Parameters.AddWithValue("$dev_udid", (object?)reference.Udid ?? DBNull.Value);
+            }
+            insertCmd.Parameters.AddWithValue("$dev_fb", reference.FallbackKey);
+            insertCmd.Parameters.AddWithValue("$folder", syncFolder);
+            insertCmd.Parameters.AddWithValue("$at", IsoUtc(lastExported)!);
+            if (hasFolderCol)
+            {
+                insertCmd.Parameters.AddWithValue("$fname", (object?)folderName ?? reference.FallbackKey);
+            }
+            insertCmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>Returns all manually selected destination relative paths for the referenced device.</summary>
+    public HashSet<string> GetManualSelections(IPhoneDeviceRef reference)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reference.FallbackKey);
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!TableExists("iphone_manual_selections"))
+        {
+            return set;
+        }
+
+        bool hasUdidCol = ColumnExists("iphone_manual_selections", "udid");
+        using SqliteCommand command = CreateCommand(
+            $"SELECT dest_path FROM iphone_manual_selections WHERE {DeviceMatchSql(reference, hasUdidCol)};");
+        BindDeviceParams(command, reference);
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            set.Add(reader.GetString(0));
+        }
+
+        BackfillDeviceUdid("iphone_manual_selections", reference);
+        return set;
+    }
+
+    /// <summary>Returns manual selections mapping to whether they were auto-filled, for the referenced device.</summary>
+    public Dictionary<string, bool> GetManualSelectionsWithAutofilled(IPhoneDeviceRef reference)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reference.FallbackKey);
+        var dict = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        if (!TableExists("iphone_manual_selections"))
+        {
+            return dict;
+        }
+
+        bool hasUdidCol = ColumnExists("iphone_manual_selections", "udid");
+        using SqliteCommand command = CreateCommand(
+            $"SELECT dest_path, is_autofilled FROM iphone_manual_selections WHERE {DeviceMatchSql(reference, hasUdidCol)};");
+        BindDeviceParams(command, reference);
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            dict[reader.GetString(0)] = reader.GetInt32(1) == 1;
+        }
+
+        BackfillDeviceUdid("iphone_manual_selections", reference);
+        return dict;
+    }
+
+    /// <summary>Adds a destination path to manual selections for the referenced device. Returns true if newly added.</summary>
+    public bool AddManualSelection(IPhoneDeviceRef reference, string destPath, bool isAutofilled = false)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reference.FallbackKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destPath);
+
+        bool hasUdidCol = ColumnExists("iphone_manual_selections", "udid");
+        using SqliteCommand command = CreateCommand(
+            $"""
+            INSERT INTO iphone_manual_selections (device_model, dest_path, added_at, is_autofilled
+                {(hasUdidCol && reference.HasUdid ? ", udid" : string.Empty)})
+            VALUES ($dev_fb, $dest, $at, $is_autofilled
+                {(hasUdidCol && reference.HasUdid ? ", $dev_udid" : string.Empty)})
+            ON CONFLICT(device_model, dest_path) DO UPDATE SET is_autofilled = excluded.is_autofilled;
+            """);
+        BindDeviceParams(command, reference);
+        command.Parameters.AddWithValue("$dest", destPath);
+        command.Parameters.AddWithValue("$at", IsoUtc(DateTimeOffset.UtcNow)!);
+        command.Parameters.AddWithValue("$is_autofilled", isAutofilled ? 1 : 0);
+        BackfillDeviceUdid("iphone_manual_selections", reference);
+        return command.ExecuteNonQuery() > 0;
+    }
+
+    /// <summary>Removes a destination path from manual selections and cascades cleanup of orphaned auto-filled pairs.</summary>
+    public void RemoveManualSelection(IPhoneDeviceRef reference, string destPath)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reference.FallbackKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destPath);
+
+        if (!TableExists("iphone_manual_selections")) return;
+
+        bool hasUdidCol = ColumnExists("iphone_manual_selections", "udid");
+        using SqliteCommand command = CreateCommand(
+            $"DELETE FROM iphone_manual_selections WHERE {DeviceMatchSql(reference, hasUdidCol)} AND dest_path = $dest;");
+        BindDeviceParams(command, reference);
+        command.Parameters.AddWithValue("$dest", destPath);
+        command.ExecuteNonQuery();
+
+        CascadeRemoveOrphanedAutofills(reference);
+    }
+
+    /// <summary>Removes orphaned auto-filled selections for the referenced device.</summary>
+    public void CascadeRemoveOrphanedAutofills(IPhoneDeviceRef reference)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        if (!TableExists("iphone_manual_selections")) return;
+        var dict = GetManualSelectionsWithAutofilled(reference);
+        var autofilledItems = dict.Where(kv => kv.Value).Select(kv => kv.Key).ToList();
+        var manualItems = dict.Where(kv => !kv.Value).Select(kv => kv.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var toRemove = new List<string>();
+        foreach (var autoItem in autofilledItems)
+        {
+            string dir = Path.GetDirectoryName(autoItem.Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
+            string stem = Path.GetFileNameWithoutExtension(autoItem);
+
+            bool hasManualParent = manualItems.Any(m =>
+            {
+                string mDir = Path.GetDirectoryName(m.Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
+                string mStem = Path.GetFileNameWithoutExtension(m);
+                return string.Equals(mDir, dir, StringComparison.OrdinalIgnoreCase) &&
+                       string.Equals(mStem, stem, StringComparison.OrdinalIgnoreCase);
+            });
+
+            if (!hasManualParent)
+            {
+                toRemove.Add(autoItem);
+            }
+        }
+
+        if (toRemove.Count > 0)
+        {
+            BatchRemoveManualSelections(reference, toRemove);
+        }
+    }
+
+    /// <summary>Adds multiple destination paths to manual selections for the referenced device in one transaction.</summary>
+    public void BatchAddManualSelections(IPhoneDeviceRef reference, IEnumerable<string> destPaths, bool isAutofilled = false)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reference.FallbackKey);
+        ArgumentNullException.ThrowIfNull(destPaths);
+
+        bool hasUdidCol = ColumnExists("iphone_manual_selections", "udid");
+        string udidInsert = hasUdidCol && reference.HasUdid ? ", udid" : string.Empty;
+        string udidValue = hasUdidCol && reference.HasUdid ? ", $dev_udid" : string.Empty;
+
+        using var transaction = connection.BeginTransaction();
+        using SqliteCommand command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            $"""
+            INSERT INTO iphone_manual_selections (device_model, dest_path, added_at, is_autofilled{udidInsert})
+            VALUES ($dev_fb, $dest, $at, $is_autofilled{udidValue})
+            ON CONFLICT(device_model, dest_path) DO UPDATE SET is_autofilled = excluded.is_autofilled;
+            """;
+        BindDeviceParams(command, reference);
+        var destParam = command.Parameters.Add("$dest", SqliteType.Text);
+        command.Parameters.Add("$at", SqliteType.Text).Value = IsoUtc(DateTimeOffset.UtcNow)!;
+        command.Parameters.Add("$is_autofilled", SqliteType.Integer).Value = isAutofilled ? 1 : 0;
+
+        foreach (var path in destPaths)
+        {
+            if (string.IsNullOrWhiteSpace(path)) continue;
+            destParam.Value = path;
+            command.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+        BackfillDeviceUdid("iphone_manual_selections", reference);
+    }
+
+    /// <summary>Removes multiple destination paths from manual selections for the referenced device in one transaction.</summary>
+    public void BatchRemoveManualSelections(IPhoneDeviceRef reference, IEnumerable<string> destPaths)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reference.FallbackKey);
+        ArgumentNullException.ThrowIfNull(destPaths);
+
+        if (!TableExists("iphone_manual_selections")) return;
+
+        bool hasUdidCol = ColumnExists("iphone_manual_selections", "udid");
+        using var transaction = connection.BeginTransaction();
+        using SqliteCommand command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = $"DELETE FROM iphone_manual_selections WHERE {DeviceMatchSql(reference, hasUdidCol)} AND dest_path = $dest;";
+        BindDeviceParams(command, reference);
+        var destParam = command.Parameters.Add("$dest", SqliteType.Text);
+
+        foreach (var path in destPaths)
+        {
+            if (string.IsNullOrWhiteSpace(path)) continue;
+            destParam.Value = path;
+            command.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    /// <summary>Clears all manual selections for the referenced device.</summary>
+    public void ClearManualSelections(IPhoneDeviceRef reference)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reference.FallbackKey);
+        if (!TableExists("iphone_manual_selections")) return;
+
+        bool hasUdidCol = ColumnExists("iphone_manual_selections", "udid");
+        using SqliteCommand command = CreateCommand(
+            $"DELETE FROM iphone_manual_selections WHERE {DeviceMatchSql(reference, hasUdidCol)};");
+        BindDeviceParams(command, reference);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Returns all exported file records for the referenced device from <c>iphone_exported_files</c>.</summary>
+    public IReadOnlyList<IPhoneExportedFileRecord> GetIPhoneExportedFiles(IPhoneDeviceRef reference)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reference.FallbackKey);
+        var result = new List<IPhoneExportedFileRecord>();
+        if (!TableExists("iphone_exported_files"))
+        {
+            return result;
+        }
+
+        bool hasUdidCol = ColumnExists("iphone_exported_files", "udid");
+        string selectCols = hasUdidCol
+            ? "dest_path, exported_path, device_model, exported_at, file_size, sha256, udid"
+            : "dest_path, exported_path, device_model, exported_at, file_size, sha256";
+        using SqliteCommand command = CreateCommand(
+            $"SELECT {selectCols} FROM iphone_exported_files WHERE {DeviceMatchSql(reference, hasUdidCol)};");
+        BindDeviceParams(command, reference);
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            string? udid = hasUdidCol && !reader.IsDBNull(6) ? reader.GetString(6) : null;
+            result.Add(new IPhoneExportedFileRecord(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                DateTimeOffset.Parse(reader.GetString(3), CultureInfo.InvariantCulture),
+                reader.GetInt64(4),
+                reader.IsDBNull(5) ? null : reader.GetString(5),
+                udid));
+        }
+
+        BackfillDeviceUdid("iphone_exported_files", reference);
+        return result;
+    }
+
+    /// <summary>Appends a sync-folder history entry (the folder that has just been abandoned or merged from).</summary>
+    public void AppendIPhoneSyncFolderHistory(IPhoneDeviceRef reference, string folder, DateTimeOffset changedAt)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reference.FallbackKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(folder);
+        if (!TableExists("iphone_sync_folder_history")) return;
+
+        using SqliteCommand command = CreateCommand(
+            """
+            INSERT INTO iphone_sync_folder_history (udid, device_model, folder, changed_at)
+            VALUES ($dev_udid, $dev_fb, $folder, $at);
+            """);
+        command.Parameters.AddWithValue("$dev_udid", (object?)reference.Udid ?? DBNull.Value);
+        command.Parameters.AddWithValue("$dev_fb", reference.FallbackKey);
+        command.Parameters.AddWithValue("$folder", folder);
+        command.Parameters.AddWithValue("$at", IsoUtc(changedAt)!);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Returns the sync-folder history for the referenced device, newest first.</summary>
+    public IReadOnlyList<IPhoneSyncFolderHistoryRecord> GetIPhoneSyncFolderHistory(IPhoneDeviceRef reference)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reference.FallbackKey);
+        var result = new List<IPhoneSyncFolderHistoryRecord>();
+        if (!TableExists("iphone_sync_folder_history"))
+        {
+            return result;
+        }
+
+        using SqliteCommand command = CreateCommand(
+            """
+            SELECT udid, device_model, folder, changed_at FROM iphone_sync_folder_history
+            WHERE ($dev_udid IS NOT NULL AND udid = $dev_udid) OR device_model = $dev_fb
+            ORDER BY changed_at DESC;
+            """);
+        command.Parameters.AddWithValue("$dev_udid", (object?)reference.Udid ?? DBNull.Value);
+        command.Parameters.AddWithValue("$dev_fb", reference.FallbackKey);
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add(new IPhoneSyncFolderHistoryRecord(
+                reader.IsDBNull(0) ? null : reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                ParseIso(reader.GetString(3)) ?? DateTimeOffset.UtcNow));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Re-points legacy name-keyed rows to the device's new display name (same UDID rename). Rows that
+    /// already carry a udid are left untouched. The <c>iphone_devices</c> rename is best-effort: if a row
+    /// already exists under the new name (PK conflict) it is skipped.
+    /// </summary>
+    public void RenameIPhoneDeviceLegacyRows(IPhoneDeviceRef reference, string oldDeviceModel)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reference.FallbackKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(oldDeviceModel);
+        if (string.Equals(oldDeviceModel, reference.FallbackKey, StringComparison.Ordinal)) return;
+
+        foreach (string table in new[] { "iphone_manual_selections", "iphone_exported_files" })
+        {
+            if (!TableExists(table)) continue;
+            bool hasUdidCol = ColumnExists(table, "udid");
+            try
+            {
+                using SqliteCommand command = CreateCommand(
+                    hasUdidCol && reference.HasUdid
+                    ? $"UPDATE {table} SET device_model = $new_name, udid = COALESCE(udid, $dev_udid) WHERE device_model = $old_name AND (udid IS NULL OR udid = '');"
+                    : $"UPDATE {table} SET device_model = $new_name WHERE device_model = $old_name AND (udid IS NULL OR udid = '');");
+                if (hasUdidCol && reference.HasUdid)
+                {
+                    command.Parameters.AddWithValue("$dev_udid", reference.Udid!);
+                }
+                command.Parameters.AddWithValue("$new_name", reference.FallbackKey);
+                command.Parameters.AddWithValue("$old_name", oldDeviceModel);
+                command.ExecuteNonQuery();
+            }
+            catch { }
+        }
+
+        if (!TableExists("iphone_devices")) return;
+        try
+        {
+            bool hasUdidCol = ColumnExists("iphone_devices", "udid");
+            using SqliteCommand command = CreateCommand(
+                hasUdidCol && reference.HasUdid
+                ? "UPDATE iphone_devices SET device_model = $new_name, udid = COALESCE(udid, $dev_udid) WHERE device_model = $old_name AND (udid IS NULL OR udid = '');"
+                : "UPDATE iphone_devices SET device_model = $new_name WHERE device_model = $old_name AND (udid IS NULL OR udid = '');");
+            if (hasUdidCol && reference.HasUdid)
+            {
+                command.Parameters.AddWithValue("$dev_udid", reference.Udid!);
+            }
+            command.Parameters.AddWithValue("$new_name", reference.FallbackKey);
+            command.Parameters.AddWithValue("$old_name", oldDeviceModel);
+            command.ExecuteNonQuery();
+        }
+        catch { }
+    }
+
+    /// <summary>Returns every recorded <c>iphone_devices</c> row (all devices).</summary>
+    public IReadOnlyList<IPhoneDeviceRecord> GetAllIPhoneDevices()
+    {
+        var result = new List<IPhoneDeviceRecord>();
+        if (!TableExists("iphone_devices")) return result;
+
+        bool hasUdidCol = ColumnExists("iphone_devices", "udid");
+        bool hasFolderCol = ColumnExists("iphone_devices", "folder_name");
+        string selectCols = hasUdidCol && hasFolderCol
+            ? "device_model, sync_folder, last_exported, udid, folder_name"
+            : "device_model, sync_folder, last_exported";
+        using SqliteCommand command = CreateCommand($"SELECT {selectCols} FROM iphone_devices;");
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add(hasUdidCol && hasFolderCol && !reader.IsDBNull(3)
+                ? new IPhoneDeviceRecord(
+                    reader.GetString(0),
+                    reader.GetString(1),
+                    DateTimeOffset.Parse(reader.GetString(2), CultureInfo.InvariantCulture),
+                    reader.GetString(3),
+                    reader.IsDBNull(4) ? null : reader.GetString(4))
+                : new IPhoneDeviceRecord(
+                    reader.GetString(0),
+                    reader.GetString(1),
+                    DateTimeOffset.Parse(reader.GetString(2), CultureInfo.InvariantCulture)));
+        }
+
+        return result;
+    }
+
+    private const string IgnoredSyncFoldersKey = "iphone_syncfolder_ignored";
+
+    /// <summary>Returns the user-ignored sync folder paths (full paths, newline separated in one KV row).</summary>
+    public IReadOnlyList<string> GetIgnoredSyncFolders()
+    {
+        var list = new List<string>();
+        if (!TableExists("settings")) return list;
+
+        using SqliteCommand command = CreateCommand("SELECT value FROM settings WHERE key = $key;");
+        command.Parameters.AddWithValue("$key", IgnoredSyncFoldersKey);
+        string? raw = command.ExecuteScalar() as string;
+        if (string.IsNullOrWhiteSpace(raw)) return list;
+
+        foreach (string line in raw.Split('\n'))
+        {
+            string trimmed = line.Trim();
+            if (!string.IsNullOrWhiteSpace(trimmed))
+            {
+                list.Add(trimmed);
+            }
+        }
+
+        return list;
+    }
+
+    /// <summary>Adds a sync folder path to the ignore list so scans stop suggesting it.</summary>
+    public void AddIgnoredSyncFolder(string folder)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(folder);
+        string normalized = Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var existing = new List<string>(GetIgnoredSyncFolders());
+        if (existing.Any(p => string.Equals(p, normalized, StringComparison.OrdinalIgnoreCase))) return;
+        existing.Add(normalized);
+
+        using SqliteCommand command = CreateCommand(
+            """
+            INSERT INTO settings (key, value) VALUES ($key, $value)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+            """);
+        command.Parameters.AddWithValue("$key", IgnoredSyncFoldersKey);
+        command.Parameters.AddWithValue("$value", string.Join("\n", existing));
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Records a pending sync-folder merge request in the journal settings table (key: <paramref name="deviceKey"/>).</summary>
+    public void SetPendingSyncFolderMerge(string deviceKey, string oldFolder, string newFolder)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(oldFolder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(newFolder);
+        using SqliteCommand command = CreateCommand(
+            """
+            INSERT INTO settings (key, value) VALUES ($key, $value)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+            """);
+        command.Parameters.AddWithValue("$key", $"iphone_pending_merge_{deviceKey}");
+        command.Parameters.AddWithValue("$value", $"{oldFolder}\n{newFolder}");
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Returns the (oldFolder, newFolder) pending merge pair for the device key, or null.</summary>
+    public (string OldFolder, string NewFolder)? GetPendingSyncFolderMerge(string deviceKey)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceKey);
+        if (!TableExists("settings")) return null;
+        using SqliteCommand command = CreateCommand("SELECT value FROM settings WHERE key = $key;");
+        command.Parameters.AddWithValue("$key", $"iphone_pending_merge_{deviceKey}");
+        string? raw = command.ExecuteScalar() as string;
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        int idx = raw.IndexOf('\n');
+        if (idx <= 0 || idx >= raw.Length - 1) return null;
+        return (raw[..idx], raw[(idx + 1)..]);
+    }
+
+    /// <summary>Clears the pending sync-folder merge marker for the device key.</summary>
+    public void ClearPendingSyncFolderMerge(string deviceKey)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceKey);
+        if (!TableExists("settings")) return;
+        using SqliteCommand command = CreateCommand("DELETE FROM settings WHERE key = $key;");
+        command.Parameters.AddWithValue("$key", $"iphone_pending_merge_{deviceKey}");
+        command.ExecuteNonQuery();
+    }
+
 
     /// <summary>Returns all manually selected destination relative paths for the specified Android device ID.</summary>
     public HashSet<string> GetAndroidManualSelections(string deviceId)
@@ -2578,13 +3218,34 @@ public sealed record IPhoneExportedFileRecord(
     string DeviceModel,
     DateTimeOffset ExportedAt,
     long FileSize,
-    string? Sha256 = null);
+    string? Sha256 = null,
+    string? Udid = null);
 
 /// <summary>An iPhone sync device record in <c>iphone_devices</c>.</summary>
 public sealed record IPhoneDeviceRecord(
     string DeviceModel,
     string SyncFolder,
-    DateTimeOffset LastExported);
+    DateTimeOffset LastExported,
+    string? Udid = null,
+    string? FolderName = null);
+
+/// <summary>
+/// Device reference for the UDID-aware iPhone journal APIs. When <see cref="Udid"/> is known, reads
+/// match the udid column first and lazily backfill legacy rows keyed by <see cref="FallbackKey"/>
+/// (the device display name); when unknown, lookups fall back to the name key (legacy behavior).
+/// </summary>
+public sealed record IPhoneDeviceRef(string? Udid, string FallbackKey)
+{
+    /// <summary>Indicates whether a UDID is available for udid-first matching.</summary>
+    public bool HasUdid => !string.IsNullOrWhiteSpace(Udid);
+}
+
+/// <summary>A historical sync folder recorded in <c>iphone_sync_folder_history</c>.</summary>
+public sealed record IPhoneSyncFolderHistoryRecord(
+    string? Udid,
+    string DeviceModel,
+    string Folder,
+    DateTimeOffset ChangedAt);
 
 /// <summary>Per-state file counts from the journal.</summary>
 /// <param name="Pending">Files not yet started.</param>

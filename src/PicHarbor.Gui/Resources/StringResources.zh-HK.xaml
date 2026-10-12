@@ -62,7 +62,7 @@
     <sys:String x:Key="MsgSyncSuccess">✅ 同步完成！一共檢索咗 {0} 個歸檔檔案，成功將 {1} 個檔案嘅 EXIF 時間同步到 Windows 系統時間。</sys:String>
     <!-- iPhone Sync Tab -->
     <sys:String x:Key="MsgPathWarningTitle">⚠️ 高危操作警告：變更 iPhone 同步目錄</sys:String>
-    <sys:String x:Key="MsgPathWarningBody">偵測到這部 iPhone 之前已經與舊有目錄同步過。在 Apple Devices 將同步來源切換到新目錄後，iPhone 上原本透過電腦同步的所有相片將會被 iOS 系統自動移除（手機本機拍攝的相片不受影響）。（提示：如需保留原有相片，請不要更改目錄、應當繼續使用原同步目錄）&#x0a;是否確認更改同步目錄？</sys:String>
+    <sys:String x:Key="MsgPathWarningBody">偵測到這部 iPhone 之前已經與舊有目錄同步過。在 Apple Devices 將同步來源切換到新目錄後，iPhone 上原本透過電腦同步的所有相片將會被 iOS 系統自動移除（手機本機拍攝的相片不受影響）。目錄內的外來檔案也會被同步匯入手機，請確保目錄僅包含希望匯入的內容。（提示：如需保留原有相片，請不要更改目錄、應當繼續使用原同步目錄）&#x0a;是否確認更改同步目錄？</sys:String>
     <sys:String x:Key="MsgAlbumModeWarningTitle">ℹ️ 確認變更相簿組織結構</sys:String>
     <sys:String x:Key="MsgAlbumModeWarningBody">變更相簿結構將會重新整理同步資料夾入面嘅目錄形態，下次喺 Apple Devices 同步嗰陣，iPhone 上嘅相簿分類將會相應重組。係咪確認變更？</sys:String>
 
@@ -316,6 +316,48 @@
     <sys:String x:Key="MsgPathRiskAck">我已了解：切換同步來源後，iPhone 上原先透過電腦同步的相片將會被移除（手機本機拍攝的相片不受影響）</sys:String>
     <sys:String x:Key="MsgPathChangeFirstTitle">變更 iPhone 同步目錄</sys:String>
     <sys:String x:Key="MsgPathChangeFirstBody">即將把 iPhone 回傳目錄由預設位置變更為自訂目錄：&#x0a;{0}&#x0a;&#x0a;變更後需在 Apple Devices 重新選定新目錄作為同步來源。是否確認變更？</sys:String>
+    <sys:String x:Key="IPhoneStep2OpenFolder">📂 開啟同步目錄</sys:String>
+
+    <sys:String x:Key="MsgMergeChoiceTitle">變更同步目錄：是否帶上舊檔案？</sys:String>
+    <sys:String x:Key="MsgMergeChoiceBody">偵測到舊同步目錄仍有內容。&#x0a;舊目錄：{0}&#x0a;新目錄：{1}&#x0a;&#x0a;「帶上舊檔案」會把舊目錄內容併入新目錄，手機端相簿保持不變（推薦）。&#x0a;「重新開始」則新目錄僅包含之後匯出的內容，手機端舊同步相片將被移除。</sys:String>
+    <sys:String x:Key="MsgMergeKeepOption">帶上舊檔案（推薦，手機端相簿保持不變）</sys:String>
+    <sys:String x:Key="MsgMergeFreshOption">不帶上，重新開始</sys:String>
+    <sys:String x:Key="MsgMergeTimingTitle">合併時機:</sys:String>
+    <sys:String x:Key="MsgMergeTimingNow">立即合併</sys:String>
+    <sys:String x:Key="MsgMergeTimingNext">下次匯出時自動合併</sys:String>
+    <sys:String x:Key="MsgMergingTitle">正在合併舊同步目錄</sys:String>
+    <sys:String x:Key="MsgMergingNow">正在併入舊同步目錄內容…</sys:String>
+    <sys:String x:Key="FmtMergeDone">合併完成：複製 {0} 項，已存在 {1} 項，失敗 {2} 項</sys:String>
+    <sys:String x:Key="MsgMergeFreshConfirmTitle">確認不帶上舊檔案？</sys:String>
+    <sys:String x:Key="MsgMergeFreshConfirmBody">新目錄將只包含之後匯出的內容，手機端舊同步相片將被移除。&#x0a;舊目錄檔案保留在磁碟上，之後可在「設定 → 內建工具」中合併或清理。是否繼續？</sys:String>
+
+    <sys:String x:Key="SettingsCardToolSyncFolderTitle">📱 iPhone 同步目錄維護</sys:String>
+    <sys:String x:Key="SettingsSyncFolderToolDesc">掃描歸檔庫中散落的 Apple Devices 同步目錄（含歷史遺留與錯選目錄），可將舊目錄內容合併到對應裝置的目前目錄、把已併入的目錄移入回收站，或忽略不再提示。目錄中的外來檔案永遠不會被刪除。</sys:String>
+    <sys:String x:Key="SettingsBtnSyncScan">掃描同步目錄</sys:String>
+    <sys:String x:Key="SettingsBtnSyncMerge">合併</sys:String>
+    <sys:String x:Key="SettingsBtnSyncCleanup">清理</sys:String>
+    <sys:String x:Key="SettingsBtnSyncIgnore">忽略</sys:String>
+    <sys:String x:Key="GridSyncColFolder">目錄</sys:String>
+    <sys:String x:Key="GridSyncColDevice">裝置</sys:String>
+    <sys:String x:Key="GridSyncColFiles">檔案數</sys:String>
+    <sys:String x:Key="GridSyncColSize">大小</sys:String>
+    <sys:String x:Key="GridSyncColEquiv">已併入</sys:String>
+    <sys:String x:Key="GridSyncColStatus">狀態</sys:String>
+    <sys:String x:Key="MsgSyncScanning">正在掃描同步目錄…</sys:String>
+    <sys:String x:Key="MsgSyncScanDone">掃描完成：發現 {0} 個同步目錄。</sys:String>
+    <sys:String x:Key="MsgSyncScanNone">未發現散落的同步目錄。</sys:String>
+    <sys:String x:Key="FmtSyncScanError">❌ 掃描失敗: {0}</sys:String>
+    <sys:String x:Key="SyncFolderStatusCurrent">目前同步目錄</sys:String>
+    <sys:String x:Key="SyncFolderStatusEmpty">空目錄</sys:String>
+    <sys:String x:Key="SyncFolderStatusMerged">已全部併入</sys:String>
+    <sys:String x:Key="SyncFolderStatusMergeable">可合併</sys:String>
+    <sys:String x:Key="FmtSyncMergeError">❌ 合併失敗: {0}</sys:String>
+    <sys:String x:Key="MsgSyncCleanupWarnMissing">該目錄仍有 {0} 項檔案尚未合併到目前同步目錄。刪除後這些檔案將隨目錄一起移入回收站。確定繼續？</sys:String>
+    <sys:String x:Key="MsgSyncCleanupConfirm">該目錄的全部 {0} 項檔案均已存在於目前同步目錄。將其移入回收站？</sys:String>
+    <sys:String x:Key="MsgSyncCleanupDone">已移入回收站。</sys:String>
+    <sys:String x:Key="FmtSyncCleanupBlocked">❌ 清理被阻止: {0}</sys:String>
+    <sys:String x:Key="MsgSyncIgnored">已忽略該目錄，之後的掃描將不再列出。</sys:String>
+    <sys:String x:Key="FmtSyncIgnoreError">❌ 記錄忽略失敗: {0}</sys:String>
     <sys:String x:Key="BannerAndroidSyncGuide">透過局域網 FTP 服務無損回傳相片與影片至 Android 設備相機相簿目錄。</sys:String>
     <sys:String x:Key="CardAndroidFtpConn">Android 設備 FTP 連接參數</sys:String>
     <sys:String x:Key="LabelPhoneIp">手機 IP 地址:</sys:String>

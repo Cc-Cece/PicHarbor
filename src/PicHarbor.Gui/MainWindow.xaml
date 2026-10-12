@@ -1154,11 +1154,12 @@
 
                                 <!-- Hint Banner -->
                                 <controls:PclHint HintType="Success" Margin="0,0,0,14">
-                                    <TextBlock Text="{DynamicResource BannerIPhoneSyncGuide}" FontSize="12" Foreground="#047857" />
+                                    <TextBlock Text="{DynamicResource BannerIPhoneSyncGuide}" FontSize="12" Foreground="#047857" TextWrapping="Wrap" />
                                 </controls:PclHint>
 
                                 <!-- Card 1: 回传媒体范围与挑选 -->
-                                <controls:PclCard Title="{DynamicResource CardIPhoneRestoreScope}" CanSwap="False">
+                                <controls:PclCard Title="{DynamicResource CardIPhoneRestoreScope}" CanSwap="False"
+                                                  IsEnabled="{Binding IsConfigEditable}">
                                     <StackPanel>
                                         <controls:PclRadioBox Content="{DynamicResource ScopeRestoreAll}" IsChecked="{Binding IsScopeAll, Mode=TwoWay}" Margin="0,0,0,8" />
                                         <controls:PclRadioBox Content="{DynamicResource ScopeRestoreDateRange}" IsChecked="{Binding IsScopeDateRange, Mode=TwoWay}" Margin="0,0,0,8" />
@@ -1214,7 +1215,8 @@
                                 </controls:PclCard>
 
                                 <!-- Card 2: 目标相册与同步组织模式 -->
-                                <controls:PclCard Title="{DynamicResource CardIPhoneTargetAlbum}" CanSwap="False">
+                                <controls:PclCard Title="{DynamicResource CardIPhoneTargetAlbum}" CanSwap="False"
+                                                  IsEnabled="{Binding IsConfigEditable}">
                                     <StackPanel>
                                         <controls:PclRadioBox Content="{DynamicResource FolderModeYearMonth}" IsChecked="{Binding IsYearMonthMode, Mode=TwoWay}" Margin="0,0,0,8" />
                                         <controls:PclRadioBox Content="{DynamicResource FolderModeFlat}" IsChecked="{Binding IsFlatMode, Mode=TwoWay}" Margin="0,0,0,12" />
@@ -1260,7 +1262,12 @@
                                                             Height="44"
                                                             Margin="0,0,0,12" />
                                         <TextBlock Text="{DynamicResource IPhoneStep2HintSelectPhotos}" FontSize="12" Foreground="{DynamicResource ColorBrush2}" Margin="0,0,0,6" />
-                                        <TextBlock Text="{DynamicResource IPhoneStep2HintClickSync}" FontSize="12" Foreground="{DynamicResource ColorBrush2}" />
+                                        <TextBlock Text="{DynamicResource IPhoneStep2HintClickSync}" FontSize="12" Foreground="{DynamicResource ColorBrush2}" Margin="0,0,0,10" />
+                                        <controls:PclButton Content="{DynamicResource IPhoneStep2OpenFolder}"
+                                                            Command="{Binding OpenSyncFolderCommand}"
+                                                            Height="30"
+                                                            Padding="12,0"
+                                                            HorizontalAlignment="Left" />
                                     </StackPanel>
                                 </controls:PclCard>
 
@@ -2001,6 +2008,50 @@
 
                                         <TextBlock Text="{Binding RepairStatusMessage}" Foreground="#10B981" FontSize="12" Margin="0,0,0,6" TextWrapping="Wrap"
                                                    Visibility="{Binding RepairStatusMessage, Converter={x:Static controls:StringNotEmptyToVisibilityConverter.Instance}}" />
+                                    </StackPanel>
+                                </controls:PclCard>
+
+                                <!-- Card 4: iPhone 同步目录维护 -->
+                                <controls:PclCard Title="{DynamicResource SettingsCardToolSyncFolderTitle}" CanSwap="False" DataContext="{Binding SyncFolderMaintenanceVM}">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource SettingsSyncFolderToolDesc}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,10" TextWrapping="Wrap" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                            <controls:PclButton Content="{DynamicResource SettingsBtnSyncScan}" Command="{Binding ScanCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" Height="30" Padding="14,0" />
+                                            <ProgressBar Value="{Binding ProgressPercentage}" Minimum="0" Maximum="100" Height="14" Width="180" Margin="12,0,0,0" VerticalAlignment="Center"
+                                                         Foreground="{DynamicResource ColorBrush3}" Background="#E2E8F0" BorderThickness="0"
+                                                         Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                        </StackPanel>
+
+                                        <DataGrid ItemsSource="{Binding Items}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
+                                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Disabled"
+                                                  FontSize="12" Margin="0,0,0,10" MaxHeight="260"
+                                                  Visibility="{Binding HasScanned, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="{DynamicResource GridSyncColFolder}" Binding="{Binding Folder}" Width="2*" MinWidth="180" />
+                                                <DataGridTextColumn Header="{DynamicResource GridSyncColDevice}" Binding="{Binding DeviceName}" Width="110" />
+                                                <DataGridTextColumn Header="{DynamicResource GridSyncColFiles}" Binding="{Binding FileCountText}" Width="64" />
+                                                <DataGridTextColumn Header="{DynamicResource GridSyncColSize}" Binding="{Binding TotalSizeText}" Width="80" />
+                                                <DataGridTextColumn Header="{DynamicResource GridSyncColEquiv}" Binding="{Binding EquivalentText}" Width="76" />
+                                                <DataGridTextColumn Header="{DynamicResource GridSyncColStatus}" Binding="{Binding StatusText}" Width="96" />
+                                                <DataGridTemplateColumn Width="230">
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                                <controls:PclButton Content="{DynamicResource SettingsBtnSyncMerge}" Command="{Binding DataContext.MergeItemCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" Height="24" Padding="8,0" Margin="0,0,6,0"
+                                                                                    IsEnabled="{Binding CanMerge}" />
+                                                                <controls:PclButton Content="{DynamicResource SettingsBtnSyncCleanup}" Command="{Binding DataContext.CleanupItemCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" Height="24" Padding="8,0" Margin="0,0,6,0"
+                                                                                    IsEnabled="{Binding CanCleanup}" />
+                                                                <controls:PclButton Content="{DynamicResource SettingsBtnSyncIgnore}" Command="{Binding DataContext.IgnoreItemCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" Height="24" Padding="8,0"
+                                                                                    IsEnabled="{Binding CanIgnore}" />
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+
+                                        <TextBlock Text="{Binding StatusMessage}" FontSize="12" Foreground="#10B981" TextWrapping="Wrap"
+                                                   Visibility="{Binding StatusMessage, Converter={x:Static controls:StringNotEmptyToVisibilityConverter.Instance}}" />
                                     </StackPanel>
                                 </controls:PclCard>
                             </StackPanel>
@@ -2934,15 +2985,57 @@
                 <StackPanel>
                     <TextBlock Text="{Binding ModalTitle}" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" TextWrapping="Wrap" Margin="0,0,0,12" />
                     <TextBlock Text="{Binding ModalMessage}" FontSize="12.5" Foreground="{DynamicResource ColorBrush2}" TextWrapping="Wrap" Margin="0,0,0,14" />
-                    <CheckBox Content="{DynamicResource MsgPathRiskAck}"
-                              IsChecked="{Binding ModalRiskAcknowledged, Mode=TwoWay}"
+                    <CheckBox IsChecked="{Binding ModalRiskAcknowledged, Mode=TwoWay}"
                               Margin="0,0,0,16"
-                              Visibility="{Binding ModalRequireRiskAck, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                              Visibility="{Binding ModalRequireRiskAck, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="{DynamicResource MsgPathRiskAck}" TextWrapping="Wrap" />
+                    </CheckBox>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                         <controls:PclButton Content="{DynamicResource BtnCancel}" Command="{Binding CancelModalCommand}" Height="32" Margin="0,0,8,0" Padding="14,0" />
                         <controls:PclButton Content="{Binding ModalConfirmText}" Command="{Binding ConfirmModalCommand}" ButtonType="Hero" Height="32" Padding="16,0"
                                             IsEnabled="{Binding CanConfirmModal}" />
                     </StackPanel>
+                </StackPanel>
+            </Border>
+        </controls:PclModalHost>
+
+        <!-- ======================================================== -->
+        <!--  MODAL 3c: 换目录三选「是否带上旧文件」                     -->
+        <!-- ======================================================== -->
+        <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1025" DataContext="{Binding IPhoneSyncVM}"
+                               IsOpen="{Binding IsMergeChoiceOpen}"
+                               CloseCommand="{Binding CancelMergeChoiceCommand}">
+            <Border Style="{StaticResource PclDialogContainer}" Width="620" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource MsgMergeChoiceTitle}" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                    <TextBlock Text="{Binding ModalMessage}" FontSize="12.5" Foreground="{DynamicResource ColorBrush2}" TextWrapping="Wrap" Margin="0,0,0,14" />
+                    <controls:PclRadioBox Content="{DynamicResource MsgMergeKeepOption}" IsChecked="{Binding MergeChoiceKeepOld, Mode=TwoWay}" Margin="0,0,0,6" />
+                    <controls:PclRadioBox Content="{DynamicResource MsgMergeFreshOption}" IsChecked="{Binding MergeChoiceFresh, Mode=TwoWay}" Margin="0,0,0,10" />
+                    <StackPanel Orientation="Horizontal" Margin="22,0,0,12"
+                                Visibility="{Binding MergeChoiceKeepOld, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="{DynamicResource MsgMergeTimingTitle}" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="12" />
+                        <controls:PclRadioBox Content="{DynamicResource MsgMergeTimingNow}" IsChecked="{Binding MergeTimingNow, Mode=TwoWay}" Margin="0,0,10,0" />
+                        <controls:PclRadioBox Content="{DynamicResource MsgMergeTimingNext}" IsChecked="{Binding MergeTimingNextExport, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <controls:PclButton Content="{DynamicResource BtnCancel}" Command="{Binding CancelMergeChoiceCommand}" Height="32" Margin="0,0,8,0" Padding="14,0" />
+                        <controls:PclButton Content="{Binding ModalConfirmText}" Command="{Binding ConfirmMergeChoiceCommand}" ButtonType="Hero" Height="32" Padding="16,0" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </controls:PclModalHost>
+
+        <!-- ======================================================== -->
+        <!--  MODAL 3d: 旧同步目录合并进度                              -->
+        <!-- ======================================================== -->
+        <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1030" DataContext="{Binding IPhoneSyncVM}"
+                               IsOpen="{Binding IsMergeRunning}">
+            <Border Style="{StaticResource PclDialogContainer}" Width="480" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource MsgMergingTitle}" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" TextWrapping="Wrap" Margin="0,0,0,14" />
+                    <ProgressBar Value="{Binding MergeProgressPercentage}" Minimum="0" Maximum="100" Height="18"
+                                 Foreground="{DynamicResource ColorBrush3}" Background="#E2E8F0" BorderThickness="0" Margin="0,0,0,10" />
+                    <TextBlock Text="{Binding MergeStatusText}" FontSize="12" Foreground="{DynamicResource ColorBrush2}" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </controls:PclModalHost>
