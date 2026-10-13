@@ -20,6 +20,10 @@ obj/
 # Test runner output
 TestResults/
 
+# Local security acceptance artifacts; keep the reviewable summary only.
+outputs/security-validation/*.trx
+outputs/security-validation/exit-code.txt
+
 # other
 .docs/
 *.log

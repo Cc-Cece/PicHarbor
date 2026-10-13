@@ -1,29 +1,33 @@
 # Manifest & database schema
 
-Every destination has a single SQLite file at its root: **`get-and-see.db`**. It is both the
+Every destination has a SQLite file at **`.picharbor/get-and-see.db`**. It is both the
 **in-progress journal** (what enables resume) and the long-term **manifest** (a queryable index of your
-archive). It sits at the root — visible, not hidden — so the destination folder is fully self-describing
-and portable: move the folder and the manifest moves with it.
+archive). Keep the entire `.picharbor` directory with the original photos when moving a member.
+The portable `library.json` describes the logical library and its registered storage members.
+Legacy root-level databases remain readable and are relocated through a verified SQLite backup during upgrade.
 
 The database is the "substrate": the archive is plain files on disk, and this is the index over them. You
 can query it with **any** SQLite tool — no part of `get-and-see` is required to read it.
 
 ```pwsh
 # e.g. with the sqlite3 CLI
-sqlite3 "D:\Photos\get-and-see.db" "SELECT COUNT(*) FROM manifest;"
+sqlite3 -readonly "D:\Photos\.picharbor\get-and-see.db" "SELECT COUNT(*) FROM manifest;"
 ```
 
 > **Read-only tip:** open it read-only so a query can never interfere with a running copy:
-> `sqlite3 -readonly "D:\Photos\get-and-see.db" "..."`
+> `sqlite3 -readonly "D:\Photos\.picharbor\get-and-see.db" "..."`
 
-The schema version is tracked in `PRAGMA user_version` (currently **3**).
+The schema version is tracked in `PRAGMA user_version` (currently **8**). Future versions are refused
+before any migration. Direct external writes are unsupported; writer guards reject older applications.
 
 ---
 
 ## The `manifest` view (start here)
 
 The `manifest` view is the user-facing surface: it exposes the columns you care about for **completed**
-files only (`state = 'done'`), so you never see in-progress or failed rows.
+physical files only (`state = 'done'`, `replica_state = 'Available'`), with one row per local path.
+External proof, missing and recycled locations do not claim a completed local file. Use the library
+commands or GUI for combined logical totals across storage members.
 
 | Column | Type | Meaning |
 |--------|------|---------|
@@ -37,7 +41,7 @@ files only (`state = 'done'`), so you never see in-progress or failed rows.
 | `camera_make` | TEXT | EXIF camera make (e.g. `Apple`), or `NULL`. |
 | `camera_model` | TEXT | EXIF camera model (e.g. `iPhone 12 Pro`), or `NULL`. |
 | `copied_at` | TEXT | UTC time this file was copied (ISO-8601). |
-| `sha256` | TEXT | Lowercase SHA-256 hex digest — **only** populated when the file was copied with `--verify-hash`; otherwise `NULL`. |
+| `sha256` | TEXT | Lowercase SHA-256 content digest, recorded for every new copy. Older rows are filled by self-check. |
 
 ---
 
@@ -45,17 +49,22 @@ files only (`state = 'done'`), so you never see in-progress or failed rows.
 
 ### `files` — every file's transfer state (the journal)
 
-A file's **identity is its source path + source size** (so a rename on disk never causes a re-copy, and
-two same-named files in different DCIM folders are never confused).
+A source record's identity includes **device ID + source path + source size**. Modification time
+participates in fast incremental checks; strict verification rereads source content. Unknown historical
+device provenance cannot prove that another device's file is already backed up.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | INTEGER | Primary key. |
+| `device_id` | TEXT | Source device identity; empty for unresolved historical provenance. |
 | `source_path` | TEXT | Device path. Part of the unique identity. |
 | `source_size` | INTEGER | Device-reported size. Part of the unique identity. |
 | `source_mtime` | TEXT | Device modified time (ISO-8601) or `NULL`. |
 | `dest_path` | TEXT | Relative destination path once known, else `NULL`. |
-| `state` | TEXT | One of `pending`, `in_progress`, `done`, `failed`. |
+| `state` | TEXT | `pending`, `in_progress`, `done`, `failed`, `missing`, or `external` (verified on another member). |
+| `media_id` | TEXT | Verified content identity, independent of source name. |
+| `replica_state` | TEXT | Availability/maintenance state of this physical location. |
+| `replica_root` | TEXT | Surviving member location for retired or externally verified content. |
 | `error_message` | TEXT | Last failure reason when `failed`, else `NULL`. |
 | `started_at` | TEXT | When the file last started copying. |
 | `finished_at` | TEXT | When it finished (or failed). |
@@ -63,11 +72,25 @@ two same-named files in different DCIM folders are never confused).
 | `gps_latitude` / `gps_longitude` | REAL | EXIF GPS, or `NULL`. |
 | `camera_make` / `camera_model` | TEXT | EXIF camera, or `NULL`. |
 | `copied_at` | TEXT | UTC completion time. |
-| `sha256` | TEXT | SHA-256 hex (only with `--verify-hash`), else `NULL`. |
+| `sha256` | TEXT | SHA-256 hex; nullable only for older unverified records. |
 
-Indexes: `ux_files_identity` (unique on `source_path, source_size`) and `ix_files_state` (on `state`).
+Indexes include device-scoped source identity, `ix_files_state`, and `ix_files_dest_path`.
 
-The `manifest` view is simply `files` filtered to `state = 'done'` with the user-facing columns.
+Multiple source rows can refer to one physical path without duplicating the manifest entry.
+
+### Library and recovery records (v8)
+
+| Record | Purpose |
+|--------|---------|
+| `library_identity` | Stable logical library ID and member storage ID. |
+| `media_content` | Size and SHA-256 of verified content. |
+| `source_exclusions` | Device-scoped deletion preferences, including source modification time. |
+| `maintenance_operations` | Prepared, recycled, restoring, restored, cancelled or purged duplicate operations. |
+| `migration_quarantine` / `migration_anomalies` | Preserved invalid legacy relationships and review evidence. |
+
+Source provenance and replica locations are represented by the device-scoped `files` records;
+the portable catalog carries combined metadata and histories for offline display. Manual selections
+use `#media/<digest>` when verified so moving the file does not invalidate selection.
 
 ### `devices` — devices seen by this archive
 
@@ -106,12 +129,19 @@ needs no schema-version bump.
 
 ### Schema migrations
 
-The schema is migrated in place (additively) via `PRAGMA user_version`:
+Schema upgrades use `PRAGMA user_version` and transaction validation:
 
 - **v1 → v2** added the `devices` and `runs` tables.
 - **v2 → v3** added the `settings` table. An archive that already had files when it was upgraded is stamped
   `organize_scheme = 'year-month'` (the only layout that existed before v3), so existing nested archives keep
   resolving to their existing paths and **resume byte-stable** — the upgrade never moves or re-copies a file.
+- **v4 → v7** added backup history and device restore/manual selection features.
+- **v7 → v8** adds stable library/member identities, device-scoped source records, media/recovery metadata,
+  relationship validation and old-writer guards. A consistent `.pre-v8` SQLite backup is kept before
+  structural migration. Invalid history relationships are preserved in quarantine rather than discarded.
+  `integrity_check` and `foreign_key_check` must pass before committing the new version.
+
+See [multi-disk library and recovery](multi-disk-library.md) for operational behavior and safe recovery.
 
 ---
 
