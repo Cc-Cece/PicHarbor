@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.IO;
 using System.Text.Json;
 
@@ -5,6 +7,11 @@ namespace PicHarbor.Gui.Config;
 
 public sealed class AppConfig
 {
+    public bool AppLockWasEnabled { get; set; }
+    public bool RebackupDeletedPhotos { get; set; } = true;
+    public bool RebackupQuestionAsked { get; set; }
+    public bool StrictBackupVerification { get; set; }
+    public string ActiveLibraryRoot { get; set; } = string.Empty;
     public string DestinationPath { get; set; } = string.Empty;
     public string PrimaryDriveLetter { get; set; } = string.Empty;
     // 归档文件夹名已改由归档库的 devices.archive_folder 持有（与设备身份同生共死），不再存配置。
@@ -111,7 +118,7 @@ public static class AppSettings
                 var config = JsonSerializer.Deserialize<AppConfig>(json, JsonOptions);
                 if (config is not null)
                 {
-                    bool dirty = false;
+                    bool dirty = UnprotectCredentials(config);
 
                     if (!string.IsNullOrWhiteSpace(config.GooglePhotosGpmcPath) &&
                         config.GooglePhotosGpmcPath.Contains(@"Code\vscode\gpmc", StringComparison.OrdinalIgnoreCase))
@@ -149,6 +156,8 @@ public static class AppSettings
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Failed to load app settings: {ex.Message}");
+            // Unreadable settings must not disable an existing privacy lock.
+            return new AppConfig { AppLockWasEnabled = File.Exists(ConfigPath) };
         }
 
         return new AppConfig();
@@ -160,20 +169,7 @@ public static class AppSettings
     {
         try
         {
-            AppConfig? config;
-            if (File.Exists(ConfigPath))
-            {
-                string json = File.ReadAllText(ConfigPath);
-                config = JsonSerializer.Deserialize<AppConfig>(json, JsonOptions);
-                if (config is null)
-                {
-                    return;
-                }
-            }
-            else
-            {
-                config = new AppConfig();
-            }
+            AppConfig config = Load();
 
             if (config.PreviewMuted == muted && File.Exists(ConfigPath))
             {
@@ -189,17 +185,45 @@ public static class AppSettings
         }
     }
 
+    private const string ProtectedPrefix = "dpapi:";
+    private static string Protect(string value) => string.IsNullOrEmpty(value) ? value :
+        ProtectedPrefix + Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(value), null, DataProtectionScope.CurrentUser));
+    private static string Unprotect(string value) => value.StartsWith(ProtectedPrefix, StringComparison.Ordinal) ?
+        Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(value[ProtectedPrefix.Length..]), null, DataProtectionScope.CurrentUser)) : value;
+    private static void ProtectCredentials(AppConfig config)
+    {
+        config.AndroidFtpPassword = Protect(config.AndroidFtpPassword);
+        config.AndroidBackupFtpPassword = Protect(config.AndroidBackupFtpPassword);
+        config.GooglePhotosOAuthCookie = Protect(config.GooglePhotosOAuthCookie);
+        config.GooglePhotosAuthData = Protect(config.GooglePhotosAuthData);
+    }
+    private static bool UnprotectCredentials(AppConfig config)
+    {
+        bool migrate = new[] {config.AndroidFtpPassword,config.AndroidBackupFtpPassword,config.GooglePhotosOAuthCookie,config.GooglePhotosAuthData}
+            .Any(v => !string.IsNullOrEmpty(v) && !v.StartsWith(ProtectedPrefix, StringComparison.Ordinal));
+        config.AndroidFtpPassword = Unprotect(config.AndroidFtpPassword);
+        config.AndroidBackupFtpPassword = Unprotect(config.AndroidBackupFtpPassword);
+        config.GooglePhotosOAuthCookie = Unprotect(config.GooglePhotosOAuthCookie);
+        config.GooglePhotosAuthData = Unprotect(config.GooglePhotosAuthData);
+        return migrate;
+    }
+
     public static void Save(AppConfig config)
     {
         try
         {
             Directory.CreateDirectory(ConfigDir);
-            string json = JsonSerializer.Serialize(config, JsonOptions);
-            File.WriteAllText(ConfigPath, json);
+            var stored = JsonSerializer.Deserialize<AppConfig>(JsonSerializer.Serialize(config, JsonOptions))!;
+            ProtectCredentials(stored);
+            string json = JsonSerializer.Serialize(stored, JsonOptions);
+            string temporary = ConfigPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            File.WriteAllText(temporary, json);
+            File.Move(temporary, ConfigPath, overwrite: true);
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Failed to save app settings: {ex.Message}");
+            throw;
         }
     }
 

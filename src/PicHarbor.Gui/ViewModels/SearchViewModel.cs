@@ -19,6 +19,9 @@ namespace PicHarbor.Gui.ViewModels;
 public partial class MediaSearchResultItem : ObservableObject
 {
     public string RelativePath { get; set; } = string.Empty;
+    public bool IsOffline { get; set; }
+    public string? MediaId { get; set; }
+    public string SelectionKey => MediaId is null ? RelativePath.Replace('\\','/') : "#media/" + MediaId;
     public string FullPath { get; set; } = string.Empty;
     public string CapturedAt { get; set; } = string.Empty;
     public string SizeText { get; set; } = string.Empty;
@@ -53,7 +56,7 @@ public partial class MediaSearchResultItem : ObservableObject
     [ObservableProperty]
     private bool isSyncedToGooglePhotos = false;
 
-    public string FileName => System.IO.Path.GetFileName(RelativePath);
+    public string FileName => System.IO.Path.GetFileName(RelativePath) + (IsOffline ? " (" + App.GetString("LibraryOffline","离线") + ")" : "");
 
     public string FormatUpper
     {
@@ -697,11 +700,11 @@ public partial class SearchViewModel : ObservableObject
     private Dictionary<string, string> liveVideoFullPathByKey = new(StringComparer.OrdinalIgnoreCase);
 
     public bool IsLivePhotoRelativePath(string relativePath) =>
-        livePairKeys.Contains(LivePhotoDetector.PairKey(relativePath));
+        livePairKeys.Contains(relativePath);
 
     public string? GetLiveVideoFullPath(string relativePath)
     {
-        liveVideoFullPathByKey.TryGetValue(LivePhotoDetector.PairKey(relativePath), out string? path);
+        liveVideoFullPathByKey.TryGetValue(relativePath, out string? path);
         return path;
     }
 
@@ -726,7 +729,7 @@ public partial class SearchViewModel : ObservableObject
             string ext = Path.GetExtension(h.RelativePath).ToLowerInvariant();
             if (ext is ".png" or ".jpg" or ".jpeg" or ".webp")
             {
-                string fullPath = Path.Combine(archiveRoot, h.RelativePath);
+                string fullPath = PicHarbor.Core.Storage.ArchivePathResolver.Resolve(h.ArchiveRoot ?? archiveRoot,h.RelativePath);
                 var dims = Util.ImageDimensionHelper.GetDimensions(fullPath);
                 if (dims.HasValue && dims.Value.Width > 0 && dims.Value.Height > 0)
                 {
@@ -746,7 +749,7 @@ public partial class SearchViewModel : ObservableObject
     [RelayCommand]
     private async Task SearchAsync()
     {
-        if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
+        if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath) && !PicHarbor.Core.Storage.LibraryCatalog.HasCachedCatalog(ArchivePath))
         {
             SetSearchSummary("MsgTargetDirNotExist", "目标归档路径不存在");
             SearchResults = new();
@@ -794,68 +797,33 @@ public partial class SearchViewModel : ObservableObject
 
             var (hits, display, models, liveKeys, videoByKey) = await Task.Run(() =>
             {
-                using var journal = TransferJournal.OpenReadOnly(archivePathCopy);
-                IReadOnlyList<ManifestSearchRow> rows = journal.ReadSearchRows();
+                IReadOnlyList<ManifestSearchRow> rows = ArchiveRepository.ReadLibrarySearchRows(archivePathCopy);
                 var found = MediaSearch.Find(rows, criteria).ToList();
 
-                // 1. Purge deleted or 0-byte ghost files on disk (prevents missing placeholders)
-                if (!string.IsNullOrWhiteSpace(archivePathCopy) && Directory.Exists(archivePathCopy))
-                {
-                    found = found.Where(h =>
-                    {
-                        string p = Path.Combine(archivePathCopy, h.RelativePath);
-                        if (!File.Exists(p)) return false;
-                        try
-                        {
-                            return new FileInfo(p).Length > 0;
-                        }
-                        catch
-                        {
-                            return false;
-                        }
-                    }).ToList();
-                }
-
-                var liveKeysLocal = new HashSet<string>(
-                    LivePhotoDetector.FindLivePairKeys(rows.Select(r => r.RelativePath)),
-                    StringComparer.OrdinalIgnoreCase);
+                var livePairs=LivePhotoDetector.FindLibraryPairs(rows);
+                var liveKeysLocal=livePairs.SelectMany(p=>new[]{p.Image,p.Video}).ToHashSet(StringComparer.OrdinalIgnoreCase);
                 var videoByKeyLocal = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var row in rows)
+                foreach (var pair in livePairs)
                 {
-                    string extension = Path.GetExtension(row.RelativePath);
-                    bool isMov = extension.Equals(".mov", StringComparison.OrdinalIgnoreCase);
-                    bool isMp4 = extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase);
-                    if (!isMov && !isMp4)
-                    {
-                        continue;
-                    }
-
-                    string key = LivePhotoDetector.PairKey(row.RelativePath);
-                    if (!liveKeysLocal.Contains(key))
-                    {
-                        continue;
-                    }
-
-                    if (!videoByKeyLocal.ContainsKey(key) || isMov)
-                    {
-                        videoByKeyLocal[key] = Path.Combine(archivePathCopy, row.RelativePath);
-                    }
+                    var row=rows.First(r=>(r.MediaId is null ? r.RelativePath.Replace('\\','/') : "#media/"+r.MediaId)==pair.Video);
+                    if(row.Availability!=PicHarbor.Core.Storage.ReplicaState.Available) continue;
+                    videoByKeyLocal.TryAdd(pair.Image,PicHarbor.Core.Storage.ArchivePathResolver.Resolve(row.ArchiveRoot ?? archivePathCopy,row.RelativePath));
                 }
 
                 if (filterLiveOnly)
                 {
-                    found = found.Where(h => liveKeysLocal.Contains(LivePhotoDetector.PairKey(h.RelativePath))).ToList();
+                    found = found.Where(h => liveKeysLocal.Contains(h.SelectionKey)).ToList();
                 }
 
                 // 2. View Category Filtering
                 if (category == 0)
                 {
-                    found = found.Where(h => LivePhotoDetector.ShowInAllView(h.RelativePath, h.Type, liveKeysLocal)).ToList();
+                    found = found.Where(h => h.Type!=MediaType.Video || !liveKeysLocal.Contains(h.SelectionKey)).ToList();
                 }
                 else if (category == 1)
                 {
                     // 视频（不包括实况，即同名的HEIC/MOV对）
-                    found = found.Where(h => h.Type == MediaType.Video && !liveKeysLocal.Contains(LivePhotoDetector.PairKey(h.RelativePath))).ToList();
+                    found = found.Where(h => h.Type == MediaType.Video && !liveKeysLocal.Contains(h.SelectionKey)).ToList();
                 }
                 else if (category == 2)
                 {
@@ -872,7 +840,7 @@ public partial class SearchViewModel : ObservableObject
                 {
                     // 待传列表
                     found = manualSet.Count > 0
-                        ? found.Where(h => manualSet.Contains(h.RelativePath)).ToList()
+                        ? found.Where(h => manualSet.Contains(h.SelectionKey) || manualSet.Contains(h.RelativePath)).ToList()
                         : new List<MediaSearchHit>();
                 }
 
@@ -969,7 +937,7 @@ public partial class SearchViewModel : ObservableObject
                 for (int i = 0; i < countToTake; i++)
                 {
                     MediaSearchHit hit = currentHits[startIndex + i];
-                    string fullPath = Path.Combine(archivePathCopy, hit.RelativePath);
+                    string fullPath = PicHarbor.Core.Storage.ArchivePathResolver.Resolve(hit.ArchiveRoot ?? archivePathCopy,hit.RelativePath);
                     bool isVideo = hit.Type == MediaType.Video;
                     string cameraName = "";
                     string gps = "";
@@ -1043,6 +1011,8 @@ public partial class SearchViewModel : ObservableObject
                     list.Add(new MediaSearchResultItem
                     {
                         RelativePath = hit.RelativePath,
+                        MediaId = hit.MediaId,
+                        IsOffline = hit.Availability != PicHarbor.Core.Storage.ReplicaState.Available,
                         FullPath = fullPath,
                         CapturedAt = hit.CapturedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A",
                         SizeText = ByteSize.Humanize(hit.SizeBytes),
@@ -1055,10 +1025,10 @@ public partial class SearchViewModel : ObservableObject
                         IsLivePhoto = isLive,
                         PixelWidth = pixelWidth,
                         PixelHeight = pixelHeight,
-                        IsManualSelectedForIPhone = manualSet.Contains(hit.RelativePath),
-                        IsManualSelectedForAndroid = androidManualSet.Contains(hit.RelativePath),
-                        IsManualSelectedForGooglePhotos = googleManualSet.Contains(hit.RelativePath),
-                        IsSyncedToGooglePhotos = googleSyncedSet.Contains(hit.RelativePath)
+                        IsManualSelectedForIPhone = manualSet.Contains(hit.SelectionKey) || manualSet.Contains(hit.RelativePath),
+                        IsManualSelectedForAndroid = androidManualSet.Contains(hit.SelectionKey) || androidManualSet.Contains(hit.RelativePath),
+                        IsManualSelectedForGooglePhotos = googleManualSet.Contains(hit.SelectionKey) || googleManualSet.Contains(hit.RelativePath),
+                        IsSyncedToGooglePhotos = googleSyncedSet.Contains(hit.SelectionKey) || googleSyncedSet.Contains(hit.RelativePath)
                     });
                 }
 
@@ -1406,7 +1376,7 @@ public partial class SearchViewModel : ObservableObject
     {
         if (item is null || string.IsNullOrWhiteSpace(ArchivePath)) return;
 
-        string fullPath = Path.Combine(ArchivePath, item.RelativePath);
+        string fullPath = item.FullPath;
         if (File.Exists(fullPath))
         {
             try
@@ -1582,7 +1552,7 @@ public partial class SearchViewModel : ObservableObject
         var items = ExtractMediaItems(parameter);
         if (items.Count == 0) return;
 
-        var destPaths = items.Select(x => x.RelativePath).Where(p => !string.IsNullOrEmpty(p)).ToList();
+        var destPaths = items.Select(x => x.SelectionKey).Where(p => !string.IsNullOrEmpty(p)).ToList();
         if (destPaths.Count == 0) return;
 
         string path = ArchivePath;
@@ -1616,7 +1586,7 @@ public partial class SearchViewModel : ObservableObject
         var items = ExtractMediaItems(parameter);
         if (items.Count == 0) return;
 
-        var destPaths = items.Select(x => x.RelativePath).Where(p => !string.IsNullOrEmpty(p)).ToList();
+        var destPaths = items.Select(x => x.SelectionKey).Where(p => !string.IsNullOrEmpty(p)).ToList();
         if (destPaths.Count == 0) return;
 
         string path = ArchivePath;
@@ -1650,7 +1620,7 @@ public partial class SearchViewModel : ObservableObject
         var items = ExtractMediaItems(parameter);
         if (items.Count == 0) return;
 
-        var destPaths = items.Select(x => x.RelativePath).Where(p => !string.IsNullOrEmpty(p)).ToList();
+        var destPaths = items.Select(x => x.SelectionKey).Where(p => !string.IsNullOrEmpty(p)).ToList();
         if (destPaths.Count == 0) return;
 
         string path = ArchivePath;
@@ -1685,7 +1655,7 @@ public partial class SearchViewModel : ObservableObject
         var items = ExtractMediaItems(parameter);
         if (items.Count == 0) return;
 
-        var destPaths = items.Select(x => x.RelativePath).Where(p => !string.IsNullOrEmpty(p)).ToList();
+        var destPaths = items.Select(x => x.SelectionKey).Where(p => !string.IsNullOrEmpty(p)).ToList();
         if (destPaths.Count == 0) return;
 
         string path = ArchivePath;
@@ -1720,7 +1690,7 @@ public partial class SearchViewModel : ObservableObject
         var items = ExtractMediaItems(parameter);
         if (items.Count == 0) return;
 
-        var destPaths = items.Select(x => x.RelativePath).Where(p => !string.IsNullOrEmpty(p)).ToList();
+        var destPaths = items.Select(x => x.SelectionKey).Where(p => !string.IsNullOrEmpty(p)).ToList();
         if (destPaths.Count == 0) return;
 
         string path = ArchivePath;
@@ -1752,7 +1722,7 @@ public partial class SearchViewModel : ObservableObject
         var items = ExtractMediaItems(parameter);
         if (items.Count == 0) return;
 
-        var destPaths = items.Select(x => x.RelativePath).Where(p => !string.IsNullOrEmpty(p)).ToList();
+        var destPaths = items.Select(x => x.SelectionKey).Where(p => !string.IsNullOrEmpty(p)).ToList();
         if (destPaths.Count == 0) return;
 
         string path = ArchivePath;
@@ -1802,7 +1772,7 @@ public partial class SearchViewModel : ObservableObject
         var items = ExtractMediaItems(parameter);
         if (items.Count == 0) return;
 
-        var destPaths = items.Select(x => x.RelativePath).Where(p => !string.IsNullOrEmpty(p)).ToList();
+        var destPaths = items.Select(x => x.SelectionKey).Where(p => !string.IsNullOrEmpty(p)).ToList();
         if (destPaths.Count == 0) return;
 
         string path = ArchivePath;
@@ -1843,7 +1813,7 @@ public partial class SearchViewModel : ObservableObject
 
     public void AddItemsToManualSelection(string type, IReadOnlyList<string> relativePaths)
     {
-        var targets = SearchResults.Where(x => relativePaths.Contains(x.RelativePath)).ToList();
+        var targets = SearchResults.Where(x => relativePaths.Contains(x.SelectionKey) || relativePaths.Contains(x.RelativePath)).ToList();
         if (targets.Count == 0) return;
 
         if (string.IsNullOrEmpty(type) || type.Equals("Unified", StringComparison.OrdinalIgnoreCase))
@@ -1866,7 +1836,7 @@ public partial class SearchViewModel : ObservableObject
 
     public void RemoveItemsFromManualSelection(IReadOnlyList<string> relativePaths)
     {
-        var targets = SearchResults.Where(x => relativePaths.Contains(x.RelativePath)).ToList();
+        var targets = SearchResults.Where(x => relativePaths.Contains(x.SelectionKey) || relativePaths.Contains(x.RelativePath)).ToList();
         if (targets.Count == 0) return;
 
         string path = ArchivePath;
@@ -1904,14 +1874,14 @@ public partial class SearchViewModel : ObservableObject
 
     public void ToggleItemsManualSelection(string type, IReadOnlyList<string> relativePaths)
     {
-        var targets = SearchResults.Where(x => relativePaths.Contains(x.RelativePath)).ToList();
+        var targets = SearchResults.Where(x => relativePaths.Contains(x.SelectionKey) || relativePaths.Contains(x.RelativePath)).ToList();
         if (targets.Count == 0) return;
 
         bool anyUnselected = targets.Any(x => !x.IsManualSelected);
         if (anyUnselected)
             AddToUnifiedSelection(targets);
         else
-            RemoveItemsFromManualSelection(targets.Select(x => x.RelativePath).ToList());
+            RemoveItemsFromManualSelection(targets.Select(x => x.SelectionKey).ToList());
 
         NotifyManualSelectionsChanged();
     }
@@ -1920,7 +1890,7 @@ public partial class SearchViewModel : ObservableObject
     public void ToggleUnifiedManualSelection(MediaSearchResultItem item)
     {
         if (item == null) return;
-        ToggleItemsManualSelection("Unified", new[] { item.RelativePath });
+        ToggleItemsManualSelection("Unified", new[] { item.SelectionKey });
     }
 
     [RelayCommand]

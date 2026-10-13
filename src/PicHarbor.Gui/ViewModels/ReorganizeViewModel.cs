@@ -97,7 +97,7 @@ public partial class ReorganizeViewModel : ObservableObject
                 string currentDisplay = existingScheme.HasValue ? FormatSchemeName(existingScheme.Value) : "month (YYYY-MM)";
 
                 var reorganizer = new Reorganizer(journal, new DateFolderOrganizer(), ArchivePath);
-                ReorganizePlan plan = reorganizer.Plan(scheme);
+                ReorganizePlan plan = File.Exists(Path.Combine(ArchivePath,".picharbor","library.json")) ? LibraryReorganizer.Preview(ArchivePath,scheme) : reorganizer.Plan(scheme);
 
                 int countToTake = Math.Min(plan.Moves.Count, ReorgPreviewCap);
                 var list = new List<ReorganizeItem>(countToTake);
@@ -107,7 +107,7 @@ public partial class ReorganizeViewModel : ObservableObject
                     PlannedMove move = plan.Moves[i];
                     list.Add(new ReorganizeItem
                     {
-                        OriginalPath = move.CurrentDestPath,
+                        OriginalPath = move.ArchiveRoot is null ? move.CurrentDestPath : Path.Combine(move.ArchiveRoot,move.CurrentDestPath),
                         TargetPath = move.TargetDestPath
                     });
                 }
@@ -143,12 +143,17 @@ public partial class ReorganizeViewModel : ObservableObject
         try
         {
             OrganizeScheme scheme = ParseSchemeToken(TargetScheme);
+            ReorganizeReport? executionReport = null;
             await Task.Run(() =>
             {
                 using var journal = TransferJournal.Open(ArchivePath);
                 var reorganizer = new Reorganizer(journal, new DateFolderOrganizer(), ArchivePath);
-                ReorganizePlan plan = reorganizer.Plan(scheme);
-                reorganizer.Execute(plan);
+                ReorganizePlan plan = File.Exists(Path.Combine(ArchivePath,".picharbor","library.json")) ? LibraryReorganizer.Preview(ArchivePath,scheme) : reorganizer.Plan(scheme);
+                if(File.Exists(Path.Combine(ArchivePath,".picharbor","library.json")))
+                {
+                    executionReport=LibraryReorganizer.Execute(ArchivePath,scheme);
+                }
+                else reorganizer.Execute(plan);
             }).ConfigureAwait(false);
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
@@ -157,10 +162,13 @@ public partial class ReorganizeViewModel : ObservableObject
             });
 
             await DryRunAsync().ConfigureAwait(false);
+            if (executionReport is { } report && (report.Failed>0 || report.PendingMembers>0))
+                await Application.Current.Dispatcher.InvokeAsync(() => ReorgSummaryText=string.Format(App.GetString("LibraryLayoutFailed","有 {0} 项未能整理，仍有 {1} 个存储目录待完成。"),report.Failed,report.PendingMembers));
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Reorganize execute error: {ex.Message}");
+            await Application.Current.Dispatcher.InvokeAsync(() => ReorgSummaryText=ex.Message);
         }
     }
 

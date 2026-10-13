@@ -47,6 +47,7 @@ public partial class MainWindow : Window
 
         if (e.NewValue is AppLockViewModel vm)
         {
+            ProtectedMediaSession.SetLocked(vm.HasPassword && !vm.IsUnlocked);
             vm.PropertyChanged += win.AppLockVm_PropertyChanged;
             vm.IdleTimeoutReached += win.AppLock_IdleTimeoutReached;
             // 语言切换时刷新应用锁下拉框文案（普通对象列表不随资源字典自动更新）。
@@ -73,6 +74,12 @@ public partial class MainWindow : Window
 
     private void AppLockVm_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName is nameof(AppLockViewModel.IsUnlocked) or nameof(AppLockViewModel.HasPassword))
+        {
+            ProtectedMediaSession.SetLocked(AppLock?.HasPassword == true && AppLock?.IsUnlocked != true);
+            if (ProtectedMediaSession.IsLocked && DataContext is MainViewModel main)
+            { main.ViewerImageSource = null; main.IsImageViewerOpen = false; }
+        }
         if (e.PropertyName == nameof(AppLockViewModel.TotpSetupUri))
         {
             Dispatcher.Invoke(() =>

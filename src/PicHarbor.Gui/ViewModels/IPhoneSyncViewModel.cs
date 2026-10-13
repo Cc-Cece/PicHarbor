@@ -35,7 +35,7 @@ public partial class ManualSelectedItemViewModel : ObservableObject
     public string RelativePath { get; set; } = string.Empty;
     public string FullPath { get; set; } = string.Empty;
 
-    public string FileName => string.IsNullOrWhiteSpace(RelativePath) ? "" : Path.GetFileName(RelativePath.Replace('/', Path.DirectorySeparatorChar));
+    public string FileName => string.IsNullOrWhiteSpace(RelativePath) ? "" : Path.GetFileName((RelativePath.StartsWith("#media/") ? FullPath : RelativePath).Replace('/', Path.DirectorySeparatorChar));
 
     public string FormatUpper
     {
@@ -598,8 +598,8 @@ public partial class IPhoneSyncViewModel : ObservableObject
         {
             using var journal = TransferJournal.OpenReadOnly(ArchivePath);
             var autofilledMap = journal.GetManualSelectionsWithAutofilled(GetDeviceRef());
-            var manifest = journal.ReadManifest();
-            var dict = manifest.ToDictionary(m => m.DestPath.Replace('\\', '/'), m => m, StringComparer.OrdinalIgnoreCase);
+            var manifest = PicHarbor.Core.Search.ArchiveRepository.ReadLibraryManifest(ArchivePath);
+            var dict = PicHarbor.Core.Search.ArchiveRepository.BuildSelectionMap(manifest,ArchivePath);
 
             foreach (var (path, isAutofilled) in autofilledMap)
             {
@@ -608,8 +608,8 @@ public partial class IPhoneSyncViewModel : ObservableObject
                 {
                     ManualSelectedItems.Add(new ManualSelectedItemViewModel
                     {
-                        RelativePath = entry.DestPath.Replace('\\', '/'),
-                        FullPath = Path.Combine(ArchivePath, entry.DestPath),
+                        RelativePath = normPath,
+                        FullPath = PicHarbor.Core.Storage.ArchivePathResolver.Resolve(entry.ArchiveRoot ?? ArchivePath,entry.DestPath),
                         CapturedAt = entry.ExifDateTimeOriginalIso ?? entry.SourceMtimeIso ?? "N/A",
                         SizeBytes = entry.SizeBytes,
                         SizeText = FormatByteSize(entry.SizeBytes),
@@ -671,7 +671,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
         try
         {
             using var journal = TransferJournal.OpenReadOnly(ArchivePath);
-            var manifest = journal.ReadManifest();
+            var manifest = PicHarbor.Core.Search.ArchiveRepository.ReadLibraryManifest(ArchivePath);
             var tree = SubfolderTreeBuilder.Build(manifest.Select(m => m.DestPath));
             SelectionPersist.RestoreInto(ArchivePath, tree);
             foreach (var root in tree)
@@ -704,7 +704,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
         try
         {
             using var journal = TransferJournal.OpenReadOnly(ArchivePath);
-            var manifest = journal.ReadManifest();
+            var manifest = PicHarbor.Core.Search.ArchiveRepository.ReadLibraryManifest(ArchivePath);
 
             DateTime? dateFrom = DateTime.TryParse(ScopeDateFromText, out var df) ? df : null;
             DateTime? dateTo = DateTime.TryParse(ScopeDateToText, out var dt) ? dt : null;
@@ -816,7 +816,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
             try
             {
                 using var journal = TransferJournal.Open(ArchivePath);
-                var manifest = journal.ReadManifest();
+                var manifest = PicHarbor.Core.Search.ArchiveRepository.ReadLibraryManifest(ArchivePath);
                 var currentPaths = ManualSelectedItems.Select(m => m.RelativePath).ToList();
                 var suggestions = MediaPairMatcher.FindMissingPairs(
                     currentPaths,
@@ -827,7 +827,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
 
                 if (suggestions.Count > 0)
                 {
-                    var autoAdd = suggestions.Select(s => s.SuggestedRelativePath).ToList();
+                    var autoAdd = suggestions.Select(s => s.SelectionKey).ToList();
                     journal.BatchAddManualSelections(GetDeviceRef(), autoAdd, isAutofilled: true);
                     autoAddedCount = autoAdd.Count;
                     LoadManualSelectionsFromDb();
@@ -879,7 +879,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
         {
             var config = Config.AppSettings.Load();
             using var journal = TransferJournal.OpenReadOnly(ArchivePath);
-            var manifest = journal.ReadManifest();
+            var manifest = PicHarbor.Core.Search.ArchiveRepository.ReadLibraryManifest(ArchivePath);
             var currentPaths = ManualSelectedItems.Select(m => m.RelativePath).ToList();
 
             var suggestions = MediaPairMatcher.FindMissingPairs(
@@ -912,7 +912,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
         try
         {
             using var journal = TransferJournal.Open(ArchivePath);
-            var toAdd = MissingPairSuggestions.Select(s => s.SuggestedRelativePath).ToList();
+            var toAdd = MissingPairSuggestions.Select(s => s.SelectionKey).ToList();
             journal.BatchAddManualSelections(GetDeviceRef(), toAdd, isAutofilled: true);
         }
         catch { }
@@ -1388,14 +1388,14 @@ public partial class IPhoneSyncViewModel : ObservableObject
             try
             {
                 using var journal = TransferJournal.Open(ArchivePath);
-                var manifest = journal.ReadManifest();
+                var manifest = PicHarbor.Core.Search.ArchiveRepository.ReadLibraryManifest(ArchivePath);
                 var currentPaths = ManualSelectedItems.Select(m => m.RelativePath).ToList();
                 var config = Config.AppSettings.Load();
 
                 var suggestions = MediaPairMatcher.FindMissingPairs(currentPaths, manifest, true, true, config.AutoCompleteRawJpg);
                 if (suggestions.Count > 0)
                 {
-                    journal.BatchAddManualSelections(GetDeviceRef(), suggestions.Select(s => s.SuggestedRelativePath), isAutofilled: true);
+                    journal.BatchAddManualSelections(GetDeviceRef(), suggestions.Select(s => s.SelectionKey), isAutofilled: true);
                     LoadManualSelectionsFromDb();
                     RecalculateScopeSummary();
                 }
@@ -1440,7 +1440,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
         try
         {
             using var journal = TransferJournal.OpenReadOnly(ArchivePath);
-            var manifest = journal.ReadManifest();
+            var manifest = PicHarbor.Core.Search.ArchiveRepository.ReadLibraryManifest(ArchivePath);
             DateTime? dateFrom = DateTime.TryParse(ScopeDateFromText, out var df) ? df : null;
             DateTime? dateTo = DateTime.TryParse(ScopeDateToText, out var dt) ? dt : null;
             var manualSelectedPaths = ScopeMode == IPhoneRestoreScopeMode.ManualSelection

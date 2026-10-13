@@ -113,7 +113,7 @@
     <sys:String x:Key="StatusSkipped">Skipped</sys:String>
     <sys:String x:Key="StatusFailed">Failed</sys:String>
     <!-- Storage &amp; Device Subdir Architecture -->
-    <sys:String x:Key="MsgDiscoveredOtherArchives">Discovered archive volumes: {0} (Cross-volume deduplication active)</sys:String>
+    <sys:String x:Key="MsgDiscoveredOtherArchives">Other archives found: {0}. Include independent archives explicitly.</sys:String>
     <sys:String x:Key="MsgNoOtherArchives">No other archive volumes detected on other drives</sys:String>
 
     <!-- Modern PCL2 UI &amp; Settings Localized Strings -->
@@ -1043,4 +1043,22 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <!-- Media preview details -->
     <sys:String x:Key="FmtPreviewDetailsVideo">{0} (Live Photo) | Captured: {1}</sys:String>
     <sys:String x:Key="FmtPreviewDetailsMedia">{0} | Captured: {1} | Size: {2}</sys:String>
+    <sys:String x:Key="RebackupDeletedOption">Back up deleted computer copies again</sys:String>
+    <sys:String x:Key="StrictBackupOption">Verify source content before skipping (slower)</sys:String>
+    <sys:String x:Key="LibraryCheckButton">Check this photo library</sys:String>
+    <sys:String x:Key="LibraryIncludeButton">Include another archive</sys:String>
+    <sys:String x:Key="LibraryCheckResult">Checked {0} items, recycled {1} duplicates, purged {2} copies.</sys:String>
+    <sys:String x:Key="LibraryIncluded">Archive included in this library.</sys:String>
+    <sys:String x:Key="LibrarySeparate">This disk contains a separate library. Use Include another archive to merge it.</sys:String>
+    <sys:String x:Key="RebackupQuestion">A computer copy was deleted. Back it up from the device again? Yes restores it; No keeps it excluded. You will be asked once and can change this in Settings.</sys:String>
+    <sys:String x:Key="LibraryRecycleList">List recoverable copies</sys:String>
+    <sys:String x:Key="LibraryRestoreCopy">Restore selected copy</sys:String>
+    <sys:String x:Key="LibraryOffline">offline or unavailable</sys:String>
+    <sys:String x:Key="LibraryReclaimWriter">Reclaim an interrupted library writer</sys:String>
+    <sys:String x:Key="LibraryWriterReclaimed">Library writer reclaimed. Ensure the other computer has stopped writing.</sys:String>
+    <sys:String x:Key="LibraryProtectionUnavailable">Library protection could not be verified. Unlock or repair the application lock first.</sys:String>
+    <sys:String x:Key="LibraryCancelCheck">Cancel self-check</sys:String>
+    <sys:String x:Key="LibraryCheckCancelled">Self-check cancelled. Completed operations remain recoverable.</sys:String>
+    <sys:String x:Key="LibraryPendingLayout">{0} storage locations are waiting to finish reorganizing.</sys:String>
+    <sys:String x:Key="LibraryLayoutFailed">{0} files could not be reorganized; {1} storage locations remain pending.</sys:String>
 </ResourceDictionary>

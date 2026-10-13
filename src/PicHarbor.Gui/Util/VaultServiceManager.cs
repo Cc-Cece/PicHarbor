@@ -164,8 +164,10 @@ internal static class VaultServiceManager
 
             // 路径可能含空格/反斜杠：用 | 分隔的单参数规避 Shell 引号解析问题
             string rootsArg = string.Join("|", roots);
+            using var requestingUser=System.Security.Principal.WindowsIdentity.GetCurrent();
+            string ownerSid=requestingUser.User!.Value;
             string argument =
-                $"--vault-enable --roots \"{rootsArg}\" --password-file \"{pwdFile}\" --report \"{reportFile}\"";
+                $"--vault-enable --roots \"{rootsArg}\" --password-file \"{pwdFile}\" --report \"{reportFile}\" --owner-sid \"{ownerSid}\"";
 
             int code = await RunElevatedAsync(argument).ConfigureAwait(false);
             if (code == -1 && !File.Exists(reportFile))

@@ -1629,6 +1629,14 @@ public partial class AndroidBackupViewModel : ObservableObject
             return;
         }
 
+        try
+        {
+            Directory.CreateDirectory(DestinationPath);
+            if (!await PicHarbor.Gui.Util.BackupPreferences.EnsureArchiveProtectionAsync(DestinationPath))
+            { AddLog(App.GetString("LibraryProtectionUnavailable","无法确认图库保护状态，请先解锁或修复应用锁。"));return; }
+        }
+        catch(Exception ex) { AddLog(ex.Message);return; }
+
         IsTransferring = true;
         backupCts = new CancellationTokenSource();
         var ct = backupCts.Token;
@@ -1702,6 +1710,7 @@ public partial class AndroidBackupViewModel : ObservableObject
 
                 OrganizeScheme scheme = ParseSchemeToken(SelectedScheme);
                 using var journal = TransferJournal.Open(DestinationPath);
+                journal.BindDevice(client.Device?.Udid);
                 DateTimeOffset runStartedAt = DateTimeOffset.UtcNow;
 
                 long backupSessionId = 0;
@@ -1746,7 +1755,10 @@ public partial class AndroidBackupViewModel : ObservableObject
                         client, journal, new DateFolderOrganizer(), new ExifMetadataExtractor(), DestinationPath, scheme,
                         readTimeout: TimeSpan.FromSeconds(30), onBytesStreamed: progressModel.RecordBytes, verifyHash: false,
                         deviceSubfolder: DeviceSubdir,
-                        fallbackJournals: fallbackJournals);
+                        fallbackJournals: fallbackJournals,
+                        strictVerification: PicHarbor.Gui.Config.AppSettings.Load().StrictBackupVerification,
+                        rebackupDeleted: PicHarbor.Gui.Config.AppSettings.Load().RebackupDeletedPhotos,
+                        deletedPhotoDecision: PicHarbor.Gui.Util.BackupPreferences.DecideDeletedPhoto);
 
                     copier.CleanStaging();
 
@@ -1838,6 +1850,11 @@ public partial class AndroidBackupViewModel : ObservableObject
                 }
                 finally
                 {
+                    if(File.Exists(TransferJournal.ResolveDatabasePath(DestinationPath)))
+                    {
+                        try { var catalog=new LibraryCatalog(DestinationPath);catalog.ReadMedia();catalog.Save(); }
+                        catch(Exception ex) { AddLog("[LIBRARY] "+ex.Message); }
+                    }
                     foreach (var fj in fallbackJournals)
                     {
                         fj.Dispose();

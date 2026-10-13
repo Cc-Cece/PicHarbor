@@ -87,6 +87,7 @@ public partial class PclGalleryWebControl : UserControl
     public PclGalleryWebControl()
     {
         InitializeComponent();
+        ProtectedMediaSession.Changed += OnProtectionChanged;
         previewMuted = AppSettings.LoadPreviewMuted();
         ApplyMuteChrome();
         LocalizationService.LanguageChanged += OnAppLanguageChanged;
@@ -345,6 +346,11 @@ public partial class PclGalleryWebControl : UserControl
 
         // Bridge messages from JS to C#
         core.WebMessageReceived += CoreWebView2_WebMessageReceived;
+        core.NavigationStarting += (_, args) =>
+        {
+            args.Cancel = args.Uri != "about:blank" && !IsGalleryOrigin(args.Uri);
+        };
+        core.NewWindowRequested += (_, args) => args.Handled = true;
 
         core.NavigationCompleted += (_, args) =>
         {
@@ -360,7 +366,18 @@ public partial class PclGalleryWebControl : UserControl
 
             ShowError(App.GetString("GalleryPageNotLoaded", "图库页面没有载入完成"));
         };
-        core.Navigate($"https://gallery.local/index.html?v=8&lang={GalleryLocaleCode}");
+        core.Navigate(ProtectedMediaSession.IsLocked ? "about:blank" : $"https://gallery.local/index.html?v=8&lang={GalleryLocaleCode}");
+    }
+
+    private void OnProtectionChanged()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            ThumbnailCache.Clear();
+            CloseNativePlayer();
+            if (AlbumWebView.CoreWebView2 is not null)
+                AlbumWebView.CoreWebView2.Navigate(ProtectedMediaSession.IsLocked ? "about:blank" : $"https://gallery.local/index.html?v=8&lang={GalleryLocaleCode}");
+        });
     }
 
     private static string GetThumbnailCacheKey(string filePath)
@@ -376,6 +393,9 @@ public partial class PclGalleryWebControl : UserControl
     {
         var env = sharedEnvironment ?? AlbumWebView.CoreWebView2?.Environment;
         if (env == null) return;
+        // Deny by default, including locked requests; do not fall through to the network.
+        e.Response = env.CreateWebResourceResponse(Stream.Null, 403, "Forbidden", "Cache-Control: no-store");
+        if (ProtectedMediaSession.IsLocked) return;
 
         try
         {
@@ -384,6 +404,8 @@ public partial class PclGalleryWebControl : UserControl
 
             var query = HttpUtility.ParseQueryString(uri.Query);
             string? filePath = query["path"];
+            if (!IsAuthorizedMediaPath(filePath))
+                return;
             string ext = Path.GetExtension(filePath ?? "").ToLowerInvariant();
             bool isVideo = ext is ".mp4" or ".mov" or ".avi" or ".mkv" or ".3gp";
 
@@ -576,39 +598,19 @@ public partial class PclGalleryWebControl : UserControl
 
     private static void ScrubTinyThumbnailCache()
     {
-        if (Interlocked.Exchange(ref diskCacheScrubbed, 1) != 0)
-        {
-            return;
-        }
-
+        if (Interlocked.Exchange(ref diskCacheScrubbed,1) != 0) return;
         try
         {
-            if (!Directory.Exists(DiskCacheFolder))
-            {
-                return;
-            }
-
-            foreach (string file in Directory.EnumerateFiles(DiskCacheFolder, "*.jpg"))
-            {
-                try
-                {
-                    if (new FileInfo(file).Length < MinimumThumbnailBytes)
-                    {
-                        File.Delete(file);
-                    }
-                }
-                catch
-                {
-                }
-            }
+            if (Directory.Exists(DiskCacheFolder))
+                foreach (string file in Directory.EnumerateFiles(DiskCacheFolder,"*.jpg")) File.Delete(file);
         }
-        catch
-        {
-        }
+        catch (IOException) { Interlocked.Exchange(ref diskCacheScrubbed,0); }
+        catch (UnauthorizedAccessException) { Interlocked.Exchange(ref diskCacheScrubbed,0); }
     }
 
     private static async Task<byte[]?> GetOrCreateThumbnailBytesAsync(string filePath)
     {
+        if (ProtectedMediaSession.IsLocked) return null;
         ScrubTinyThumbnailCache();
 
         if (ThumbnailCache.TryGetValue(filePath, out var cached))
@@ -622,21 +624,21 @@ public partial class PclGalleryWebControl : UserControl
         }
 
         string cacheKey = GetThumbnailCacheKey(filePath);
-        string diskCacheFile = Path.Combine(DiskCacheFolder, cacheKey + ".jpg");
+        string diskCacheFile = Path.Combine(DiskCacheFolder, cacheKey + ".bin");
 
         // Tier 2: Check persistent disk cache
         try
         {
             if (File.Exists(diskCacheFile))
             {
-                byte[] diskBytes = await File.ReadAllBytesAsync(diskCacheFile).ConfigureAwait(false);
+                byte[] diskBytes = ProtectedData.Unprotect(await File.ReadAllBytesAsync(diskCacheFile).ConfigureAwait(false), null, DataProtectionScope.CurrentUser);
                 if (IsUsableThumbnail(diskBytes) && !ShellServices.IsJpegShellFileIcon(diskBytes, filePath))
                 {
-                    if (ThumbnailCache.Count < 3000)
+                    if (!ProtectedMediaSession.IsLocked && ThumbnailCache.Count < 3000)
                     {
                         ThumbnailCache[filePath] = diskBytes;
                     }
-                    return diskBytes;
+                    return ProtectedMediaSession.IsLocked ? null : diskBytes;
                 }
 
                 try { File.Delete(diskCacheFile); } catch { }
@@ -678,17 +680,17 @@ public partial class PclGalleryWebControl : UserControl
                             byte[] rawBytes = ms.ToArray();
                             if (IsUsableThumbnail(rawBytes) && !ShellServices.IsJpegShellFileIcon(rawBytes, filePath))
                             {
-                                if (ThumbnailCache.Count < 3000) ThumbnailCache[filePath] = rawBytes;
+                                if (!ProtectedMediaSession.IsLocked && ThumbnailCache.Count < 3000) ThumbnailCache[filePath] = rawBytes;
                                 _ = Task.Run(async () =>
                                 {
                                     try
                                     {
                                         Directory.CreateDirectory(DiskCacheFolder);
-                                        await File.WriteAllBytesAsync(diskCacheFile, rawBytes).ConfigureAwait(false);
+                                        await File.WriteAllBytesAsync(diskCacheFile, ProtectedData.Protect(rawBytes,null,DataProtectionScope.CurrentUser)).ConfigureAwait(false);
                                     }
                                     catch { }
                                 });
-                                return rawBytes;
+                                return ProtectedMediaSession.IsLocked ? null : rawBytes;
                             }
                         }
                     }
@@ -717,7 +719,7 @@ public partial class PclGalleryWebControl : UserControl
                 encoder.Save(ms);
                 byte[] bytes = ms.ToArray();
 
-                if (ThumbnailCache.Count < 3000)
+                if (!ProtectedMediaSession.IsLocked && ThumbnailCache.Count < 3000)
                 {
                     ThumbnailCache[filePath] = bytes;
                 }
@@ -727,12 +729,12 @@ public partial class PclGalleryWebControl : UserControl
                     try
                     {
                         Directory.CreateDirectory(DiskCacheFolder);
-                        await File.WriteAllBytesAsync(diskCacheFile, bytes).ConfigureAwait(false);
+                        await File.WriteAllBytesAsync(diskCacheFile, ProtectedData.Protect(bytes,null,DataProtectionScope.CurrentUser)).ConfigureAwait(false);
                     }
                     catch { }
                 });
 
-                return bytes;
+                return ProtectedMediaSession.IsLocked ? null : bytes;
             }
         }
         catch (Exception ex)
@@ -835,6 +837,7 @@ public partial class PclGalleryWebControl : UserControl
 
     private void CoreWebView2_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
+        if (ProtectedMediaSession.IsLocked || !IsGalleryOrigin(e.Source)) return;
         try
         {
             string rawJson = e.WebMessageAsJson;
@@ -842,6 +845,8 @@ public partial class PclGalleryWebControl : UserControl
             if (node is not JsonObject obj) return;
 
             string action = obj["action"]?.GetValue<string>() ?? string.Empty;
+            string? requestedPath = obj["path"]?.GetValue<string>();
+            if (!string.IsNullOrEmpty(requestedPath) && !IsAuthorizedMediaPath(requestedPath)) return;
 
             switch (action)
             {
@@ -965,17 +970,17 @@ public partial class PclGalleryWebControl : UserControl
                             }
                             if (target == null && !string.IsNullOrEmpty(id))
                             {
-                                target = currentSearchVM.SearchResults.FirstOrDefault(x => string.Equals(x.RelativePath, id, StringComparison.OrdinalIgnoreCase));
+                                target = currentSearchVM.SearchResults.FirstOrDefault(x => string.Equals(x.SelectionKey, id, StringComparison.OrdinalIgnoreCase));
                             }
 
                             if (target == null && currentSearchVM.GetCurrentHits().Count > 0)
                             {
                                 var hit = currentSearchVM.GetCurrentHits().FirstOrDefault(h =>
-                                    (!string.IsNullOrEmpty(path) && string.Equals(Path.Combine(currentSearchVM.ArchivePath, h.RelativePath), path, StringComparison.OrdinalIgnoreCase)) ||
-                                    (!string.IsNullOrEmpty(id) && string.Equals(h.RelativePath, id, StringComparison.OrdinalIgnoreCase)));
+                                    (!string.IsNullOrEmpty(path) && string.Equals(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(h.ArchiveRoot ?? currentSearchVM.ArchivePath,h.RelativePath), path, StringComparison.OrdinalIgnoreCase)) ||
+                                    (!string.IsNullOrEmpty(id) && string.Equals(h.SelectionKey, id, StringComparison.OrdinalIgnoreCase)));
                                 if (hit != null)
                                 {
-                                    string full = Path.Combine(currentSearchVM.ArchivePath, hit.RelativePath);
+                                    string full = PicHarbor.Core.Storage.ArchivePathResolver.Resolve(hit.ArchiveRoot ?? currentSearchVM.ArchivePath,hit.RelativePath);
                                     string ext = Path.GetExtension(full).ToLowerInvariant();
                                     bool isVid = hit.Type == MediaType.Video || ext is ".mp4" or ".mov" or ".m4v" or ".avi" or ".mkv";
                                     target = new MediaSearchResultItem
@@ -1002,16 +1007,6 @@ public partial class PclGalleryWebControl : UserControl
                                     currentSearchVM.OpenPreviewCommand.Execute(target);
                                 }
                             }
-                            else if (!string.IsNullOrEmpty(path) && File.Exists(path))
-                            {
-                                var transient = new MediaSearchResultItem
-                                {
-                                    FullPath = path,
-                                    RelativePath = Path.GetFileName(path),
-                                    IsVideo = true
-                                };
-                                currentSearchVM.OpenPreviewCommand.Execute(transient);
-                            }
                         });
                     }
                     break;
@@ -1021,6 +1016,23 @@ public partial class PclGalleryWebControl : UserControl
         {
             Debug.WriteLine($"[WebMessageReceived error] {ex.Message}");
         }
+    }
+
+    private static bool IsGalleryOrigin(string source)
+        => Uri.TryCreate(source, UriKind.Absolute, out var uri) &&
+           uri.Scheme == "https" && uri.Host.Equals("gallery.local", StringComparison.OrdinalIgnoreCase) && uri.IsDefaultPort;
+
+    private bool IsAuthorizedMediaPath(string? path)
+    {
+        if (ProtectedMediaSession.IsLocked || currentSearchVM is null || string.IsNullOrEmpty(path)) return false;
+        try
+        {
+            return currentSearchVM.GetCurrentHits().Any(hit => hit.Availability == PicHarbor.Core.Storage.ReplicaState.Available &&
+                (string.Equals(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(hit.ArchiveRoot ?? currentSearchVM.ArchivePath,hit.RelativePath),path,StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(currentSearchVM.GetLiveVideoFullPath(hit.SelectionKey),path,StringComparison.OrdinalIgnoreCase) &&
+                 string.Equals(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(Path.GetDirectoryName(path)!,Path.GetFileName(path)),path,StringComparison.OrdinalIgnoreCase)));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return false; }
     }
 
     private void PushPhotosToWeb()
@@ -1056,11 +1068,11 @@ public partial class PclGalleryWebControl : UserControl
             foreach (var hit in hits)
             {
                 string rel = hit.RelativePath;
-                string full = Path.Combine(archivePath, rel);
+                string full = PicHarbor.Core.Storage.ArchivePathResolver.Resolve(hit.ArchiveRoot ?? archivePath,rel);
                 string ext = Path.GetExtension(rel).TrimStart('.').ToUpperInvariant();
                 bool isVideo = hit.Type == MediaType.Video || ext is "MP4" or "MOV" or "M4V" or "AVI" or "MKV";
-                bool isLive = currentSearchVM.IsLivePhotoRelativePath(rel);
-                string? liveVideoFullPath = isLive && !isVideo ? currentSearchVM.GetLiveVideoFullPath(rel) : null;
+                bool isLive = currentSearchVM.IsLivePhotoRelativePath(hit.SelectionKey);
+                string? liveVideoFullPath = isLive && !isVideo ? currentSearchVM.GetLiveVideoFullPath(hit.SelectionKey) : null;
                 string? liveVideoUrl = string.IsNullOrEmpty(liveVideoFullPath)
                     ? null
                     : GalleryMediaUrl("image", liveVideoFullPath);
@@ -1099,7 +1111,7 @@ public partial class PclGalleryWebControl : UserControl
 
                 photosList.Add(new
                 {
-                    id = rel,
+                    id = hit.SelectionKey,
                     width = w,
                     height = h,
                     takenAt = dateStr,
@@ -1111,18 +1123,18 @@ public partial class PclGalleryWebControl : UserControl
                     isLivePhoto = isLive,
                     liveVideoUrl,
                     liveVideoPath = liveVideoFullPath,
-                    format = ext,
+                    format = ext + (hit.Availability == PicHarbor.Core.Storage.ReplicaState.Available ? "" : " · " + App.GetString("LibraryOffline","离线或不可用")),
                     mediaType = hit.Type.ToString().ToLowerInvariant(),
-                    isPending = iphoneSet.Contains(rel) || androidSet.Contains(rel) || googleSet.Contains(rel),
-                    isPendingIPhone = iphoneSet.Contains(rel) || androidSet.Contains(rel) || googleSet.Contains(rel),
-                    isPendingAndroid = iphoneSet.Contains(rel) || androidSet.Contains(rel) || googleSet.Contains(rel),
-                    isGooglePhotos = googleSet.Contains(rel),
+                    isPending = (iphoneSet.Contains(hit.SelectionKey) || iphoneSet.Contains(rel)) || (androidSet.Contains(hit.SelectionKey) || androidSet.Contains(rel)) || (googleSet.Contains(hit.SelectionKey) || googleSet.Contains(rel)),
+                    isPendingIPhone = (iphoneSet.Contains(hit.SelectionKey) || iphoneSet.Contains(rel)) || (androidSet.Contains(hit.SelectionKey) || androidSet.Contains(rel)) || (googleSet.Contains(hit.SelectionKey) || googleSet.Contains(rel)),
+                    isPendingAndroid = (iphoneSet.Contains(hit.SelectionKey) || iphoneSet.Contains(rel)) || (androidSet.Contains(hit.SelectionKey) || androidSet.Contains(rel)) || (googleSet.Contains(hit.SelectionKey) || googleSet.Contains(rel)),
+                    isGooglePhotos = (googleSet.Contains(hit.SelectionKey) || googleSet.Contains(rel)),
                     sizeText = ByteSize.Humanize(hit.SizeBytes),
                     cameraModel = camera
                 });
                 entries.Add(new PreviewEntry
                 {
-                    ItemId = rel,
+                    ItemId = hit.SelectionKey,
                     FullPath = full,
                     IsVideo = isVideo,
                     LiveVideoPath = liveVideoFullPath
@@ -1145,7 +1157,7 @@ public partial class PclGalleryWebControl : UserControl
                 string ext = Path.GetExtension(item.FullPath ?? "").TrimStart('.').ToUpperInvariant();
                 if (string.IsNullOrWhiteSpace(ext)) ext = item.IsVideo ? "MP4" : "JPG";
                 string? fallbackLiveVideo = item.IsLivePhoto && !item.IsVideo
-                    ? currentSearchVM.GetLiveVideoFullPath(item.RelativePath ?? "")
+                    ? currentSearchVM.GetLiveVideoFullPath(item.SelectionKey)
                     : null;
                 string? fallbackLiveVideoUrl = string.IsNullOrEmpty(fallbackLiveVideo)
                     ? null
@@ -1153,7 +1165,7 @@ public partial class PclGalleryWebControl : UserControl
 
                 photosList.Add(new
                 {
-                    id = item.RelativePath,
+                    id = item.SelectionKey,
                     width = w,
                     height = h,
                     takenAt = dateStr,
@@ -1165,7 +1177,7 @@ public partial class PclGalleryWebControl : UserControl
                     isLivePhoto = item.IsLivePhoto,
                     liveVideoUrl = fallbackLiveVideoUrl,
                     liveVideoPath = fallbackLiveVideo,
-                    format = ext,
+                    format = ext + (!item.IsOffline ? "" : " · " + App.GetString("LibraryOffline","离线或不可用")),
                     mediaType = item.MediaType,
                     isPending = item.IsManualSelectedForIPhone || item.IsManualSelectedForAndroid || item.IsManualSelectedForGooglePhotos,
                     isPendingIPhone = item.IsManualSelectedForIPhone || item.IsManualSelectedForAndroid || item.IsManualSelectedForGooglePhotos,
@@ -1176,7 +1188,7 @@ public partial class PclGalleryWebControl : UserControl
                 });
                 entries.Add(new PreviewEntry
                 {
-                    ItemId = item.RelativePath ?? "",
+                    ItemId = item.SelectionKey,
                     FullPath = item.FullPath ?? "",
                     IsVideo = item.IsVideo,
                     LiveVideoPath = fallbackLiveVideo

@@ -1633,6 +1633,16 @@
                                 <StackPanel Visibility="{Binding IsBackupAdvancedExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <controls:PclCard Title="{DynamicResource SettingsCardSubdirConfig}" CanSwap="False">
                                         <StackPanel>
+                                            <controls:PclCheckBox Content="{DynamicResource RebackupDeletedOption}" IsChecked="{Binding RebackupDeletedPhotos, Mode=TwoWay}" Margin="0,0,0,12" />
+                                            <controls:PclCheckBox Content="{DynamicResource StrictBackupOption}" IsChecked="{Binding StrictBackupVerification, Mode=TwoWay}" Margin="0,0,0,12" />
+                                            <controls:PclButton Content="{DynamicResource LibraryCheckButton}" Command="{Binding CheckLibraryCommand}" Margin="0,0,0,8" />
+                                            <controls:PclButton Content="{DynamicResource LibraryCancelCheck}" Command="{Binding CancelLibraryCheckCommand}" Margin="0,0,0,8" />
+                                            <controls:PclButton Content="{DynamicResource LibraryIncludeButton}" Command="{Binding IncludeLibraryCommand}" Margin="0,0,0,8" />
+                                            <controls:PclButton Content="{DynamicResource LibraryReclaimWriter}" Command="{Binding ReclaimLibraryWriterCommand}" Margin="0,0,0,8" />
+                                            <TextBlock Text="{Binding LibraryCheckStatus}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                                            <controls:PclButton Content="{DynamicResource LibraryRecycleList}" Command="{Binding RefreshRecycledCopiesCommand}" Margin="0,0,0,8" />
+                                            <controls:PclComboBox ItemsSource="{Binding RecycledCopies}" SelectedItem="{Binding SelectedRecycledCopy}" DisplayMemberPath="RelativePath" Margin="0,0,0,8" />
+                                            <controls:PclButton Content="{DynamicResource LibraryRestoreCopy}" Command="{Binding RestoreRecycledCopyCommand}" Margin="0,0,0,8" />
                                             <controls:PclCheckBox Content="{DynamicResource SettingsSubdirDeviceOption}" IsChecked="{Binding GroupMediaByDevice, Mode=TwoWay}" Margin="0,0,0,12" />
 
                                             <Grid Margin="0,0,0,4">

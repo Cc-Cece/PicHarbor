@@ -1137,7 +1137,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         try
         {
             using var journal = TransferJournal.OpenReadOnly(ArchivePath);
-            var manifest = journal.ReadManifest();
+            var manifest = PicHarbor.Core.Search.ArchiveRepository.ReadLibraryManifest(ArchivePath);
             var tree = SubfolderTreeBuilder.Build(manifest.Select(m => m.DestPath));
             SelectionPersist.RestoreInto(ArchivePath, tree);
             foreach (var root in tree)
@@ -1173,7 +1173,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         {
             using var journal = TransferJournal.OpenReadOnly(ArchivePath);
             var manualPaths = journal.GetGooglePhotosManualSelections();
-            var manifest = journal.ReadManifest().ToDictionary(m => m.DestPath, StringComparer.OrdinalIgnoreCase);
+            var manifest = PicHarbor.Core.Search.ArchiveRepository.BuildSelectionMap(PicHarbor.Core.Search.ArchiveRepository.ReadLibraryManifest(ArchivePath),ArchivePath);
 
             foreach (var path in manualPaths)
             {
@@ -1181,8 +1181,8 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
                 {
                     ManualSelectedItems.Add(new ManualSelectedItemViewModel
                     {
-                        RelativePath = entry.DestPath,
-                        FullPath = Path.Combine(ArchivePath, entry.DestPath),
+                        RelativePath = path,
+                        FullPath = PicHarbor.Core.Storage.ArchivePathResolver.Resolve(entry.ArchiveRoot ?? ArchivePath,entry.DestPath),
                         CapturedAt = ParseCaptureDate(entry)?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A",
                         SizeBytes = entry.SizeBytes,
                         SizeText = FormatSize(entry.SizeBytes)
@@ -1280,7 +1280,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         try
         {
             using var journal = TransferJournal.OpenReadOnly(ArchivePath);
-            var manifest = journal.ReadManifest();
+            var manifest = PicHarbor.Core.Search.ArchiveRepository.ReadLibraryManifest(ArchivePath);
             var manualPaths = journal.GetGooglePhotosManualSelections();
 
             DateTime? dateFrom = DateTime.TryParse(ScopeDateFromText, out var df) ? df : null;

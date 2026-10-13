@@ -17,6 +17,9 @@ namespace PicHarbor.Gui.ViewModels;
 public partial class MainViewModel : ObservableObject
 {
     private readonly DispatcherTimer deviceProbeTimer;
+    private bool libraryCheckRunning;
+    private string lastMemberState = "";
+    private DateTimeOffset nextMemberProbe;
     private CancellationTokenSource? manualThumbnailCts;
 
     [ObservableProperty]
@@ -246,6 +249,11 @@ public partial class MainViewModel : ObservableObject
         };
 
         CreateTaskCards();
+        SettingsVM.LibraryChanged += () =>
+        {
+            _ = SearchVM.SearchCommand.ExecuteAsync(null);
+            _ = StatusVM.RefreshStatsCommand.ExecuteAsync(null);
+        };
 
 
 
@@ -255,6 +263,7 @@ public partial class MainViewModel : ObservableObject
             if (e.PropertyName is nameof(BackupViewModel.IsTransferring) or nameof(BackupViewModel.ProgressPercentage) or nameof(BackupViewModel.SpeedText) or nameof(BackupViewModel.RemainingFilesCount) or nameof(BackupViewModel.CurrentFileName) or nameof(BackupViewModel.CopiedCount) or nameof(BackupViewModel.SkippedCount) or nameof(BackupViewModel.FailedCount))
             {
                 NotifyTaskChanged();
+                if (BackupVM.IsTransferring) SettingsVM.CancelLibraryCheckCommand.Execute(null);
                 if (e.PropertyName == nameof(BackupViewModel.IsTransferring) && !BackupVM.IsTransferring)
                 {
                     RunOnUi(OnTransferFinished);
@@ -267,6 +276,7 @@ public partial class MainViewModel : ObservableObject
             if (e.PropertyName is nameof(AndroidBackupViewModel.IsTransferring) or nameof(AndroidBackupViewModel.ProgressPercentage) or nameof(AndroidBackupViewModel.SpeedText) or nameof(AndroidBackupViewModel.RemainingFilesCount) or nameof(AndroidBackupViewModel.CurrentFileName) or nameof(AndroidBackupViewModel.CopiedCount) or nameof(AndroidBackupViewModel.SkippedCount) or nameof(AndroidBackupViewModel.FailedCount))
             {
                 NotifyTaskChanged();
+                if (AndroidBackupVM.IsTransferring) SettingsVM.CancelLibraryCheckCommand.Execute(null);
                 if (e.PropertyName == nameof(AndroidBackupViewModel.IsTransferring) && !AndroidBackupVM.IsTransferring)
                 {
                     RunOnUi(OnTransferFinished);
@@ -338,13 +348,22 @@ public partial class MainViewModel : ObservableObject
         {
             Interval = TimeSpan.FromSeconds(2)
         };
-        deviceProbeTimer.Tick += async (s, e) => await ProbeDeviceStatusAsync();
+        deviceProbeTimer.Tick += async (s, e) =>
+        {
+            await ProbeDeviceStatusAsync();
+            if (DateTimeOffset.UtcNow >= nextMemberProbe)
+            {
+                nextMemberProbe = DateTimeOffset.UtcNow.AddSeconds(10);
+                await CheckLibraryOnChangeAsync();
+            }
+        };
         deviceProbeTimer.Start();
 
         ApplyLanguageToViewModels();
 
         // Initial probe
         _ = ProbeDeviceStatusAsync();
+        _ = CheckLibraryOnChangeAsync();
     }
 
     private void ApplyLanguageToViewModels()
@@ -390,8 +409,31 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    private async Task CheckLibraryOnChangeAsync()
+    {
+        if (libraryCheckRunning || BackupVM.IsTransferring || AndroidBackupVM.IsTransferring || ProtectedMediaSession.IsLocked) return;
+        if (!File.Exists(PicHarbor.Core.Journal.TransferJournal.ResolveDatabasePath(DestinationPath))) return;
+        libraryCheckRunning = true;
+        try
+        {
+            using (var upgrade = PicHarbor.Core.Journal.TransferJournal.Open(DestinationPath)) { }
+            var catalog = new LibraryCatalog(DestinationPath);
+            foreach(var member in catalog.Members.Where(m=>Directory.Exists(m.Root)))
+                if(!await BackupPreferences.EnsureArchiveProtectionAsync(member.Root))
+                { SettingsVM.LibraryCheckStatus=App.GetString("LibraryProtectionUnavailable","无法确认图库保护状态，请先解锁或修复应用锁。");return; }
+            string state = string.Join("|",catalog.Members.Select(m => m.StorageId + ":" + Directory.Exists(m.Root)));
+            if (state == lastMemberState) return;
+            await SettingsVM.RunLibraryCheckAsync(catalog);
+            lastMemberState = state;
+        }
+        catch (Exception ex) { SettingsVM.LibraryCheckStatus = ex.Message; }
+        finally { libraryCheckRunning = false; }
+    }
+
     private void OnTransferFinished()
     {
+        lastMemberState = "";
+        _ = CheckLibraryOnChangeAsync();
         _ = StatusVM.RefreshStatsCommand.ExecuteAsync(null);
         BackupVM.RefreshDriveSpace();
         AndroidBackupVM.RefreshDriveSpace();
@@ -507,6 +549,17 @@ public partial class MainViewModel : ObservableObject
     {
         if (DestinationPath != newPath)
         {
+            if (!File.Exists(PicHarbor.Core.Journal.TransferJournal.ResolveDatabasePath(newPath)) &&
+                (File.Exists(PicHarbor.Core.Journal.TransferJournal.ResolveDatabasePath(DestinationPath)) || LibraryCatalog.HasCachedCatalog(DestinationPath)))
+            {
+                try
+                {
+                    var previous=new LibraryCatalog(DestinationPath);
+                    using(var created=PicHarbor.Core.Journal.TransferJournal.Open(newPath)) { }
+                    previous.Include(newPath);
+                }
+                catch(Exception ex) { SettingsVM.LibraryCheckStatus=ex.Message;return; }
+            }
             DestinationPath = newPath;
         }
     }

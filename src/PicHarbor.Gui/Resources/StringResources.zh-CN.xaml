@@ -113,7 +113,7 @@
     <sys:String x:Key="StatusSkipped">已跳过</sys:String>
     <sys:String x:Key="StatusFailed">失败</sys:String>
     <!-- Storage &amp; Device Subdir Architecture -->
-    <sys:String x:Key="MsgDiscoveredOtherArchives">已自动识别归档卷: {0} (跨盘增量防重已自动生效)</sys:String>
+    <sys:String x:Key="MsgDiscoveredOtherArchives">已发现其他归档目录: {0}，独立图库需主动纳入</sys:String>
     <sys:String x:Key="MsgNoOtherArchives">未检测到其他盘符的归档卷</sys:String>
 
     <!-- Modern PCL2 UI &amp; Settings Localized Strings -->
@@ -1043,4 +1043,22 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <!-- 媒体预览详情 -->
     <sys:String x:Key="FmtPreviewDetailsVideo">{0} (实况动图) | 拍摄时间: {1}</sys:String>
     <sys:String x:Key="FmtPreviewDetailsMedia">{0} | 拍摄时间: {1} | 大小: {2}</sys:String>
+    <sys:String x:Key="RebackupDeletedOption">删除电脑副本后重新从设备备份</sys:String>
+    <sys:String x:Key="StrictBackupOption">严格校验备份内容（会增加读取时间）</sys:String>
+    <sys:String x:Key="LibraryCheckButton">自检当前图库</sys:String>
+    <sys:String x:Key="LibraryIncludeButton">纳入另一个照片库</sys:String>
+    <sys:String x:Key="LibraryCheckResult">已核验 {0} 项，回收重复副本 {1} 项，清理 {2} 项。</sys:String>
+    <sys:String x:Key="LibraryIncluded">已纳入当前图库。</sys:String>
+    <sys:String x:Key="LibrarySeparate">该磁盘包含独立图库，可使用“纳入当前图库”合并。</sys:String>
+    <sys:String x:Key="RebackupQuestion">发现已删除的电脑副本，是否重新从手机备份？选择“是”重新备份，选择“否”保留删除状态。仅询问一次，后续可在设置修改。</sys:String>
+    <sys:String x:Key="LibraryRecycleList">查看可恢复副本</sys:String>
+    <sys:String x:Key="LibraryRestoreCopy">恢复选中的副本</sys:String>
+    <sys:String x:Key="LibraryOffline">离线或不可用</sys:String>
+    <sys:String x:Key="LibraryReclaimWriter">恢复中断的图库写入</sys:String>
+    <sys:String x:Key="LibraryWriterReclaimed">已恢复图库写入，请确保其他电脑已停止写入。</sys:String>
+    <sys:String x:Key="LibraryProtectionUnavailable">无法确认图库保护状态，请先解锁或修复应用锁。</sys:String>
+    <sys:String x:Key="LibraryCancelCheck">取消自检</sys:String>
+    <sys:String x:Key="LibraryCheckCancelled">自检已取消，已完成的操作可以恢复。</sys:String>
+    <sys:String x:Key="LibraryPendingLayout">仍有 {0} 个存储目录待完成整理。</sys:String>
+    <sys:String x:Key="LibraryLayoutFailed">有 {0} 项未能整理，仍有 {1} 个存储目录待完成。</sys:String>
 </ResourceDictionary>

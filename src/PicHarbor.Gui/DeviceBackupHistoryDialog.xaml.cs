@@ -19,6 +19,7 @@ namespace PicHarbor.Gui;
 public class SessionItemView
 {
     public long Id { get; init; }
+    public string? StorageId { get; init; }
     public string FormattedStartedAt { get; init; } = string.Empty;
     public int FilesCount { get; init; }
     public string FormattedSize { get; init; } = string.Empty;
@@ -126,6 +127,7 @@ public partial class DeviceBackupHistoryDialog : Window
                 sessions.Add(new SessionItemView
                 {
                     Id = s.Id,
+                    StorageId = s.StorageId,
                     FormattedStartedAt = s.StartedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"),
                     FilesCount = s.FilesCount,
                     FormattedSize = ByteSize.Humanize(s.TotalSizeBytes),
@@ -166,7 +168,7 @@ public partial class DeviceBackupHistoryDialog : Window
 
         try
         {
-            var items = await ArchiveRepository.GetBackupHistoryItemsAsync(destinationRoot, selected.Id);
+            var items = await ArchiveRepository.GetBackupHistoryItemsAsync(destinationRoot, selected.Id,selected.StorageId);
             allCurrentFiles.Clear();
             foreach (BackupHistoryItemRecord item in items)
             {

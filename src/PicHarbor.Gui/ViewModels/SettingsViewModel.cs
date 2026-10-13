@@ -16,6 +16,7 @@ namespace PicHarbor.Gui.ViewModels;
 public partial class SettingsViewModel : ObservableObject
 {
     private readonly Action<string>? onArchivePathChanged;
+    private bool loadingConfig;
 
     [ObservableProperty]
     private ObservableCollection<LibraryVolumeInfo> availableVolumes = new();
@@ -31,6 +32,77 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private bool groupMediaByDevice = true;
+
+    [ObservableProperty] private bool rebackupDeletedPhotos = true;
+    [ObservableProperty] private bool strictBackupVerification;
+    [ObservableProperty] private string libraryCheckStatus = "";
+    [ObservableProperty] private bool isCheckingLibrary;
+    [ObservableProperty] private ObservableCollection<RecycledCopy> recycledCopies = new();
+    [ObservableProperty] private RecycledCopy? selectedRecycledCopy;
+    private CancellationTokenSource? libraryCheckCts;
+    public event Action? LibraryChanged;
+
+    [RelayCommand]
+    private void CancelLibraryCheck() => libraryCheckCts?.Cancel();
+
+    [RelayCommand]
+    private void RefreshRecycledCopies()
+    {
+        try { RecycledCopies=new(new LibraryMaintenanceService().ListRecycled(new LibraryCatalog(ArchivePath))); }
+        catch(Exception ex) { LibraryCheckStatus=ex.Message; }
+    }
+
+    [RelayCommand]
+    private void RestoreRecycledCopy()
+    {
+        if(SelectedRecycledCopy is not { } copy) return;
+        try { new LibraryMaintenanceService().Restore(copy.Root,copy.OperationId); RefreshRecycledCopies(); }
+        catch(Exception ex) { LibraryCheckStatus=ex.Message; }
+    }
+
+    partial void OnRebackupDeletedPhotosChanged(bool value) => SaveConfig();
+    partial void OnStrictBackupVerificationChanged(bool value) => SaveConfig();
+
+    [RelayCommand]
+    private async Task CheckLibraryAsync()
+    {
+        if (IsCheckingLibrary || !Directory.Exists(ArchivePath) || ProtectedMediaSession.IsLocked) return;
+        await RunLibraryCheckAsync(new LibraryCatalog(ArchivePath));
+    }
+
+    public async Task RunLibraryCheckAsync(LibraryCatalog catalog)
+    {
+        if (IsCheckingLibrary || ProtectedMediaSession.IsLocked) return;
+        IsCheckingLibrary = true;
+        using var cts = new CancellationTokenSource();libraryCheckCts=cts;
+        try
+        {
+            var result = await new LibraryMaintenanceService().CheckAsync(catalog,cts.Token);
+            LibraryCheckStatus = string.Format(App.GetString("LibraryCheckResult", "已核验 {0} 项，回收重复副本 {1} 项，清理 {2} 项。"), result.Checked,result.Recycled,result.Purged);
+            if (result.Errors.Count > 0) LibraryCheckStatus += Environment.NewLine + string.Join(Environment.NewLine,result.Errors);
+            RefreshRecycledCopies();
+            LibraryChanged?.Invoke();
+        }
+        catch (OperationCanceledException) { LibraryCheckStatus=App.GetString("LibraryCheckCancelled","自检已取消，已完成的操作可以恢复。"); }
+        catch (Exception ex) { LibraryCheckStatus = ex.Message; }
+        finally { libraryCheckCts=null;IsCheckingLibrary = false; }
+    }
+
+    [RelayCommand]
+    private void IncludeLibrary()
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog();
+        if (dialog.ShowDialog() != true) return;
+        try { new LibraryCatalog(ArchivePath).Include(dialog.FolderName); LibraryCheckStatus = App.GetString("LibraryIncluded", "已纳入当前图库。"); }
+        catch (Exception ex) { LibraryCheckStatus = ex.Message; }
+    }
+
+    [RelayCommand]
+    private void ReclaimLibraryWriter()
+    {
+        try { LibraryWriteCoordinator.ReclaimLibraryWriter(new LibraryCatalog(ArchivePath)); LibraryCheckStatus=App.GetString("LibraryWriterReclaimed","已恢复图库写入，请确保其他电脑已停止写入。"); }
+        catch(Exception ex) { LibraryCheckStatus=ex.Message; }
+    }
 
     [ObservableProperty]
     private string discoveredArchivesSummary = "";
@@ -369,7 +441,7 @@ public partial class SettingsViewModel : ObservableObject
         if (otherExisting.Count > 0)
         {
             DiscoveredArchivesSummary = string.Format(
-                App.GetString("MsgDiscoveredOtherArchives", "已自动识别归档卷: {0} (跨盘增量防重已自动生效)"),
+                App.GetString("MsgDiscoveredOtherArchives", "已发现其他归档目录: {0}，独立图库需主动纳入"),
                 string.Join(", ", otherExisting.Select(v => $"{v.DriveLetter} [{v.RootPath}]")));
         }
         else
@@ -406,11 +478,14 @@ public partial class SettingsViewModel : ObservableObject
 
     private void LoadConfig()
     {
+        loadingConfig = true;
         var config = Config.AppSettings.Load();
         PrimaryDriveLetter = string.IsNullOrWhiteSpace(config.PrimaryDriveLetter)
             ? LibraryStorageService.GetDefaultDriveLetter()
             : config.PrimaryDriveLetter;
         ArchivePath = LibraryStorageService.GetLibraryRootForDrive(PrimaryDriveLetter);
+        RebackupDeletedPhotos = config.RebackupDeletedPhotos;
+        StrictBackupVerification = config.StrictBackupVerification;
         GroupMediaByDevice = config.GroupMediaByDevice;
         SelectedScheme = string.IsNullOrWhiteSpace(config.SelectedScheme) ? "month (YYYY-MM)" : config.SelectedScheme;
         SyncExifToLastWriteTime = config.SyncExifToLastWriteTime;
@@ -438,14 +513,18 @@ public partial class SettingsViewModel : ObservableObject
         }
         GooglePhotosSkipExistingFilenames = config.GooglePhotosSkipExistingFilenames;
         RefreshIdleProxyText();
+        loadingConfig = false;
     }
 
     public void SaveConfig()
     {
+        if (loadingConfig) return;
         var config = Config.AppSettings.Load();
         config.PrimaryDriveLetter = PrimaryDriveLetter;
         config.DestinationPath = ArchivePath;
         config.GroupMediaByDevice = GroupMediaByDevice;
+        config.RebackupDeletedPhotos = RebackupDeletedPhotos;
+        config.StrictBackupVerification = StrictBackupVerification;
         config.SelectedScheme = SelectedScheme;
         config.SyncExifToLastWriteTime = SyncExifToLastWriteTime;
         config.SyncExifToCreationTime = SyncExifToCreationTime;
@@ -471,8 +550,30 @@ public partial class SettingsViewModel : ObservableObject
             return;
         }
 
+        string previous = ArchivePath;
+        string next = LibraryStorageService.GetLibraryRootForDrive(value.DriveLetter);
+        if (!string.Equals(previous,next,StringComparison.OrdinalIgnoreCase) && File.Exists(TransferJournal.ResolveDatabasePath(previous)))
+        {
+            try
+            {
+                var catalog = new LibraryCatalog(previous);
+                if (!File.Exists(TransferJournal.ResolveDatabasePath(next)))
+                {
+                    using (var created = TransferJournal.Open(next)) { }
+                    catalog.Include(next);
+                }
+                else
+                {
+                    using var existing = TransferJournal.OpenReadOnly(next);
+                    using var current = TransferJournal.OpenReadOnly(previous);
+                    if (existing.GetLibraryIdentity().LibraryId != current.GetLibraryIdentity().LibraryId)
+                    { LibraryCheckStatus = App.GetString("LibrarySeparate", "该磁盘包含独立图库，可使用“纳入当前图库”合并。"); }
+                }
+            }
+            catch (Exception ex) { LibraryCheckStatus = ex.Message; return; }
+        }
         PrimaryDriveLetter = value.DriveLetter;
-        ArchivePath = LibraryStorageService.GetLibraryRootForDrive(PrimaryDriveLetter);
+        ArchivePath = next;
         SaveConfig();
         onArchivePathChanged?.Invoke(ArchivePath);
     }

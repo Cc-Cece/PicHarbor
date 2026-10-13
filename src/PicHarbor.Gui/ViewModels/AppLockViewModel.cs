@@ -369,10 +369,10 @@ public partial class AppLockViewModel : ObservableObject
         IsServiceInstalled = VaultServiceManager.IsServiceInstalled();
 
         var status = await VaultClient.QueryStatusAsync();
-        if (status is null)
+        if (status is null || status.ProtocolVersion < 2)
         {
             IsServiceAvailable = false;
-            HasPassword = false;
+            HasPassword = PicHarbor.Gui.Config.AppSettings.Load().AppLockWasEnabled || IsServiceInstalled;
             IsUnlocked = false;
             HasTotp = false;
             RegisteredRoots = [];
@@ -382,15 +382,18 @@ public partial class AppLockViewModel : ObservableObject
 
         IsServiceAvailable = true;
         HasPassword = status.HasPassword;
+        var lockConfig = PicHarbor.Gui.Config.AppSettings.Load();
+        if (lockConfig.AppLockWasEnabled != HasPassword) { lockConfig.AppLockWasEnabled = HasPassword; PicHarbor.Gui.Config.AppSettings.Save(lockConfig); }
         IsUnlocked = status.IsUnlocked;
         HasTotp = status.HasTotp;
         RegisteredRoots = status.RegisteredRoots;
+        if (status.ProtectionErrors.Count > 0) SetError(string.Join(Environment.NewLine, status.ProtectionErrors.Select(p => p.Key + ": " + p.Value)));
         LockStateChanged?.Invoke();
         return true;
     }
 
     /// <summary>是否需要在启动时显示解锁窗口。</summary>
-    public bool RequiresUnlockOnStartup => IsServiceAvailable && HasPassword && !IsUnlocked;
+    public bool RequiresUnlockOnStartup => HasPassword && (!IsServiceAvailable || !IsUnlocked);
 
     [RelayCommand]
     private async Task UnlockAsync()
@@ -426,8 +429,9 @@ public partial class AppLockViewModel : ObservableObject
     [RelayCommand]
     private async Task LockAsync()
     {
-        await VaultClient.LockAsync();
+        var response = await VaultClient.LockAsync();
         await RefreshStatusAsync();
+        if (response?.Ok != true) { SetError(response?.Error ?? App.GetString("AppLockErrServiceUnavailable", "无法连接到 PicHarbor Vault 服务。")); return; }
         SetSuccess(App.GetString("AppLockMsgLocked", "已锁定。"));
     }
 
@@ -478,21 +482,10 @@ public partial class AppLockViewModel : ObservableObject
                 }
             }
 
-            // ② 把归档根登记进服务（登记即锁定，立刻收回访问权限）
-            var regResp = await VaultClient.RegisterRootAsync(ArchiveRoot!);
-            if (regResp is null || !regResp.Ok)
-            {
-                SetError(regResp?.Error ?? App.GetString("AppLockErrRegisterFailed", "登记归档目录失败。"));
-                return;
-            }
-
-            // ③ 设置应用密码（此后即有锁）
-            var resp = await VaultClient.SetPasswordAsync(NewPasswordInput);
-            if (resp is null || !resp.Ok)
-            {
-                SetError(resp?.Error ?? App.GetString("AppLockErrServiceUnavailable", "无法连接到 PicHarbor Vault 服务。"));
-                return;
-            }
+            var (report, cancelled) = await VaultServiceManager.EnableAppLockElevatedAsync([ArchiveRoot!], NewPasswordInput);
+            if (cancelled) return;
+            if (report is null || !report.PasswordSet || report.RootsFailed.Count > 0)
+            { SetError(report?.FatalError ?? App.GetString("AppLockErrRegisterFailed","登记归档目录失败。")); return; }
 
             NewPasswordInput = "";
             ConfirmPasswordInput = "";

@@ -335,7 +335,7 @@ internal static class Program
             }
 
             // ③ 设置应用密码——这是「有锁」的关键一步
-            var setResp = Vault.VaultClient.SetPasswordAsync(password).GetAwaiter().GetResult();
+            var setResp = Vault.VaultClient.SetPasswordAsync(password,ownerSid:GetOption(args,"--owner-sid")).GetAwaiter().GetResult();
             report.PasswordSet = setResp is { Ok: true };
             if (!report.PasswordSet)
             {
