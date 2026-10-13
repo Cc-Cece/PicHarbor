@@ -26,6 +26,13 @@ namespace PicHarbor.Core.Util;
 /// </remarks>
 public static class LongPath
 {
+    /// <summary>Returns a stable directory identity independent of Windows extended-path spelling.</summary>
+    public static string NormalizeIdentityPath(string path)
+    {
+        if(path.StartsWith(@"\\?\UNC\",StringComparison.OrdinalIgnoreCase)) path=@"\\"+path[8..];
+        else if(path.StartsWith(@"\\?\",StringComparison.Ordinal)) path=path[4..];
+        return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar,Path.AltDirectorySeparatorChar);
+    }
     private const string ExtendedPrefix = @"\\?\";
     private const string ExtendedUncPrefix = @"\\?\UNC\";
 

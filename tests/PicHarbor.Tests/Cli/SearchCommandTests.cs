@@ -168,7 +168,7 @@ public sealed class SearchCommandTests : IDisposable
         SqliteConnection.ClearAllPools();
         using var connection = new SqliteConnection(
             new SqliteConnectionStringBuilder { DataSource = TransferJournal.ResolveDatabasePath(root) }.ConnectionString);
-        connection.Open();
+        connection.Open(); connection.CreateFunction("picharbor_writer_version",()=>8L);
 
         using SqliteCommand version = connection.CreateCommand();
         version.CommandText = "PRAGMA user_version;";

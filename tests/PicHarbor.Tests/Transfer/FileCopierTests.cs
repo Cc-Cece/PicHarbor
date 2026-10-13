@@ -55,7 +55,7 @@ public sealed class FileCopierTests : IDisposable
             Mode = SqliteOpenMode.ReadOnly,
         };
         using var connection = new SqliteConnection(builder.ConnectionString);
-        connection.Open();
+        connection.Open(); connection.CreateFunction("picharbor_writer_version",()=>8L);
         using SqliteCommand command = connection.CreateCommand();
         command.CommandText = "SELECT sha256 FROM manifest WHERE dest_path = $dest;";
         command.Parameters.AddWithValue("$dest", relativeDest);
@@ -351,9 +351,9 @@ public sealed class FileCopierTests : IDisposable
     }
 
     [Fact]
-    public async Task Default_copy_records_no_hash()
+    public async Task Default_copy_records_content_hash()
     {
-        // Zero cost when the flag is absent: no hash is computed or stored, matching Sprint 2 behavior.
+        // Content hashes are always recorded for safe cross-volume self-checks.
         byte[] content = Encoding.UTF8.GetBytes("no hash on the default path");
         var file = new RemoteFile("/DCIM/100APPLE/IMG_NOHASH.HEIC", content.Length, null);
         SetupRead(file.Path, content);
@@ -362,8 +362,8 @@ public sealed class FileCopierTests : IDisposable
         CopyResult result = await CreateCopier().CopyAsync(file, Token);
 
         result.Status.ShouldBe(CopyStatus.Copied);
-        result.Sha256.ShouldBeNull();
-        ReadManifestSha256(result.RelativeDestPath!).ShouldBeNull();
+        result.Sha256.ShouldBe(Convert.ToHexString(SHA256.HashData(content)).ToLowerInvariant());
+        ReadManifestSha256(result.RelativeDestPath!).ShouldBe(result.Sha256);
     }
 
     [Fact]

@@ -70,6 +70,11 @@ public sealed class FileCopier : IDisposable
     private readonly TimeSpan readTimeout;
     private readonly Action<long>? onBytesStreamed;
     private readonly bool verifyHash;
+    private readonly bool strictVerification;
+    private readonly Func<RemoteFile, bool?>? deletedPhotoDecision;
+    private readonly bool rebackupDeleted;
+    private readonly IReadOnlyList<PicHarbor.Core.Storage.LibraryMedia> catalogMedia = [];
+    private readonly IReadOnlyList<PicHarbor.Core.Storage.SourceIdentity> catalogSources = [];
     private readonly string destinationRoot;
     private readonly string stagingDirectory;
     private readonly HashSet<string> assignedDestPaths;
@@ -90,10 +95,14 @@ public sealed class FileCopier : IDisposable
         int consecutiveFailureLimit = DefaultConsecutiveFailureLimit,
         Action? onDisconnect = null,
         string? deviceSubfolder = null,
-        IReadOnlyList<TransferJournal>? fallbackJournals = null)
+        IReadOnlyList<TransferJournal>? fallbackJournals = null,
+        bool strictVerification = false,
+        bool rebackupDeleted = true,
+        Func<RemoteFile, bool?>? deletedPhotoDecision = null)
     {
         this.client = client;
         this.journal = journal;
+        journal.BindDevice(client.Device?.Udid);
         this.organizer = organizer;
         this.organizeScheme = organizeScheme;
         this.metadataExtractor = metadataExtractor;
@@ -102,8 +111,19 @@ public sealed class FileCopier : IDisposable
         this.readTimeout = readTimeout ?? TimeSpan.Zero;
         this.onBytesStreamed = onBytesStreamed;
         this.verifyHash = verifyHash;
+        this.strictVerification = strictVerification;
+        this.rebackupDeleted = rebackupDeleted;
+        this.deletedPhotoDecision = deletedPhotoDecision;
         this.deviceSubfolder = string.IsNullOrWhiteSpace(deviceSubfolder) ? null : deviceSubfolder.Trim();
         this.fallbackJournals = fallbackJournals;
+        if(File.Exists(Path.Combine(destinationRoot,TransferJournal.MetadataFolderName,"library.json")))
+        {
+            var catalog=new PicHarbor.Core.Storage.LibraryCatalog(destinationRoot);
+            if (catalog.PendingLayouts.ContainsKey(journal.GetLibraryIdentity().StorageId))
+                throw new InvalidOperationException("Complete the pending archive self-check before continuing backup.");
+            catalogMedia=catalog.ReadMedia();
+            catalogSources=catalog.ReadSources();
+        }
         stagingDirectory = Path.Combine(this.destinationRoot, TransferJournal.MetadataFolderName, "staging");
         assignedDestPaths = new HashSet<string>(journal.GetUsedDestPaths(), StringComparer.OrdinalIgnoreCase);
         progressWatchdog = this.readTimeout > TimeSpan.Zero
@@ -116,6 +136,7 @@ public sealed class FileCopier : IDisposable
     /// </summary>
     public void CleanStaging()
     {
+        using var lease = PicHarbor.Core.Storage.LibraryWriteCoordinator.AcquireLibrary(destinationRoot);
         CleanDirectory(stagingDirectory);
         CleanDirectory(Path.Combine(destinationRoot, StagingFolderName));
 
@@ -144,6 +165,32 @@ public sealed class FileCopier : IDisposable
     public async Task<CopyResult> CopyAsync(RemoteFile file, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(file);
+        using var lease = PicHarbor.Core.Storage.LibraryWriteCoordinator.AcquireLibrary(destinationRoot);
+        journal.EnsurePending(file);
+
+        var priorSource=catalogSources.FirstOrDefault(s=>s.DeviceId==(client.Device?.Udid ?? "") &&
+            s.SourcePath==file.Path && s.Size==file.Size && s.ModifiedAt==file.ModifiedAt);
+        bool knownDeletedSource=priorSource is not null && IsKnownDeletedSource(priorSource);
+        string? recordedLocalPath=journal.GetDestRelativePath(file.Path,file.Size);
+        bool hasLocalRecord=journal.GetState(file.Path,file.Size)==FileState.Done && recordedLocalPath is not null &&
+            File.Exists(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(destinationRoot,recordedLocalPath)) &&
+            journal.GetReplicaVerification(file.Path,file.Size).State==PicHarbor.Core.Storage.ReplicaState.Available;
+        if(priorSource is not null && !hasLocalRecord)
+        {
+            foreach(var media in catalogMedia.Where(m=>m.Sha256==priorSource.MediaId && m.State==PicHarbor.Core.Storage.ReplicaState.Available))
+            {
+                string existing=PicHarbor.Core.Storage.ArchivePathResolver.Resolve(media.Root,media.RelativePath);
+                if(!File.Exists(existing) || new FileInfo(existing).Length!=file.Size ||
+                    VerifyLocal(existing,cancellationToken)!=media.Sha256) continue;
+                if(strictVerification && await HashSourceAsync(file,cancellationToken).ConfigureAwait(false)!=media.Sha256) continue;
+                bool isLocal=PicHarbor.Core.Util.LongPath.NormalizeIdentityPath(media.Root)==PicHarbor.Core.Util.LongPath.NormalizeIdentityPath(destinationRoot);
+                if(!isLocal)
+                    journal.MarkExternalSourceVerified(file,media);
+                else journal.MarkDone(file.Path,file.Size,media.RelativePath,metadataExtractor.Extract(existing),clock.GetUtcNow(),media.Sha256);
+                progressWatchdog?.RecordProgress();
+                return new CopyResult(CopyStatus.Skipped,file,null,0,"Verified registered library content.");
+            }
+        }
 
         // Forward-progress / connection-health gate: if the run-level watchdog has already tripped (a burst
         // of consecutive fast-failures, or no bytes for the timeout while a prior file was in flight), stop
@@ -155,7 +202,21 @@ public sealed class FileCopier : IDisposable
 
         string? relPath = journal.GetDestRelativePath(file.Path, file.Size)
                           ?? organizer.GetRelativeDestination(file, null, organizeScheme, deviceSubfolder);
-        string candidatePath = LongPath.ToExtended(Path.Combine(destinationRoot, relPath));
+        string candidatePath = LongPath.ToExtended(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(destinationRoot, relPath));
+        var verification = journal.GetReplicaVerification(file.Path,file.Size);
+        var linked = journal.GetLinkedReplica(file.Path,file.Size);
+        if (linked is { } other && journal.GetSourceModifiedAt(file.Path,file.Size) == file.ModifiedAt)
+        {
+            bool registered=catalogMedia.Any(m=>m.Sha256==other.Hash &&
+                string.Equals(LongPath.NormalizeIdentityPath(m.Root),LongPath.NormalizeIdentityPath(other.Root),StringComparison.OrdinalIgnoreCase));
+            string linkedPath = PicHarbor.Core.Storage.ArchivePathResolver.Resolve(other.Root,other.Path);
+            if (registered && File.Exists(linkedPath) && VerifyLocal(linkedPath,cancellationToken) == other.Hash &&
+                (!strictVerification || await HashSourceAsync(file,cancellationToken).ConfigureAwait(false)==other.Hash))
+            {
+                progressWatchdog?.RecordProgress();
+                return new CopyResult(CopyStatus.Skipped,file,null,0,"Verified surviving archive copy.");
+            }
+        }
 
         if (File.Exists(candidatePath))
         {
@@ -166,8 +227,18 @@ public sealed class FileCopier : IDisposable
             var targetId = new FileIdentity(candidatePath, targetInfo.Length, targetInfo.LastWriteTimeUtc);
 
             var equiv = FileEquivalenceResolver.Resolve(sourceId, targetId, allowHashCheck: false);
-            bool isEquivalent = equiv == FileEquivalenceResult.Equivalent ||
-                                (targetInfo.Length == file.Size && isJournalDone);
+            bool isEquivalent = isJournalDone && targetInfo.Length == file.Size &&
+                journal.GetSourceModifiedAt(file.Path, file.Size) == file.ModifiedAt &&
+                verification.State == PicHarbor.Core.Storage.ReplicaState.Available;
+            if (isEquivalent && verification.Hash is not null)
+                isEquivalent = VerifyLocal(candidatePath,cancellationToken) == verification.Hash;
+            if (isEquivalent && strictVerification)
+                isEquivalent = verification.Hash is not null && await HashSourceAsync(file,cancellationToken).ConfigureAwait(false) == verification.Hash;
+            if (!isEquivalent && verification.Hash is not null)
+            {
+                string actualHash=VerifyLocal(candidatePath,cancellationToken);
+                journal.RecordChangedVersion(relPath,actualHash,targetInfo.Length,targetInfo.LastWriteTimeUtc);
+            }
 
             if (isEquivalent)
             {
@@ -180,20 +251,49 @@ public sealed class FileCopier : IDisposable
             }
         }
 
+        if (!File.Exists(candidatePath) && (knownDeletedSource || linked is null && journal.GetState(file.Path,file.Size) is FileState.Done or FileState.Missing))
+        {
+            // File.Exists alone cannot distinguish deletion from an inaccessible member.
+            _ = Directory.GetFileSystemEntries(destinationRoot);
+            bool missing;
+            try { _ = File.GetAttributes(candidatePath); missing = false; }
+            catch (FileNotFoundException) { missing = true; }
+            catch (DirectoryNotFoundException) { _ = Directory.GetFileSystemEntries(destinationRoot); missing = true; }
+            if (missing)
+            {
+                bool? decision = deletedPhotoDecision is null ? rebackupDeleted : deletedPhotoDecision(file);
+                if (decision is null) throw new OperationCanceledException(cancellationToken);
+                if (!decision.Value) { journal.ExcludeSource(file.Path,file.Size,file.ModifiedAt); return new CopyResult(CopyStatus.Skipped,file,null,0,"Deletion retained by your backup preference."); }
+            }
+        }
+        if (!rebackupDeleted && journal.IsSourceExcluded(file.Path,file.Size,file.ModifiedAt))
+            return new CopyResult(CopyStatus.Skipped,file,null,0,"Deletion retained by your backup preference.");
+
         // Cross-volume / fallback journal check: if already backed up in another discovered archive, skip!
         if (journal.GetState(file.Path, file.Size) != FileState.Done && fallbackJournals is not null)
         {
             foreach (TransferJournal fallback in fallbackJournals)
             {
-                if (fallback.GetState(file.Path, file.Size) == FileState.Done)
+                fallback.BindDevice(client.Device?.Udid);
+                string? fallbackPath = fallback.GetDestRelativePath(file.Path, file.Size);
+                string fallbackRoot = Path.GetDirectoryName(Path.GetDirectoryName(fallback.DatabasePath))!;
+                if (fallback.GetLibraryIdentity().LibraryId == journal.GetLibraryIdentity().LibraryId &&
+                    fallback.GetState(file.Path, file.Size) == FileState.Done && fallbackPath is not null &&
+                    File.Exists(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(fallbackRoot, fallbackPath)) &&
+                    new FileInfo(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(fallbackRoot, fallbackPath)).Length == file.Size &&
+                    fallback.GetSourceModifiedAt(file.Path, file.Size) == file.ModifiedAt)
                 {
-                    journal.MarkDone(file.Path, file.Size, relPath, MediaMetadata.Empty, clock.GetUtcNow(), null);
+                    var saved = fallback.GetReplicaVerification(file.Path,file.Size);
+                    if (saved.State != PicHarbor.Core.Storage.ReplicaState.Available || saved.Hash is null ||
+                        VerifyLocal(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(fallbackRoot,fallbackPath),cancellationToken) != saved.Hash) continue;
+                    if (strictVerification && await HashSourceAsync(file,cancellationToken).ConfigureAwait(false) != saved.Hash) continue;
                     progressWatchdog?.RecordProgress();
-                    return new CopyResult(CopyStatus.Skipped, file, relPath, 0, null);
+                    return new CopyResult(CopyStatus.Skipped, file, null, 0, "Verified copy in another archive member.");
                 }
             }
         }
 
+        journal.RefreshSourceMetadata(file);
         journal.MarkInProgress(file.Path, file.Size, clock.GetUtcNow());
         System.IO.Directory.CreateDirectory(stagingDirectory);
         string stagingPath = Path.Combine(stagingDirectory, Guid.NewGuid().ToString("N") + ".partial");
@@ -220,7 +320,7 @@ public sealed class FileCopier : IDisposable
 
             MediaMetadata metadata = metadataExtractor.Extract(stagingPath);
             string relativeDest = ResolveUniqueRelativePath(organizer.GetRelativeDestination(file, metadata, organizeScheme, deviceSubfolder));
-            string finalPath = Path.Combine(destinationRoot, relativeDest);
+            string finalPath = PicHarbor.Core.Storage.ArchivePathResolver.Resolve(destinationRoot, relativeDest);
 
             System.IO.Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
             File.Move(stagingPath, finalPath);
@@ -262,6 +362,50 @@ public sealed class FileCopier : IDisposable
         }
     }
 
+    private async Task<string> HashSourceAsync(RemoteFile file, CancellationToken ct)
+    {
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, progressWatchdog?.Token ?? CancellationToken.None);
+        var raw = await client.OpenReadAsync(file.Path,linked.Token).ConfigureAwait(false);
+        await using Stream stream = progressWatchdog is not null ? new AbandonableReadStream(raw, clock) : raw;
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
+        try
+        {
+            int read;
+            while ((read = await stream.ReadAsync(buffer.AsMemory(0,BufferSize),linked.Token).ConfigureAwait(false)) > 0)
+            {
+                hash.AppendData(buffer.AsSpan(0,read));
+                progressWatchdog?.RecordProgress();
+            }
+            return Convert.ToHexStringLower(hash.GetHashAndReset());
+        }
+        finally { ArrayPool<byte>.Shared.Return(buffer); }
+    }
+
+    private string VerifyLocal(string path, CancellationToken ct)
+        => PicHarbor.Core.Storage.LibraryMaintenanceService.Digest(path,()=>progressWatchdog?.RecordProgress(),ct);
+
+    private bool IsKnownDeletedSource(PicHarbor.Core.Storage.SourceIdentity source)
+    {
+        var copies=catalogMedia.Where(m=>m.Sha256==source.MediaId).ToList();
+        if(copies.Count==0) return false;
+        foreach(var copy in copies)
+        {
+            if(copy.State is PicHarbor.Core.Storage.ReplicaState.Offline or PicHarbor.Core.Storage.ReplicaState.Inaccessible or PicHarbor.Core.Storage.ReplicaState.Changed) return false;
+            try
+            {
+                _ = Directory.GetFileSystemEntries(copy.Root);
+                _ = File.GetAttributes(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(copy.Root,copy.RelativePath));
+                return false;
+            }
+            catch(FileNotFoundException) { }
+            catch(DirectoryNotFoundException) { if(!Directory.Exists(copy.Root)) return false; }
+            catch(IOException) { return false; }
+            catch(UnauthorizedAccessException) { return false; }
+        }
+        return true;
+    }
+
     private async Task<(long Bytes, string? Sha256)> StreamToStagingAsync(RemoteFile file, string stagingPath, CancellationToken cancellationToken)
     {
         if (ReadDiagnostics.Enabled)
@@ -286,12 +430,8 @@ public sealed class FileCopier : IDisposable
             BufferSize,
             FileOptions.Asynchronous);
 
-        // Opt-in SHA-256 (R12 / --verify-hash): hash the bytes as they already stream past — a single
-        // pass over the same buffer, with no extra device read or disk read, so it stays read-only.
-        // When the flag is off no hasher is created and the hot path is unchanged from Sprint 2.
-        using IncrementalHash? hasher = verifyHash
-            ? IncrementalHash.CreateHash(HashAlgorithmName.SHA256)
-            : null;
+        // Record content identity while streaming, without a second device read.
+        using IncrementalHash? hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
 
         long total = await CopyStreamAsync(source, partial, hasher, cancellationToken).ConfigureAwait(false);
 

@@ -127,7 +127,7 @@ public sealed class IPhoneSyncEngineTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(file1)!);
         Directory.CreateDirectory(Path.GetDirectoryName(file2)!);
         File.WriteAllBytes(file1, new byte[] { 1 });
-        File.WriteAllBytes(file2, new byte[] { 2 });
+        File.WriteAllBytes(file2, new byte[] { 2, 2 });
 
         using (var journal = TransferJournal.Open(archiveDir.Path))
         {

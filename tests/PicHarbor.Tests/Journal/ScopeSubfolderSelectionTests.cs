@@ -95,7 +95,7 @@ public sealed class ScopeSubfolderSelectionTests : IDisposable
 
         using (Microsoft.Data.Sqlite.SqliteConnection connection = new($"Data Source={TransferJournal.ResolveDatabasePath(dir.Path)}"))
         {
-            connection.Open();
+            connection.Open(); connection.CreateFunction("picharbor_writer_version",()=>8L);
             using var command = connection.CreateCommand();
             command.CommandText = "DROP TABLE scope_subfolder_selections;";
             command.ExecuteNonQuery();

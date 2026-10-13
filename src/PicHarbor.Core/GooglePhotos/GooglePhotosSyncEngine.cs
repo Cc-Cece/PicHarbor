@@ -109,6 +109,13 @@ public static class GooglePhotosSyncEngine
         return targetBridge;
     }
 
+    private static string Redact(string text,GooglePhotosSyncConfig config)
+    {
+        foreach(string secret in new[]{config.AuthData,config.OAuthTokenCookie,config.EffectiveAuthCredential})
+            if(!string.IsNullOrEmpty(secret)) text=text.Replace(secret,"[redacted]",StringComparison.Ordinal);
+        return System.Text.RegularExpressions.Regex.Replace(text,@"(?i)(Token|oauth_token|password|auth_data)\s*[=:]\s*[^\s&,}]+","$1=[redacted]");
+    }
+
     private static JsonElement? ExtractJsonResult(string output)
     {
         if (string.IsNullOrWhiteSpace(output)) return null;
@@ -296,7 +303,7 @@ public static class GooglePhotosSyncEngine
         }
 
         string bridgePath = LocateBridgeScript();
-        string tempConfigFile = Path.Combine(Path.GetTempPath(), $"gpmc_test_{Guid.NewGuid():N}.json");
+        string tempConfigFile = SecureTemporaryFile.CreatePath("gpmc_test");
 
         try
         {
@@ -328,6 +335,12 @@ public static class GooglePhotosSyncEngine
 
             using var process = new Process { StartInfo = psi };
             process.Start();
+            using var stopOnCancellation=cancellationToken.Register(() =>
+            {
+                try { if(!process.HasExited) process.Kill(entireProcessTree:true); }
+                catch(InvalidOperationException) { }
+                catch(System.ComponentModel.Win32Exception) { }
+            });
 
             var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
             var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
@@ -355,7 +368,7 @@ public static class GooglePhotosSyncEngine
 
             string combinedError = !string.IsNullOrWhiteSpace(stderr) ? stderr : stdout;
             if (string.IsNullOrWhiteSpace(combinedError)) combinedError = $"进程退出代码: {process.ExitCode}";
-            return new GooglePhotosAuthTestResult(false, null, combinedError);
+            return new GooglePhotosAuthTestResult(false, null, Redact(combinedError,config));
         }
         catch (Exception ex)
         {
@@ -425,7 +438,7 @@ public static class GooglePhotosSyncEngine
         ArgumentException.ThrowIfNullOrWhiteSpace(pcDestinationRoot);
         using var journal = TransferJournal.OpenReadOnly(pcDestinationRoot);
 
-        IReadOnlyList<ManifestEntry> fullManifest = journal.ReadManifest();
+        IReadOnlyList<ManifestEntry> fullManifest = PicHarbor.Core.Search.ArchiveRepository.ReadLibraryManifest(pcDestinationRoot);
         bool baseIsManual = config.ScopeMode == GooglePhotosScopeMode.ManualSelection;
         HashSet<string> manualSet = baseIsManual
             ? (config.ManualSelectedPaths != null ? new HashSet<string>(config.ManualSelectedPaths, StringComparer.OrdinalIgnoreCase) : journal.GetGooglePhotosManualSelections())
@@ -473,7 +486,7 @@ public static class GooglePhotosSyncEngine
         int nonMediaCount = 0;
         foreach (var item in fullManifest)
         {
-            if (baseIsManual && !manualSet.Contains(item.DestPath))
+            if (baseIsManual && !manualSet.Contains(item.SelectionKey) && !manualSet.Contains(item.DestPath))
             {
                 continue;
             }
@@ -524,7 +537,8 @@ public static class GooglePhotosSyncEngine
         totalBytes = 0;
         foreach (var item in filtered)
         {
-            string fullPath = Path.Combine(pcDestinationRoot, item.DestPath);
+            if (!PicHarbor.Core.Storage.MediaFileGuard.TryVerify(item,pcDestinationRoot,out string fullPath))
+            { onLog?.Invoke($"[Google Photos] Selected photo unavailable or changed: {item.DestPath}");continue; }
             if (File.Exists(fullPath))
             {
                 targetAbsoluteFiles.Add(fullPath);
@@ -606,7 +620,7 @@ public static class GooglePhotosSyncEngine
         int effectiveTotalFiles = config.SessionTotalFiles ?? totalFileCount;
         long effectiveTotalBytes = config.SessionTotalBytes ?? totalBytes;
 
-        string tempConfigFile = Path.Combine(Path.GetTempPath(), $"gpmc_upload_{Guid.NewGuid():N}.json");
+        string tempConfigFile = SecureTemporaryFile.CreatePath("gpmc_upload");
 
         try
         {
@@ -661,6 +675,12 @@ public static class GooglePhotosSyncEngine
 
             using var process = new Process { StartInfo = psi };
             process.Start();
+            using var stopOnCancellation=cancellationToken.Register(() =>
+            {
+                try { if(!process.HasExited) process.Kill(entireProcessTree:true); }
+                catch(InvalidOperationException) { }
+                catch(System.ComponentModel.Win32Exception) { }
+            });
 
             int completedCount = 0;
             int skippedCount = 0;
@@ -764,7 +784,7 @@ public static class GooglePhotosSyncEngine
                         {
                             if (!line.Contains("InsecureRequestWarning") && !line.Contains("warnings.warn"))
                             {
-                                onLog?.Invoke($"[gpmc] {line}");
+                                onLog?.Invoke($"[gpmc] {Redact(line,config)}");
                             }
                         }
                     }
@@ -772,7 +792,7 @@ public static class GooglePhotosSyncEngine
                     {
                         if (!line.Contains("InsecureRequestWarning") && !line.Contains("warnings.warn"))
                         {
-                            onLog?.Invoke($"[gpmc] {line}");
+                            onLog?.Invoke($"[gpmc] {Redact(line,config)}");
                         }
                     }
                 }
@@ -826,7 +846,10 @@ public static class GooglePhotosSyncEngine
                                 {
                                     try
                                     {
-                                        string relPath = Path.GetRelativePath(pcDestinationRoot, fullPath).Replace('\\', '/');
+                                        string relPath = config.ScopeMode == GooglePhotosScopeMode.CustomTarget
+                                            ? Path.GetRelativePath(pcDestinationRoot, fullPath).Replace('\\', '/')
+                                            : PicHarbor.Core.Search.ArchiveRepository.ReadLibraryManifest(pcDestinationRoot)
+                                                .First(m=>string.Equals(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(m.ArchiveRoot ?? pcDestinationRoot,m.DestPath),fullPath,StringComparison.OrdinalIgnoreCase)).SelectionKey;
                                         long size = File.Exists(fullPath) ? new FileInfo(fullPath).Length : 0;
                                         journal.RecordGooglePhotosSync(relPath, mediaKey, DateTimeOffset.UtcNow, albumName, size);
                                     }

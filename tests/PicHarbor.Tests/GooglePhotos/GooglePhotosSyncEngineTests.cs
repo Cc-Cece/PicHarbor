@@ -30,7 +30,8 @@ public sealed class GooglePhotosSyncEngineTests : IDisposable
         foreach (var (destPath, size, exifIso) in entries)
         {
             string devicePath = $"/DCIM/{Path.GetFileName(destPath)}";
-            var rf = new RemoteFile(devicePath, size, null);
+            string actualPath=Path.Combine(archiveDir.Path,destPath.Replace('/',Path.DirectorySeparatorChar));
+            var rf = new RemoteFile(devicePath,File.Exists(actualPath) ? new FileInfo(actualPath).Length : size, null);
             journal.EnsurePending(rf);
             var metadata = exifIso is null
                 ? MediaMetadata.Empty

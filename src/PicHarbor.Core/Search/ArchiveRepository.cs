@@ -35,6 +35,43 @@ public sealed record ArchiveSummaryStats(
 /// </summary>
 public static class ArchiveRepository
 {
+    /// <summary>Reads only registered members; legacy archives remain readable without migration.</summary>
+    public static IReadOnlyList<ManifestSearchRow> ReadLibrarySearchRows(string destinationRoot)
+    {
+        if (File.Exists(Path.Combine(destinationRoot,".picharbor","library.json")) || PicHarbor.Core.Storage.LibraryCatalog.HasCachedCatalog(destinationRoot))
+            return new PicHarbor.Core.Storage.LibraryCatalog(destinationRoot).ReadSearchRows();
+        using var journal = TransferJournal.OpenReadOnly(destinationRoot);
+        return journal.ReadSearchRows();
+    }
+
+    /// <summary>Reads all registered logical media, including unavailable locations for accurate reporting.</summary>
+    public static IReadOnlyList<ManifestEntry> ReadLibraryManifest(string destinationRoot)
+    {
+        if (!File.Exists(Path.Combine(destinationRoot,".picharbor","library.json")) && !PicHarbor.Core.Storage.LibraryCatalog.HasCachedCatalog(destinationRoot))
+        {
+            using var journal=TransferJournal.OpenReadOnly(destinationRoot);
+            return journal.ReadManifest();
+        }
+        var catalog = new PicHarbor.Core.Storage.LibraryCatalog(destinationRoot);
+        return catalog.ReadLogicalMedia()
+            .Select(m => new ManifestEntry(m.RelativePath,m.Size,m.CapturedAt?.ToString("O"),null)
+            { ArchiveRoot=m.Root, MediaId=m.Sha256, Availability=m.State,RelatedMediaIds=m.Sha256 is null ? [] : catalog.RelatedMedia(m.Sha256) }).ToList();
+    }
+
+    /// <summary>Resolves stable selections and unambiguous legacy paths without conflating member disks.</summary>
+    public static Dictionary<string,ManifestEntry> BuildSelectionMap(IEnumerable<ManifestEntry> entries, string? preferredRoot = null)
+    {
+        var result=new Dictionary<string,ManifestEntry>(StringComparer.OrdinalIgnoreCase);
+        var all=entries.ToList();
+        foreach(var entry in all) result[entry.SelectionKey]=entry;
+        foreach(var group in all.GroupBy(e=>e.DestPath.Replace('\\','/'),StringComparer.OrdinalIgnoreCase))
+        {
+            var local=group.FirstOrDefault(e=>e.ArchiveRoot is null || string.Equals(e.ArchiveRoot,preferredRoot,StringComparison.OrdinalIgnoreCase));
+            if(local is not null) result[group.Key]=local;
+            else if(group.Count()==1) result[group.Key]=group.First();
+        }
+        return result;
+    }
     /// <summary>
     /// Searches an existing archive manifest by criteria asynchronously.
     /// </summary>
@@ -49,8 +86,7 @@ public static class ArchiveRepository
         return Task.Run(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            using var journal = TransferJournal.OpenReadOnly(destinationRoot);
-            IReadOnlyList<ManifestSearchRow> rows = journal.ReadSearchRows();
+            IReadOnlyList<ManifestSearchRow> rows = ReadLibrarySearchRows(destinationRoot);
             return MediaSearch.Find(rows, criteria);
         }, cancellationToken);
     }
@@ -67,10 +103,19 @@ public static class ArchiveRepository
         return Task.Run(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            using var journal = TransferJournal.OpenReadOnly(destinationRoot);
-            IReadOnlyList<ManifestSearchRow> rows = journal.ReadSearchRows();
-            IReadOnlyList<DeviceRecord> devices = journal.ReadDevices();
-            RunsSummary runsSummary = journal.ReadRunsSummary();
+            IReadOnlyList<ManifestSearchRow> rows = ReadLibrarySearchRows(destinationRoot);
+            IReadOnlyList<DeviceRecord> devices;
+            RunsSummary runsSummary;
+            if(File.Exists(Path.Combine(destinationRoot,".picharbor","library.json")) || PicHarbor.Core.Storage.LibraryCatalog.HasCachedCatalog(destinationRoot))
+            {
+                var catalog=new PicHarbor.Core.Storage.LibraryCatalog(destinationRoot);catalog.ReadMedia();
+                devices=catalog.ReadDevices();runsSummary=catalog.ReadRunsSummary();
+            }
+            else
+            {
+                using var journal=TransferJournal.OpenReadOnly(destinationRoot);
+                devices=journal.ReadDevices();runsSummary=journal.ReadRunsSummary();
+            }
 
             int totalFiles = rows.Count;
             long totalBytes = 0;
@@ -89,7 +134,7 @@ public static class ArchiveRepository
                 }
             }
 
-            int itemCount = LivePhotoDetector.CountDisplayedItems(rows.Select(row => row.RelativePath));
+            int itemCount = rows.Count-LivePhotoDetector.FindLibraryPairs(rows).Select(p=>p.Video).Distinct(StringComparer.OrdinalIgnoreCase).Count();
             return new ArchiveSummaryStats(
                 totalFiles,
                 totalBytes,
@@ -117,6 +162,7 @@ public static class ArchiveRepository
         {
             cancellationToken.ThrowIfCancellationRequested();
             using var journal = TransferJournal.OpenReadOnly(destinationRoot);
+            if(File.Exists(Path.Combine(destinationRoot,".picharbor","library.json"))) return LibraryReorganizer.Preview(destinationRoot,targetScheme);
             var reorganizer = new Reorganizer(journal, new DateFolderOrganizer(), destinationRoot);
             return reorganizer.Plan(targetScheme);
         }, cancellationToken);
@@ -140,9 +186,12 @@ public static class ArchiveRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(deviceUid);
         return Task.Run(() =>
         {
-            using (var rw = TransferJournal.Open(destinationRoot))
+            if(File.Exists(TransferJournal.ResolveDatabasePath(destinationRoot)))
+                using (var rw = TransferJournal.Open(destinationRoot)) rw.BackfillLegacySessionsIfEmpty();
+            if(File.Exists(Path.Combine(destinationRoot,".picharbor","library.json")) || PicHarbor.Core.Storage.LibraryCatalog.HasCachedCatalog(destinationRoot))
             {
-                rw.BackfillLegacySessionsIfEmpty();
+                var catalog=new PicHarbor.Core.Storage.LibraryCatalog(destinationRoot);catalog.ReadMedia();
+                return catalog.ReadBackupSessions(deviceUid);
             }
             using var journal = TransferJournal.OpenReadOnly(destinationRoot);
             return journal.ReadBackupSessions(deviceUid);
@@ -150,11 +199,16 @@ public static class ArchiveRepository
     }
 
     /// <summary>Reads file transfer items belonging to a backup session batch.</summary>
-    public static Task<IReadOnlyList<BackupHistoryItemRecord>> GetBackupHistoryItemsAsync(string destinationRoot, long sessionId)
+    public static Task<IReadOnlyList<BackupHistoryItemRecord>> GetBackupHistoryItemsAsync(string destinationRoot, long sessionId, string? storageId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
         return Task.Run(() =>
         {
+            if(storageId is not null)
+            {
+                var catalog=new PicHarbor.Core.Storage.LibraryCatalog(destinationRoot);catalog.ReadMedia();
+                return catalog.ReadBackupHistory(storageId,sessionId);
+            }
             using var journal = TransferJournal.OpenReadOnly(destinationRoot);
             return journal.ReadBackupHistoryItems(sessionId);
         });
@@ -167,9 +221,13 @@ public static class ArchiveRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(deviceUid);
         return Task.Run(() =>
         {
-            using (var rw = TransferJournal.Open(destinationRoot))
+            if(File.Exists(TransferJournal.ResolveDatabasePath(destinationRoot)))
+                using (var rw = TransferJournal.Open(destinationRoot)) rw.BackfillLegacySessionsIfEmpty();
+            if(File.Exists(Path.Combine(destinationRoot,".picharbor","library.json")) || PicHarbor.Core.Storage.LibraryCatalog.HasCachedCatalog(destinationRoot))
             {
-                rw.BackfillLegacySessionsIfEmpty();
+                var catalog=new PicHarbor.Core.Storage.LibraryCatalog(destinationRoot);catalog.ReadMedia();
+                var sessions=catalog.ReadBackupSessions(deviceUid);
+                return (sessions.Count,sessions.Sum(s=>s.FilesCount),sessions.Sum(s=>s.TotalSizeBytes));
             }
             using var journal = TransferJournal.OpenReadOnly(destinationRoot);
             return journal.ReadDeviceBackupSummary(deviceUid);

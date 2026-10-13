@@ -89,7 +89,7 @@ public static class FileTimeSynchronizer
                 {
                     if (row.CapturedAt is DateTimeOffset capturedAt && !string.IsNullOrWhiteSpace(row.RelativePath))
                     {
-                        string fullPath = Path.Combine(destinationRoot, row.RelativePath);
+                        string fullPath = PicHarbor.Core.Storage.ArchivePathResolver.Resolve(row.ArchiveRoot ?? destinationRoot,row.RelativePath);
                         if (TrySyncFileTime(fullPath, capturedAt, syncCreationTime))
                         {
                             updatedCount++;

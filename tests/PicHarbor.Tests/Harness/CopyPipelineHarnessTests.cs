@@ -459,7 +459,7 @@ public sealed class CopyPipelineHarnessTests
             Mode = Microsoft.Data.Sqlite.SqliteOpenMode.ReadOnly,
         };
         using Microsoft.Data.Sqlite.SqliteConnection connection = new(builder.ConnectionString);
-        connection.Open();
+        connection.Open(); connection.CreateFunction("picharbor_writer_version",()=>8L);
         using Microsoft.Data.Sqlite.SqliteCommand command = connection.CreateCommand();
         command.CommandText = "SELECT sha256 FROM manifest WHERE dest_path = $dest;";
         command.Parameters.AddWithValue("$dest", relativeDest);

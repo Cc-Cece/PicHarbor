@@ -106,7 +106,7 @@ public sealed class AndroidSyncTests : IDisposable
         SqliteConnection.ClearAllPools();
         using var connection = new SqliteConnection(
             new SqliteConnectionStringBuilder { DataSource = TransferJournal.ResolveDatabasePath(root) }.ConnectionString);
-        connection.Open();
+        connection.Open(); connection.CreateFunction("picharbor_writer_version",()=>8L);
         using SqliteCommand command = connection.CreateCommand();
         command.CommandText = "PRAGMA user_version;";
         return (long)command.ExecuteScalar()!;

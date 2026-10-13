@@ -19,7 +19,7 @@ internal static class JournalFixtures
         SqliteConnection.ClearAllPools();
         using var connection = new SqliteConnection(
             new SqliteConnectionStringBuilder { DataSource = databasePath }.ConnectionString);
-        connection.Open();
+        connection.Open(); connection.CreateFunction("picharbor_writer_version",()=>8L);
         Execute(connection, "DROP TABLE IF EXISTS settings;");
         Execute(connection, "PRAGMA user_version = 2;");
     }

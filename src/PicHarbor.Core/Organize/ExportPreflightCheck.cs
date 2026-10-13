@@ -69,7 +69,7 @@ public static class ExportPreflightCheck
             // 1. Physical existence check
             string fullPath = string.IsNullOrWhiteSpace(pcDestinationRoot)
                 ? file
-                : Path.Combine(pcDestinationRoot, file);
+                : PicHarbor.Core.Storage.ArchivePathResolver.Resolve(pcDestinationRoot,file);
 
             if (!File.Exists(fullPath))
             {

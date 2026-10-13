@@ -35,7 +35,17 @@ public sealed record MediaSearchHit(
     string RelativePath,
     DateTimeOffset? CapturedAt,
     long SizeBytes,
-    MediaType Type);
+    MediaType Type)
+{
+    /// <summary>Physical member containing this result; null for legacy single-archive queries.</summary>
+    public string? ArchiveRoot { get; init; }
+    /// <summary>Verified content identity for stable selections.</summary>
+    public string? MediaId { get; init; }
+    /// <summary>Stable selection reference.</summary>
+    public string SelectionKey => MediaId is null ? RelativePath.Replace('\\','/') : "#media/" + MediaId;
+    /// <summary>Availability of the physical member.</summary>
+    public PicHarbor.Core.Storage.ReplicaState Availability { get; init; }
+}
 
 /// <summary>
 /// Applies a <see cref="MediaSearchCriteria"/> to manifest rows. Pure and side-effect-free — it reads no
@@ -58,7 +68,7 @@ public static class MediaSearch
             MediaType type = MediaTypeClassifier.Classify(row.RelativePath);
             if (Matches(row, type, criteria))
             {
-                hits.Add(new MediaSearchHit(row.RelativePath, row.CapturedAt, row.SizeBytes, type));
+                hits.Add(new MediaSearchHit(row.RelativePath, row.CapturedAt, row.SizeBytes, type) { ArchiveRoot = row.ArchiveRoot, Availability = row.Availability, MediaId = row.MediaId });
             }
         }
 

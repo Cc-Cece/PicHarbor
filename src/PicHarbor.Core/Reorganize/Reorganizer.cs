@@ -131,7 +131,7 @@ public sealed class Reorganizer
                 collisionsResuffixed++;
             }
 
-            moves.Add(new PlannedMove(entry.SourcePath, entry.SourceSize, entry.DestPath, finalTarget));
+            moves.Add(new PlannedMove(entry.SourcePath, entry.SourceSize, entry.DestPath, finalTarget) { DeviceId = entry.DeviceId,Sha256=entry.Sha256 });
         }
 
         return new ReorganizePlan(targetScheme, moves, alreadyPlaced, collisionsResuffixed);
@@ -149,6 +149,12 @@ public sealed class Reorganizer
     public ReorganizeReport Execute(ReorganizePlan plan, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(plan);
+        using var lease = PicHarbor.Core.Storage.LibraryWriteCoordinator.AcquireLibrary(destinationRoot);
+        return ExecuteWithLease(plan,cancellationToken);
+    }
+
+    internal ReorganizeReport ExecuteWithLease(ReorganizePlan plan,CancellationToken cancellationToken=default)
+    {
 
         // Mark the migration in-flight before the first move so any interruption is detectable and resumable.
         journal.SetReorganizeTarget(plan.TargetScheme);
@@ -198,8 +204,9 @@ public sealed class Reorganizer
     /// </summary>
     private bool TryApplyMove(PlannedMove move)
     {
-        string currentAbs = Path.Combine(destinationRoot, move.CurrentDestPath);
-        string targetAbs = Path.Combine(destinationRoot, move.TargetDestPath);
+        journal.BindDevice(move.DeviceId);
+        string currentAbs = PicHarbor.Core.Storage.ArchivePathResolver.Resolve(destinationRoot, move.CurrentDestPath);
+        string targetAbs = PicHarbor.Core.Storage.ArchivePathResolver.Resolve(destinationRoot, move.TargetDestPath);
         string currentExtended = LongPath.ToExtended(currentAbs);
         string targetExtended = LongPath.ToExtended(targetAbs);
 
@@ -207,6 +214,9 @@ public sealed class Reorganizer
         {
             if (File.Exists(currentExtended))
             {
+                string actualHash=PicHarbor.Core.Storage.LibraryMaintenanceService.Digest(currentExtended);
+                if(move.Sha256 is not null && move.Sha256!=actualHash) return false;
+                journal.SetSourceHash(move.SourcePath,move.SourceSize,actualHash);
                 if (File.Exists(targetExtended))
                 {
                     // The target is unexpectedly occupied (a foreign file, or an earlier failure): never
@@ -224,7 +234,8 @@ public sealed class Reorganizer
             // size, a prior run moved it before the journal caught up — heal the journal only. Otherwise the
             // file is genuinely missing (or the target holds foreign/wrong bytes): a per-file failure, never
             // a heal of the journal onto the wrong file.
-            if (File.Exists(targetExtended) && new FileInfo(targetExtended).Length == move.SourceSize)
+            if (File.Exists(targetExtended) && new FileInfo(targetExtended).Length == move.SourceSize &&
+                move.Sha256 is not null && PicHarbor.Core.Storage.LibraryMaintenanceService.Digest(targetExtended)==move.Sha256)
             {
                 journal.UpdateDestPath(move.SourcePath, move.SourceSize, move.TargetDestPath);
                 return true;
@@ -402,7 +413,15 @@ public sealed class Reorganizer
 /// <param name="SourceSize">Source size in bytes (identity, and the expected on-disk size when reconciling).</param>
 /// <param name="CurrentDestPath">The file's current path, relative to the archive root.</param>
 /// <param name="TargetDestPath">The file's target path (collision-resolved), relative to the archive root.</param>
-public sealed record PlannedMove(string SourcePath, long SourceSize, string CurrentDestPath, string TargetDestPath);
+public sealed record PlannedMove(string SourcePath, long SourceSize, string CurrentDestPath, string TargetDestPath)
+{
+    /// <summary>Device owning the source record.</summary>
+    public string DeviceId { get; init; } = string.Empty;
+    /// <summary>Digest used to validate a resumed move.</summary>
+    public string? Sha256 { get; init; }
+    /// <summary>Root shown for a multi-member preview.</summary>
+    public string? ArchiveRoot { get; init; }
+}
 
 /// <summary>The deterministic plan for one <c>reorganize</c> run.</summary>
 /// <param name="TargetScheme">The layout being migrated to.</param>
@@ -428,4 +447,8 @@ public sealed record ReorganizeReport(
     int CollisionsResuffixed,
     int Failed,
     int DirectoriesRemoved,
-    OrganizeScheme FinalScheme);
+    OrganizeScheme FinalScheme)
+{
+    /// <summary>Members still waiting for reconnection or successful completion.</summary>
+    public int PendingMembers { get; init; }
+}

@@ -14,6 +14,10 @@ public enum FileState
 
     /// <summary>Copy failed; safe to retry on the next run.</summary>
     Failed,
+    /// <summary>Member is accessible but its physical copy is confirmed missing.</summary>
+    Missing,
+    /// <summary>Source content was verified in another registered member; no local physical copy is claimed.</summary>
+    ExternallyVerified,
 }
 
 /// <summary>Maps <see cref="FileState"/> to and from its persisted text form.</summary>
@@ -30,6 +34,8 @@ internal static class FileStateText
         FileState.InProgress => InProgress,
         FileState.Done => Done,
         FileState.Failed => Failed,
+        FileState.Missing => "missing",
+        FileState.ExternallyVerified => "external",
         _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Unknown file state."),
     };
 
@@ -39,6 +45,8 @@ internal static class FileStateText
         InProgress => FileState.InProgress,
         Done => FileState.Done,
         Failed => FileState.Failed,
+        "missing" => FileState.Missing,
+        "external" => FileState.ExternallyVerified,
         _ => null,
     };
 }

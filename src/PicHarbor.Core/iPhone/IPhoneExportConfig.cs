@@ -75,7 +75,7 @@ public sealed class IPhoneExportConfig
         {
             if (ScopeMode == IPhoneRestoreScopeMode.ManualSelection &&
                 (ManualSelectedPaths is null ||
-                 !(ManualSelectedPaths.Contains(entry.DestPath) ||
+                 !(ManualSelectedPaths.Contains(entry.SelectionKey) || ManualSelectedPaths.Contains(entry.DestPath) ||
                    ManualSelectedPaths.Contains(entry.DestPath.Replace('\\', '/')) ||
                    ManualSelectedPaths.Contains(entry.DestPath.Replace('/', '\\')))))
             {
@@ -94,7 +94,7 @@ public sealed class IPhoneExportConfig
             IPhoneRestoreScopeMode.Subfolder => MatchesSubfolder(entry),
 
             IPhoneRestoreScopeMode.ManualSelection => ManualSelectedPaths is not null &&
-                                                        (ManualSelectedPaths.Contains(entry.DestPath) || ManualSelectedPaths.Contains(entry.DestPath.Replace('\\', '/')) || ManualSelectedPaths.Contains(entry.DestPath.Replace('/', '\\'))),
+                                                        (ManualSelectedPaths.Contains(entry.SelectionKey) || ManualSelectedPaths.Contains(entry.DestPath) || ManualSelectedPaths.Contains(entry.DestPath.Replace('\\', '/')) || ManualSelectedPaths.Contains(entry.DestPath.Replace('/', '\\'))),
 
             _ => true
         };

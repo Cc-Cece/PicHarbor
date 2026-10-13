@@ -93,7 +93,7 @@ public sealed class JournalSchemaV2Tests : IDisposable
         string dbPath = TransferJournal.ResolveDatabasePath(dir.Path);
         using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = dbPath }.ConnectionString))
         {
-            connection.Open();
+            connection.Open(); connection.CreateFunction("picharbor_writer_version",()=>8L);
             Execute(connection, "DROP TABLE devices;");
             Execute(connection, "DROP TABLE runs;");
             Execute(connection, "PRAGMA user_version = 0;");
@@ -143,7 +143,7 @@ public sealed class JournalSchemaV2Tests : IDisposable
         string dbPath = TransferJournal.ResolveDatabasePath(dir.Path);
         using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = dbPath }.ConnectionString))
         {
-            connection.Open();
+            connection.Open(); connection.CreateFunction("picharbor_writer_version",()=>8L);
             Execute(connection, "DROP TABLE devices;");
             Execute(connection, "DROP TABLE runs;");
             Execute(connection, "PRAGMA user_version = 0;");
@@ -159,7 +159,7 @@ public sealed class JournalSchemaV2Tests : IDisposable
         // Confirm the read-only open created no tables (still pre-v2 on disk).
         using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = dbPath }.ConnectionString))
         {
-            connection.Open();
+            connection.Open(); connection.CreateFunction("picharbor_writer_version",()=>8L);
             using SqliteCommand command = connection.CreateCommand();
             command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('devices', 'runs');";
             ((long)command.ExecuteScalar()!).ShouldBe(0);

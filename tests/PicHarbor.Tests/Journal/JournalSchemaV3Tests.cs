@@ -116,7 +116,7 @@ public sealed class JournalSchemaV3Tests : IDisposable
         SqliteConnection.ClearAllPools();
         using var connection = new SqliteConnection(
             new SqliteConnectionStringBuilder { DataSource = TransferJournal.ResolveDatabasePath(root) }.ConnectionString);
-        connection.Open();
+        connection.Open(); connection.CreateFunction("picharbor_writer_version",()=>8L);
         using SqliteCommand command = connection.CreateCommand();
         command.CommandText = "PRAGMA user_version;";
         return (long)command.ExecuteScalar()!;
@@ -127,7 +127,7 @@ public sealed class JournalSchemaV3Tests : IDisposable
         SqliteConnection.ClearAllPools();
         using var connection = new SqliteConnection(
             new SqliteConnectionStringBuilder { DataSource = TransferJournal.ResolveDatabasePath(root) }.ConnectionString);
-        connection.Open();
+        connection.Open(); connection.CreateFunction("picharbor_writer_version",()=>8L);
         using SqliteCommand command = connection.CreateCommand();
         command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'settings';";
         return (long)command.ExecuteScalar()! > 0;

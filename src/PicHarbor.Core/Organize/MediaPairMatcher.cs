@@ -26,6 +26,10 @@ public sealed record MediaPairSuggestion(
     string SuggestedRelativePath,
     MediaPairReason Reason)
 {
+    /// <summary>Stable content reference for the suggested component when available.</summary>
+    public string? SuggestedMediaId { get; init; }
+    /// <summary>Selection key preserving the relationship across path changes.</summary>
+    public string SelectionKey => SuggestedMediaId is null ? SuggestedRelativePath : "#media/"+SuggestedMediaId;
     /// <summary>
     /// 获取配对原因的可读文本。
     /// </summary>
@@ -74,9 +78,12 @@ public static class MediaPairMatcher
         ArgumentNullException.ThrowIfNull(selectedRelativePaths);
         ArgumentNullException.ThrowIfNull(archiveManifest);
 
+        var manifestEntries=archiveManifest.ToList();
+        var selectionMap=PicHarbor.Core.Search.ArchiveRepository.BuildSelectionMap(manifestEntries);
+        archiveManifest=manifestEntries;
         var selectedSet = selectedRelativePaths
             .Where(p => !string.IsNullOrWhiteSpace(p))
-            .Select(p => p.Replace('\\', '/'))
+            .Select(p => selectionMap.TryGetValue(p.Replace('\\','/'),out var entry) ? entry.SelectionKey : p.Replace('\\','/'))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         if (selectedSet.Count == 0) return Array.Empty<MediaPairSuggestion>();
@@ -88,7 +95,7 @@ public static class MediaPairMatcher
             string normPath = entry.DestPath.Replace('\\', '/');
             string dir = Path.GetDirectoryName(normPath)?.Replace('\\', '/') ?? string.Empty;
             string stem = Path.GetFileNameWithoutExtension(normPath);
-            string key = $"{dir}/{stem}";
+            string key = $"{entry.ArchiveRoot}|{dir}/{stem}";
 
             if (!manifestDict.TryGetValue(key, out var list))
             {
@@ -100,14 +107,19 @@ public static class MediaPairMatcher
 
         var suggestions = new List<MediaPairSuggestion>();
 
-        foreach (string path in selectedSet)
+        foreach (string selectedKey in selectedSet)
         {
+            selectionMap.TryGetValue(selectedKey,out var source);
+            string path=source?.DestPath ?? selectedKey;
             string ext = Path.GetExtension(path).ToLowerInvariant();
             string dir = Path.GetDirectoryName(path)?.Replace('\\', '/') ?? string.Empty;
             string stem = Path.GetFileNameWithoutExtension(path);
-            string key = $"{dir}/{stem}";
+            string key = $"{source?.ArchiveRoot}|{dir}/{stem}";
 
-            if (!manifestDict.TryGetValue(key, out var siblings))
+            List<ManifestEntry>? siblings=source?.RelatedMediaIds.Count>0
+                ? manifestEntries.Where(m=>m.MediaId is not null && source.RelatedMediaIds.Contains(m.MediaId)).ToList()
+                : manifestDict.GetValueOrDefault(key);
+            if (siblings is null)
             {
                 continue;
             }
@@ -115,7 +127,7 @@ public static class MediaPairMatcher
             foreach (var sibling in siblings)
             {
                 string siblingNormPath = sibling.DestPath.Replace('\\', '/');
-                if (selectedSet.Contains(siblingNormPath))
+                if (selectedSet.Contains(sibling.SelectionKey))
                 {
                     continue; // Already selected
                 }
@@ -128,7 +140,7 @@ public static class MediaPairMatcher
                     if ((LivePhotoImageExtensions.Contains(ext) && LivePhotoVideoExtensions.Contains(siblingExt)) ||
                         (LivePhotoVideoExtensions.Contains(ext) && LivePhotoImageExtensions.Contains(siblingExt)))
                     {
-                        suggestions.Add(new MediaPairSuggestion(path, siblingNormPath, MediaPairReason.LivePhoto));
+                        suggestions.Add(new MediaPairSuggestion(path, siblingNormPath, MediaPairReason.LivePhoto){SuggestedMediaId=sibling.MediaId});
                         continue;
                     }
                 }
@@ -139,7 +151,7 @@ public static class MediaPairMatcher
                     if (siblingExt.Equals(".aae", StringComparison.OrdinalIgnoreCase) ||
                         (ext.Equals(".aae", StringComparison.OrdinalIgnoreCase) && !siblingExt.Equals(".aae", StringComparison.OrdinalIgnoreCase)))
                     {
-                        suggestions.Add(new MediaPairSuggestion(path, siblingNormPath, MediaPairReason.AaeSidecar));
+                        suggestions.Add(new MediaPairSuggestion(path, siblingNormPath, MediaPairReason.AaeSidecar){SuggestedMediaId=sibling.MediaId});
                         continue;
                     }
                 }
@@ -150,7 +162,7 @@ public static class MediaPairMatcher
                     if ((RawExtensions.Contains(ext) && JpgExtensions.Contains(siblingExt)) ||
                         (JpgExtensions.Contains(ext) && RawExtensions.Contains(siblingExt)))
                     {
-                        suggestions.Add(new MediaPairSuggestion(path, siblingNormPath, MediaPairReason.RawJpgPair));
+                        suggestions.Add(new MediaPairSuggestion(path, siblingNormPath, MediaPairReason.RawJpgPair){SuggestedMediaId=sibling.MediaId});
                         continue;
                     }
                 }
@@ -158,7 +170,7 @@ public static class MediaPairMatcher
         }
 
         return suggestions
-            .DistinctBy(s => s.SuggestedRelativePath, StringComparer.OrdinalIgnoreCase)
+            .DistinctBy(s => s.SelectionKey, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 }

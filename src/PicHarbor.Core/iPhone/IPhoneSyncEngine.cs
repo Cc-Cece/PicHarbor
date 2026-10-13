@@ -38,7 +38,7 @@ public static class IPhoneSyncEngine
 
         // 1. Open database and read manifest
         using var journal = TransferJournal.Open(pcDestinationRoot);
-        var fullManifest = journal.ReadManifest();
+        var fullManifest = PicHarbor.Core.Search.ArchiveRepository.ReadLibraryManifest(pcDestinationRoot);
         var deviceRef = new IPhoneDeviceRef(config.DeviceUdid, config.DeviceModel);
 
         // Load manual selections from database if ScopeMode is ManualSelection and set is null
@@ -75,9 +75,10 @@ public static class IPhoneSyncEngine
             cancellationToken.ThrowIfCancellationRequested();
 
             var entry = manifest[i];
-            string sourceAbsPath = Path.GetFullPath(Path.Combine(pcDestinationRoot, entry.DestPath));
-            string targetRelPath = plannedExports[entry.DestPath];
-            string targetAbsPath = Path.GetFullPath(Path.Combine(exportRoot, targetRelPath));
+            if (!PicHarbor.Core.Storage.MediaFileGuard.TryVerify(entry,pcDestinationRoot,out string sourceAbsPath,cancellationToken))
+            { onLog?.Invoke($"[iPhoneSync] Source unavailable or changed: {entry.DestPath}");failedCount++;continue; }
+            string targetRelPath = plannedExports[entry.SelectionKey];
+            string targetAbsPath = PicHarbor.Core.Storage.ArchivePathResolver.Resolve(exportRoot,targetRelPath);
 
             var sourceFileInfo = new FileInfo(LongPath.ToExtended(sourceAbsPath));
             if (!sourceFileInfo.Exists)
@@ -97,7 +98,7 @@ public static class IPhoneSyncEngine
 
                 // Ensure DB has export record
                 journal.UpsertIPhoneExportedFile(new IPhoneExportedFileRecord(
-                    entry.DestPath,
+                    entry.SelectionKey,
                     targetRelPath,
                     config.DeviceModel,
                     DateTimeOffset.UtcNow,
@@ -133,7 +134,7 @@ public static class IPhoneSyncEngine
                     processedBytes += sourceFileInfo.Length;
 
                     journal.UpsertIPhoneExportedFile(new IPhoneExportedFileRecord(
-                        entry.DestPath,
+                        entry.SelectionKey,
                         targetRelPath,
                         config.DeviceModel,
                         DateTimeOffset.UtcNow,
@@ -213,14 +214,19 @@ public static class IPhoneSyncEngine
     private static Dictionary<string, string> PlanTargetPaths(IReadOnlyList<ManifestEntry> manifest, IPhoneAlbumMode albumMode)
     {
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var images=manifest.Where(m=>Path.GetExtension(m.DestPath).ToLowerInvariant() is ".heic" or ".heif" or ".jpg" or ".jpeg" or ".png")
+            .Where(m=>m.MediaId is not null).ToDictionary(m=>m.MediaId!);
+        ManifestEntry Anchor(ManifestEntry entry) => entry.RelatedMediaIds.Where(images.ContainsKey).Select(id=>images[id])
+            .Concat(images.ContainsKey(entry.MediaId ?? "") ? [entry] : []).OrderBy(m=>m.SelectionKey,StringComparer.Ordinal).FirstOrDefault() ?? entry;
+        string FileName(ManifestEntry entry) => Path.GetFileNameWithoutExtension(Anchor(entry).DestPath)+Path.GetExtension(entry.DestPath);
 
         if (albumMode == IPhoneAlbumMode.Flat)
         {
             foreach (var entry in manifest)
             {
-                result[entry.DestPath] = Path.GetFileName(entry.DestPath);
+                result[entry.SelectionKey] = FileName(entry);
             }
-            return result;
+            return new(PicHarbor.Core.Storage.MediaExportPaths.Build(manifest,m=>result[m.SelectionKey]),StringComparer.OrdinalIgnoreCase);
         }
 
         // YearMonth Mode: Group by directory and base filename for Live Photo pairing
@@ -229,10 +235,10 @@ public static class IPhoneSyncEngine
 
         foreach (var entry in manifest)
         {
-            string fileName = Path.GetFileName(entry.DestPath);
+            string fileName = FileName(entry);
             string folder = Path.GetDirectoryName(entry.DestPath) ?? string.Empty;
             string baseName = Path.GetFileNameWithoutExtension(fileName);
-            string key = Path.Combine(folder, baseName);
+            string key = (entry.ArchiveRoot ?? "") + "|" + Path.Combine(folder, baseName);
 
             DateTimeOffset? dt = ParseCaptureDate(entry);
             string yearMonth = dt.HasValue ? dt.Value.ToString("yyyy-MM", CultureInfo.InvariantCulture) : "UnknownDate";
@@ -249,16 +255,17 @@ public static class IPhoneSyncEngine
 
         foreach (var entry in manifest)
         {
-            string fileName = Path.GetFileName(entry.DestPath);
+            string fileName = FileName(entry);
             string folder = Path.GetDirectoryName(entry.DestPath) ?? string.Empty;
             string baseName = Path.GetFileNameWithoutExtension(fileName);
-            string key = Path.Combine(folder, baseName);
+            string key = (entry.ArchiveRoot ?? "") + "|" + Path.Combine(folder, baseName);
 
-            string yearMonth = captureFolderMap.TryGetValue(key, out var ym) ? ym : "UnknownDate";
-            result[entry.DestPath] = Path.Combine(yearMonth, fileName).Replace('\\', '/');
+            var anchorDate=ParseCaptureDate(Anchor(entry));
+            string yearMonth = anchorDate.HasValue ? anchorDate.Value.ToString("yyyy-MM",CultureInfo.InvariantCulture) : captureFolderMap.TryGetValue(key, out var ym) ? ym : "UnknownDate";
+            result[entry.SelectionKey] = Path.Combine(yearMonth, fileName).Replace('\\', '/');
         }
 
-        return result;
+        return new(PicHarbor.Core.Storage.MediaExportPaths.Build(manifest,m=>result[m.SelectionKey]),StringComparer.OrdinalIgnoreCase);
     }
 
     private static DateTimeOffset? ParseCaptureDate(ManifestEntry entry)

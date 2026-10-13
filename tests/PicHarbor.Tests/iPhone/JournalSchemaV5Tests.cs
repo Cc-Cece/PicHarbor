@@ -80,7 +80,7 @@ public sealed class JournalSchemaV5Tests : IDisposable
         // 用迁移前的旧 schema 建库并塞入 legacy 行（udid 为空）。
         using (var connection = new SqliteConnection($"Data Source={dbPath}"))
         {
-            connection.Open();
+            connection.Open(); connection.CreateFunction("picharbor_writer_version",()=>8L);
             using var cmd = connection.CreateCommand();
             cmd.CommandText = """
                 CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -183,7 +183,7 @@ public sealed class JournalSchemaV5Tests : IDisposable
     {
         string dbPath = TransferJournal.ResolveDatabasePath(destinationRoot);
         using var connection = new SqliteConnection($"Data Source={dbPath}");
-        connection.Open();
+        connection.Open(); connection.CreateFunction("picharbor_writer_version",()=>8L);
         using var command = connection.CreateCommand();
         command.CommandText = "PRAGMA user_version;";
         return (long)command.ExecuteScalar()!;

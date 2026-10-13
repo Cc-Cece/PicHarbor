@@ -13,6 +13,24 @@ namespace PicHarbor.Core.Organize;
 /// </remarks>
 public static class LivePhotoDetector
 {
+    /// <summary>Uses stable component relationships, falling back only within the same member.</summary>
+    public static IReadOnlyList<(string Image,string Video)> FindLibraryPairs(IReadOnlyList<PicHarbor.Core.Journal.ManifestSearchRow> rows)
+    {
+        string Key(PicHarbor.Core.Journal.ManifestSearchRow row) => row.MediaId is null ? row.RelativePath.Replace('\\','/') : "#media/"+row.MediaId;
+        var videos=rows.Where(r=>Path.GetExtension(r.RelativePath).Equals(".mov",StringComparison.OrdinalIgnoreCase) || Path.GetExtension(r.RelativePath).Equals(".mp4",StringComparison.OrdinalIgnoreCase)).ToList();
+        var byContent=videos.Where(v=>v.MediaId is not null).GroupBy(v=>v.MediaId!).ToDictionary(g=>g.Key,g=>g.First());
+        var byLocation=videos.GroupBy(v=>(v.ArchiveRoot ?? "")+"|"+PairKey(v.RelativePath),StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g=>g.Key,g=>g.ToList(),StringComparer.OrdinalIgnoreCase);
+        var pairs=new List<(string Image,string Video)>();
+        foreach(var image in rows.Where(r=>ImageExtensions.Contains(Path.GetExtension(r.RelativePath))))
+        {
+            var related=image.RelatedMediaIds.Count>0
+                ? image.RelatedMediaIds.Where(byContent.ContainsKey).Select(id=>byContent[id]).ToList()
+                : byLocation.GetValueOrDefault((image.ArchiveRoot ?? "")+"|"+PairKey(image.RelativePath)) ?? [];
+            foreach(var video in related) pairs.Add((Key(image),Key(video)));
+        }
+        return pairs.Distinct().ToList();
+    }
     private static readonly HashSet<string> ImageExtensions =
         new(StringComparer.OrdinalIgnoreCase) { ".heic", ".heif", ".jpg", ".jpeg" };
 

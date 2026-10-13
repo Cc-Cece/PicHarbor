@@ -49,7 +49,7 @@ public sealed class TransferJournalTests : IDisposable
         using (var reopened = TransferJournal.Open(legacyDir.Path))
         {
             File.Exists(modernDb).ShouldBeTrue();
-            File.Exists(rootDb).ShouldBeFalse();
+            File.Exists(rootDb).ShouldBeTrue(); // retained as a consistent recovery copy
         }
     }
 

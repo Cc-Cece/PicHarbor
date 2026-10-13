@@ -57,7 +57,7 @@ public static class AndroidSyncEngine
         ArgumentException.ThrowIfNullOrWhiteSpace(config.RemoteTargetDir);
 
         using var journal = TransferJournal.Open(pcDestinationRoot);
-        IReadOnlyList<ManifestEntry> fullManifest = journal.ReadManifest();
+        IReadOnlyList<ManifestEntry> fullManifest = PicHarbor.Core.Search.ArchiveRepository.ReadLibraryManifest(pcDestinationRoot);
 
         onLog?.Invoke($"[ANDROID] Connecting to FTP {config.FtpHost}:{config.FtpPort}...");
         using var ftp = new SimpleFtpClient();
@@ -92,6 +92,7 @@ public static class AndroidSyncEngine
         }
 
         var manifestFiles = fullManifest.Where(config.IsEntryIncluded).ToList();
+        var exportPaths=PicHarbor.Core.Storage.MediaExportPaths.Build(manifestFiles,m=>m.DestPath);
         HashSet<string> syncedSet = journal.GetAndroidSyncedDestPaths(deviceId);
 
         string normalizedDir = config.RemoteTargetDir.Replace('\\', '/').TrimEnd('/');
@@ -109,14 +110,19 @@ public static class AndroidSyncEngine
         foreach (ManifestEntry file in manifestFiles)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            string remoteFilePath = $"{normalizedDir}/{file.DestPath.Replace('\\', '/')}";
+            if (!PicHarbor.Core.Storage.MediaFileGuard.TryVerify(file,pcDestinationRoot,out string localPath,cancellationToken))
+            {
+                failed++;progressModel.StartFile(file.DestPath,file.SizeBytes);progressModel.CompleteFile(CopyStatus.Failed);
+                onLog?.Invoke($"[ANDROID WARNING] Source unavailable or changed: {file.DestPath}");continue;
+            }
+            string remoteFilePath = $"{normalizedDir}/{exportPaths[file.SelectionKey]}";
 
             bool shouldSkip = false;
             string skipReasonDesc = "";
 
             if (config.RestoreMode == AndroidRestoreMode.HistoricalIncremental)
             {
-                if (syncedSet.Contains(file.DestPath))
+                if (syncedSet.Contains(file.SelectionKey) || file.MediaId is null && syncedSet.Contains(file.DestPath))
                 {
                     shouldSkip = true;
                     skipReasonDesc = "根据设备历史恢复记录跳过（Historical Incremental）";
@@ -143,7 +149,6 @@ public static class AndroidSyncEngine
                 continue;
             }
 
-            string localPath = Path.Combine(pcDestinationRoot, file.DestPath);
             if (!File.Exists(localPath))
             {
                 onLog?.Invoke($"[ANDROID WARNING] Local file missing: {file.DestPath}");
@@ -179,7 +184,7 @@ public static class AndroidSyncEngine
                 await ftp.UploadFileAsync(localPath, remoteFilePath, fileProgress, cancellationToken).ConfigureAwait(false);
 
                 // Record successful sync in SQLite ONLY after transfer finishes completely
-                journal.RecordAndroidSync(file.DestPath, deviceId, DateTimeOffset.UtcNow);
+                journal.RecordAndroidSync(file.SelectionKey, deviceId, DateTimeOffset.UtcNow);
                 copied++;
                 bytesCopied += file.SizeBytes;
                 progressModel.CompleteFile(CopyStatus.Copied);

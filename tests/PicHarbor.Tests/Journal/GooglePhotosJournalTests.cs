@@ -22,7 +22,7 @@ public sealed class GooglePhotosJournalTests : IDisposable
         }
 
         using var conn = new SqliteConnection($"Data Source={TransferJournal.ResolveDatabasePath(dir.Path)}");
-        conn.Open();
+        conn.Open(); conn.CreateFunction("picharbor_writer_version",()=>8L);
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "PRAGMA user_version;";
         long version = (long)cmd.ExecuteScalar()!;

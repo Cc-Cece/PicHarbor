@@ -21,7 +21,7 @@ namespace PicHarbor.Core.Journal;
 /// with any sqlite3 tool.
 /// </para>
 /// </remarks>
-public sealed class TransferJournal : IDisposable
+public sealed partial class TransferJournal : IDisposable
 {
     /// <summary>Hidden metadata package folder inside the archive destination root.</summary>
     public const string MetadataFolderName = ".picharbor";
@@ -33,7 +33,7 @@ public sealed class TransferJournal : IDisposable
     public const string LegacyDatabaseFileName = "get-and-see.db";
 
     /// <summary>Current journal schema version (bumped when tables are added; migrated in place).</summary>
-    public const long SchemaVersion = 7;
+    public const long SchemaVersion = 8;
 
     /// <summary>The <c>settings</c> key under which an archive's <c>organize_scheme</c> token is stored.</summary>
     private const string OrganizeSchemeKey = "organize_scheme";
@@ -137,36 +137,22 @@ public sealed class TransferJournal : IDisposable
         string modernPath = Path.Combine(destinationRoot, MetadataFolderName, DatabaseFileName);
         string databasePath = ResolveDatabasePath(destinationRoot);
 
-        // If modern path does not exist yet but root database exists, smoothly migrate into .picharbor/
-        if (!File.Exists(LongPath.ToExtended(modernPath)) &&
-            File.Exists(LongPath.ToExtended(databasePath)) &&
-            !string.Equals(databasePath, modernPath, StringComparison.OrdinalIgnoreCase))
-        {
-            try
-            {
-                EnsureMetadataDirectory(destinationRoot);
-                File.Move(LongPath.ToExtended(databasePath), LongPath.ToExtended(modernPath));
-                MoveSidecarIfExists(databasePath + "-wal", modernPath + "-wal");
-                MoveSidecarIfExists(databasePath + "-shm", modernPath + "-shm");
-                databasePath = modernPath;
-            }
-            catch
-            {
-                // Best-effort migration; keep using databasePath if move is locked
-            }
-        }
-        else if (string.Equals(databasePath, modernPath, StringComparison.OrdinalIgnoreCase))
+        if (!File.Exists(LongPath.ToExtended(modernPath)) && File.Exists(LongPath.ToExtended(databasePath)))
         {
             EnsureMetadataDirectory(destinationRoot);
+            databasePath = RelocateDatabase(databasePath, modernPath);
         }
+        else if (string.Equals(databasePath, modernPath, StringComparison.OrdinalIgnoreCase))
+            EnsureMetadataDirectory(destinationRoot);
 
         var builder = new SqliteConnectionStringBuilder { DataSource = LongPath.ToExtended(databasePath) };
         var connection = new SqliteConnection(builder.ConnectionString);
         connection.Open();
+        connection.CreateFunction("picharbor_writer_version", () => SchemaVersion, isDeterministic: true);
 
         var journal = new TransferJournal(connection) { DatabasePath = databasePath };
-        journal.InitializeSchema();
-        return journal;
+        try { journal.InitializeSchema(); return journal; }
+        catch { connection.Dispose(); throw; }
     }
 
     /// <summary>
@@ -200,18 +186,31 @@ public sealed class TransferJournal : IDisposable
         connection.Open();
 
         // No InitializeSchema/Migrate: a read-only inspection must not create or alter anything.
-        return new TransferJournal(connection) { DatabasePath = databasePath };
+        var journal = new TransferJournal(connection) { DatabasePath = databasePath };
+        if (journal.QueryUserVersion() > SchemaVersion)
+        {
+            journal.Dispose();
+            throw new InvalidDataException("This photo library requires a newer version of PicHarbor.");
+        }
+        return journal;
     }
 
     private void InitializeSchema()
     {
+        long existingVersion = QueryUserVersion();
+        if (existingVersion > SchemaVersion)
+            throw new InvalidDataException("This photo library requires a newer version of PicHarbor.");
+        if (existingVersion < SchemaVersion && TableExists("files")) BackupBeforeMigration();
         Execute("PRAGMA journal_mode=WAL;");
-        Execute("PRAGMA synchronous=NORMAL;");
+        Execute("PRAGMA synchronous=FULL;");
+        using var migration = connection.BeginTransaction();
+        schemaTransaction = migration;
         Execute(
             """
             CREATE TABLE IF NOT EXISTS files (
                 id                     INTEGER PRIMARY KEY,
                 source_path            TEXT    NOT NULL,
+                device_id              TEXT    NOT NULL DEFAULT '',
                 source_size            INTEGER NOT NULL,
                 source_mtime           TEXT,
                 dest_path              TEXT,
@@ -228,7 +227,9 @@ public sealed class TransferJournal : IDisposable
                 sha256                 TEXT
             );
             """);
-        Execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_files_identity ON files (source_path, source_size);");
+        EnsureColumnExists("files", "device_id", "TEXT NOT NULL DEFAULT ''");
+        Execute("DROP INDEX IF EXISTS ux_files_identity;");
+        Execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_files_device_identity ON files (device_id, source_path, source_size);");
         Execute("CREATE INDEX IF NOT EXISTS ix_files_state ON files (state);");
         Execute(
             """
@@ -416,6 +417,10 @@ public sealed class TransferJournal : IDisposable
         EnsureColumnExists("devices", "archive_folder", "TEXT");
 
         Migrate();
+        InitializeLibrarySchema();
+        ValidateIntegrity();
+        migration.Commit();
+        schemaTransaction = null;
     }
 
     /// <summary>
@@ -685,8 +690,8 @@ public sealed class TransferJournal : IDisposable
         ArgumentNullException.ThrowIfNull(file);
         using SqliteCommand command = CreateCommand(
             """
-            INSERT OR IGNORE INTO files (source_path, source_size, source_mtime, state)
-            VALUES ($path, $size, $mtime, 'pending');
+            INSERT OR IGNORE INTO files (device_id, source_path, source_size, source_mtime, state)
+            VALUES ($device, $path, $size, $mtime, 'pending');
             """);
         command.Parameters.AddWithValue("$path", file.Path);
         command.Parameters.AddWithValue("$size", file.Size);
@@ -701,7 +706,7 @@ public sealed class TransferJournal : IDisposable
     public FileState? GetState(string sourcePath, long sourceSize)
     {
         using SqliteCommand command = CreateCommand(
-            "SELECT state FROM files WHERE source_path = $path AND source_size = $size;");
+            "SELECT state FROM files WHERE source_path = $path AND source_size = $size AND (device_id=$device OR ($device='' AND (SELECT COUNT(*) FROM files f WHERE f.source_path=$path AND f.source_size=$size)=1));");
         command.Parameters.AddWithValue("$path", sourcePath);
         command.Parameters.AddWithValue("$size", sourceSize);
         return FileStateText.FromText(command.ExecuteScalar() as string);
@@ -711,7 +716,7 @@ public sealed class TransferJournal : IDisposable
     public string? GetDestRelativePath(string sourcePath, long sourceSize)
     {
         using SqliteCommand command = CreateCommand(
-            "SELECT dest_path FROM files WHERE source_path = $path AND source_size = $size;");
+            "SELECT dest_path FROM files WHERE source_path = $path AND source_size = $size AND (device_id=$device OR ($device='' AND (SELECT COUNT(*) FROM files f WHERE f.source_path=$path AND f.source_size=$size)=1));");
         command.Parameters.AddWithValue("$path", sourcePath);
         command.Parameters.AddWithValue("$size", sourceSize);
         return command.ExecuteScalar() as string;
@@ -727,7 +732,7 @@ public sealed class TransferJournal : IDisposable
             """
             UPDATE files
             SET state = 'in_progress', started_at = $started, error_message = NULL
-            WHERE source_path = $path AND source_size = $size;
+            WHERE device_id = $device AND source_path = $path AND source_size = $size;
             """);
         command.Parameters.AddWithValue("$started", IsoUtc(startedAt)!);
         command.Parameters.AddWithValue("$path", sourcePath);
@@ -765,7 +770,7 @@ public sealed class TransferJournal : IDisposable
                 finished_at = $copied,
                 sha256 = $sha,
                 error_message = NULL
-            WHERE source_path = $path AND source_size = $size;
+            WHERE device_id = $device AND source_path = $path AND source_size = $size;
             """);
         command.Parameters.AddWithValue("$dest", relativeDestPath);
         command.Parameters.AddWithValue("$exif", (object?)IsoWall(metadata.DateTimeOriginal) ?? DBNull.Value);
@@ -791,8 +796,14 @@ public sealed class TransferJournal : IDisposable
     public void UpdateDestPath(string sourcePath, long sourceSize, string newRelativeDestPath)
     {
         ArgumentException.ThrowIfNullOrEmpty(newRelativeDestPath);
+        string? previousPath = GetDestRelativePath(sourcePath, sourceSize);
+        if (previousPath is not null && previousPath != newRelativeDestPath)
+        {
+            UpdatePathReferences(previousPath,newRelativeDestPath);
+            return;
+        }
         using SqliteCommand command = CreateCommand(
-            "UPDATE files SET dest_path = $dest WHERE source_path = $path AND source_size = $size;");
+            "UPDATE files SET dest_path = $dest WHERE device_id = $device AND source_path = $path AND source_size = $size;");
         command.Parameters.AddWithValue("$dest", newRelativeDestPath);
         command.Parameters.AddWithValue("$path", sourcePath);
         command.Parameters.AddWithValue("$size", sourceSize);
@@ -810,7 +821,7 @@ public sealed class TransferJournal : IDisposable
             """
             UPDATE files
             SET state = 'failed', error_message = $error, finished_at = $finished
-            WHERE source_path = $path AND source_size = $size;
+            WHERE device_id = $device AND source_path = $path AND source_size = $size;
             """);
         command.Parameters.AddWithValue("$error", error);
         command.Parameters.AddWithValue("$finished", IsoUtc(finishedAt)!);
@@ -934,11 +945,14 @@ public sealed class TransferJournal : IDisposable
     public IReadOnlyList<ReorganizeEntry> EnumerateDoneForReorganize()
     {
         List<ReorganizeEntry> rows = new();
+        string deviceColumn=ColumnExists("files","device_id") ? "device_id" : "''";
+        string hashColumn=ColumnExists("files","sha256") ? "sha256" : "NULL";
+        string availability=ColumnExists("files","replica_state") ? "AND replica_state='Available'" : "";
         using SqliteCommand command = CreateCommand(
-            """
-            SELECT source_path, source_size, dest_path, exif_datetime_original, source_mtime
+            $"""
+            SELECT source_path, source_size, dest_path, exif_datetime_original, source_mtime, {deviceColumn}, {hashColumn}
             FROM files
-            WHERE state = 'done' AND dest_path IS NOT NULL
+            WHERE id IN (SELECT MIN(id) FROM files WHERE state='done' AND dest_path IS NOT NULL {availability} GROUP BY dest_path)
             ORDER BY source_path, source_size;
             """);
         using SqliteDataReader reader = command.ExecuteReader();
@@ -949,7 +963,7 @@ public sealed class TransferJournal : IDisposable
                 reader.GetInt64(1),
                 reader.GetString(2),
                 ParseWallOrNull(reader.IsDBNull(3) ? null : reader.GetString(3)),
-                ParseIsoOrNull(reader.IsDBNull(4) ? null : reader.GetString(4))));
+                ParseIsoOrNull(reader.IsDBNull(4) ? null : reader.GetString(4))) { DeviceId = reader.GetString(5),Sha256=reader.IsDBNull(6) ? null : reader.GetString(6) });
         }
 
         return rows;
@@ -1200,7 +1214,7 @@ public sealed class TransferJournal : IDisposable
             }
         }
 
-        using var transaction = connection.BeginTransaction();
+        using var transaction = schemaTransaction is null ? connection.BeginTransaction() : null;
         try
         {
             (string Table, string Column)[] references =
@@ -1208,6 +1222,8 @@ public sealed class TransferJournal : IDisposable
                 ("devices", "udid"),
                 ("runs", "device_udid"),
                 ("backup_sessions", "device_uid"),
+                ("files", "device_id"),
+                ("source_exclusions", "device_id"),
             };
 
             int affectedRows = 0;
@@ -1215,20 +1231,20 @@ public sealed class TransferJournal : IDisposable
             {
                 using SqliteCommand update = CreateCommand(
                     $"UPDATE {table} SET {column} = $new WHERE {column} = $old;");
-                update.Transaction = transaction;
+                update.Transaction = transaction ?? schemaTransaction;
                 update.Parameters.AddWithValue("$new", newUdid);
                 update.Parameters.AddWithValue("$old", oldUdid);
                 affectedRows += update.ExecuteNonQuery();
             }
 
-            transaction.Commit();
+            transaction?.Commit();
 
             // 只有真的改到了行才算迁移成功；源记录不存在时不能谎报「已迁移」。
             return affectedRows > 0;
         }
         catch
         {
-            transaction.Rollback();
+            transaction?.Rollback();
             return false;
         }
     }
@@ -1448,7 +1464,7 @@ public sealed class TransferJournal : IDisposable
             """
             SELECT id, device_uid, device_name, device_model, started_at, finished_at, files_count, total_size_bytes, status, error_message
             FROM backup_sessions
-            WHERE device_uid = $uid
+            WHERE ($uid='' OR device_uid = $uid)
             ORDER BY started_at DESC;
             """);
         cmd.Parameters.AddWithValue("$uid", deviceUid);
@@ -1537,7 +1553,7 @@ public sealed class TransferJournal : IDisposable
 
         if (runsToMigrate.Count == 0) return;
 
-        using var transaction = connection.BeginTransaction();
+        using var transaction = schemaTransaction is null ? connection.BeginTransaction() : null;
         try
         {
             var processedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -1555,7 +1571,7 @@ public sealed class TransferJournal : IDisposable
                       AND copied_at >= $start
                       AND copied_at <= $end;
                     """);
-                filesCmd.Transaction = transaction;
+                filesCmd.Transaction = transaction ?? schemaTransaction;
                 filesCmd.Parameters.AddWithValue("$start", IsoUtc(runStart)!);
                 filesCmd.Parameters.AddWithValue("$end", IsoUtc(runEnd)!);
 
@@ -1584,7 +1600,7 @@ public sealed class TransferJournal : IDisposable
                     VALUES ($uid, $name, $model, $start, $finish, $count, $size, 'Completed');
                     SELECT last_insert_rowid();
                     """);
-                insertSessionCmd.Transaction = transaction;
+                insertSessionCmd.Transaction = transaction ?? schemaTransaction;
                 insertSessionCmd.Parameters.AddWithValue("$uid", run.DeviceUdid);
                 insertSessionCmd.Parameters.AddWithValue("$name", (object?)run.DeviceName ?? "Unknown Device");
                 insertSessionCmd.Parameters.AddWithValue("$model", (object?)run.DeviceModel ?? "Generic Device");
@@ -1602,7 +1618,7 @@ public sealed class TransferJournal : IDisposable
                         INSERT INTO backup_history_records (session_id, device_source_path, dest_path, file_size, transferred_at, media_type)
                         VALUES ($sid, $sp, $dp, $sz, $ta, $type);
                         """);
-                    insertFileCmd.Transaction = transaction;
+                    insertFileCmd.Transaction = transaction ?? schemaTransaction;
                     insertFileCmd.Parameters.AddWithValue("$sid", sessionId);
                     insertFileCmd.Parameters.AddWithValue("$sp", f.SourcePath);
                     insertFileCmd.Parameters.AddWithValue("$dp", f.DestPath);
@@ -1620,7 +1636,7 @@ public sealed class TransferJournal : IDisposable
                 FROM files
                 WHERE state = 'done';
                 """);
-            remainingFilesCmd.Transaction = transaction;
+            remainingFilesCmd.Transaction = transaction ?? schemaTransaction;
             using var remReader = remainingFilesCmd.ExecuteReader();
             var remainingFiles = new List<(string SourcePath, string DestPath, long Size, string CopiedAt)>();
             while (remReader.Read())
@@ -1647,7 +1663,7 @@ public sealed class TransferJournal : IDisposable
                     VALUES ($uid, $name, $model, $start, $finish, $count, $size, 'Completed');
                     SELECT last_insert_rowid();
                     """);
-                baselineSessionCmd.Transaction = transaction;
+                baselineSessionCmd.Transaction = transaction ?? schemaTransaction;
                 baselineSessionCmd.Parameters.AddWithValue("$uid", primaryRun.DeviceUdid);
                 baselineSessionCmd.Parameters.AddWithValue("$name", (object?)primaryRun.DeviceName ?? "Unknown Device");
                 baselineSessionCmd.Parameters.AddWithValue("$model", (object?)primaryRun.DeviceModel ?? "Generic Device");
@@ -1665,7 +1681,7 @@ public sealed class TransferJournal : IDisposable
                         INSERT INTO backup_history_records (session_id, device_source_path, dest_path, file_size, transferred_at, media_type)
                         VALUES ($sid, $sp, $dp, $sz, $ta, $type);
                         """);
-                    insertFileCmd.Transaction = transaction;
+                    insertFileCmd.Transaction = transaction ?? schemaTransaction;
                     insertFileCmd.Parameters.AddWithValue("$sid", bSessionId);
                     insertFileCmd.Parameters.AddWithValue("$sp", f.SourcePath);
                     insertFileCmd.Parameters.AddWithValue("$dp", f.DestPath);
@@ -1676,11 +1692,11 @@ public sealed class TransferJournal : IDisposable
                 }
             }
 
-            transaction.Commit();
+            transaction?.Commit();
         }
         catch
         {
-            transaction.Rollback();
+            transaction?.Rollback();
             throw;
         }
     }
@@ -1732,7 +1748,7 @@ public sealed class TransferJournal : IDisposable
                 """))
             {
                 deleteItems.Parameters.AddWithValue("$cutoff", cutoffIso);
-                deleteItems.Transaction = transaction;
+                deleteItems.Transaction = transaction ?? schemaTransaction;
                 prunedRecords = deleteItems.ExecuteNonQuery();
             }
 
@@ -1743,11 +1759,11 @@ public sealed class TransferJournal : IDisposable
                 """))
             {
                 deleteSessions.Parameters.AddWithValue("$cutoff", cutoffIso);
-                deleteSessions.Transaction = transaction;
+                deleteSessions.Transaction = transaction ?? schemaTransaction;
                 prunedSessions = deleteSessions.ExecuteNonQuery();
             }
 
-            transaction.Commit();
+            transaction?.Commit();
         }
 
         return (prunedSessions, prunedRecords);
@@ -1817,6 +1833,9 @@ public sealed class TransferJournal : IDisposable
         IProgress<(int Scanned, int Removed)>? progress = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationRoot);
+        if (!string.Equals(Path.GetFullPath(destinationRoot), Path.GetDirectoryName(Path.GetDirectoryName(DatabasePath)), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Repair must use the directory containing this archive.");
+        _ = Directory.GetFileSystemEntries(destinationRoot);
         if (!TableExists("files")) return (0, 0);
 
         var ghostIds = new List<long>();
@@ -1837,12 +1856,10 @@ public sealed class TransferJournal : IDisposable
         foreach (var (id, relPath) in itemsToCheck)
         {
             scanned++;
-            string fullPath = Path.Combine(destinationRoot, relPath);
-            if (!File.Exists(LongPath.ToExtended(fullPath)))
-            {
-                ghostIds.Add(id);
-                removed++;
-            }
+            string fullPath = PicHarbor.Core.Storage.ArchivePathResolver.Resolve(destinationRoot, relPath);
+            try { _ = File.GetAttributes(LongPath.ToExtended(fullPath)); }
+            catch (FileNotFoundException) { ghostIds.Add(id); removed++; }
+            catch (DirectoryNotFoundException) { _ = Directory.GetFileSystemEntries(destinationRoot); ghostIds.Add(id); removed++; }
 
             if (scanned % 100 == 0)
             {
@@ -1852,20 +1869,20 @@ public sealed class TransferJournal : IDisposable
 
         if (ghostIds.Count > 0)
         {
-            using var transaction = connection.BeginTransaction();
+            using var transaction = schemaTransaction is null ? connection.BeginTransaction() : null;
             // Batch delete in chunks of 500
             for (int i = 0; i < ghostIds.Count; i += 500)
             {
                 var chunk = ghostIds.Skip(i).Take(500).ToList();
                 string inClause = string.Join(",", chunk);
-                using SqliteCommand deleteCmd = CreateCommand($"DELETE FROM files WHERE id IN ({inClause});");
-                deleteCmd.Transaction = transaction;
+                using SqliteCommand deleteCmd = CreateCommand($"UPDATE files SET state = 'missing', replica_state = 'Missing' WHERE id IN ({inClause});");
+                deleteCmd.Transaction = transaction ?? schemaTransaction;
                 deleteCmd.ExecuteNonQuery();
             }
-            transaction.Commit();
+            transaction?.Commit();
         }
 
-        Execute("PRAGMA integrity_check;");
+        ValidateIntegrity();
         progress?.Report((scanned, removed));
         return (scanned, removed);
     }
@@ -1932,6 +1949,10 @@ public sealed class TransferJournal : IDisposable
     {
         SqliteCommand command = connection.CreateCommand();
         command.CommandText = sql;
+        if (schemaTransaction is not null) command.Transaction = schemaTransaction;
+        if (System.Text.RegularExpressions.Regex.IsMatch(sql, @"\$device\b") &&
+            (sql.Contains("source_path", StringComparison.Ordinal) || sql.Contains("source_exclusions", StringComparison.Ordinal)))
+            command.Parameters.AddWithValue("$device", deviceId);
         return command;
     }
 
@@ -1960,7 +1981,7 @@ public sealed class TransferJournal : IDisposable
 
             Execute($"ALTER TABLE {table} ADD COLUMN {column} {definition};");
         }
-        catch { }
+        catch (SqliteException) { throw; }
     }
 
     private bool ColumnExists(string table, string column)
@@ -2067,11 +2088,11 @@ public sealed class TransferJournal : IDisposable
         if (!TableExists("iphone_devices")) return;
         if (GetRawSetting(IphoneUdidPkMarker) is not null) return;
 
-        using var transaction = connection.BeginTransaction();
+        using var transaction = schemaTransaction is null ? connection.BeginTransaction() : null;
         try
         {
             // ① iphone_devices：device_model → udid
-            ExecuteIn(transaction, """
+            ExecuteIn(transaction ?? schemaTransaction!, """
                 CREATE TABLE iphone_devices_new (
                     udid           TEXT PRIMARY KEY,
                     device_model   TEXT NOT NULL,
@@ -2080,19 +2101,19 @@ public sealed class TransferJournal : IDisposable
                     folder_name    TEXT
                 );
                 """);
-            ExecuteIn(transaction, """
+            ExecuteIn(transaction ?? schemaTransaction!, """
                 INSERT INTO iphone_devices_new (udid, device_model, sync_folder, last_exported, folder_name)
                 SELECT COALESCE(NULLIF(TRIM(udid), ''), 'legacy:' || device_model),
                        device_model, sync_folder, last_exported, folder_name
                 FROM iphone_devices;
                 """);
-            ExecuteIn(transaction, "DROP TABLE iphone_devices;");
-            ExecuteIn(transaction, "ALTER TABLE iphone_devices_new RENAME TO iphone_devices;");
+            ExecuteIn(transaction ?? schemaTransaction!, "DROP TABLE iphone_devices;");
+            ExecuteIn(transaction ?? schemaTransaction!, "ALTER TABLE iphone_devices_new RENAME TO iphone_devices;");
 
             // ② iphone_manual_selections：(device_model, dest_path) → (udid, dest_path)
             if (TableExists("iphone_manual_selections"))
             {
-                ExecuteIn(transaction, """
+                ExecuteIn(transaction ?? schemaTransaction!, """
                     CREATE TABLE iphone_manual_selections_new (
                         udid           TEXT NOT NULL,
                         dest_path      TEXT NOT NULL,
@@ -2102,20 +2123,20 @@ public sealed class TransferJournal : IDisposable
                         PRIMARY KEY (udid, dest_path)
                     );
                     """);
-                ExecuteIn(transaction, """
+                ExecuteIn(transaction ?? schemaTransaction!, """
                     INSERT INTO iphone_manual_selections_new (udid, dest_path, device_model, added_at, is_autofilled)
                     SELECT COALESCE(NULLIF(TRIM(udid), ''), 'legacy:' || device_model),
                            dest_path, device_model, added_at, is_autofilled
                     FROM iphone_manual_selections;
                     """);
-                ExecuteIn(transaction, "DROP TABLE iphone_manual_selections;");
-                ExecuteIn(transaction, "ALTER TABLE iphone_manual_selections_new RENAME TO iphone_manual_selections;");
+                ExecuteIn(transaction ?? schemaTransaction!, "DROP TABLE iphone_manual_selections;");
+                ExecuteIn(transaction ?? schemaTransaction!, "ALTER TABLE iphone_manual_selections_new RENAME TO iphone_manual_selections;");
             }
 
             // ③ iphone_exported_files：dest_path → (udid, dest_path)
             if (TableExists("iphone_exported_files"))
             {
-                ExecuteIn(transaction, """
+                ExecuteIn(transaction ?? schemaTransaction!, """
                     CREATE TABLE iphone_exported_files_new (
                         udid           TEXT NOT NULL,
                         dest_path      TEXT NOT NULL,
@@ -2127,22 +2148,22 @@ public sealed class TransferJournal : IDisposable
                         PRIMARY KEY (udid, dest_path)
                     );
                     """);
-                ExecuteIn(transaction, """
+                ExecuteIn(transaction ?? schemaTransaction!, """
                     INSERT INTO iphone_exported_files_new (udid, dest_path, exported_path, device_model, exported_at, file_size, sha256)
                     SELECT COALESCE(NULLIF(TRIM(udid), ''), 'legacy:' || device_model),
                            dest_path, exported_path, device_model, exported_at, file_size, sha256
                     FROM iphone_exported_files;
                     """);
-                ExecuteIn(transaction, "DROP TABLE iphone_exported_files;");
-                ExecuteIn(transaction, "ALTER TABLE iphone_exported_files_new RENAME TO iphone_exported_files;");
+                ExecuteIn(transaction ?? schemaTransaction!, "DROP TABLE iphone_exported_files;");
+                ExecuteIn(transaction ?? schemaTransaction!, "ALTER TABLE iphone_exported_files_new RENAME TO iphone_exported_files;");
             }
 
-            SetRawSetting(transaction, IphoneUdidPkMarker, "1");
-            transaction.Commit();
+            SetRawSetting(transaction ?? schemaTransaction!, IphoneUdidPkMarker, "1");
+            transaction?.Commit();
         }
         catch
         {
-            transaction.Rollback();
+            transaction?.Rollback();
             throw;
         }
     }
@@ -2151,8 +2172,11 @@ public sealed class TransferJournal : IDisposable
     private void ExecuteIn(SqliteTransaction transaction, string sql)
     {
         using SqliteCommand command = connection.CreateCommand();
-        command.Transaction = transaction;
+        command.Transaction = transaction ?? schemaTransaction;
         command.CommandText = sql;
+        if (schemaTransaction is not null) command.Transaction = schemaTransaction;
+        if (sql.Contains("$device", StringComparison.Ordinal) && !sql.Contains("$device_id", StringComparison.Ordinal))
+            command.Parameters.AddWithValue("$device", deviceId);
         command.ExecuteNonQuery();
     }
 
@@ -2176,7 +2200,7 @@ public sealed class TransferJournal : IDisposable
     private void SetRawSetting(SqliteTransaction transaction, string key, string value)
     {
         using SqliteCommand command = connection.CreateCommand();
-        command.Transaction = transaction;
+        command.Transaction = transaction ?? schemaTransaction;
         command.CommandText =
             "INSERT INTO settings (key, value) VALUES ($key, $value) ON CONFLICT(key) DO UPDATE SET value = excluded.value;";
         command.Parameters.AddWithValue("$key", key);
@@ -2412,13 +2436,13 @@ public sealed class TransferJournal : IDisposable
         var toRemove = new List<string>();
         foreach (var autoItem in autofilledItems)
         {
-            string dir = Path.GetDirectoryName(autoItem.Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
-            string stem = Path.GetFileNameWithoutExtension(autoItem);
+            string dir = Path.GetDirectoryName(ResolveSelectionPath(autoItem).Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
+            string stem = Path.GetFileNameWithoutExtension(ResolveSelectionPath(autoItem));
 
             bool hasManualParent = manualItems.Any(m =>
             {
-                string mDir = Path.GetDirectoryName(m.Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
-                string mStem = Path.GetFileNameWithoutExtension(m);
+                string mDir = Path.GetDirectoryName(ResolveSelectionPath(m).Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
+                string mStem = Path.GetFileNameWithoutExtension(ResolveSelectionPath(m));
                 return string.Equals(mDir, dir, StringComparison.OrdinalIgnoreCase) &&
                        string.Equals(mStem, stem, StringComparison.OrdinalIgnoreCase);
             });
@@ -2441,9 +2465,9 @@ public sealed class TransferJournal : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(deviceModel);
         ArgumentNullException.ThrowIfNull(destPaths);
 
-        using var transaction = connection.BeginTransaction();
+        using var transaction = schemaTransaction is null ? connection.BeginTransaction() : null;
         using SqliteCommand command = connection.CreateCommand();
-        command.Transaction = transaction;
+        command.Transaction = transaction ?? schemaTransaction;
         command.CommandText =
             """
             INSERT INTO iphone_manual_selections (udid, device_model, dest_path, added_at, is_autofilled)
@@ -2465,7 +2489,7 @@ public sealed class TransferJournal : IDisposable
             command.ExecuteNonQuery();
         }
 
-        transaction.Commit();
+        transaction?.Commit();
     }
 
     /// <summary>Removes multiple destination paths from manual selections inside a single transaction.</summary>
@@ -2476,9 +2500,9 @@ public sealed class TransferJournal : IDisposable
 
         if (!TableExists("iphone_manual_selections")) return;
 
-        using var transaction = connection.BeginTransaction();
+        using var transaction = schemaTransaction is null ? connection.BeginTransaction() : null;
         using SqliteCommand command = connection.CreateCommand();
-        command.Transaction = transaction;
+        command.Transaction = transaction ?? schemaTransaction;
         command.CommandText = "DELETE FROM iphone_manual_selections WHERE device_model = $model AND dest_path = $dest;";
         var modelParam = command.Parameters.Add("$model", SqliteType.Text);
         var destParam = command.Parameters.Add("$dest", SqliteType.Text);
@@ -2491,7 +2515,7 @@ public sealed class TransferJournal : IDisposable
             command.ExecuteNonQuery();
         }
 
-        transaction.Commit();
+        transaction?.Commit();
     }
 
     /// <summary>Clears all manual selections for the specified device model.</summary>
@@ -2767,13 +2791,13 @@ public sealed class TransferJournal : IDisposable
         var toRemove = new List<string>();
         foreach (var autoItem in autofilledItems)
         {
-            string dir = Path.GetDirectoryName(autoItem.Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
-            string stem = Path.GetFileNameWithoutExtension(autoItem);
+            string dir = Path.GetDirectoryName(ResolveSelectionPath(autoItem).Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
+            string stem = Path.GetFileNameWithoutExtension(ResolveSelectionPath(autoItem));
 
             bool hasManualParent = manualItems.Any(m =>
             {
-                string mDir = Path.GetDirectoryName(m.Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
-                string mStem = Path.GetFileNameWithoutExtension(m);
+                string mDir = Path.GetDirectoryName(ResolveSelectionPath(m).Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
+                string mStem = Path.GetFileNameWithoutExtension(ResolveSelectionPath(m));
                 return string.Equals(mDir, dir, StringComparison.OrdinalIgnoreCase) &&
                        string.Equals(mStem, stem, StringComparison.OrdinalIgnoreCase);
             });
@@ -2797,9 +2821,9 @@ public sealed class TransferJournal : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(reference.FallbackKey);
         ArgumentNullException.ThrowIfNull(destPaths);
 
-        using var transaction = connection.BeginTransaction();
+        using var transaction = schemaTransaction is null ? connection.BeginTransaction() : null;
         using SqliteCommand command = connection.CreateCommand();
-        command.Transaction = transaction;
+        command.Transaction = transaction ?? schemaTransaction;
         command.CommandText =
             $"""
             INSERT INTO iphone_manual_selections (udid, device_model, dest_path, added_at, is_autofilled)
@@ -2818,7 +2842,7 @@ public sealed class TransferJournal : IDisposable
             command.ExecuteNonQuery();
         }
 
-        transaction.Commit();
+        transaction?.Commit();
         BackfillDeviceUdid("iphone_manual_selections", reference);
     }
 
@@ -2832,9 +2856,9 @@ public sealed class TransferJournal : IDisposable
         if (!TableExists("iphone_manual_selections")) return;
 
         bool hasUdidCol = ColumnExists("iphone_manual_selections", "udid");
-        using var transaction = connection.BeginTransaction();
+        using var transaction = schemaTransaction is null ? connection.BeginTransaction() : null;
         using SqliteCommand command = connection.CreateCommand();
-        command.Transaction = transaction;
+        command.Transaction = transaction ?? schemaTransaction;
         command.CommandText = $"DELETE FROM iphone_manual_selections WHERE {DeviceMatchSql(reference, hasUdidCol)} AND dest_path = $dest;";
         BindDeviceParams(command, reference);
         var destParam = command.Parameters.Add("$dest", SqliteType.Text);
@@ -2846,7 +2870,7 @@ public sealed class TransferJournal : IDisposable
             command.ExecuteNonQuery();
         }
 
-        transaction.Commit();
+        transaction?.Commit();
     }
 
     /// <summary>Clears all manual selections for the referenced device.</summary>
@@ -3145,12 +3169,12 @@ public sealed class TransferJournal : IDisposable
     public void SetScopeSubfolderSelections(string scopeKind, string deviceKey, IEnumerable<string> checkedPaths)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(scopeKind);
-        using var transaction = connection.BeginTransaction();
+        using var transaction = schemaTransaction is null ? connection.BeginTransaction() : null;
         try
         {
             using (var delete = CreateCommand("DELETE FROM scope_subfolder_selections WHERE scope_kind = $kind AND device_key = $device;"))
             {
-                delete.Transaction = transaction;
+                delete.Transaction = transaction ?? schemaTransaction;
                 delete.Parameters.AddWithValue("$kind", scopeKind);
                 delete.Parameters.AddWithValue("$device", deviceKey);
                 delete.ExecuteNonQuery();
@@ -3163,7 +3187,7 @@ public sealed class TransferJournal : IDisposable
                 ON CONFLICT(scope_kind, device_key, node_path) DO UPDATE SET updated_at = excluded.updated_at;
                 """))
             {
-                insert.Transaction = transaction;
+                insert.Transaction = transaction ?? schemaTransaction;
                 insert.Parameters.AddWithValue("$kind", scopeKind);
                 insert.Parameters.AddWithValue("$device", deviceKey);
                 var at = insert.Parameters.Add("$at", SqliteType.Text);
@@ -3178,11 +3202,11 @@ public sealed class TransferJournal : IDisposable
                 }
             }
 
-            transaction.Commit();
+            transaction?.Commit();
         }
         catch
         {
-            transaction.Rollback();
+            transaction?.Rollback();
             throw;
         }
     }
@@ -3291,13 +3315,13 @@ public sealed class TransferJournal : IDisposable
         var toRemove = new List<string>();
         foreach (var autoItem in autofilledItems)
         {
-            string dir = Path.GetDirectoryName(autoItem.Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
-            string stem = Path.GetFileNameWithoutExtension(autoItem);
+            string dir = Path.GetDirectoryName(ResolveSelectionPath(autoItem).Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
+            string stem = Path.GetFileNameWithoutExtension(ResolveSelectionPath(autoItem));
 
             bool hasManualParent = manualItems.Any(m =>
             {
-                string mDir = Path.GetDirectoryName(m.Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
-                string mStem = Path.GetFileNameWithoutExtension(m);
+                string mDir = Path.GetDirectoryName(ResolveSelectionPath(m).Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
+                string mStem = Path.GetFileNameWithoutExtension(ResolveSelectionPath(m));
                 return string.Equals(mDir, dir, StringComparison.OrdinalIgnoreCase) &&
                        string.Equals(mStem, stem, StringComparison.OrdinalIgnoreCase);
             });
@@ -3320,9 +3344,9 @@ public sealed class TransferJournal : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
         ArgumentNullException.ThrowIfNull(destPaths);
 
-        using var transaction = connection.BeginTransaction();
+        using var transaction = schemaTransaction is null ? connection.BeginTransaction() : null;
         using SqliteCommand command = connection.CreateCommand();
-        command.Transaction = transaction;
+        command.Transaction = transaction ?? schemaTransaction;
         command.CommandText =
             """
             INSERT INTO android_manual_selections (device_id, dest_path, added_at, is_autofilled)
@@ -3344,7 +3368,7 @@ public sealed class TransferJournal : IDisposable
             command.ExecuteNonQuery();
         }
 
-        transaction.Commit();
+        transaction?.Commit();
     }
 
     /// <summary>Removes multiple destination paths from manual selections for Android inside a single transaction.</summary>
@@ -3355,9 +3379,9 @@ public sealed class TransferJournal : IDisposable
 
         if (!TableExists("android_manual_selections")) return;
 
-        using var transaction = connection.BeginTransaction();
+        using var transaction = schemaTransaction is null ? connection.BeginTransaction() : null;
         using SqliteCommand command = connection.CreateCommand();
-        command.Transaction = transaction;
+        command.Transaction = transaction ?? schemaTransaction;
         command.CommandText = "DELETE FROM android_manual_selections WHERE device_id = $device_id AND dest_path = $dest;";
         var idParam = command.Parameters.Add("$device_id", SqliteType.Text);
         var destParam = command.Parameters.Add("$dest", SqliteType.Text);
@@ -3370,7 +3394,7 @@ public sealed class TransferJournal : IDisposable
             command.ExecuteNonQuery();
         }
 
-        transaction.Commit();
+        transaction?.Commit();
     }
 
     /// <summary>Clears all manual selections for the specified Android device ID.</summary>
@@ -3498,9 +3522,9 @@ public sealed class TransferJournal : IDisposable
     public void BatchAddGooglePhotosManualSelections(IEnumerable<string> destPaths, bool isAutofilled = false)
     {
         ArgumentNullException.ThrowIfNull(destPaths);
-        using var transaction = connection.BeginTransaction();
+        using var transaction = schemaTransaction is null ? connection.BeginTransaction() : null;
         using SqliteCommand command = connection.CreateCommand();
-        command.Transaction = transaction;
+        command.Transaction = transaction ?? schemaTransaction;
         command.CommandText =
             """
             INSERT INTO google_photos_manual_selections (dest_path, added_at, is_autofilled)
@@ -3519,7 +3543,7 @@ public sealed class TransferJournal : IDisposable
             destParam.Value = path;
             command.ExecuteNonQuery();
         }
-        transaction.Commit();
+        transaction?.Commit();
     }
 
     /// <summary>Removes multiple destination paths from manual selections for Google Photos inside a single transaction.</summary>
@@ -3528,9 +3552,9 @@ public sealed class TransferJournal : IDisposable
         ArgumentNullException.ThrowIfNull(destPaths);
         if (!TableExists("google_photos_manual_selections")) return;
 
-        using var transaction = connection.BeginTransaction();
+        using var transaction = schemaTransaction is null ? connection.BeginTransaction() : null;
         using SqliteCommand command = connection.CreateCommand();
-        command.Transaction = transaction;
+        command.Transaction = transaction ?? schemaTransaction;
         command.CommandText = "DELETE FROM google_photos_manual_selections WHERE dest_path = $dest;";
         var destParam = command.Parameters.Add("$dest", SqliteType.Text);
 
@@ -3540,7 +3564,7 @@ public sealed class TransferJournal : IDisposable
             destParam.Value = path;
             command.ExecuteNonQuery();
         }
-        transaction.Commit();
+        transaction?.Commit();
     }
 
     /// <summary>Clears all manual selections for Google Photos.</summary>
@@ -3562,13 +3586,13 @@ public sealed class TransferJournal : IDisposable
         var toRemove = new List<string>();
         foreach (var autoItem in autofilledItems)
         {
-            string dir = Path.GetDirectoryName(autoItem.Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
-            string stem = Path.GetFileNameWithoutExtension(autoItem);
+            string dir = Path.GetDirectoryName(ResolveSelectionPath(autoItem).Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
+            string stem = Path.GetFileNameWithoutExtension(ResolveSelectionPath(autoItem));
 
             bool hasManualParent = manualItems.Any(m =>
             {
-                string mDir = Path.GetDirectoryName(m.Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
-                string mStem = Path.GetFileNameWithoutExtension(m);
+                string mDir = Path.GetDirectoryName(ResolveSelectionPath(m).Replace('\\', '/'))?.Replace('\\', '/') ?? string.Empty;
+                string mStem = Path.GetFileNameWithoutExtension(ResolveSelectionPath(m));
                 return string.Equals(mDir, dir, StringComparison.OrdinalIgnoreCase) &&
                        string.Equals(mStem, stem, StringComparison.OrdinalIgnoreCase);
             });
@@ -3678,7 +3702,19 @@ public sealed record ManifestEntry(
     string DestPath,
     long SizeBytes,
     string? ExifDateTimeOriginalIso,
-    string? SourceMtimeIso);
+    string? SourceMtimeIso)
+{
+    /// <summary>Physical member root for a unified library manifest.</summary>
+    public string? ArchiveRoot { get; init; }
+    /// <summary>Stable content identity where verified.</summary>
+    public string? MediaId { get; init; }
+    /// <summary>Stable manual-selection reference, with legacy path fallback.</summary>
+    public string SelectionKey => MediaId is null ? DestPath.Replace('\\','/') : "#media/" + MediaId;
+    /// <summary>Stable identities of related Live Photo, sidecar and RAW/JPG components.</summary>
+    public IReadOnlyList<string> RelatedMediaIds { get; init; } = [];
+    /// <summary>Availability of this media location.</summary>
+    public PicHarbor.Core.Storage.ReplicaState Availability { get; init; }
+}
 
 /// <summary>A completed-file row projected for the <c>search</c> command's filters.</summary>
 /// <param name="RelativePath">Destination path relative to the archive root.</param>
@@ -3695,7 +3731,19 @@ public sealed record ManifestSearchRow(
     string? CameraMake,
     string? CameraModel,
     double? GpsLatitude,
-    double? GpsLongitude);
+    double? GpsLongitude)
+{
+    /// <summary>Archive member root for unified queries.</summary>
+    public string? ArchiveRoot { get; init; }
+    /// <summary>Stable member identity.</summary>
+    public string? StorageId { get; init; }
+    /// <summary>Stable identities of related media components.</summary>
+    public IReadOnlyList<string> RelatedMediaIds { get; init; } = [];
+    /// <summary>Verified content identity for path-independent references.</summary>
+    public string? MediaId { get; init; }
+    /// <summary>Current physical availability.</summary>
+    public PicHarbor.Core.Storage.ReplicaState Availability { get; init; }
+}
 
 /// <summary>A completed-file row projected for the <c>reorganize</c> engine's placement and move planning.</summary>
 /// <param name="SourcePath">Device source path (part of the file's identity).</param>
@@ -3708,7 +3756,13 @@ public sealed record ReorganizeEntry(
     long SourceSize,
     string DestPath,
     DateTime? ExifDateTimeOriginal,
-    DateTimeOffset? SourceMtime);
+    DateTimeOffset? SourceMtime)
+{
+    /// <summary>Device owning the source identity; empty for unknown legacy records.</summary>
+    public string DeviceId { get; init; } = string.Empty;
+    /// <summary>Recorded content digest for validating moves.</summary>
+    public string? Sha256 { get; init; }
+}
 
 /// <summary>A device recorded in the journal's <c>devices</c> table.</summary>
 /// <param name="Udid">Device UDID / Unique ID.</param>
@@ -3738,7 +3792,13 @@ public sealed record BackupSessionRecord(
     int FilesCount,
     long TotalSizeBytes,
     string Status,
-    string? ErrorMessage);
+    string? ErrorMessage)
+{
+    /// <summary>Member identity disambiguating locally numbered sessions.</summary>
+    public string? StorageId { get; init; }
+    /// <summary>Member root containing this session.</summary>
+    public string? ArchiveRoot { get; init; }
+}
 
 /// <summary>
 /// A specific file transfer history item under a backup session (Redundant/Audit data, safe to prune).
