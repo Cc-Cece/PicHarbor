@@ -42,6 +42,14 @@ internal static class StatusCommand
     {
         destination = Path.GetFullPath(destination);
         string databasePath = TransferJournal.ResolveDatabasePath(destination);
+        if (File.Exists(Path.Combine(destination,".picharbor","library.json")) || PicHarbor.Core.Storage.LibraryCatalog.HasCachedCatalog(destination))
+        {
+            var catalog = new PicHarbor.Core.Storage.LibraryCatalog(destination);
+            var manifest = PicHarbor.Core.Search.ArchiveRepository.ReadLibraryManifest(destination);
+            Console.Write(new SummaryWriter().Build(destination,manifest,catalog.ReadDevices(),catalog.ReadRunsSummary(),DateTimeOffset.UtcNow));
+            Console.WriteLine($"Library members: {catalog.Members.Count}; unavailable media: {manifest.Count(m=>m.Availability!=PicHarbor.Core.Storage.ReplicaState.Available)}");
+            return 0;
+        }
         // Probe via the \\?\ long-path prefix so a deep archive root is detected (a non-prefixed
         // File.Exists silently fails past MAX_PATH) and we fall through to the read-only open (#39).
         if (!File.Exists(LongPath.ToExtended(databasePath)))

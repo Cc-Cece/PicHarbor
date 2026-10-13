@@ -23,6 +23,7 @@ internal static class Program
         root.Add(StatusCommand.Build());
         root.Add(SearchCommand.Build());
         root.Add(ReorganizeCommand.Build());
+        root.Add(LibraryCommand.Build());
 
         return await root.Parse(args).InvokeAsync(cancellationToken: cancellation.Token).ConfigureAwait(false);
     }

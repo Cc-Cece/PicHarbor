@@ -85,9 +85,9 @@ internal static class ReorganizeCommand
 
         try
         {
-            using TransferJournal journal = TransferJournal.Open(destination);
+            using TransferJournal journal = dryRun ? TransferJournal.OpenReadOnly(destination) : TransferJournal.Open(destination);
             Reorganizer reorganizer = new(journal, new DateFolderOrganizer(), destination);
-            ReorganizePlan plan = reorganizer.Plan(target);
+            ReorganizePlan plan = File.Exists(Path.Combine(destination,".picharbor","library.json")) ? LibraryReorganizer.Preview(destination,target) : reorganizer.Plan(target);
 
             if (dryRun)
             {
@@ -95,7 +95,8 @@ internal static class ReorganizeCommand
                 return 0;
             }
 
-            ReorganizeReport report = reorganizer.Execute(plan, cancellationToken);
+            ReorganizeReport report = File.Exists(Path.Combine(destination,".picharbor","library.json")) ? LibraryReorganizer.Execute(destination,target,cancellationToken) : reorganizer.Execute(plan,cancellationToken);
+            if(report.PendingMembers>0) console.MarkupLineInterpolated($"[yellow]{report.PendingMembers} member archives remain pending.[/]");
             RenderReport(console, report);
             return report.Failed > 0 ? 1 : 0;
         }

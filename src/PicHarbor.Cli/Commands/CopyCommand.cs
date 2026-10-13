@@ -67,6 +67,7 @@ internal static class CopyCommand
         {
             Description = "Disable the live dashboard and use plain per-file text output instead.",
         };
+        var strictOption = new Option<bool>("--strict-verify") { Description = "Re-read source content before skipping an existing backup." };
         var verifyHashOption = new Option<bool>("--verify-hash")
         {
             Description =
@@ -82,6 +83,7 @@ internal static class CopyCommand
         command.Add(readTimeoutOption);
         command.Add(noDashboardOption);
         command.Add(verifyHashOption);
+        command.Add(strictOption);
         command.Add(OrganizeByOption);
         command.SetAction((parseResult, cancellationToken) =>
             RunAsync(
@@ -92,7 +94,8 @@ internal static class CopyCommand
                 parseResult.GetValue(verifyHashOption),
                 OrganizeSchemes.Parse(parseResult.GetValue(OrganizeByOption)!),
                 parseResult.GetResult(OrganizeByOption) is { Implicit: false },
-                cancellationToken));
+                cancellationToken,
+                parseResult.GetValue(strictOption)));
 
         return command;
     }
@@ -118,11 +121,11 @@ internal static class CopyCommand
     }
 #endif
 
-    private static async Task<int> RunAsync(string destination, bool dryRun, TimeSpan readTimeout, bool noDashboard, bool verifyHash, OrganizeScheme requestedScheme, bool schemeIsExplicit, CancellationToken cancellationToken)
+    private static async Task<int> RunAsync(string destination, bool dryRun, TimeSpan readTimeout, bool noDashboard, bool verifyHash, OrganizeScheme requestedScheme, bool schemeIsExplicit, CancellationToken cancellationToken, bool strictVerification = false)
     {
         try
         {
-            return await ExecuteAsync(destination, dryRun, readTimeout, noDashboard, verifyHash, requestedScheme, schemeIsExplicit, cancellationToken).ConfigureAwait(false);
+            return await ExecuteAsync(destination, dryRun, readTimeout, noDashboard, verifyHash, requestedScheme, schemeIsExplicit, cancellationToken,strictVerification).ConfigureAwait(false);
         }
         catch (PreflightException ex)
         {
@@ -141,7 +144,7 @@ internal static class CopyCommand
         }
     }
 
-    private static async Task<int> ExecuteAsync(string destination, bool dryRun, TimeSpan readTimeout, bool noDashboard, bool verifyHash, OrganizeScheme requestedScheme, bool schemeIsExplicit, CancellationToken cancellationToken)
+    private static async Task<int> ExecuteAsync(string destination, bool dryRun, TimeSpan readTimeout, bool noDashboard, bool verifyHash, OrganizeScheme requestedScheme, bool schemeIsExplicit, CancellationToken cancellationToken, bool strictVerification = false)
     {
         destination = Path.GetFullPath(destination);
 
@@ -186,6 +189,7 @@ internal static class CopyCommand
         preflight.EnsureSufficientFreeSpace(destination, totalBytes);
 
         using TransferJournal journal = TransferJournal.Open(destination);
+                journal.BindDevice(device?.Udid);
         DateTimeOffset runStartedAt = DateTimeOffset.UtcNow;
         if (device is not null)
         {
@@ -236,6 +240,9 @@ internal static class CopyCommand
         using FileCopier copier = new(
             client, journal, organizer, new ExifMetadataExtractor(), destination, effectiveScheme,
             readTimeout: readTimeout, onBytesStreamed: progress.RecordBytes, verifyHash: verifyHash,
+            strictVerification: strictVerification || new PicHarbor.Core.Storage.UserBackupPreferences().Load().StrictVerification,
+            rebackupDeleted: new PicHarbor.Core.Storage.UserBackupPreferences().Load().RebackupDeletedPhotos,
+            deletedPhotoDecision: DecideDeletedPhoto,
             onDisconnect: escapeHatch.Activate);
         copier.CleanStaging();
 
@@ -305,8 +312,22 @@ internal static class CopyCommand
         new SummaryWriter().Write(
             destination, journal.ReadManifest(), journal.ReadDevices(), journal.ReadRunsSummary(), DateTimeOffset.UtcNow);
         WriteRunSummary(destination, runStats, stalled);
-
+        var catalog=new PicHarbor.Core.Storage.LibraryCatalog(destination);
+        catalog.ReadMedia();catalog.Save();
         return exitCode;
+    }
+
+    private static bool? DecideDeletedPhoto(RemoteFile file)
+    {
+        var settings=new PicHarbor.Core.Storage.UserBackupPreferences();
+        var policy=settings.Load();
+        if(policy.QuestionAsked || Console.IsInputRedirected) return policy.RebackupDeletedPhotos;
+        Console.WriteLine($"A computer copy of {Path.GetFileName(file.Path)} was deleted. Back it up again? [Y/n/c] You will be asked once; change this later in Settings.");
+        string? response=Console.ReadLine();
+        if(response?.Equals("c",StringComparison.OrdinalIgnoreCase)==true || response is null) return null;
+        bool restore=!response.Equals("n",StringComparison.OrdinalIgnoreCase);
+        settings.RecordDecision(restore);
+        return restore;
     }
 
     private static int DryRun(string destination, List<RemoteFile> files, DateFolderOrganizer organizer, OrganizeScheme scheme, long totalBytes)

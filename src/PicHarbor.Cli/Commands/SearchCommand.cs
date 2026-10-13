@@ -128,7 +128,7 @@ internal static class SearchCommand
         IReadOnlyList<MediaSearchHit> hits;
         using (TransferJournal journal = TransferJournal.OpenReadOnly(destination))
         {
-            hits = MediaSearch.Find(journal.ReadSearchRows(), criteria);
+            hits = MediaSearch.Find(ArchiveRepository.ReadLibrarySearchRows(destination), criteria);
         }
 
         RenderResults(console, hits);
@@ -274,7 +274,7 @@ internal static class SearchCommand
         List<string> folders = new();
         foreach (MediaSearchHit hit in hits)
         {
-            string full = Path.Combine(destination, hit.RelativePath);
+            string full = PicHarbor.Core.Storage.ArchivePathResolver.Resolve(hit.ArchiveRoot ?? destination,hit.RelativePath);
             string folder = Path.GetDirectoryName(full) ?? destination;
             if (seen.Add(folder))
             {
