@@ -41,7 +41,7 @@ public class VaultStateLifecycleTests : IDisposable
     {
         Assert.SkipUnless(IsElevated, "TryRegister 会改所有者/ACL，需管理员权限。");
 
-        string dir = Path.Combine(Path.GetTempPath(), "PicHarborLifecycle", Guid.NewGuid().ToString("N"));
+        string dir = Path.Combine(Path.GetPathRoot(Path.GetTempPath())!, "PicHarborTestArchives", "Lifecycle", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
         {
@@ -60,7 +60,7 @@ public class VaultStateLifecycleTests : IDisposable
     {
         Assert.SkipUnless(IsElevated, "ClearPassword 会对登记根做 Restore，需管理员权限。");
 
-        string dir = Path.Combine(Path.GetTempPath(), "PicHarborLifecycle", Guid.NewGuid().ToString("N"));
+        string dir = Path.Combine(Path.GetPathRoot(Path.GetTempPath())!, "PicHarborTestArchives", "Lifecycle", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
         {
@@ -85,7 +85,7 @@ public class VaultStateLifecycleTests : IDisposable
     {
         Assert.SkipUnless(IsElevated, "TryRegister 会改所有者/ACL，需管理员权限。");
 
-        string dir = Path.Combine(Path.GetTempPath(), "PicHarborLifecycle", Guid.NewGuid().ToString("N"));
+        string dir = Path.Combine(Path.GetPathRoot(Path.GetTempPath())!, "PicHarborTestArchives", "Lifecycle", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
         {

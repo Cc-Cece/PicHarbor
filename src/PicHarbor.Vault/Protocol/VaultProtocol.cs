@@ -44,6 +44,7 @@ public static class VaultCommand
 /// <summary>客户端向服务发送的请求。每条请求独占一行 JSON，以 \n 结尾。</summary>
 public sealed class VaultRequest
 {
+    [JsonPropertyName("ownerSid")] public string? OwnerSid { get; set; }
     /// <summary>命令名称，取 <see cref="VaultCommand"/> 常量。</summary>
     [JsonPropertyName("cmd")]
     public string Command { get; set; } = "";
@@ -104,6 +105,8 @@ public sealed class VaultResponse
 /// <summary>服务当前状态快照（不含口令材料）。</summary>
 public sealed class VaultStatus
 {
+    [JsonPropertyName("protocolVersion")] public int ProtocolVersion { get; set; } = 2;
+    [JsonPropertyName("protectionErrors")] public IReadOnlyDictionary<string,string> ProtectionErrors { get; set; } = new Dictionary<string,string>();
     /// <summary>是否已设置过应用密码。</summary>
     [JsonPropertyName("hasPassword")]
     public bool HasPassword { get; set; }

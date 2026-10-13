@@ -38,9 +38,15 @@ public static class PathWhitelist
         }
 
         string full;
+        if (!Path.IsPathFullyQualified(path)) { reason = "Path must be absolute."; return false; }
         try
         {
             full = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        for (DirectoryInfo? current = new(full); current is not null; current = current.Parent)
+        {
+            if (current.Exists && (current.Attributes & FileAttributes.ReparsePoint) != 0)
+            { reason = "Linked directories cannot be protected."; return false; }
+        }
         }
         catch (Exception ex)
         {

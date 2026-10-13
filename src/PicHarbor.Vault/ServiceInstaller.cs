@@ -102,8 +102,7 @@ public static partial class ServiceInstaller
             return false;
         }
 
-        // binPath 必须带引号，防止路径含空格被截断
-        string binPath = $"\"{exePath}\" {ServiceArgs}";
+        string binPath;
 
         IntPtr scm = OpenSCManager(null, null, SC_MANAGER_CONNECT | SC_MANAGER_CREATE_SERVICE);
         if (scm == IntPtr.Zero)
@@ -114,6 +113,11 @@ public static partial class ServiceInstaller
 
         try
         {
+            // Stop first so an existing deployment is not overwritten while its image is loaded.
+            if(IsInstalled() && !Stop(out message)) return false;
+            try { exePath=ServiceImageStore.Prepare(exePath); }
+            catch(Exception ex) { message=$"无法准备受保护的服务程序：{ex.Message}";return false; }
+            binPath=$"\"{exePath}\" {ServiceArgs}";
             // 若已存在则更新配置，否则创建
             IntPtr existing = OpenService(scm, ServiceName, SERVICE_CHANGE_CONFIG | SERVICE_QUERY_STATUS);
             if (existing != IntPtr.Zero)
@@ -150,6 +154,8 @@ public static partial class ServiceInstaller
                 message = "服务创建成功。";
             }
 
+            using(var serviceKey=Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\"+ServiceName,writable:true))
+                serviceKey?.SetValue("Environment",new[]{"DOTNET_BUNDLE_EXTRACT_BASE_DIR="+Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),"PicHarbor","Service","BundleCache")},Microsoft.Win32.RegistryValueKind.MultiString);
             return true;
         }
         finally

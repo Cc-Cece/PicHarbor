@@ -27,6 +27,7 @@ public static class VaultCommand
 
 public sealed class VaultRequest
 {
+    [JsonPropertyName("ownerSid")] public string? OwnerSid { get; set; }
     [JsonPropertyName("cmd")]               public string  Command            { get; set; } = "";
     [JsonPropertyName("password")]          public string? Password           { get; set; }
     [JsonPropertyName("newPassword")]       public string? NewPassword        { get; set; }
@@ -48,6 +49,8 @@ public sealed class VaultResponse
 
 public sealed class VaultStatus
 {
+    [JsonPropertyName("protocolVersion")] public int ProtocolVersion { get; set; }
+    [JsonPropertyName("protectionErrors")] public IReadOnlyDictionary<string,string> ProtectionErrors { get; set; } = new Dictionary<string,string>();
     [JsonPropertyName("hasPassword")]     public bool                  HasPassword     { get; set; }
     [JsonPropertyName("isUnlocked")]      public bool                  IsUnlocked      { get; set; }
     [JsonPropertyName("registeredRoots")] public IReadOnlyList<string> RegisteredRoots { get; set; } = [];

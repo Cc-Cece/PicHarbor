@@ -90,6 +90,20 @@ public sealed class PipeServerRoundTripTests : IDisposable
     }
 
     [Fact]
+    public async Task Actual_GUI_client_rejects_a_user_owned_pipe_before_sending_a_request()
+    {
+        string name="Impostor_"+Guid.NewGuid().ToString("N");
+        using var pipe=new NamedPipeServerStream(name,PipeDirection.InOut,1,PipeTransmissionMode.Byte,PipeOptions.Asynchronous);
+        var connected=pipe.WaitForConnectionAsync(TestContext.Current.CancellationToken);
+        var responseTask=PicHarbor.Gui.Vault.VaultClient.QueryStatusOnPipeAsync(name,TestContext.Current.CancellationToken,requireSystem:true);
+        await connected;
+        using var reader=new StreamReader(pipe);
+        Assert.Null(await reader.ReadLineAsync(TestContext.Current.CancellationToken));
+        var response=await responseTask;
+        Assert.NotNull(response);Assert.False(response.Ok);Assert.Contains("identity",response.Error,StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Actual_GUI_client_preserves_connection_failure_details()
     {
         var response = await PicHarbor.Gui.Vault.VaultClient.QueryStatusOnPipeAsync("Missing_" + Guid.NewGuid().ToString("N"), TestContext.Current.CancellationToken);
@@ -168,54 +182,26 @@ public sealed class PipeServerRoundTripTests : IDisposable
     /// 不创建共享归档根、不修改真实归档 ACL。完整 ACL 成功路径需独立管理员验收。
     /// </summary>
     [Fact]
-    public async Task Bootstrap_register_is_permitted_and_failure_is_structured()
+    public async Task Bootstrap_register_requires_elevation()
     {
-        // 已隔离的用户临时目录由白名单拒绝；只测试命令层放行，不改任何归档 ACL。
-        string root = _scope.Directory;
-
-        var reg = await SendAsync(new VaultRequest { Command = VaultCommand.RegisterRoot, Path = root });
-        Assert.NotNull(reg);
-
-        // 必须被「放行」——不能是权限拒绝（那说明引导例外没生效）。
-        Assert.False(reg!.Error?.Contains("Access denied") == true,
-            $"引导阶段 RegisterRoot 不应被命令层拒绝，实际：{reg.Error}");
-
-        if (!reg.Ok)
-        {
-            // 路径白名单拒绝必须是可读的结构化错误。
-            Assert.False(string.IsNullOrWhiteSpace(reg.Error));
-            reg.Error!.ShouldContain("protected");
-        }
-
-        // 无论上一步成败，管道必须保持健康。
+        var response = await SendAsync(new VaultRequest { Command = VaultCommand.RegisterRoot, Path = _scope.Directory });
+        Assert.NotNull(response);
+        using var identity = WindowsIdentity.GetCurrent();
+        if (!new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator))
+        { Assert.False(response.Ok); Assert.Equal("Access denied.",response.Error); }
         var status = await SendAsync(new VaultRequest { Command = VaultCommand.QueryStatus });
-        Assert.NotNull(status);
-        Assert.True(status!.Ok, status.Error);
+        Assert.True(status!.Ok);
     }
 
-    /// <summary>
-    /// 引导阶段允许设置首个密码，隔离存储下必须成功；不修改真实服务数据。
-    /// </summary>
     [Fact]
-    public async Task Bootstrap_set_password_is_permitted_and_failure_is_structured()
+    public async Task Bootstrap_set_password_requires_elevation()
     {
-        var set = await SendAsync(new VaultRequest
-        {
-            Command = VaultCommand.SetPassword,
-            Password = "Test-Pw-123!"
-        });
-        Assert.NotNull(set);
-
-        Assert.False(set!.Error?.Contains("Access denied") == true,
-            $"引导阶段 SetPassword 不应被命令层拒绝，实际：{set.Error}");
-
-        // VaultStore 已隔离；首个密码的真实成功路径必须成立，不能允许失败掩盖回归。
-        Assert.True(set.Ok, set.Error);
-
-        // 管道仍健康
-        var status = await SendAsync(new VaultRequest { Command = VaultCommand.QueryStatus });
-        Assert.NotNull(status);
-        Assert.True(status!.Ok, status.Error);
+        var response = await SendAsync(new VaultRequest { Command = VaultCommand.SetPassword, Password = "Test-Pw-123!" });
+        Assert.NotNull(response);
+        using var identity = WindowsIdentity.GetCurrent();
+        if (!new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator))
+        { Assert.False(response.Ok); Assert.Equal("Access denied.",response.Error); }
+        else Assert.True(response.Ok,response.Error);
     }
 
     // ──────────────────────────────────────────────────────────────────────

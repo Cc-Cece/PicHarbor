@@ -13,6 +13,12 @@ namespace PicHarbor.Vault;
 [SupportedOSPlatform("windows")]
 public sealed class AclEngine
 {
+    internal static void EnableOwnershipPrivileges()
+    {
+        PrivilegeHelper.TryEnable("SeBackupPrivilege");
+        PrivilegeHelper.TryEnable("SeRestorePrivilege");
+        PrivilegeHelper.TryEnable("SeTakeOwnershipPrivilege");
+    }
     // 收回时后台扫描使用低优先级，避免阻塞 UI
     private static readonly SecurityIdentifier SystemSid =
         new(WellKnownSidType.LocalSystemSid, null);
@@ -152,6 +158,7 @@ public sealed class AclEngine
     /// </summary>
     public static void Lock(string root)
     {
+        EnableOwnershipPrivileges();
         ApplyToDirectory(root, dir =>
         {
             var acl = dir.GetAccessControl();
@@ -176,6 +183,17 @@ public sealed class AclEngine
             acl.SetOwner(SystemSid);
             dir.SetAccessControl(acl);
         });
+        foreach (string entry in AclSnapshotStore.Entries(root).Skip(1))
+        {
+            bool directory = Directory.Exists(entry);
+            FileSystemSecurity acl = directory ? new DirectoryInfo(entry).GetAccessControl() : new FileInfo(entry).GetAccessControl();
+            acl.SetAccessRuleProtection(isProtected: false, preserveInheritance: false);
+            foreach (FileSystemAccessRule rule in acl.GetAccessRules(true, false, typeof(SecurityIdentifier)).Cast<FileSystemAccessRule>().ToList())
+                acl.RemoveAccessRule(rule);
+            acl.SetOwner(SystemSid);
+            if (directory) new DirectoryInfo(entry).SetAccessControl((DirectorySecurity)acl);
+            else new FileInfo(entry).SetAccessControl((FileSecurity)acl);
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -187,6 +205,7 @@ public sealed class AclEngine
     /// </summary>
     public static void Restore(string root, SecurityIdentifier userSid)
     {
+        EnableOwnershipPrivileges();
         ApplyToDirectory(root, dir =>
         {
             var acl = dir.GetAccessControl();

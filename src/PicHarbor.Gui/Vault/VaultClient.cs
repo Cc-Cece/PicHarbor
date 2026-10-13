@@ -41,12 +41,12 @@ public sealed class VaultClient
         => SendAsync(new VaultRequest { Command = VaultCommand.QueryStatus }, ct);
 
     // 测试使用随机管道名，但收发实现与生产 GUI 完全相同。
-    internal static Task<VaultResponse?> QueryStatusOnPipeAsync(string pipeName, CancellationToken ct = default)
-        => SendAsync(new VaultRequest { Command = VaultCommand.QueryStatus }, ct, pipeName);
+    internal static Task<VaultResponse?> QueryStatusOnPipeAsync(string pipeName, CancellationToken ct = default, bool requireSystem = false)
+        => SendAsync(new VaultRequest { Command = VaultCommand.QueryStatus }, ct, pipeName, requireSystem);
 
     /// <summary>首次设置应用密码。</summary>
-    public static Task<VaultResponse?> SetPasswordAsync(string password, CancellationToken ct = default)
-        => SendAsync(new VaultRequest { Command = VaultCommand.SetPassword, Password = password }, ct);
+    public static Task<VaultResponse?> SetPasswordAsync(string password, CancellationToken ct = default,string? ownerSid=null)
+        => SendAsync(new VaultRequest { Command = VaultCommand.SetPassword, Password = password,OwnerSid=ownerSid }, ct);
 
     /// <summary>更改应用密码。</summary>
     public static Task<VaultResponse?> ChangePasswordAsync(string current, string newPassword, CancellationToken ct = default)
@@ -103,7 +103,7 @@ public sealed class VaultClient
     // ──────────────────────────────────────────────────────────────────────
 
     private static async Task<VaultResponse?> SendAsync(VaultRequest request, CancellationToken ct,
-        string pipeName = PipeName)
+        string pipeName = PipeName, bool requireSystem = true)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeoutMs);
@@ -121,6 +121,10 @@ public sealed class VaultClient
                 HandleInheritability.None);
 
             await pipe.ConnectAsync(cts.Token);
+            // Authenticate the OS-owned pipe before sending passwords. JSON fields from a
+            // lookalike pipe server cannot establish the service's identity.
+            if (requireSystem && !IsSystemServer(pipe))
+                return Failure("The application lock service identity could not be verified.");
 
             // Byte 模式 + 一行 UTF-8 JSON；服务端读到请求后再识别调用方身份。
             stage = Localize("VaultStageSendRequest", "发送请求");
@@ -165,4 +169,10 @@ public sealed class VaultClient
 
     private static VaultResponse Failure(string error)
         => new() { Ok = false, Error = error };
+
+    private static bool IsSystemServer(NamedPipeClientStream pipe)
+    {
+        return pipe.GetAccessControl().GetOwner(typeof(SecurityIdentifier)) is SecurityIdentifier owner &&
+               owner.IsWellKnown(WellKnownSidType.LocalSystemSid);
+    }
 }

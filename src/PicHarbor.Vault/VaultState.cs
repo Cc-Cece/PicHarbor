@@ -12,19 +12,39 @@ public sealed class VaultState : IDisposable
 {
     private readonly Lock _lock = new();
     private readonly List<string> _roots;
+    private readonly Dictionary<string, string> _protectionErrors = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _offlineRoots = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly object TotpTransaction = new();
+    private int _passwordFailures;
+    private DateTimeOffset _passwordLockout;
+    public IReadOnlyDictionary<string,string> ProtectionErrors { get { lock (_lock) return new Dictionary<string,string>(_protectionErrors); } }
     private SecurityIdentifier? _unlockedUser;
     private ProcessWatcher? _watcher;
     private CancellationTokenSource? _revokeCts;
 
     public VaultState()
     {
+        AclEngine.EnableOwnershipPrivileges();
+        VaultStore.ValidateProtectedStore();
+        VaultStore.EnsureDirectory();
         // 从磁盘恢复已登记的根，保证服务重启后收回仍有对象。
         _roots = RootStore.Load();
+        foreach(string root in _roots)
+            if(!PathWhitelist.IsAllowed(root,out string reason)) throw new InvalidDataException(reason);
     }
 
     public bool HasPassword => PasswordStore.HasPassword;
     public bool IsUnlocked  => _unlockedUser is not null;
     public bool HasTotp     => TotpStore.HasSecret;
+    private static string OwnerPath => Path.Combine(VaultStore.Directory,"vault_owner");
+    public bool IsAuthorizedSession(SecurityIdentifier caller)
+    {
+        lock(_lock) return _unlockedUser?.Equals(caller)==true;
+    }
+    public bool IsApplicationOwner(SecurityIdentifier caller)
+        => !File.Exists(OwnerPath) || File.ReadAllText(OwnerPath).Trim() == caller.Value;
+    public void BindOwner(SecurityIdentifier caller)
+        => VaultStore.WriteProtectedFile(OwnerPath,caller.Value);
 
     public IReadOnlyList<string> RegisteredRoots
     {
@@ -38,24 +58,35 @@ public sealed class VaultState : IDisposable
     /// <summary>校验密码并解锁，记录调用方 SID，启动进程监视。</summary>
     public bool TryUnlock(string password, SecurityIdentifier callerSid, int callerPid, out string error)
     {
+        if(File.Exists(OwnerPath) && File.ReadAllText(OwnerPath).Trim()!=callerSid.Value)
+        { error="This application lock belongs to another Windows user.";return false; }
+        lock (_lock) { if (_passwordLockout > DateTimeOffset.UtcNow) { error = "Too many password attempts. Try again later."; return false; } }
         if (!PasswordStore.HasPassword) { error = "No password set."; return false; }
-        if (!PasswordStore.Verify(password)) { error = "Wrong password."; return false; }
+        if (!PasswordStore.Verify(password))
+        {
+            lock (_lock) { if (++_passwordFailures >= 5) _passwordLockout = DateTimeOffset.UtcNow.AddSeconds(30); }
+            error = "Wrong password."; return false;
+        }
 
         lock (_lock)
         {
             // 若已解锁则先收回再重新授予（切换用户场景）
             InternalRevoke();
 
+            _passwordFailures = 0;
+            _protectionErrors.Clear();
             _unlockedUser = callerSid;
             foreach (string root in _roots)
             {
+                if(IsDriveOffline(root)) { _offlineRoots.Add(root);continue; }
                 try { AclEngine.Grant(root, callerSid); }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[Vault] Grant failed ({root}): {ex.Message}");
+                    _protectionErrors[root] = ex.Message;
                 }
             }
 
+            if (_protectionErrors.Count != 0) { InternalRevoke(); error = "Unable to unlock all protected directories."; return false; }
             _revokeCts = new CancellationTokenSource();
             _watcher = new ProcessWatcher(callerPid, () => ForceLock());
         }
@@ -87,13 +118,19 @@ public sealed class VaultState : IDisposable
             string norm = NormPath(path);
             if (!_roots.Contains(norm, StringComparer.OrdinalIgnoreCase))
             {
+                AclSnapshotStore.Capture(norm);
                 _roots.Add(norm);
                 RootStore.Save(_roots);
             }
 
             // 登记即锁定：断继承、只留 SYSTEM 完全控制、所有者设为 SYSTEM。
             // 这样「启用应用锁」当场生效，无需等下一次解锁/锁定循环。
-            try { AclEngine.Lock(norm); }
+            try
+            {
+                AclEngine.Lock(norm);
+                if(_unlockedUser is not null) AclEngine.Grant(norm,_unlockedUser);
+                _protectionErrors.Remove(norm);
+            }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[Vault] Lock on register failed ({norm}): {ex.Message}");
@@ -114,11 +151,12 @@ public sealed class VaultState : IDisposable
             if (idx < 0) { error = "Path not registered."; return false; }
 
             // 先恢复该目录（让用户可以读写）
-            try { AclEngine.Restore(norm, callerSid); }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Vault] Restore failed ({norm}): {ex.Message}"); }
+            try { AclSnapshotStore.Restore(norm, callerSid); }
+            catch (Exception ex) { error = $"Unable to restore directory permissions: {ex.Message}"; return false; }
 
+            RootStore.Save(_roots.Where((_,index)=>index!=idx));
             _roots.RemoveAt(idx);
-            RootStore.Save(_roots);
+            AclSnapshotStore.Forget(norm);
         }
         error = "";
         return true;
@@ -206,15 +244,17 @@ public sealed class VaultState : IDisposable
 
             foreach (string root in _roots.ToList())
             {
-                try { AclEngine.Restore(root, callerSid); }
+                try { AclSnapshotStore.Restore(root, callerSid); }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[Vault] Restore on clear failed ({root}): {ex.Message}");
+                    error = $"Unable to restore {root}: {ex.Message}";
+                    return false;
                 }
             }
 
+            RootStore.Save([]);
+            foreach(string root in _roots) AclSnapshotStore.Forget(root);
             _roots.Clear();
-            RootStore.Save(_roots);
 
             // 清掉 TOTP 绑定，避免残留密钥在下次启用时意外复用
             TotpStore.Clear();
@@ -250,6 +290,11 @@ public sealed class VaultState : IDisposable
     /// </summary>
     public bool TryBeginTotpSetup(string account, out string? otpAuthUri, out string? secretBase32, out string error)
     {
+        lock(TotpTransaction) return TryBeginTotpSetupCore(account,out otpAuthUri,out secretBase32,out error);
+    }
+
+    private bool TryBeginTotpSetupCore(string account, out string? otpAuthUri, out string? secretBase32, out string error)
+    {
         otpAuthUri = null;
         secretBase32 = null;
 
@@ -268,6 +313,11 @@ public sealed class VaultState : IDisposable
     /// 确认 TOTP 绑定：校验一次动态码，通过后才真正保存密钥并清空防重放/限流状态。
     /// </summary>
     public bool TryConfirmTotpSetup(string code, out string error)
+    {
+        lock (TotpTransaction) return TryConfirmTotpSetupCore(code, out error);
+    }
+
+    private bool TryConfirmTotpSetupCore(string code, out string error)
     {
         byte[]? secret;
         lock (_totpLock) { secret = _pendingTotpSecret; }
@@ -297,6 +347,11 @@ public sealed class VaultState : IDisposable
     /// </summary>
     public bool TryResetPasswordWithTotp(string code, string newPassword, out string error)
     {
+        lock (TotpTransaction) return TryResetPasswordWithTotpCore(code, newPassword, out error);
+    }
+
+    private bool TryResetPasswordWithTotpCore(string code, string newPassword, out string error)
+    {
         if (string.IsNullOrEmpty(newPassword)) { error = "New password cannot be empty."; return false; }
 
         if (!TryValidateTotp(code, out error)) return false;
@@ -321,6 +376,12 @@ public sealed class VaultState : IDisposable
     public bool TryRebindTotp(string currentPassword, string currentCode, string account,
                               out string? otpAuthUri, out string? secretBase32, out string error)
     {
+        lock(TotpTransaction) return TryRebindTotpCore(currentPassword,currentCode,account,out otpAuthUri,out secretBase32,out error);
+    }
+
+    private bool TryRebindTotpCore(string currentPassword, string currentCode, string account,
+                              out string? otpAuthUri, out string? secretBase32, out string error)
+    {
         otpAuthUri = null;
         secretBase32 = null;
 
@@ -335,6 +396,11 @@ public sealed class VaultState : IDisposable
     /// 校验成功/失败会更新限流与防重放状态。
     /// </summary>
     private bool TryValidateTotp(string code, out string error)
+    {
+        lock (TotpTransaction) return TryValidateTotpCore(code, out error);
+    }
+
+    private bool TryValidateTotpCore(string code, out string error)
     {
         byte[]? secret = TotpStore.GetSecret();
         if (secret is null) { error = "TOTP not configured."; return false; }
@@ -385,22 +451,38 @@ public sealed class VaultState : IDisposable
         cts?.Cancel();
         cts?.Dispose();
 
-        if (_unlockedUser is not null)
+        _unlockedUser = null;
+        _protectionErrors.Clear();
+        foreach (string root in _roots)
         {
-            var userSid = _unlockedUser;
-            _unlockedUser = null;
+            if(IsDriveOffline(root)) { _offlineRoots.Add(root);continue; }
+            try { AclEngine.Lock(root); }
+            catch (Exception ex) { _protectionErrors[root] = ex.Message; }
+        }
+    }
 
-            var newCts = new CancellationTokenSource();
-            _revokeCts = newCts;
-            foreach (string root in _roots)
+    public void RefreshReconnectedRoots()
+    {
+        lock(_lock)
+        {
+            foreach(string root in _offlineRoots.ToList())
             {
-                try { AclEngine.Revoke(root, userSid, newCts.Token); }
-                catch (Exception ex)
+                if(IsDriveOffline(root)) continue;
+                try
                 {
-                    System.Diagnostics.Debug.WriteLine($"[Vault] Revoke failed ({root}): {ex.Message}");
+                    AclEngine.Lock(root);
+                    if(_unlockedUser is not null) AclEngine.Grant(root,_unlockedUser);
+                    _offlineRoots.Remove(root);_protectionErrors.Remove(root);
                 }
+                catch(Exception ex) { _protectionErrors[root]=ex.Message; }
             }
         }
+    }
+
+    private static bool IsDriveOffline(string root)
+    {
+        try { return !new DriveInfo(Path.GetPathRoot(root)!).IsReady; }
+        catch(IOException) { return true; }
     }
 
     private static string NormPath(string path)

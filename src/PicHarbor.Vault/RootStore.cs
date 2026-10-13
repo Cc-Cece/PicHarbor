@@ -31,7 +31,7 @@ public static class RootStore
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[Vault] Load roots failed: {ex.Message}");
-            return [];
+            throw new InvalidDataException("Protected-directory registration cannot be read safely.",ex);
         }
     }
 
@@ -45,7 +45,7 @@ public static class RootStore
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[Vault] Save roots failed: {ex.Message}");
+            throw new IOException("Unable to persist protected directories.", ex);
         }
     }
 

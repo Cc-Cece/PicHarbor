@@ -167,7 +167,7 @@ public static class TotpStore
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[Vault] TOTP load failed: {ex.Message}");
-            return new PersistedState();
+            throw new InvalidDataException("Verification state cannot be read safely.", ex);
         }
     }
 
@@ -180,7 +180,7 @@ public static class TotpStore
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[Vault] TOTP save failed: {ex.Message}");
+            throw new IOException("Unable to persist verification state.", ex);
         }
     }
 }

@@ -50,7 +50,7 @@ public class EnableWizardTests : IDisposable
     {
         Assert.SkipUnless(IsElevated, "TryRegister 会改所有者/ACL，需管理员权限。");
 
-        string dir = Path.Combine(Path.GetTempPath(), "PicHarborWizard", Guid.NewGuid().ToString("N"));
+        string dir = Path.Combine(Path.GetPathRoot(Path.GetTempPath())!, "PicHarborTestArchives", "Wizard", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
         {
@@ -82,7 +82,7 @@ public class EnableWizardTests : IDisposable
     {
         Assert.SkipUnless(IsElevated, "TryClearPassword 会对登记根做 Restore，需管理员权限。");
 
-        string dir = Path.Combine(Path.GetTempPath(), "PicHarborWizard", Guid.NewGuid().ToString("N"));
+        string dir = Path.Combine(Path.GetPathRoot(Path.GetTempPath())!, "PicHarborTestArchives", "Wizard", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
         {

@@ -33,6 +33,7 @@ public sealed partial class PipeServer : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var reconnectWatcher=WatchReconnectedRootsAsync(stoppingToken);
         // 服务启动第一步：收回所有根的权限（防蓝屏/断电空窗）。
         // 用 try 包住：任何初始化异常都不应让整个服务进程退出。
         try
@@ -80,11 +81,25 @@ public sealed partial class PipeServer : BackgroundService
         }
     }
 
+    private async Task WatchReconnectedRootsAsync(CancellationToken ct)
+    {
+        using var timer=new PeriodicTimer(TimeSpan.FromSeconds(2));
+        try
+        {
+            while(await timer.WaitForNextTickAsync(ct))
+            {
+                try { _state.RefreshReconnectedRoots(); }
+                catch(Exception ex) { _logger.LogError(ex,"Unable to reconcile reconnected protected directories."); }
+            }
+        }
+        catch(OperationCanceledException) { }
+    }
+
     /// <summary>原子创建显式 DACL 管道；生产与测试走同一路径，不做默认 ACL 降级。</summary>
     private NamedPipeServerStream CreatePipeInstance()
         => NamedPipeServerStreamAcl.Create(
             _pipeName, PipeDirection.InOut,
-            NamedPipeServerStream.MaxAllowedServerInstances,
+            16,
             PipeTransmissionMode.Byte, PipeOptions.Asynchronous,
             4096, 4096, BuildPipeSecurity(), HandleInheritability.None,
             additionalAccessRights: 0);
@@ -137,10 +152,20 @@ public sealed partial class PipeServer : BackgroundService
             // 先模拟后读会 100% 失败——这正是「服务在跑但客户端永远超时」的根因。
             using var reader = new StreamReader(pipe, System.Text.Encoding.UTF8, leaveOpen: true);
 
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            deadline.CancelAfter(TimeSpan.FromSeconds(10));
             string? line;
             try
             {
-                line = await reader.ReadLineAsync(ct);
+                var buffer = new char[1];
+                var request = new System.Text.StringBuilder();
+                while (await reader.ReadAsync(buffer.AsMemory(), deadline.Token) != 0)
+                {
+                    if (buffer[0] == '\n') break;
+                    if (request.Length >= 16384) return;
+                    request.Append(buffer[0]);
+                }
+                line = request.ToString();
             }
             catch (Exception ex)
             {
@@ -181,7 +206,19 @@ public sealed partial class PipeServer : BackgroundService
 
             if (req is null) return;
 
-            if (!callerIsAdmin && !IsDailyCommand(req.Command, _state))
+            bool sessionRegistration = req.Command == VaultCommand.RegisterRoot && callerSid is not null && _state.IsAuthorizedSession(callerSid);
+            if(sessionRegistration && req.Path is not null)
+            {
+                bool owns=false;
+                try
+                {
+                    owns = _state.RegisteredRoots.Contains(Path.GetFullPath(req.Path).TrimEnd('\\'),StringComparer.OrdinalIgnoreCase);
+                    if (!owns) pipe.RunAsClient(() => owns=new DirectoryInfo(req.Path).GetAccessControl().GetOwner(typeof(SecurityIdentifier))?.Equals(callerSid)==true);
+                }
+                catch (Exception) { owns=false; }
+                sessionRegistration=owns;
+            }
+            if (!callerIsAdmin && !sessionRegistration && !IsDailyCommand(req.Command, _state))
             {
                 await WriteResponseAsync(pipe, new VaultResponse { Ok = false, Error = "Access denied." }, ct);
                 return;
@@ -197,10 +234,15 @@ public sealed partial class PipeServer : BackgroundService
             VaultResponse resp;
             try
             {
+                if (!callerIsAdmin && !_state.IsApplicationOwner(callerSid))
+                {
+                    await WriteResponseAsync(pipe, new VaultResponse { Ok = false, Error = "Access denied." }, ct);
+                    return;
+                }
                 resp = req.Command switch
                 {
                     VaultCommand.QueryStatus    => HandleQueryStatus(),
-                    VaultCommand.SetPassword    => HandleSetPassword(req),
+                    VaultCommand.SetPassword    => HandleSetPassword(req,callerSid),
                     VaultCommand.ChangePassword => HandleChangePassword(req),
                     VaultCommand.RegisterRoot   => HandleRegisterRoot(req),
                     VaultCommand.UnregisterRoot => HandleUnregisterRoot(req, callerSid),
@@ -248,18 +290,29 @@ public sealed partial class PipeServer : BackgroundService
                 HasTotp = _state.HasTotp,
                 ServerPid = Environment.ProcessId,
                 ServerSid = identity.User?.Value,
-                ServerBuild = typeof(PipeServer).Module.ModuleVersionId.ToString()
+                ServerBuild = typeof(PipeServer).Module.ModuleVersionId.ToString(),
+                ProtectionErrors = _state.ProtectionErrors,
+                ProtocolVersion = 2
             }
         };
     }
 
-    private VaultResponse HandleSetPassword(VaultRequest req)
+    private VaultResponse HandleSetPassword(VaultRequest req,SecurityIdentifier callerSid)
     {
+        SecurityIdentifier owner=callerSid;
+        if(req.OwnerSid is not null)
+        {
+            try { owner=new SecurityIdentifier(req.OwnerSid); }
+            catch(ArgumentException) { return Fail("Invalid application owner."); }
+            if(!owner.IsAccountSid()) return Fail("Invalid application owner.");
+        }
         if (string.IsNullOrEmpty(req.Password))
             return Fail("Password is required.");
         if (_state.HasPassword)
             return Fail("Password already set. Use ChangePassword.");
-        return _state.TrySetPassword(req.Password, out string err) ? Ok() : Fail(err);
+        if(!_state.TrySetPassword(req.Password, out string err)) return Fail(err);
+        _state.BindOwner(owner);
+        return Ok();
     }
 
     private VaultResponse HandleChangePassword(VaultRequest req)
@@ -290,7 +343,7 @@ public sealed partial class PipeServer : BackgroundService
     private VaultResponse HandleLock()
     {
         _state.ForceLock();
-        return Ok();
+        return _state.ProtectionErrors.Count == 0 ? Ok() : Fail("Some directories could not be protected.");
     }
 
     private VaultResponse HandleClearPassword(SecurityIdentifier callerSid)
@@ -400,7 +453,7 @@ public sealed partial class PipeServer : BackgroundService
             // 引导阶段（尚无密码）：允许普通用户登记根 + 设置首个密码
             case VaultCommand.RegisterRoot:
             case VaultCommand.SetPassword:
-                return !state.HasPassword;
+                return false;
 
             default:
                 return false;

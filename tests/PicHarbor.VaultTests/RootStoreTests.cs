@@ -60,11 +60,11 @@ public class RootStoreTests : IDisposable
     }
 
     [Fact]
-    public void Load_returns_empty_on_corrupt_file()
+    public void Load_fails_closed_on_corrupt_file()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
         File.WriteAllText(FilePath, "{ this is not valid json");
 
-        RootStore.Load().ShouldBeEmpty();
+        Should.Throw<InvalidDataException>(()=>RootStore.Load());
     }
 }

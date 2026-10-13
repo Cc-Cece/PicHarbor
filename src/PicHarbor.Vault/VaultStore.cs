@@ -13,6 +13,33 @@ namespace PicHarbor.Vault;
 public static class VaultStore
 {
     private static string? _overrideDirectory;
+    internal static bool IsIsolated => _overrideDirectory is not null;
+
+    internal static void ValidateProtectedStore()
+    {
+        if(IsIsolated) return;
+        ValidateProtectedFiles(Directory);
+    }
+
+    internal static void ValidateProtectedFiles(string directory)
+    {
+        if(System.IO.Directory.Exists(directory) && (File.GetAttributes(directory)&FileAttributes.ReparsePoint)!=0)
+            throw new InvalidDataException("The protected service directory cannot be a linked directory.");
+        var names=new[]{"vault_credential","vault_roots.json","vault_totp.json","vault_owner"}.Concat(
+            System.IO.Directory.Exists(directory) ? System.IO.Directory.EnumerateFiles(directory,"acl-*.json").Select(Path.GetFileName).OfType<string>() : []);
+        foreach(string name in names)
+        {
+            string path=Path.Combine(directory,name);
+            if(!File.Exists(path)) continue;
+            var acl=new FileInfo(path).GetAccessControl();
+            var system=new SecurityIdentifier(WellKnownSidType.LocalSystemSid,null);
+            var admins=new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid,null);
+            if(!acl.AreAccessRulesProtected || !system.Equals(acl.GetOwner(typeof(SecurityIdentifier))))
+                throw new InvalidDataException("Service protection data has an untrusted owner or inherited access rules. Administrator repair is required.");
+            if(acl.GetAccessRules(true,true,typeof(SecurityIdentifier)).Cast<FileSystemAccessRule>().Any(r=>r.AccessControlType==AccessControlType.Allow && !r.IdentityReference.Equals(system) && !r.IdentityReference.Equals(admins)))
+                throw new InvalidDataException("Service protection data is accessible to an unauthorized account.");
+        }
+    }
 
     /// <summary>
     /// 存放 Vault 全部私有数据的目录，默认 <c>%ProgramData%\PicHarbor</c>。
@@ -45,9 +72,7 @@ public static class VaultStore
     /// 确保目录存在，并把它自身的 ACL 收紧为「SYSTEM + Administrators 完全控制」，
     /// 断开继承以免普通用户通过父目录继承到访问权。
     /// <para>
-    /// 硬化本身需要管理员权限（读取/设置他人拥有的对象 ACL）。若调用方未提升
-    /// （例：非提权的调试宿主、引导期的普通用户进程），这里<b>只告警不抛出</b>：
-    /// 目录创建成功即可，下一次服务以 SYSTEM 身份启动时会再收紧一次。
+    /// 硬化失败必须中止写入，不能把未受保护的存储报告为成功。
     /// </para>
     /// </summary>
     public static void EnsureDirectory()
@@ -62,8 +87,7 @@ public static class VaultStore
         }
         catch (Exception ex)
         {
-            // 非提权调用方无法读取/改写该目录的 ACL——不阻断写入流程。
-            System.Diagnostics.Debug.WriteLine($"[Vault] Harden directory failed ({Directory}): {ex.Message}");
+            throw new IOException("Unable to secure the protection service directory.",ex);
         }
     }
 
@@ -119,11 +143,18 @@ public static class VaultStore
     {
         System.IO.Directory.CreateDirectory(Directory);
 
-        string tmp = path + ".tmp";
-        File.WriteAllText(tmp, content, System.Text.Encoding.UTF8);
-        TryHardenFile(tmp);
-        File.Move(tmp, path, overwrite: true);
-        TryHardenFile(path);
+        string tmp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            using(var stream=new FileStream(tmp,FileMode.CreateNew,FileAccess.Write,FileShare.None))
+            {
+                byte[] bytes=System.Text.Encoding.UTF8.GetBytes(content);stream.Write(bytes);stream.Flush(flushToDisk:true);
+            }
+            TryHardenFile(tmp);
+            File.Move(tmp, path, overwrite: true);
+            TryHardenFile(path);
+        }
+        finally { if(File.Exists(tmp)) File.Delete(tmp); }
     }
 
     /// <summary>文件 ACL 收紧的容错包装：失败只记录，不抛出（避免阻断写入流程）。</summary>
@@ -136,7 +167,7 @@ public static class VaultStore
         try { HardenFile(path); }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[Vault] Harden file failed ({path}): {ex.Message}");
+            throw new IOException("Unable to secure a protection service file.",ex);
         }
     }
 
