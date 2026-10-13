@@ -90,17 +90,92 @@ public sealed class PipeServerRoundTripTests : IDisposable
     }
 
     [Fact]
-    public async Task Actual_GUI_client_rejects_a_user_owned_pipe_before_sending_a_request()
+    public void Communication_failure_is_not_reported_as_an_incorrect_password()
     {
-        string name="Impostor_"+Guid.NewGuid().ToString("N");
+        var response=new PicHarbor.Gui.Vault.VaultResponse {Ok=false,Error="服务身份校验失败"};
+        Assert.Equal(response.Error,PicHarbor.Gui.Vault.VaultClient.DescribeUnlockFailure(response));
+        Assert.Equal("密码错误。",PicHarbor.Gui.Vault.VaultClient.DescribeUnlockFailure(new(){Ok=false,Error="Wrong password."}));
+    }
+
+    [Fact]
+    public async Task Slow_unlock_reports_progress_keeps_status_responsive_and_does_not_repeat_revoke()
+    {
+        string root=Path.Combine(Path.GetPathRoot(_scope.Directory)!,"PicHarborTestArchives","Slow",Guid.NewGuid().ToString("N"));
+        RootStore.Save([root]);PasswordStore.SetPassword("isolated-test-password");
+        using var entered=new ManualResetEventSlim();using var release=new ManualResetEventSlim();
+        int locks=0,grants=0;
+        using var state=new VaultState(_=>Interlocked.Increment(ref locks),(_,_)=>
+        {Interlocked.Increment(ref grants);entered.Set();release.Wait();});
+        state.RevokeAllOnStartup();
+        string name="SlowUnlock_"+Guid.NewGuid().ToString("N");
+        using var stopping=new CancellationTokenSource();using var server=new PipeServer(state,NullLogger<PipeServer>.Instance,name);
+        await server.StartAsync(stopping.Token);
+        try
+        {
+            var unlock=PicHarbor.Gui.Vault.VaultClient.SendOnPipeAsync(new(){Command="Unlock",Password="isolated-test-password"},name,TestContext.Current.CancellationToken);
+            Assert.True(entered.Wait(TimeSpan.FromSeconds(5),TestContext.Current.CancellationToken));
+            var status=await PicHarbor.Gui.Vault.VaultClient.QueryStatusOnPipeAsync(name,TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(2),TestContext.Current.CancellationToken);
+            Assert.NotNull(status);Assert.True(status.Ok);Assert.NotNull(status.Status);
+            Assert.True(status.Status.OperationInProgress);Assert.False(status.Status.IsUnlocked);
+            await Task.Delay(3500,TestContext.Current.CancellationToken);
+            Assert.False(unlock.IsCompleted);
+            release.Set();var result=await unlock;Assert.NotNull(result);Assert.True(result.Ok,result.Error);
+            var repeated=await PicHarbor.Gui.Vault.VaultClient.SendOnPipeAsync(new(){Command="Unlock",Password="isolated-test-password"},name,TestContext.Current.CancellationToken);
+            Assert.NotNull(repeated);Assert.True(repeated.Ok,repeated.Error);
+            Assert.Equal(1,locks);Assert.Equal(1,grants);
+            var locked=await PicHarbor.Gui.Vault.VaultClient.SendOnPipeAsync(new(){Command="Lock"},name,TestContext.Current.CancellationToken);
+            Assert.NotNull(locked);Assert.True(locked.Ok);Assert.Equal(2,locks);
+            Assert.False(state.ReadPermissionStatus().InProgress);Assert.False(state.IsUnlocked);
+        }
+        finally {release.Set();stopping.Cancel();await server.StopAsync(CancellationToken.None);}
+    }
+
+    [Fact]
+    public async Task Startup_protection_does_not_block_pipe_status_or_report_unlocked()
+    {
+        string root=Path.Combine(Path.GetPathRoot(_scope.Directory)!,"PicHarborTestArchives","Startup",Guid.NewGuid().ToString("N"));
+        RootStore.Save([root]);using var entered=new ManualResetEventSlim();using var release=new ManualResetEventSlim();
+        using var state=new VaultState(_=>{entered.Set();release.Wait();},(_,_)=>{});
+        using var stopping=new CancellationTokenSource();
+        string name="StatusStartup_"+Guid.NewGuid().ToString("N");
+        using var statusServer=new PipeServer(state,NullLogger<PipeServer>.Instance,name);
+        await statusServer.StartAsync(stopping.Token);
+        try
+        {
+            Assert.True(entered.Wait(TimeSpan.FromSeconds(5),TestContext.Current.CancellationToken));
+            var result=await PicHarbor.Gui.Vault.VaultClient.QueryStatusOnPipeAsync(name,TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(2),TestContext.Current.CancellationToken);
+            Assert.NotNull(result);Assert.True(result.Ok);Assert.NotNull(result.Status);
+            Assert.True(result.Status.OperationInProgress);Assert.False(result.Status.IsUnlocked);Assert.Single(result.Status.RegisteredRoots);
+        }
+        finally {release.Set();stopping.Cancel();await statusServer.StopAsync(CancellationToken.None);}
+    }
+
+    [Fact]
+    public async Task Legacy_server_without_progress_can_finish_a_permission_request_after_three_seconds()
+    {
+        string name="LegacySlow_"+Guid.NewGuid().ToString("N");
         using var pipe=new NamedPipeServerStream(name,PipeDirection.InOut,1,PipeTransmissionMode.Byte,PipeOptions.Asynchronous);
-        var connected=pipe.WaitForConnectionAsync(TestContext.Current.CancellationToken);
-        var responseTask=PicHarbor.Gui.Vault.VaultClient.QueryStatusOnPipeAsync(name,TestContext.Current.CancellationToken,requireSystem:true);
-        await connected;
-        using var reader=new StreamReader(pipe);
-        Assert.Null(await reader.ReadLineAsync(TestContext.Current.CancellationToken));
-        var response=await responseTask;
-        Assert.NotNull(response);Assert.False(response.Ok);Assert.Contains("identity",response.Error,StringComparison.OrdinalIgnoreCase);
+        var waiting=pipe.WaitForConnectionAsync(TestContext.Current.CancellationToken);
+        var responseTask=PicHarbor.Gui.Vault.VaultClient.SendOnPipeAsync(new(){Command="Lock"},name,TestContext.Current.CancellationToken);
+        await waiting;using var reader=new StreamReader(pipe,Encoding.UTF8,leaveOpen:true);
+        Assert.NotNull(await reader.ReadLineAsync(TestContext.Current.CancellationToken));
+        await Task.Delay(3500,TestContext.Current.CancellationToken);
+        using var writer=new StreamWriter(pipe,Encoding.UTF8,leaveOpen:true){AutoFlush=true};
+        await writer.WriteLineAsync("{\"ok\":true}");
+        var response=await responseTask;Assert.NotNull(response);Assert.True(response.Ok,response.Error);
+    }
+
+    [Fact]
+    public void Failed_revoke_does_not_grant_access_or_report_unlocked()
+    {
+        string root=Path.Combine(Path.GetPathRoot(_scope.Directory)!,"PicHarborTestArchives","Denied",Guid.NewGuid().ToString("N"));
+        RootStore.Save([root]);PasswordStore.SetPassword("isolated-test-password");int grants=0;
+        using var state=new VaultState(_=>throw new IOException("ACL failed"),(_,_)=>grants++);
+        state.RevokeAllOnStartup();using var user=WindowsIdentity.GetCurrent();
+        Assert.False(state.TryUnlock("isolated-test-password",user.User!,Environment.ProcessId,out _));
+        Assert.Equal(0,grants);Assert.False(state.IsUnlocked);
+        Assert.Contains(root,state.ReadPermissionStatus().Errors.Keys);
+        Assert.False(state.ReadPermissionStatus().InProgress);
     }
 
     [Fact]

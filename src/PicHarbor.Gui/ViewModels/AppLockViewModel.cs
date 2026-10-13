@@ -368,7 +368,8 @@ public partial class AppLockViewModel : ObservableObject
         // 服务是否已安装独立探测（装了但没启动时 QueryStatus 会失败，但「移除组件」仍应可见）
         IsServiceInstalled = VaultServiceManager.IsServiceInstalled();
 
-        var status = await VaultClient.QueryStatusAsync();
+        var response = await VaultClient.QueryStatusResponseAsync();
+        var status = response is { Ok: true } ? response.Status : null;
         if (status is null || status.ProtocolVersion < 2)
         {
             IsServiceAvailable = false;
@@ -376,6 +377,8 @@ public partial class AppLockViewModel : ObservableObject
             IsUnlocked = false;
             HasTotp = false;
             RegisteredRoots = [];
+            SetError(status is not null ? App.GetString("VaultErrProtocolMismatch", "应用锁服务版本过旧，请更新应用锁组件。") :
+                response?.Error ?? App.GetString("AppLockErrServiceUnavailable", "无法连接到 PicHarbor Vault 服务。"));
             LockStateChanged?.Invoke();
             return false;
         }
@@ -388,6 +391,7 @@ public partial class AppLockViewModel : ObservableObject
         HasTotp = status.HasTotp;
         RegisteredRoots = status.RegisteredRoots;
         if (status.ProtectionErrors.Count > 0) SetError(string.Join(Environment.NewLine, status.ProtectionErrors.Select(p => p.Key + ": " + p.Value)));
+        else if(status.OperationInProgress) SetSuccess(App.GetString("AppLockMsgApplyingPermissions","正在应用目录权限，请稍候。"));
         LockStateChanged?.Invoke();
         return true;
     }
@@ -415,7 +419,7 @@ public partial class AppLockViewModel : ObservableObject
             }
             if (!resp.Ok)
             {
-                SetError(App.GetString("AppLockErrWrongPassword", "密码错误。"));
+                SetError(UnlockFailureMessage(resp));
                 return;
             }
 
@@ -1204,7 +1208,7 @@ public partial class AppLockViewModel : ObservableObject
             var probe = await VaultClient.UnlockAsync(DangerConfirmPassword);
             if (probe is null || !probe.Ok)
             {
-                ConfirmError = App.GetString("AppLockErrWrongPassword", "密码错误。");
+                ConfirmError = UnlockFailureMessage(probe);
                 return;
             }
             await VaultClient.LockAsync();
@@ -1261,7 +1265,7 @@ public partial class AppLockViewModel : ObservableObject
             var probe = await VaultClient.UnlockAsync(RemoveConfirmPassword);
             if (probe is null || !probe.Ok)
             {
-                ConfirmError = App.GetString("AppLockErrWrongPassword", "密码错误。");
+                ConfirmError = UnlockFailureMessage(probe);
                 return;
             }
             await VaultClient.LockAsync();
@@ -1317,6 +1321,7 @@ public partial class AppLockViewModel : ObservableObject
     // ──────────────────────────────────────────────────────────────────────
 
     private void SetSuccess(string msg) { IsError = false; StatusMessage = msg; }
+    private static string UnlockFailureMessage(VaultResponse? response) => VaultClient.DescribeUnlockFailure(response);
     private void SetError(string msg)   { IsError = true;  StatusMessage = msg; }
 
     /// <summary>清空输入与消息（打开解锁窗口时调用）。</summary>

@@ -23,6 +23,7 @@ public sealed partial class PipeServer : BackgroundService
     private readonly VaultState _state;
     private readonly ILogger<PipeServer> _logger;
     private readonly string _pipeName;
+    private Task _startupProtection = Task.CompletedTask;
 
     public PipeServer(VaultState state, ILogger<PipeServer> logger, string? pipeName = null)
     {
@@ -36,14 +37,11 @@ public sealed partial class PipeServer : BackgroundService
         var reconnectWatcher=WatchReconnectedRootsAsync(stoppingToken);
         // 服务启动第一步：收回所有根的权限（防蓝屏/断电空窗）。
         // 用 try 包住：任何初始化异常都不应让整个服务进程退出。
-        try
+        _startupProtection = Task.Run(() =>
         {
-            _state.RevokeAllOnStartup();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "RevokeAllOnStartup failed; continuing to serve.");
-        }
+            try { _state.RevokeAllOnStartup(); }
+            catch(Exception ex) { _logger.LogError(ex,"RevokeAllOnStartup failed; continuing to serve."); }
+        },stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -232,6 +230,7 @@ public sealed partial class PipeServer : BackgroundService
             }
 
             VaultResponse resp;
+            var elapsed=System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 if (!callerIsAdmin && !_state.IsApplicationOwner(callerSid))
@@ -239,24 +238,18 @@ public sealed partial class PipeServer : BackgroundService
                     await WriteResponseAsync(pipe, new VaultResponse { Ok = false, Error = "Access denied." }, ct);
                     return;
                 }
-                resp = req.Command switch
+                var operation=Task.Run(async ()=>
                 {
-                    VaultCommand.QueryStatus    => HandleQueryStatus(),
-                    VaultCommand.SetPassword    => HandleSetPassword(req,callerSid),
-                    VaultCommand.ChangePassword => HandleChangePassword(req),
-                    VaultCommand.RegisterRoot   => HandleRegisterRoot(req),
-                    VaultCommand.UnregisterRoot => HandleUnregisterRoot(req, callerSid),
-                    VaultCommand.Unlock         => HandleUnlock(req, callerSid, callerPid),
-                    VaultCommand.Lock           => HandleLock(),
-                    VaultCommand.ClearPassword  => HandleClearPassword(callerSid),
-
-                    VaultCommand.BeginTotpSetup        => HandleBeginTotpSetup(req, callerSid),
-                    VaultCommand.VerifyTotpSetup       => HandleVerifyTotpSetup(req, callerSid),
-                    VaultCommand.ResetPasswordWithTotp => HandleResetPasswordWithTotp(req),
-                    VaultCommand.RebindTotp            => HandleRebindTotp(req, callerSid),
-
-                    _                                  => new VaultResponse { Ok = false, Error = $"Unknown command: {req.Command}" }
-                };
+                    if(req.Command!=VaultCommand.QueryStatus) await _startupProtection.ConfigureAwait(false);
+                    return Dispatch(req,callerSid,callerPid);
+                });
+                while(req.SupportsProgress && await Task.WhenAny(operation,Task.Delay(1000,ct))!=operation)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    await WriteResponseAsync(pipe,new VaultResponse {Pending=true},ct);
+                }
+                resp=await operation;
+                _logger.LogInformation("Vault command {Command} completed in {ElapsedMilliseconds} ms",req.Command,elapsed.ElapsedMilliseconds);
             }
             catch (Exception ex)
             {
@@ -275,23 +268,43 @@ public sealed partial class PipeServer : BackgroundService
     // 命令处理
     // ──────────────────────────────────────────────────────────────────────
 
+    private VaultResponse Dispatch(VaultRequest req,SecurityIdentifier callerSid,int callerPid) => req.Command switch
+    {
+        VaultCommand.QueryStatus=>HandleQueryStatus(),
+        VaultCommand.SetPassword=>HandleSetPassword(req,callerSid),
+        VaultCommand.ChangePassword=>HandleChangePassword(req),
+        VaultCommand.RegisterRoot=>HandleRegisterRoot(req),
+        VaultCommand.UnregisterRoot=>HandleUnregisterRoot(req,callerSid),
+        VaultCommand.Unlock=>HandleUnlock(req,callerSid,callerPid),
+        VaultCommand.Lock=>HandleLock(),
+        VaultCommand.ClearPassword=>HandleClearPassword(callerSid),
+        VaultCommand.BeginTotpSetup=>HandleBeginTotpSetup(req,callerSid),
+        VaultCommand.VerifyTotpSetup=>HandleVerifyTotpSetup(req,callerSid),
+        VaultCommand.ResetPasswordWithTotp=>HandleResetPasswordWithTotp(req),
+        VaultCommand.RebindTotp=>HandleRebindTotp(req,callerSid),
+        _=>Fail($"Unknown command: {req.Command}")
+    };
+
     private VaultResponse HandleQueryStatus()
     {
         // 已退出客户端模拟：报告的是实际服务进程身份，而不是调用方。
         using var identity = WindowsIdentity.GetCurrent();
+        var permissions=_state.ReadPermissionStatus();
         return new VaultResponse
         {
             Ok = true,
             Status = new VaultStatus
             {
                 HasPassword = _state.HasPassword,
-                IsUnlocked = _state.IsUnlocked,
-                RegisteredRoots = _state.RegisteredRoots,
+                IsUnlocked = permissions.IsUnlocked,
+                RegisteredRoots = permissions.Roots,
+                OperationInProgress=permissions.InProgress,
+                Operation=permissions.Operation,
                 HasTotp = _state.HasTotp,
                 ServerPid = Environment.ProcessId,
                 ServerSid = identity.User?.Value,
                 ServerBuild = typeof(PipeServer).Module.ModuleVersionId.ToString(),
-                ProtectionErrors = _state.ProtectionErrors,
+                ProtectionErrors = permissions.Errors,
                 ProtocolVersion = 2
             }
         };

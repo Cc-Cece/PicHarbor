@@ -1,4 +1,4 @@
-<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
@@ -1036,7 +1036,7 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="VaultStageParseResponse">解析回應</sys:String>
     <sys:String x:Key="VaultErrConnClosed">服務關閉了連線，未傳回回應。</sys:String>
     <sys:String x:Key="VaultErrEmptyJson">服務傳回了空 JSON 回應。</sys:String>
-    <sys:String x:Key="VaultErrStageTimeout">{0}逾時（{1} ms）。</sys:String>
+    <sys:String x:Key="VaultErrStageTimeout">{0}逾時（{1} 秒）。</sys:String>
     <sys:String x:Key="VaultErrStageDenied">{0}被拒絕（Win32 5，管道存取權限）：{1}</sys:String>
     <sys:String x:Key="VaultErrStageFailed">{0}失敗（0x{1}）：{2}</sys:String>
 
@@ -1061,4 +1061,11 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="LibraryCheckCancelled">自檢已取消，已完成的操作可以復原。</sys:String>
     <sys:String x:Key="LibraryPendingLayout">仍有 {0} 個儲存目錄待完成整理。</sys:String>
     <sys:String x:Key="LibraryLayoutFailed">有 {0} 項未能整理，仍有 {1} 個儲存目錄待完成。</sys:String>
+    <sys:String x:Key="VaultErrProtocolMismatch">應用鎖服務版本過舊，請更新應用鎖元件。</sys:String>
+    <sys:String x:Key="AppLockMsgApplyingPermissions">正在套用目錄權限，請稍候。</sys:String>
+    <sys:String x:Key="SettingsCardBackupSafety">備份設定</sys:String>
+    <sys:String x:Key="SettingsCardLibraryMaintenance">圖庫維護</sys:String>
+    <sys:String x:Key="LibraryRecoveryTitle">可恢復副本</sys:String>
+    <sys:String x:Key="LibraryRecoveryHint">查看自動回收的副本，可在保留期內恢復。</sys:String>
+    <sys:String x:Key="LibraryRecoveryEmpty">目前沒有可恢復的副本。</sys:String>
 </ResourceDictionary>

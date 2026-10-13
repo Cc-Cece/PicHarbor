@@ -23,6 +23,8 @@ TestResults/
 # Local security acceptance artifacts; keep the reviewable summary only.
 outputs/security-validation/*.trx
 outputs/security-validation/exit-code.txt
+outputs/security-validation/*-exit-code.txt
+outputs/unlock-timeout-fix/
 
 # other
 .docs/

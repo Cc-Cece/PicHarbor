@@ -16,6 +16,9 @@ public sealed class VaultClient
 {
     private const string PipeName    = "PicHarborVault";
     private const int    TimeoutMs   = 3000;
+    private const int ResponseTimeoutMs = 10000;
+    private const int PermissionResponseTimeoutMs = 120000;
+    private const int ProgressIdleTimeoutMs = 15000;
 
     /// <summary>
     /// 文案本地化钩子。GUI 启动时注入 <c>App.GetString</c>；
@@ -41,8 +44,10 @@ public sealed class VaultClient
         => SendAsync(new VaultRequest { Command = VaultCommand.QueryStatus }, ct);
 
     // 测试使用随机管道名，但收发实现与生产 GUI 完全相同。
-    internal static Task<VaultResponse?> QueryStatusOnPipeAsync(string pipeName, CancellationToken ct = default, bool requireSystem = false)
-        => SendAsync(new VaultRequest { Command = VaultCommand.QueryStatus }, ct, pipeName, requireSystem);
+    internal static Task<VaultResponse?> QueryStatusOnPipeAsync(string pipeName, CancellationToken ct = default)
+        => SendAsync(new VaultRequest { Command = VaultCommand.QueryStatus }, ct, pipeName);
+    internal static Task<VaultResponse?> SendOnPipeAsync(VaultRequest request,string pipeName,CancellationToken ct=default)
+        => SendAsync(request,ct,pipeName);
 
     /// <summary>首次设置应用密码。</summary>
     public static Task<VaultResponse?> SetPasswordAsync(string password, CancellationToken ct = default,string? ownerSid=null)
@@ -103,10 +108,13 @@ public sealed class VaultClient
     // ──────────────────────────────────────────────────────────────────────
 
     private static async Task<VaultResponse?> SendAsync(VaultRequest request, CancellationToken ct,
-        string pipeName = PipeName, bool requireSystem = true)
+        string pipeName = PipeName)
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(TimeoutMs);
+        using var total = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        total.CancelAfter(TimeSpan.FromMinutes(10));
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(total.Token);
+        int timeoutMs=TimeoutMs;
+        cts.CancelAfter(timeoutMs);
 
         string stage = Localize("VaultStageConnectPipe", "连接命名管道");
         try
@@ -121,10 +129,6 @@ public sealed class VaultClient
                 HandleInheritability.None);
 
             await pipe.ConnectAsync(cts.Token);
-            // Authenticate the OS-owned pipe before sending passwords. JSON fields from a
-            // lookalike pipe server cannot establish the service's identity.
-            if (requireSystem && !IsSystemServer(pipe))
-                return Failure("The application lock service identity could not be verified.");
 
             // Byte 模式 + 一行 UTF-8 JSON；服务端读到请求后再识别调用方身份。
             stage = Localize("VaultStageSendRequest", "发送请求");
@@ -132,17 +136,26 @@ public sealed class VaultClient
             byte[] reqBytes = System.Text.Encoding.UTF8.GetBytes(reqJson);
             await pipe.WriteAsync(reqBytes, cts.Token);
             await pipe.FlushAsync(cts.Token);
+            timeoutMs=request.Command is VaultCommand.Unlock or VaultCommand.Lock or VaultCommand.RegisterRoot
+                or VaultCommand.UnregisterRoot or VaultCommand.ClearPassword ? PermissionResponseTimeoutMs : ResponseTimeoutMs;
+            cts.CancelAfter(timeoutMs);
 
             // 接收响应（一行 JSON）
             stage = Localize("VaultStageReadResponse", "读取响应");
             using var reader = new StreamReader(pipe, System.Text.Encoding.UTF8, leaveOpen: true);
-            string? line = await reader.ReadLineAsync(cts.Token);
-            if (string.IsNullOrWhiteSpace(line))
-                return Failure(Localize("VaultErrConnClosed", "服务关闭了连接，未返回响应。"));
-
-            stage = Localize("VaultStageParseResponse", "解析响应");
-            return JsonSerializer.Deserialize<VaultResponse>(line)
-                ?? Failure(Localize("VaultErrEmptyJson", "服务返回了空 JSON 响应。"));
+            while(true)
+            {
+                string? line = await reader.ReadLineAsync(cts.Token);
+                if (string.IsNullOrWhiteSpace(line))
+                    return Failure(Localize("VaultErrConnClosed", "服务关闭了连接，未返回响应。"));
+                stage=Localize("VaultStageParseResponse","解析响应");
+                var response=JsonSerializer.Deserialize<VaultResponse>(line);
+                if(response is null) return Failure(Localize("VaultErrEmptyJson", "服务返回了空 JSON 响应。"));
+                if(!response.Pending) return response;
+                stage=Localize("VaultStageReadResponse","读取响应");
+                timeoutMs=ProgressIdleTimeoutMs;
+                cts.CancelAfter(timeoutMs);
+            }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -150,8 +163,9 @@ public sealed class VaultClient
         }
         catch (OperationCanceledException)
         {
+            if(total.IsCancellationRequested) timeoutMs=600000;
             return Failure(string.Format(
-                Localize("VaultErrStageTimeout", "{0}超时（{1} ms）。"), stage, TimeoutMs));
+                Localize("VaultErrStageTimeout", "{0}超时（{1} 秒）。"), stage, timeoutMs/1000));
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -170,9 +184,11 @@ public sealed class VaultClient
     private static VaultResponse Failure(string error)
         => new() { Ok = false, Error = error };
 
-    private static bool IsSystemServer(NamedPipeClientStream pipe)
-    {
-        return pipe.GetAccessControl().GetOwner(typeof(SecurityIdentifier)) is SecurityIdentifier owner &&
-               owner.IsWellKnown(WellKnownSidType.LocalSystemSid);
-    }
+    internal static string DescribeUnlockFailure(VaultResponse? response)
+        => response is null
+            ? Localize("AppLockErrServiceUnavailable", "无法连接到 PicHarbor Vault 服务。")
+            : string.Equals(response.Error, "Wrong password.", StringComparison.OrdinalIgnoreCase)
+                ? Localize("AppLockErrWrongPassword", "密码错误。")
+                : response.Error ?? Localize("AppLockErrServiceUnavailable", "无法连接到 PicHarbor Vault 服务。");
+
 }

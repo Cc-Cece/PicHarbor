@@ -125,13 +125,7 @@ static async Task<int> RunHostAsync(string[] args)
 
     var host = builder.Build();
 
-    // 在 IHost 完全构建后，立刻执行首次收回
-    // （BackgroundService.ExecuteAsync 里也会再做一次，双重保险）
-    using (var scope = host.Services.CreateScope())
-    {
-        var state = scope.ServiceProvider.GetRequiredService<VaultState>();
-        state.RevokeAllOnStartup();
-    }
+    // PipeServer performs startup protection once while keeping status requests available.
 
     await host.RunAsync();
     return 0;

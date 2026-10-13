@@ -37,8 +37,16 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool strictBackupVerification;
     [ObservableProperty] private string libraryCheckStatus = "";
     [ObservableProperty] private bool isCheckingLibrary;
-    [ObservableProperty] private ObservableCollection<RecycledCopy> recycledCopies = new();
-    [ObservableProperty] private RecycledCopy? selectedRecycledCopy;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRecycledCopies))]
+    private ObservableCollection<RecycledCopy> recycledCopies = new();
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RestoreRecycledCopyCommand))]
+    private RecycledCopy? selectedRecycledCopy;
+    [ObservableProperty]
+    private string recycledCopiesHint = App.GetString("LibraryRecoveryHint", "查看自动回收的副本，可在保留期内恢复。");
+    public bool HasRecycledCopies => RecycledCopies.Count > 0;
+    private bool CanRestoreRecycledCopy() => SelectedRecycledCopy is not null;
     private CancellationTokenSource? libraryCheckCts;
     public event Action? LibraryChanged;
 
@@ -48,11 +56,17 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private void RefreshRecycledCopies()
     {
-        try { RecycledCopies=new(new LibraryMaintenanceService().ListRecycled(new LibraryCatalog(ArchivePath))); }
+        try
+        {
+            var selectedOperation = SelectedRecycledCopy?.OperationId;
+            RecycledCopies = new(new LibraryMaintenanceService().ListRecycled(new LibraryCatalog(ArchivePath)));
+            SelectedRecycledCopy = RecycledCopies.FirstOrDefault(copy => copy.OperationId == selectedOperation);
+            RecycledCopiesHint = App.GetString("LibraryRecoveryEmpty", "当前没有可恢复的副本。");
+        }
         catch(Exception ex) { LibraryCheckStatus=ex.Message; }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanRestoreRecycledCopy))]
     private void RestoreRecycledCopy()
     {
         if(SelectedRecycledCopy is not { } copy) return;
@@ -62,6 +76,12 @@ public partial class SettingsViewModel : ObservableObject
 
     partial void OnRebackupDeletedPhotosChanged(bool value) => SaveConfig();
     partial void OnStrictBackupVerificationChanged(bool value) => SaveConfig();
+    partial void OnArchivePathChanged(string value)
+    {
+        SelectedRecycledCopy = null;
+        RecycledCopies = new();
+        RecycledCopiesHint = App.GetString("LibraryRecoveryHint", "查看自动回收的副本，可在保留期内恢复。");
+    }
 
     [RelayCommand]
     private async Task CheckLibraryAsync()

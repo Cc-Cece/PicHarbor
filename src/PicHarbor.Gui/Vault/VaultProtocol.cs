@@ -27,6 +27,7 @@ public static class VaultCommand
 
 public sealed class VaultRequest
 {
+    [JsonPropertyName("supportsProgress")] public bool SupportsProgress { get; set; } = true;
     [JsonPropertyName("ownerSid")] public string? OwnerSid { get; set; }
     [JsonPropertyName("cmd")]               public string  Command            { get; set; } = "";
     [JsonPropertyName("password")]          public string? Password           { get; set; }
@@ -39,6 +40,7 @@ public sealed class VaultRequest
 
 public sealed class VaultResponse
 {
+    [JsonPropertyName("pending")] public bool Pending { get; set; }
     [JsonPropertyName("ok")]             public bool         Ok             { get; set; }
     [JsonPropertyName("error")]          public string?      Error          { get; set; }
     [JsonPropertyName("status")]         public VaultStatus? Status         { get; set; }
@@ -49,6 +51,8 @@ public sealed class VaultResponse
 
 public sealed class VaultStatus
 {
+    [JsonPropertyName("operationInProgress")] public bool OperationInProgress { get; set; }
+    [JsonPropertyName("operation")] public string? Operation { get; set; }
     [JsonPropertyName("protocolVersion")] public int ProtocolVersion { get; set; }
     [JsonPropertyName("protectionErrors")] public IReadOnlyDictionary<string,string> ProtectionErrors { get; set; } = new Dictionary<string,string>();
     [JsonPropertyName("hasPassword")]     public bool                  HasPassword     { get; set; }

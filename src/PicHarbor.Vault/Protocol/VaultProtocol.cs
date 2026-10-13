@@ -44,6 +44,8 @@ public static class VaultCommand
 /// <summary>客户端向服务发送的请求。每条请求独占一行 JSON，以 \n 结尾。</summary>
 public sealed class VaultRequest
 {
+    /// <summary>Opt-in heartbeat frames; older clients continue receiving one final response.</summary>
+    [JsonPropertyName("supportsProgress")] public bool SupportsProgress { get; set; }
     [JsonPropertyName("ownerSid")] public string? OwnerSid { get; set; }
     /// <summary>命令名称，取 <see cref="VaultCommand"/> 常量。</summary>
     [JsonPropertyName("cmd")]
@@ -77,6 +79,8 @@ public sealed class VaultRequest
 /// <summary>服务向客户端返回的响应。每条响应独占一行 JSON，以 \n 结尾。</summary>
 public sealed class VaultResponse
 {
+    /// <summary>The request is still running; this frame is not its final outcome.</summary>
+    [JsonPropertyName("pending")] public bool Pending { get; set; }
     /// <summary>操作是否成功。</summary>
     [JsonPropertyName("ok")]
     public bool Ok { get; set; }
@@ -105,6 +109,8 @@ public sealed class VaultResponse
 /// <summary>服务当前状态快照（不含口令材料）。</summary>
 public sealed class VaultStatus
 {
+    [JsonPropertyName("operationInProgress")] public bool OperationInProgress { get; set; }
+    [JsonPropertyName("operation")] public string? Operation { get; set; }
     [JsonPropertyName("protocolVersion")] public int ProtocolVersion { get; set; } = 2;
     [JsonPropertyName("protectionErrors")] public IReadOnlyDictionary<string,string> ProtectionErrors { get; set; } = new Dictionary<string,string>();
     /// <summary>是否已设置过应用密码。</summary>

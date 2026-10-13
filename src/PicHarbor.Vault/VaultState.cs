@@ -21,9 +21,18 @@ public sealed class VaultState : IDisposable
     private SecurityIdentifier? _unlockedUser;
     private ProcessWatcher? _watcher;
     private CancellationTokenSource? _revokeCts;
+    private readonly Action<string> _lockDirectory;
+    private readonly Action<string,SecurityIdentifier> _grantDirectory;
+    private bool _hasCompletedRevoke;
+    private int _permissionChangeDepth;
+    private string? _permissionOperation = "Starting";
+    private VaultPermissionStatus _permissionStatus = new(false, [], new Dictionary<string,string>(), true, "Starting");
 
-    public VaultState()
+    public VaultState() : this(AclEngine.Lock,AclEngine.Grant) { }
+
+    internal VaultState(Action<string> lockDirectory,Action<string,SecurityIdentifier> grantDirectory)
     {
+        _lockDirectory=lockDirectory;_grantDirectory=grantDirectory;
         AclEngine.EnableOwnershipPrivileges();
         VaultStore.ValidateProtectedStore();
         VaultStore.EnsureDirectory();
@@ -31,15 +40,16 @@ public sealed class VaultState : IDisposable
         _roots = RootStore.Load();
         foreach(string root in _roots)
             if(!PathWhitelist.IsAllowed(root,out string reason)) throw new InvalidDataException(reason);
+        PublishPermissionStatus();
     }
 
     public bool HasPassword => PasswordStore.HasPassword;
-    public bool IsUnlocked  => _unlockedUser is not null;
+    public bool IsUnlocked  => ReadPermissionStatus().IsUnlocked;
     public bool HasTotp     => TotpStore.HasSecret;
     private static string OwnerPath => Path.Combine(VaultStore.Directory,"vault_owner");
     public bool IsAuthorizedSession(SecurityIdentifier caller)
     {
-        lock(_lock) return _unlockedUser?.Equals(caller)==true;
+        return !ReadPermissionStatus().InProgress && _unlockedUser?.Equals(caller)==true;
     }
     public bool IsApplicationOwner(SecurityIdentifier caller)
         => !File.Exists(OwnerPath) || File.ReadAllText(OwnerPath).Trim() == caller.Value;
@@ -70,16 +80,28 @@ public sealed class VaultState : IDisposable
 
         lock (_lock)
         {
+            using var change=BeginPermissionChange("Unlocking");
+            if(_unlockedUser?.Equals(callerSid)==true && _protectionErrors.Count==0)
+            {
+                _watcher?.Dispose();
+                _watcher=new ProcessWatcher(callerPid,()=>ForceLock());
+                _passwordFailures=0;error="";return true;
+            }
             // 若已解锁则先收回再重新授予（切换用户场景）
             InternalRevoke();
+            if(_protectionErrors.Count!=0)
+            {error="Unable to prepare protected directories for unlocking.";return false;}
 
             _passwordFailures = 0;
             _protectionErrors.Clear();
-            _unlockedUser = callerSid;
             foreach (string root in _roots)
             {
                 if(IsDriveOffline(root)) { _offlineRoots.Add(root);continue; }
-                try { AclEngine.Grant(root, callerSid); }
+                try
+                {
+                    if(_offlineRoots.Contains(root)) { _lockDirectory(root);_offlineRoots.Remove(root); }
+                    _grantDirectory(root, callerSid);
+                }
                 catch (Exception ex)
                 {
                     _protectionErrors[root] = ex.Message;
@@ -87,6 +109,7 @@ public sealed class VaultState : IDisposable
             }
 
             if (_protectionErrors.Count != 0) { InternalRevoke(); error = "Unable to unlock all protected directories."; return false; }
+            _unlockedUser = callerSid;
             _revokeCts = new CancellationTokenSource();
             _watcher = new ProcessWatcher(callerPid, () => ForceLock());
         }
@@ -115,6 +138,7 @@ public sealed class VaultState : IDisposable
 
         lock (_lock)
         {
+            using var change=BeginPermissionChange("Registering");
             string norm = NormPath(path);
             if (!_roots.Contains(norm, StringComparer.OrdinalIgnoreCase))
             {
@@ -127,13 +151,14 @@ public sealed class VaultState : IDisposable
             // 这样「启用应用锁」当场生效，无需等下一次解锁/锁定循环。
             try
             {
-                AclEngine.Lock(norm);
-                if(_unlockedUser is not null) AclEngine.Grant(norm,_unlockedUser);
+                _lockDirectory(norm);
+                if(_unlockedUser is not null) _grantDirectory(norm,_unlockedUser);
                 _protectionErrors.Remove(norm);
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[Vault] Lock on register failed ({norm}): {ex.Message}");
+                _protectionErrors[norm]=ex.Message;_hasCompletedRevoke=false;
                 error = $"Registered but failed to lock: {ex.Message}";
                 return false;
             }
@@ -146,6 +171,7 @@ public sealed class VaultState : IDisposable
     {
         lock (_lock)
         {
+            using var change=BeginPermissionChange("Restoring");
             string norm = NormPath(path);
             int idx = _roots.FindIndex(r => r.Equals(norm, StringComparison.OrdinalIgnoreCase));
             if (idx < 0) { error = "Path not registered."; return false; }
@@ -171,6 +197,7 @@ public sealed class VaultState : IDisposable
     {
         lock (_lock)
         {
+            using var change=BeginPermissionChange("Starting");
             // 先把服务私有数据目录与文件的 ACL 收紧（幂等），
             // 防止历史遗留或用户手动创建的文件权限过宽。
             TryHardenStore();
@@ -239,6 +266,7 @@ public sealed class VaultState : IDisposable
     {
         lock (_lock)
         {
+            using var change=BeginPermissionChange("Restoring");
             // 先解除解锁态（若有），再对每个根做 Restore，让用户重新可读写
             InternalRevoke();
 
@@ -443,6 +471,8 @@ public sealed class VaultState : IDisposable
     /// <summary>调用前必须持有 _lock。</summary>
     private void InternalRevoke()
     {
+        if(_unlockedUser is null && _hasCompletedRevoke && _protectionErrors.Count==0) return;
+        using var change=BeginPermissionChange("Locking");
         _watcher?.Dispose();
         _watcher = null;
 
@@ -456,9 +486,10 @@ public sealed class VaultState : IDisposable
         foreach (string root in _roots)
         {
             if(IsDriveOffline(root)) { _offlineRoots.Add(root);continue; }
-            try { AclEngine.Lock(root); }
+            try { _lockDirectory(root); }
             catch (Exception ex) { _protectionErrors[root] = ex.Message; }
         }
+        _hasCompletedRevoke=_protectionErrors.Count==0;
     }
 
     public void RefreshReconnectedRoots()
@@ -468,14 +499,36 @@ public sealed class VaultState : IDisposable
             foreach(string root in _offlineRoots.ToList())
             {
                 if(IsDriveOffline(root)) continue;
+                using var change=BeginPermissionChange("Reconnecting");
                 try
                 {
-                    AclEngine.Lock(root);
-                    if(_unlockedUser is not null) AclEngine.Grant(root,_unlockedUser);
+                    _lockDirectory(root);
+                    if(_unlockedUser is not null) _grantDirectory(root,_unlockedUser);
                     _offlineRoots.Remove(root);_protectionErrors.Remove(root);
                 }
                 catch(Exception ex) { _protectionErrors[root]=ex.Message; }
             }
+        }
+    }
+
+    internal VaultPermissionStatus ReadPermissionStatus() => Volatile.Read(ref _permissionStatus);
+
+    private void PublishPermissionStatus()
+        => Volatile.Write(ref _permissionStatus,new(_permissionOperation is null && _unlockedUser is not null,
+            Array.AsReadOnly(_roots.ToArray()),new System.Collections.ObjectModel.ReadOnlyDictionary<string,string>(new Dictionary<string,string>(_protectionErrors)),
+            _permissionOperation is not null,_permissionOperation));
+
+    private IDisposable BeginPermissionChange(string operation)
+    {
+        if(_permissionChangeDepth++==0) { _permissionOperation=operation;PublishPermissionStatus(); }
+        return new PermissionChange(this);
+    }
+
+    private sealed class PermissionChange(VaultState state) : IDisposable
+    {
+        public void Dispose()
+        {
+            if(--state._permissionChangeDepth==0) { state._permissionOperation=null;state.PublishPermissionStatus(); }
         }
     }
 
@@ -495,3 +548,6 @@ public sealed class VaultState : IDisposable
         lock (_lock) { InternalRevoke(); }
     }
 }
+
+internal sealed record VaultPermissionStatus(bool IsUnlocked,IReadOnlyList<string> Roots,
+    IReadOnlyDictionary<string,string> Errors,bool InProgress,string? Operation);

@@ -139,12 +139,7 @@ internal static class Program
 
         var host = builder.Build();
 
-        // 构建完成后立即做一次首次收回（BackgroundService 里也会再做一次，双重保险）
-        using (var scope = host.Services.CreateScope())
-        {
-            var state = scope.ServiceProvider.GetRequiredService<VaultState>();
-            state.RevokeAllOnStartup();
-        }
+        // PipeServer performs startup protection once while keeping status requests available.
 
         host.Run();
         return 0;

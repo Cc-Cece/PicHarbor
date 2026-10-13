@@ -1631,18 +1631,51 @@
 
                                 <!-- [高级 折叠] 子目录配置 (原: 目录分类与时间层级规范) -->
                                 <StackPanel Visibility="{Binding IsBackupAdvancedExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <controls:PclCard Title="{DynamicResource SettingsCardSubdirConfig}" CanSwap="False">
+                                    <controls:PclCard Title="{DynamicResource SettingsCardBackupSafety}" CanSwap="False">
                                         <StackPanel>
                                             <controls:PclCheckBox Content="{DynamicResource RebackupDeletedOption}" IsChecked="{Binding RebackupDeletedPhotos, Mode=TwoWay}" Margin="0,0,0,12" />
                                             <controls:PclCheckBox Content="{DynamicResource StrictBackupOption}" IsChecked="{Binding StrictBackupVerification, Mode=TwoWay}" Margin="0,0,0,12" />
-                                            <controls:PclButton Content="{DynamicResource LibraryCheckButton}" Command="{Binding CheckLibraryCommand}" Margin="0,0,0,8" />
-                                            <controls:PclButton Content="{DynamicResource LibraryCancelCheck}" Command="{Binding CancelLibraryCheckCommand}" Margin="0,0,0,8" />
-                                            <controls:PclButton Content="{DynamicResource LibraryIncludeButton}" Command="{Binding IncludeLibraryCommand}" Margin="0,0,0,8" />
-                                            <controls:PclButton Content="{DynamicResource LibraryReclaimWriter}" Command="{Binding ReclaimLibraryWriterCommand}" Margin="0,0,0,8" />
-                                            <TextBlock Text="{Binding LibraryCheckStatus}" TextWrapping="Wrap" Margin="0,0,0,12" />
-                                            <controls:PclButton Content="{DynamicResource LibraryRecycleList}" Command="{Binding RefreshRecycledCopiesCommand}" Margin="0,0,0,8" />
-                                            <controls:PclComboBox ItemsSource="{Binding RecycledCopies}" SelectedItem="{Binding SelectedRecycledCopy}" DisplayMemberPath="RelativePath" Margin="0,0,0,8" />
-                                            <controls:PclButton Content="{DynamicResource LibraryRestoreCopy}" Command="{Binding RestoreRecycledCopyCommand}" Margin="0,0,0,8" />
+                                        </StackPanel>
+                                    </controls:PclCard>
+
+                                    <controls:PclCard Title="{DynamicResource SettingsCardLibraryMaintenance}" CanSwap="False">
+                                        <StackPanel>
+                                            <WrapPanel Margin="0,0,-8,4">
+                                                <controls:PclButton Content="{DynamicResource LibraryCheckButton}" Command="{Binding CheckLibraryCommand}" ButtonType="Highlight" Height="32" Padding="14,0" Margin="0,0,8,8"
+                                                                    Visibility="{Binding IsCheckingLibrary, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                                                <controls:PclButton Content="{DynamicResource LibraryCancelCheck}" Command="{Binding CancelLibraryCheckCommand}" Height="32" Padding="14,0" Margin="0,0,8,8"
+                                                                    Visibility="{Binding IsCheckingLibrary, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                                <controls:PclButton Content="{DynamicResource LibraryIncludeButton}" Command="{Binding IncludeLibraryCommand}" Height="32" Padding="14,0" Margin="0,0,8,8" />
+                                                <controls:PclButton Content="{DynamicResource LibraryReclaimWriter}" Command="{Binding ReclaimLibraryWriterCommand}" Height="32" Padding="14,0" Margin="0,0,8,8" />
+                                            </WrapPanel>
+                                            <TextBlock Text="{Binding LibraryCheckStatus}" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Margin" Value="0,0,0,16" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding LibraryCheckStatus}" Value="">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <Rectangle Height="1" Fill="{DynamicResource ColorBrush6}" Margin="0,0,0,12" />
+                                            <WrapPanel Margin="0,0,0,8">
+                                                <TextBlock Text="{DynamicResource LibraryRecoveryTitle}" FontWeight="SemiBold" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" Margin="0,0,16,8" />
+                                                <controls:PclButton Content="{DynamicResource LibraryRecycleList}" Command="{Binding RefreshRecycledCopiesCommand}" Height="32" Padding="14,0" Margin="0,0,0,8" />
+                                            </WrapPanel>
+                                            <TextBlock Text="{Binding RecycledCopiesHint}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap"
+                                                       Visibility="{Binding HasRecycledCopies, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                                            <WrapPanel Visibility="{Binding HasRecycledCopies, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,-8,-8">
+                                                <controls:PclComboBox ItemsSource="{Binding RecycledCopies}" SelectedItem="{Binding SelectedRecycledCopy}" DisplayMemberPath="RelativePath" Width="320" MaxWidth="320" Height="32" Margin="0,0,8,8" />
+                                                <controls:PclButton Content="{DynamicResource LibraryRestoreCopy}" Command="{Binding RestoreRecycledCopyCommand}" Height="32" Padding="14,0" Margin="0,0,8,8" />
+                                            </WrapPanel>
+                                        </StackPanel>
+                                    </controls:PclCard>
+
+                                    <controls:PclCard Title="{DynamicResource SettingsCardSubdirConfig}" CanSwap="False">
+                                        <StackPanel>
                                             <controls:PclCheckBox Content="{DynamicResource SettingsSubdirDeviceOption}" IsChecked="{Binding GroupMediaByDevice, Mode=TwoWay}" Margin="0,0,0,12" />
 
                                             <Grid Margin="0,0,0,4">
