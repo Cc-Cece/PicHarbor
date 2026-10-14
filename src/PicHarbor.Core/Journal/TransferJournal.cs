@@ -695,7 +695,7 @@ public sealed partial class TransferJournal : IDisposable
             """);
         command.Parameters.AddWithValue("$path", file.Path);
         command.Parameters.AddWithValue("$size", file.Size);
-        command.Parameters.AddWithValue("$mtime", (object?)IsoUtc(file.ModifiedAt) ?? DBNull.Value);
+        command.Parameters.AddWithValue("$mtime", (object?)IsoSourceUtc(file.ModifiedAt) ?? DBNull.Value);
         command.ExecuteNonQuery();
     }
 
@@ -2005,6 +2005,10 @@ public sealed partial class TransferJournal : IDisposable
 
     private static string? IsoUtc(DateTimeOffset? value) =>
         value?.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
+
+    // Source identity must retain the precision returned by the device.
+    private static string? IsoSourceUtc(DateTimeOffset? value) =>
+        value?.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ", CultureInfo.InvariantCulture);
 
     private static string? IsoWall(DateTime? value) =>
         value?.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);

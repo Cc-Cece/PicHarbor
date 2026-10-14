@@ -1634,7 +1634,9 @@
                                     <controls:PclCard Title="{DynamicResource SettingsCardBackupSafety}" CanSwap="False">
                                         <StackPanel>
                                             <controls:PclCheckBox Content="{DynamicResource RebackupDeletedOption}" IsChecked="{Binding RebackupDeletedPhotos, Mode=TwoWay}" Margin="0,0,0,12" />
-                                            <controls:PclCheckBox Content="{DynamicResource StrictBackupOption}" IsChecked="{Binding StrictBackupVerification, Mode=TwoWay}" Margin="0,0,0,12" />
+                                            <controls:PclRadioBox Content="{DynamicResource FastBackupOption}" GroupName="BackupVerification" IsChecked="{Binding FastBackupVerification, Mode=TwoWay}" Margin="0,0,0,12" />
+                                            <controls:PclRadioBox Content="{DynamicResource NormalBackupOption}" GroupName="BackupVerification" IsChecked="{Binding NormalBackupVerification, Mode=TwoWay}" Margin="0,0,0,12" />
+                                            <controls:PclRadioBox Content="{DynamicResource StrictBackupOption}" GroupName="BackupVerification" IsChecked="{Binding StrictBackupVerification, Mode=TwoWay}" Margin="0,0,0,12" />
                                         </StackPanel>
                                     </controls:PclCard>
 

@@ -15,6 +15,7 @@
     <!-- Test the actual GUI transport without loading WPF or copying its implementation. -->
     <Compile Include="..\..\src\PicHarbor.Gui\Vault\VaultClient.cs" Link="Gui\VaultClient.cs" />
     <Compile Include="..\..\src\PicHarbor.Gui\Vault\VaultProtocol.cs" Link="Gui\VaultProtocol.cs" />
+    <Compile Include="..\..\src\PicHarbor.Gui\Util\AppLockRemovalWorkflow.cs" Link="Gui\AppLockRemovalWorkflow.cs" />
   </ItemGroup>
 
   <ItemGroup>

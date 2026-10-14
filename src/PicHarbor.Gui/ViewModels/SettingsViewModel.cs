@@ -34,7 +34,17 @@ public partial class SettingsViewModel : ObservableObject
     private bool groupMediaByDevice = true;
 
     [ObservableProperty] private bool rebackupDeletedPhotos = true;
-    [ObservableProperty] private bool strictBackupVerification;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NormalBackupVerification))]
+    private bool strictBackupVerification;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NormalBackupVerification))]
+    private bool fastBackupVerification;
+    public bool NormalBackupVerification
+    {
+        get => !FastBackupVerification && !StrictBackupVerification;
+        set { if (value) { FastBackupVerification = false; StrictBackupVerification = false; } }
+    }
     [ObservableProperty] private string libraryCheckStatus = "";
     [ObservableProperty] private bool isCheckingLibrary;
     [ObservableProperty]
@@ -75,7 +85,16 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     partial void OnRebackupDeletedPhotosChanged(bool value) => SaveConfig();
-    partial void OnStrictBackupVerificationChanged(bool value) => SaveConfig();
+    partial void OnStrictBackupVerificationChanged(bool value)
+    {
+        if (value) FastBackupVerification = false;
+        SaveConfig();
+    }
+    partial void OnFastBackupVerificationChanged(bool value)
+    {
+        if (value) StrictBackupVerification = false;
+        SaveConfig();
+    }
     partial void OnArchivePathChanged(string value)
     {
         SelectedRecycledCopy = null;
@@ -506,6 +525,7 @@ public partial class SettingsViewModel : ObservableObject
         ArchivePath = LibraryStorageService.GetLibraryRootForDrive(PrimaryDriveLetter);
         RebackupDeletedPhotos = config.RebackupDeletedPhotos;
         StrictBackupVerification = config.StrictBackupVerification;
+        FastBackupVerification = config.FastBackupVerification && !config.StrictBackupVerification;
         GroupMediaByDevice = config.GroupMediaByDevice;
         SelectedScheme = string.IsNullOrWhiteSpace(config.SelectedScheme) ? "month (YYYY-MM)" : config.SelectedScheme;
         SyncExifToLastWriteTime = config.SyncExifToLastWriteTime;
@@ -545,6 +565,7 @@ public partial class SettingsViewModel : ObservableObject
         config.GroupMediaByDevice = GroupMediaByDevice;
         config.RebackupDeletedPhotos = RebackupDeletedPhotos;
         config.StrictBackupVerification = StrictBackupVerification;
+        config.FastBackupVerification = FastBackupVerification;
         config.SelectedScheme = SelectedScheme;
         config.SyncExifToLastWriteTime = SyncExifToLastWriteTime;
         config.SyncExifToCreationTime = SyncExifToCreationTime;

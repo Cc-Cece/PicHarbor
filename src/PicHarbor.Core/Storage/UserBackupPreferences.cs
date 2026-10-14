@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 namespace PicHarbor.Core.Storage;
 
 /// <summary>User-wide deletion and verification preferences shared by GUI and CLI.</summary>
-public sealed record RebackupPolicy(bool RebackupDeletedPhotos = true, bool QuestionAsked = false, bool StrictVerification = false);
+public sealed record RebackupPolicy(bool RebackupDeletedPhotos = true, bool QuestionAsked = false, bool StrictVerification = false, bool FastVerification = false);
 
 /// <summary>Updates only backup preference fields, preserving encrypted credentials and other configuration.</summary>
 public sealed class UserBackupPreferences
@@ -16,7 +16,7 @@ public sealed class UserBackupPreferences
     {
         if(!File.Exists(path)) return new();
         var json=JsonNode.Parse(File.ReadAllText(path)) ?? throw new InvalidDataException("Invalid user settings.");
-        return new(json["RebackupDeletedPhotos"]?.GetValue<bool>() ?? true,json["RebackupQuestionAsked"]?.GetValue<bool>() ?? false,json["StrictBackupVerification"]?.GetValue<bool>() ?? false);
+        return new(json["RebackupDeletedPhotos"]?.GetValue<bool>() ?? true,json["RebackupQuestionAsked"]?.GetValue<bool>() ?? false,json["StrictBackupVerification"]?.GetValue<bool>() ?? false,json["FastBackupVerification"]?.GetValue<bool>() ?? false);
     }
     /// <summary>Persists the user's first completed deletion decision atomically.</summary>
     public void RecordDecision(bool rebackup)

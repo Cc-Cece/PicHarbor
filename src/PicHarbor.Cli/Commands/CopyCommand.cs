@@ -241,6 +241,7 @@ internal static class CopyCommand
             client, journal, organizer, new ExifMetadataExtractor(), destination, effectiveScheme,
             readTimeout: readTimeout, onBytesStreamed: progress.RecordBytes, verifyHash: verifyHash,
             strictVerification: strictVerification || new PicHarbor.Core.Storage.UserBackupPreferences().Load().StrictVerification,
+            fastVerification: new PicHarbor.Core.Storage.UserBackupPreferences().Load().FastVerification,
             rebackupDeleted: new PicHarbor.Core.Storage.UserBackupPreferences().Load().RebackupDeletedPhotos,
             deletedPhotoDecision: DecideDeletedPhoto,
             onDisconnect: escapeHatch.Activate);

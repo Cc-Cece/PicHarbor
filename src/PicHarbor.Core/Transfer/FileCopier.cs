@@ -71,6 +71,7 @@ public sealed class FileCopier : IDisposable
     private readonly Action<long>? onBytesStreamed;
     private readonly bool verifyHash;
     private readonly bool strictVerification;
+    private readonly bool fastVerification;
     private readonly Func<RemoteFile, bool?>? deletedPhotoDecision;
     private readonly bool rebackupDeleted;
     private readonly IReadOnlyList<PicHarbor.Core.Storage.LibraryMedia> catalogMedia = [];
@@ -98,7 +99,8 @@ public sealed class FileCopier : IDisposable
         IReadOnlyList<TransferJournal>? fallbackJournals = null,
         bool strictVerification = false,
         bool rebackupDeleted = true,
-        Func<RemoteFile, bool?>? deletedPhotoDecision = null)
+        Func<RemoteFile, bool?>? deletedPhotoDecision = null,
+        bool fastVerification = false)
     {
         this.client = client;
         this.journal = journal;
@@ -112,6 +114,7 @@ public sealed class FileCopier : IDisposable
         this.onBytesStreamed = onBytesStreamed;
         this.verifyHash = verifyHash;
         this.strictVerification = strictVerification;
+        this.fastVerification = fastVerification && !strictVerification;
         this.rebackupDeleted = rebackupDeleted;
         this.deletedPhotoDecision = deletedPhotoDecision;
         this.deviceSubfolder = string.IsNullOrWhiteSpace(deviceSubfolder) ? null : deviceSubfolder.Trim();
@@ -181,7 +184,7 @@ public sealed class FileCopier : IDisposable
             {
                 string existing=PicHarbor.Core.Storage.ArchivePathResolver.Resolve(media.Root,media.RelativePath);
                 if(!File.Exists(existing) || new FileInfo(existing).Length!=file.Size ||
-                    VerifyLocal(existing,cancellationToken)!=media.Sha256) continue;
+                    (!fastVerification && VerifyLocal(existing,cancellationToken)!=media.Sha256)) continue;
                 if(strictVerification && await HashSourceAsync(file,cancellationToken).ConfigureAwait(false)!=media.Sha256) continue;
                 bool isLocal=PicHarbor.Core.Util.LongPath.NormalizeIdentityPath(media.Root)==PicHarbor.Core.Util.LongPath.NormalizeIdentityPath(destinationRoot);
                 if(!isLocal)
@@ -205,12 +208,13 @@ public sealed class FileCopier : IDisposable
         string candidatePath = LongPath.ToExtended(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(destinationRoot, relPath));
         var verification = journal.GetReplicaVerification(file.Path,file.Size);
         var linked = journal.GetLinkedReplica(file.Path,file.Size);
-        if (linked is { } other && journal.GetSourceModifiedAt(file.Path,file.Size) == file.ModifiedAt)
+        if (linked is { } other && (fastVerification || journal.GetSourceModifiedAt(file.Path,file.Size) == file.ModifiedAt))
         {
             bool registered=catalogMedia.Any(m=>m.Sha256==other.Hash &&
                 string.Equals(LongPath.NormalizeIdentityPath(m.Root),LongPath.NormalizeIdentityPath(other.Root),StringComparison.OrdinalIgnoreCase));
             string linkedPath = PicHarbor.Core.Storage.ArchivePathResolver.Resolve(other.Root,other.Path);
-            if (registered && File.Exists(linkedPath) && VerifyLocal(linkedPath,cancellationToken) == other.Hash &&
+            if (registered && File.Exists(linkedPath) && new FileInfo(linkedPath).Length == file.Size &&
+                (fastVerification || VerifyLocal(linkedPath,cancellationToken) == other.Hash) &&
                 (!strictVerification || await HashSourceAsync(file,cancellationToken).ConfigureAwait(false)==other.Hash))
             {
                 progressWatchdog?.RecordProgress();
@@ -227,17 +231,30 @@ public sealed class FileCopier : IDisposable
             var targetId = new FileIdentity(candidatePath, targetInfo.Length, targetInfo.LastWriteTimeUtc);
 
             var equiv = FileEquivalenceResolver.Resolve(sourceId, targetId, allowHashCheck: false);
+            bool repairedLegacyTimestamp = false;
+            bool sourceMatches = fastVerification || journal.GetSourceModifiedAt(file.Path, file.Size) == file.ModifiedAt;
+            if (!sourceMatches && isJournalDone && targetInfo.Length == file.Size &&
+                verification.State == PicHarbor.Core.Storage.ReplicaState.Available &&
+                verification.Hash is not null && journal.HasTruncatedSourceTimestamp(file) &&
+                VerifyLocal(candidatePath, cancellationToken) == verification.Hash &&
+                await HashSourceAsync(file, cancellationToken).ConfigureAwait(false) == verification.Hash)
+            {
+                journal.RefreshSourceMetadata(file);
+                sourceMatches = true;
+                repairedLegacyTimestamp = true;
+            }
             bool isEquivalent = isJournalDone && targetInfo.Length == file.Size &&
-                journal.GetSourceModifiedAt(file.Path, file.Size) == file.ModifiedAt &&
+                sourceMatches &&
                 verification.State == PicHarbor.Core.Storage.ReplicaState.Available;
-            if (isEquivalent && verification.Hash is not null)
+            if (isEquivalent && !fastVerification && verification.Hash is not null)
                 isEquivalent = VerifyLocal(candidatePath,cancellationToken) == verification.Hash;
-            if (isEquivalent && strictVerification)
+            if (isEquivalent && strictVerification && !repairedLegacyTimestamp)
                 isEquivalent = verification.Hash is not null && await HashSourceAsync(file,cancellationToken).ConfigureAwait(false) == verification.Hash;
             if (!isEquivalent && verification.Hash is not null)
             {
                 string actualHash=VerifyLocal(candidatePath,cancellationToken);
-                journal.RecordChangedVersion(relPath,actualHash,targetInfo.Length,targetInfo.LastWriteTimeUtc);
+                if (actualHash != verification.Hash)
+                    journal.RecordChangedVersion(relPath,actualHash,targetInfo.Length,targetInfo.LastWriteTimeUtc);
             }
 
             if (isEquivalent)
@@ -281,11 +298,11 @@ public sealed class FileCopier : IDisposable
                     fallback.GetState(file.Path, file.Size) == FileState.Done && fallbackPath is not null &&
                     File.Exists(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(fallbackRoot, fallbackPath)) &&
                     new FileInfo(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(fallbackRoot, fallbackPath)).Length == file.Size &&
-                    fallback.GetSourceModifiedAt(file.Path, file.Size) == file.ModifiedAt)
+                    (fastVerification || fallback.GetSourceModifiedAt(file.Path, file.Size) == file.ModifiedAt))
                 {
                     var saved = fallback.GetReplicaVerification(file.Path,file.Size);
                     if (saved.State != PicHarbor.Core.Storage.ReplicaState.Available || saved.Hash is null ||
-                        VerifyLocal(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(fallbackRoot,fallbackPath),cancellationToken) != saved.Hash) continue;
+                        (!fastVerification && VerifyLocal(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(fallbackRoot,fallbackPath),cancellationToken) != saved.Hash)) continue;
                     if (strictVerification && await HashSourceAsync(file,cancellationToken).ConfigureAwait(false) != saved.Hash) continue;
                     progressWatchdog?.RecordProgress();
                     return new CopyResult(CopyStatus.Skipped, file, null, 0, "Verified copy in another archive member.");

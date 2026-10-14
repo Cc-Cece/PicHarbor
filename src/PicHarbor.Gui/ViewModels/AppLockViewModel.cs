@@ -368,6 +368,17 @@ public partial class AppLockViewModel : ObservableObject
         // 服务是否已安装独立探测（装了但没启动时 QueryStatus 会失败，但「移除组件」仍应可见）
         IsServiceInstalled = VaultServiceManager.IsServiceInstalled();
 
+        if (!IsServiceInstalled && !PicHarbor.Gui.Config.AppSettings.Load().AppLockWasEnabled)
+        {
+            IsServiceAvailable = false;
+            HasPassword = false;
+            IsUnlocked = false;
+            HasTotp = false;
+            RegisteredRoots = [];
+            LockStateChanged?.Invoke();
+            return true;
+        }
+
         var response = await VaultClient.QueryStatusResponseAsync();
         var status = response is { Ok: true } ? response.Status : null;
         if (status is null || status.ProtocolVersion < 2)
@@ -886,12 +897,8 @@ public partial class AppLockViewModel : ObservableObject
             StatusMessage = App.GetString("AppLockMsgRemovingComponents", "正在移除应用锁组件…");
             IsError = false;
 
-            // 先卸载服务（停 + 删），再删数据目录。两者都需要管理员。
-            var (uninstalled, uninstallMsg) = await VaultServiceManager.UninstallServiceAsync();
-            if (!uninstalled) { SetError(uninstallMsg); return; }
-
-            var (purged, purgeMsg) = await VaultServiceManager.PurgeVaultDataAsync();
-            if (!purged) { SetError(purgeMsg); return; }
+            var (removed, removeMsg) = await VaultServiceManager.RemoveAppLockComponentsAsync();
+            if (!removed) { SetError(removeMsg); return; }
 
             SetSuccess(App.GetString("AppLockMsgComponentsRemoved", "应用锁组件已彻底移除。如需再次使用，重新启用即可自动重装。"));
             await RefreshStatusAsync();
@@ -1274,11 +1281,8 @@ public partial class AppLockViewModel : ObservableObject
             StatusMessage = App.GetString("AppLockMsgRemovingComponents", "正在移除应用锁组件…");
             IsError = false;
 
-            var (uninstalled, uninstallMsg) = await VaultServiceManager.UninstallServiceAsync();
-            if (!uninstalled) { ConfirmError = uninstallMsg; return; }
-
-            var (purged, purgeMsg) = await VaultServiceManager.PurgeVaultDataAsync();
-            if (!purged) { ConfirmError = purgeMsg; return; }
+            var (removed, removeMsg) = await VaultServiceManager.RemoveAppLockComponentsAsync();
+            if (!removed) { ConfirmError = removeMsg; return; }
 
             IsRemoveConfirmOpen = false;
             SetSuccess(App.GetString("AppLockMsgComponentsRemoved", "应用锁组件已彻底移除。如需再次使用，重新启用即可自动重装。"));

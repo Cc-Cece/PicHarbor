@@ -1044,6 +1044,8 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="FmtPreviewDetailsVideo">{0} (Live Photo) | Captured: {1}</sys:String>
     <sys:String x:Key="FmtPreviewDetailsMedia">{0} | Captured: {1} | Size: {2}</sys:String>
     <sys:String x:Key="RebackupDeletedOption">Back up deleted computer copies again</sys:String>
+    <sys:String x:Key="FastBackupOption">Fast mode: skip by backup records and file size (no content check)</sys:String>
+    <sys:String x:Key="NormalBackupOption">Normal mode: verify backup content on the computer</sys:String>
     <sys:String x:Key="StrictBackupOption">Verify source content before skipping (slower)</sys:String>
     <sys:String x:Key="LibraryCheckButton">Check this photo library</sys:String>
     <sys:String x:Key="LibraryIncludeButton">Include another archive</sys:String>

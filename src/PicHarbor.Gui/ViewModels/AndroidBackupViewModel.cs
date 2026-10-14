@@ -1757,6 +1757,7 @@ public partial class AndroidBackupViewModel : ObservableObject
                         deviceSubfolder: DeviceSubdir,
                         fallbackJournals: fallbackJournals,
                         strictVerification: PicHarbor.Gui.Config.AppSettings.Load().StrictBackupVerification,
+                        fastVerification: PicHarbor.Gui.Config.AppSettings.Load().FastBackupVerification,
                         rebackupDeleted: PicHarbor.Gui.Config.AppSettings.Load().RebackupDeletedPhotos,
                         deletedPhotoDecision: PicHarbor.Gui.Util.BackupPreferences.DecideDeletedPhoto);
 

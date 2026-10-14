@@ -106,6 +106,14 @@ internal static class VaultServiceManager
                 App.GetString("VaultErrUninstallFailed", "卸载 Vault 服务失败（退出码 {0}）。"), code));
     }
 
+    internal static Task<(bool ok, string message)> RemoveAppLockComponentsAsync()
+        => AppLockRemovalWorkflow.RunAsync(DisableAppLockAsync, () =>
+        {
+            var config = PicHarbor.Gui.Config.AppSettings.Load();
+            config.AppLockWasEnabled = false;
+            PicHarbor.Gui.Config.AppSettings.Save(config);
+        }, UninstallServiceAsync, PurgeVaultDataAsync);
+
     /// <summary>删除服务数据目录（%ProgramData%\PicHarbor）。</summary>
     public static async Task<(bool ok, string message)> PurgeVaultDataAsync()
     {

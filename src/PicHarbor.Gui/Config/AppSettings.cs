@@ -11,6 +11,7 @@ public sealed class AppConfig
     public bool RebackupDeletedPhotos { get; set; } = true;
     public bool RebackupQuestionAsked { get; set; }
     public bool StrictBackupVerification { get; set; }
+    public bool FastBackupVerification { get; set; }
     public string ActiveLibraryRoot { get; set; } = string.Empty;
     public string DestinationPath { get; set; } = string.Empty;
     public string PrimaryDriveLetter { get; set; } = string.Empty;

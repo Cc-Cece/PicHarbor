@@ -57,7 +57,7 @@ public sealed partial class TransferJournal
     public void MarkExternalSourceVerified(PicHarbor.Core.Device.RemoteFile file,LibraryMedia media)
     {
         using var command=CreateCommand("UPDATE files SET state='external',sha256=$hash,media_id=$hash,source_mtime=$mtime,dest_path=NULL,replica_root=$root WHERE device_id=$device AND source_path=$path AND source_size=$size;");
-        command.Parameters.AddWithValue("$hash",media.Sha256!);command.Parameters.AddWithValue("$mtime",(object?)IsoUtc(file.ModifiedAt)??DBNull.Value);
+        command.Parameters.AddWithValue("$hash",media.Sha256!);command.Parameters.AddWithValue("$mtime",(object?)IsoSourceUtc(file.ModifiedAt)??DBNull.Value);
         command.Parameters.AddWithValue("$root",media.Root);command.Parameters.AddWithValue("$path",file.Path);command.Parameters.AddWithValue("$size",file.Size);command.ExecuteNonQuery();
     }
 
@@ -118,7 +118,18 @@ public sealed partial class TransferJournal
     {
         using var cmd = CreateCommand("UPDATE files SET source_mtime=$mtime,replica_state='Available' WHERE device_id=$device AND source_path=$path AND source_size=$size;");
         cmd.Parameters.AddWithValue("$path",file.Path);cmd.Parameters.AddWithValue("$size",file.Size);
-        cmd.Parameters.AddWithValue("$mtime",(object?)IsoUtc(file.ModifiedAt) ?? DBNull.Value);cmd.ExecuteNonQuery();
+        cmd.Parameters.AddWithValue("$mtime",(object?)IsoSourceUtc(file.ModifiedAt) ?? DBNull.Value);cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Identifies legacy source timestamps whose fractional seconds were discarded.</summary>
+    internal bool HasTruncatedSourceTimestamp(PicHarbor.Core.Device.RemoteFile file)
+    {
+        using var cmd = CreateCommand("SELECT source_mtime FROM files WHERE device_id=$device AND source_path=$path AND source_size=$size;");
+        cmd.Parameters.AddWithValue("$path", file.Path);
+        cmd.Parameters.AddWithValue("$size", file.Size);
+        return file.ModifiedAt is { } modified &&
+            cmd.ExecuteScalar() is string stored && stored.Length == 20 &&
+            stored == IsoUtc(modified) && ParseIso(stored) != modified;
     }
 
     /// <summary>Finds a surviving linked copy after automated duplicate recycling.</summary>

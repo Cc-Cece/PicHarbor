@@ -8,6 +8,8 @@ A local-first **photo management and backup tool** for Windows. It provides reli
 
 ---
 
+Choose backup verification under Settings → advanced backup settings: Fast skips existing completed files by existence and size without reading content; Normal verifies the local backup; Strict also verifies source content. Normal remains the default. Fast cannot detect same-size content changes; missing files and size mismatches are copied again.
+
 ## Key Features
 
 ### 📥 Lossless iPhone USB Archiving (AFC Protocol)

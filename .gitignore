@@ -26,6 +26,11 @@ outputs/security-validation/exit-code.txt
 outputs/security-validation/*-exit-code.txt
 outputs/unlock-timeout-fix/
 
+# Local builds and machine-specific repair data (may contain private metadata).
+outputs/fast-backup-build/
+outputs/repaired-build/
+outputs/local-repair/
+
 # other
 .docs/
 *.log

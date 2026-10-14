@@ -114,6 +114,129 @@ public sealed class FileCopierTests : IDisposable
         result.Status.ShouldBe(CopyStatus.Skipped);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Unchanged_fractional_timestamp_skips_on_second_and_third_backup(bool legacyTimestamp)
+    {
+        using var archive = new TempDirectory();
+        byte[] content = Encoding.UTF8.GetBytes("unchanged iPhone photo");
+        var file = new RemoteFile("/DCIM/100APPLE/IMG_REPEAT.HEIC", content.Length,
+            DateTimeOffset.Parse("2026-10-14T01:02:03.456Z"));
+        SetupRead(file.Path, content);
+
+        for (int run = 0; run < 3; run++)
+        {
+            using var runJournal = TransferJournal.Open(archive.Path);
+            if (run == 1 && legacyTimestamp)
+            {
+                using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+                {
+                    DataSource = runJournal.DatabasePath,
+                }.ConnectionString);
+                connection.Open();
+                connection.CreateFunction("picharbor_writer_version", () => 8L);
+                using var command = connection.CreateCommand();
+                command.CommandText = "UPDATE files SET source_mtime='2026-10-14T01:02:03Z';";
+                command.ExecuteNonQuery();
+            }
+            using var copier = new FileCopier(client, runJournal, organizer, extractor,
+                archive.Path, OrganizeScheme.YearMonth);
+            var result = await copier.CopyAsync(file, Token);
+            result.Status.ShouldBe(run == 0 ? CopyStatus.Copied : CopyStatus.Skipped);
+            runJournal.GetSourceModifiedAt(file.Path, file.Size).ShouldBe(file.ModifiedAt);
+        }
+
+        Directory.GetFiles(archive.Path, "*.HEIC", SearchOption.AllDirectories).Length.ShouldBe(1);
+        await client.Received(legacyTimestamp ? 2 : 1).OpenReadAsync(file.Path, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Fast_mode_skips_legacy_timestamp_without_reading_either_copy()
+    {
+        var file = new RemoteFile("/DCIM/100APPLE/IMG_FAST.HEIC", 4,
+            DateTimeOffset.Parse("2026-10-14T01:02:03.456Z"));
+        SetupRead(file.Path, [1, 2, 3, 4]);
+        using var copier = CreateCopier();
+        var first = await copier.CopyAsync(file, Token);
+        first.Status.ShouldBe(CopyStatus.Copied);
+        var local = Path.Combine(destination.Path, first.RelativeDestPath!);
+        // Simulate the old whole-second source record; preserve the real content hash.
+        journal.RefreshSourceMetadata(file with { ModifiedAt = DateTimeOffset.Parse("2026-10-14T01:02:03Z") });
+        // A denied read proves fast skipping uses attributes rather than hashing local content.
+        using var locked = new FileStream(local, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        using var fast = new FileCopier(client, journal, organizer, extractor, destination.Path,
+            OrganizeScheme.YearMonth, fastVerification: true);
+        (await fast.CopyAsync(file, Token)).Status.ShouldBe(CopyStatus.Skipped);
+        (await fast.CopyAsync(file, Token)).Status.ShouldBe(CopyStatus.Skipped);
+        await client.Received(1).OpenReadAsync(file.Path, Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(false, CopyStatus.Skipped)]
+    [InlineData(true, CopyStatus.Copied)]
+    public async Task Strict_mode_takes_precedence_over_fast_for_same_size_content_changes(bool strict, CopyStatus expected)
+    {
+        var file = new RemoteFile("/DCIM/100APPLE/IMG_MODE.HEIC", 4, null);
+        SetupRead(file.Path, [1, 2, 3, 4]);
+        using (var copier = CreateCopier())
+            (await copier.CopyAsync(file, Token)).Status.ShouldBe(CopyStatus.Copied);
+        SetupRead(file.Path, [4, 3, 2, 1]);
+        using var next = new FileCopier(client, journal, organizer, extractor, destination.Path,
+            OrganizeScheme.YearMonth, fastVerification: true, strictVerification: strict);
+        (await next.CopyAsync(file, Token)).Status.ShouldBe(expected);
+        await client.Received(strict ? 3 : 1).OpenReadAsync(file.Path, Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Fast_mode_recopies_missing_or_different_size_local_files(bool delete)
+    {
+        var file = new RemoteFile("/DCIM/100APPLE/IMG_REPAIR.HEIC", 4, null);
+        SetupRead(file.Path, [1, 2, 3, 4]);
+        using var copier = CreateCopier();
+        var first = await copier.CopyAsync(file, Token);
+        var local = Path.Combine(destination.Path, first.RelativeDestPath!);
+        if (delete) File.Delete(local);
+        else File.WriteAllBytes(local, [1]);
+        using var fast = new FileCopier(client, journal, organizer, extractor, destination.Path,
+            OrganizeScheme.YearMonth, fastVerification: true);
+        (await fast.CopyAsync(file, Token)).Status.ShouldBe(CopyStatus.Copied);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Changed_content_with_same_size_is_copied_even_within_same_second(bool legacyTimestamp)
+    {
+        var file = new RemoteFile("/DCIM/100APPLE/IMG_CHANGED.HEIC", 4,
+            DateTimeOffset.Parse("2026-10-14T01:02:03.123Z"));
+        SetupRead(file.Path, [1, 2, 3, 4]);
+        using (var copier = CreateCopier())
+            (await copier.CopyAsync(file, Token)).Status.ShouldBe(CopyStatus.Copied);
+
+        if (legacyTimestamp)
+        {
+            using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+            {
+                DataSource = journal.DatabasePath,
+            }.ConnectionString);
+            connection.Open();
+            connection.CreateFunction("picharbor_writer_version", () => 8L);
+            using var command = connection.CreateCommand();
+            command.CommandText = "UPDATE files SET source_mtime='2026-10-14T01:02:03Z';";
+            command.ExecuteNonQuery();
+        }
+        SetupRead(file.Path, [4, 3, 2, 1]);
+        var changed = file with { ModifiedAt = file.ModifiedAt!.Value.AddMilliseconds(1) };
+        using (var copier = CreateCopier())
+            (await copier.CopyAsync(changed, Token)).Status.ShouldBe(CopyStatus.Copied);
+        Directory.GetFiles(destination.Path, "*.HEIC", SearchOption.AllDirectories).Length.ShouldBe(2);
+        journal.ReadManifest().Count.ShouldBe(1); // Unchanged local content is not a local-edit version.
+        journal.GetSourceModifiedAt(file.Path, file.Size).ShouldBe(changed.ModifiedAt);
+    }
+
     [Fact]
     public async Task Disambiguates_collisions_without_overwriting()
     {

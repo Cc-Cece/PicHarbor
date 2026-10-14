@@ -1044,6 +1044,8 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="FmtPreviewDetailsVideo">{0} (实况动图) | 拍摄时间: {1}</sys:String>
     <sys:String x:Key="FmtPreviewDetailsMedia">{0} | 拍摄时间: {1} | 大小: {2}</sys:String>
     <sys:String x:Key="RebackupDeletedOption">删除电脑副本后重新从设备备份</sys:String>
+    <sys:String x:Key="FastBackupOption">极速模式：按备份记录和文件大小跳过（不校验内容）</sys:String>
+    <sys:String x:Key="NormalBackupOption">普通模式：校验电脑上的备份内容</sys:String>
     <sys:String x:Key="StrictBackupOption">严格校验备份内容（会增加读取时间）</sys:String>
     <sys:String x:Key="LibraryCheckButton">自检当前图库</sys:String>
     <sys:String x:Key="LibraryIncludeButton">纳入另一个照片库</sys:String>
