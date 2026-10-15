@@ -174,12 +174,19 @@ public class PclCard : HeaderedContentControl
         else
         {
             // Expand
+            // An initially collapsed template has Auto (NaN) height, which cannot be animated.
+            if (double.IsNaN(contentContainer.Height)) contentContainer.Height = 0;
             contentContainer.Visibility = Visibility.Visible;
             double targetHeight = double.IsNaN(naturalContentHeight) || naturalContentHeight <= 0 ? 150 : naturalContentHeight;
 
             PclAnimation.AnimateDouble(contentContainer, HeightProperty, targetHeight, 180, PclAnimation.EaseOutFluentExtraStrong, onCompleted: () =>
             {
-                contentContainer.Height = double.NaN; // Restore auto sizing
+                if (!IsSwapped)
+                {
+                    // Remove the animation's held value so changing status text/language can resize the card.
+                    contentContainer.BeginAnimation(HeightProperty, null);
+                    contentContainer.Height = double.NaN;
+                }
             });
             PclAnimation.AnimateDouble(contentContainer, OpacityProperty, 1.0, 150, PclAnimation.EaseOutFluentMiddle);
         }

@@ -8,6 +8,7 @@ namespace PicHarbor.Gui.Config;
 public sealed class AppConfig
 {
     public Core.Updates.UpdateMode UpdateMode { get; set; } = Core.Updates.UpdateMode.Automatic;
+    public Core.Updates.UpdateRegionMode UpdateRegionMode { get; set; } = Core.Updates.UpdateRegionMode.Automatic;
     public string SkippedUpdateVersion { get; set; } = "";
     public bool AppLockWasEnabled { get; set; }
     public bool RebackupDeletedPhotos { get; set; } = true;

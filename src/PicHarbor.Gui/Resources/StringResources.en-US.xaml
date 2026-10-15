@@ -1073,11 +1073,24 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
 
     <!-- GitHub Releases updates -->
     <sys:String x:Key="UpdateCardTitle">Software updates</sys:String>
+    <sys:String x:Key="UpdateNetworkRegion">Network region</sys:String>
+    <sys:String x:Key="UpdateRegionAutomatic">Detect automatically</sys:String>
+    <sys:String x:Key="UpdateRegionRestricted">Restricted network</sys:String>
+    <sys:String x:Key="UpdateRegionOther">Other network</sys:String>
+    <sys:String x:Key="UpdateRouteDirect">GitHub direct</sys:String>
+    <sys:String x:Key="UpdateRouteProxy">Network proxy (fallback)</sys:String>
+    <sys:String x:Key="UpdateLocating">Detecting the network region…</sys:String>
+    <sys:String x:Key="UpdateProbing">Testing direct and mirror download routes…</sys:String>
+    <sys:String x:Key="UpdateReceiving">Downloading the update using the route below…</sys:String>
+    <sys:String x:Key="UpdateSwitching">The route failed or remained slow. Switching routes…</sys:String>
+    <sys:String x:Key="UpdateVerifying">Download complete. Verifying against official release information…</sys:String>
+    <sys:String x:Key="UpdateReselect">Choose route again</sys:String>
+    <sys:String x:Key="UpdateRateLimited">GitHub has temporarily limited requests. Retry after {0}.</sys:String>
     <sys:String x:Key="UpdateCurrentVersion">Current version: {0}</sys:String>
     <sys:String x:Key="UpdateModeAutomatic">Automatic updates (default)</sys:String>
     <sys:String x:Key="UpdateModeManual">Manual updates</sys:String>
     <sys:String x:Key="UpdateModeBrowser">Download in browser</sys:String>
-    <sys:String x:Key="UpdateModeHint">Automatic mode checks on startup, downloads in the background and installs on exit. Manual mode installs and restarts after clicking. For browser downloads, close the app before replacing the EXE; if app lock is enabled, click “Repair app lock service” below in the new version.</sys:String>
+    <sys:String x:Key="UpdateModeHint">Automatic mode checks on startup, downloads in the background and installs on exit. Manual mode installs and restarts after clicking. Downloads choose direct or mirror routes using region and speed tests, then fall back to your configured or system proxy. Version and checksum information always comes from GitHub. For browser downloads, close the app before replacing the EXE; if app lock is enabled, click “Repair app lock service” below in the new version.</sys:String>
     <sys:String x:Key="UpdateRepairService">Repair app lock service</sys:String>
     <sys:String x:Key="UpdateServiceRepaired">The app lock service now matches this app version.</sys:String>
     <sys:String x:Key="UpdateBrowserHint">Download the EXE from GitHub, close the app, then replace it. If app lock is enabled, repair the service in the new version.</sys:String>

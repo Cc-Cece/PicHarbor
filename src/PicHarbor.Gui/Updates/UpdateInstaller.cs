@@ -153,7 +153,7 @@ internal static class UpdateInstaller
         try
         {
             // The GUI snapshots its setting over the authenticated pipe; an elevated worker may run as another account.
-            using var http = UpdateHttp.CreateClient(request.ProxyAddress, TimeSpan.FromMinutes(2));
+            using var http = UpdateHttp.CreateOfficialClient(request.ProxyAddress);
             var client = new ReleaseClient(http);
             // Re-fetch the expected checksum inside the worker: an elevated installation must not trust a user-writable manifest.
             var release = await client.ByTagAsync(request.Tag, timeout.Token);

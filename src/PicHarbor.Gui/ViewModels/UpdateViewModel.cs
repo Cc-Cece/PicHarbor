@@ -16,6 +16,10 @@ namespace PicHarbor.Gui.ViewModels;
 
 public partial class UpdateViewModel : ObservableObject
 {
+    private readonly UpdateRegionResolver regions = new(Path.Combine(UpdateInstaller.CacheRoot, "network-region.json"));
+    private UpdateDownloadRouter? downloader;
+    private bool isDownloading;
+    private string routeId = "";
     private CancellationTokenSource? operation;
     private ReleaseUpdate? ready;
     private string? candidate;
@@ -29,6 +33,12 @@ public partial class UpdateViewModel : ObservableObject
     private object[] statusArguments = [];
 
     [ObservableProperty] private int selectedMode;
+    [ObservableProperty] private int selectedNetworkRegion;
+    [ObservableProperty] private string downloadRouteText = "";
+    [ObservableProperty] private string downloadSpeedText = "";
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ReselectRouteCommand))]
+    private bool canReselectRoute;
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(CheckAndUpdateCommand))]
     [NotifyCanExecuteChangedFor(nameof(CancelUpdateCommand))]
@@ -47,8 +57,10 @@ public partial class UpdateViewModel : ObservableObject
     public UpdateViewModel()
     {
         loading = true;
-        var mode = AppSettings.Load().UpdateMode;
+        var config = AppSettings.Load();
+        var mode = config.UpdateMode;
         SelectedMode = Enum.IsDefined(mode) ? (int)mode : 0;
+        SelectedNetworkRegion = Enum.IsDefined(config.UpdateRegionMode) ? (int)config.UpdateRegionMode : 0;
         loading = false;
         SetStatus("UpdateIdle");
     }
@@ -59,7 +71,7 @@ public partial class UpdateViewModel : ObservableObject
         hasWork = busy;
         window.Closing += OnClosing;
         window.ContentRendered += OnFirstRendered;
-        window.Closed += (_, _) => { operation?.Cancel(); LocalizationService.LanguageChanged -= OnLanguageChanged; };
+        window.Closed += (_, _) => { operation?.Cancel(); regions.Dispose(); LocalizationService.LanguageChanged -= OnLanguageChanged; };
         LocalizationService.LanguageChanged += OnLanguageChanged;
     }
 
@@ -80,7 +92,45 @@ public partial class UpdateViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(VersionText));
         OnPropertyChanged(nameof(ActionText));
+        DownloadRouteText = RouteName(routeId);
         SetStatus(statusKey, statusArguments);
+    }
+
+    partial void OnSelectedNetworkRegionChanged(int value)
+    {
+        if (loading) return;
+        var config = AppSettings.Load();
+        config.UpdateRegionMode = Enum.IsDefined((UpdateRegionMode)value) ? (UpdateRegionMode)value : UpdateRegionMode.Automatic;
+        AppSettings.Save(config);
+        if (CanReselectRoute) downloader?.RequestReselect(config.UpdateRegionMode);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanReselectRoute))]
+    private void ReselectRoute() => downloader?.RequestReselect((UpdateRegionMode)SelectedNetworkRegion);
+
+    private static string RouteName(string route) => route switch
+    {
+        "direct" => App.GetString("UpdateRouteDirect"),
+        "proxy" => App.GetString("UpdateRouteProxy"),
+        _ => route
+    };
+
+    private void ApplyDownloadProgress(UpdateDownloadProgress value)
+    {
+        if (!isDownloading) return;
+        CanReselectRoute = value.Stage != UpdateDownloadStage.Verifying;
+        routeId = value.Route;
+        DownloadRouteText = RouteName(value.Route);
+        DownloadSpeedText = value.BytesPerSecond > 0 ? $"{value.BytesPerSecond / 1024:N0} KiB/s" : "";
+        Progress = value.Total > 0 ? value.Received * 100d / value.Total : 0;
+        SetStatus(value.Stage switch
+        {
+            UpdateDownloadStage.Locating => "UpdateLocating",
+            UpdateDownloadStage.Probing => "UpdateProbing",
+            UpdateDownloadStage.Switching => "UpdateSwitching",
+            UpdateDownloadStage.Verifying => "UpdateVerifying",
+            _ => "UpdateReceiving"
+        });
     }
 
     partial void OnSelectedModeChanged(int value)
@@ -150,7 +200,7 @@ public partial class UpdateViewModel : ObservableObject
         {
             SetStatus("UpdateChecking");
             // Read on every operation so edits to the network setting take effect without restarting.
-            using var http = UpdateHttp.CreateClient(AppSettings.Load().GooglePhotosProxy, TimeSpan.FromMinutes(10));
+            using var http = UpdateHttp.CreateOfficialClient(AppSettings.Load().GooglePhotosProxy);
             var client = new ReleaseClient(http);
             var published = await client.LatestReleaseAsync(ct);
             if (published is null) { SetStatus("UpdateNoStableRelease"); return; }
@@ -182,11 +232,26 @@ public partial class UpdateViewModel : ObservableObject
                 string temporary = Path.Combine(directory, Guid.NewGuid().ToString("N") + ".partial");
                 try
                 {
-                    await client.DownloadAsync(release, temporary, new Progress<double>(p => Progress = p), ct);
-                    await UpdatePolicy.VerifyAsync(temporary, release, hash, ct);
+                    using var routes = new UpdateDownloadRouter(regions,
+                        route => route.IsProxy ? UpdateHttp.CreateClient(AppSettings.Load().GooglePhotosProxy, Timeout.InfiniteTimeSpan) : UpdateHttp.CreateDirectClient(),
+                        uri => UpdateHttp.HasProxy(AppSettings.Load().GooglePhotosProxy, uri));
+                    downloader = routes;
+                    isDownloading = true;
+                    CanReselectRoute = true;
+                    await routes.DownloadAsync(release, temporary, hash, (UpdateRegionMode)SelectedNetworkRegion,
+                        new Progress<UpdateDownloadProgress>(value =>
+                        {
+                            if (ReferenceEquals(downloader, routes)) ApplyDownloadProgress(value);
+                        }), ct);
                     File.Move(temporary, destination, true);
                 }
-                finally { if (File.Exists(temporary)) File.Delete(temporary); }
+                finally
+                {
+                    isDownloading = false;
+                    CanReselectRoute = false;
+                    downloader = null;
+                    if (File.Exists(temporary)) File.Delete(temporary);
+                }
             }
             ct.ThrowIfCancellationRequested();
             ready = release;
@@ -198,6 +263,7 @@ public partial class UpdateViewModel : ObservableObject
                 await InstallAsync(restart: true, ct);
         }
         catch (OperationCanceledException) { SetStatus("UpdateCancelled"); }
+        catch (UpdateRateLimitException ex) { SetStatus("UpdateRateLimited", ex.RetryAfter.ToLocalTime().ToString("g")); }
         catch (Exception ex) { Log(ex); SetStatus("UpdateFailed", ex.Message); }
         finally { if (ReferenceEquals(operation, cancellation)) { IsBusy = false; operation = null; } }
     }

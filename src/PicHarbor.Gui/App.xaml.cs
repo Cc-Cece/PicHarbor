@@ -143,9 +143,18 @@ public partial class App : Application
             {
                 SwitchLanguage(language);
                 vm.Updates.OnLanguageChanged(language);
+                UpdateSettingsCardPreview(window, collapsed: true);
                 WaitAnimation();
                 window.UpdateLayout();
                 SaveWindowSnapshot(window, Path.Combine(outDir, "updates-" + language + ".png"));
+                UpdateSettingsCardPreview(window, collapsed: false);
+                vm.Updates.Status = GetString("UpdateReceiving");
+                vm.Updates.DownloadRouteText = "edgeone.gh-proxy.com";
+                vm.Updates.DownloadSpeedText = "2,048 KiB/s";
+                vm.Updates.Progress = 42;
+                WaitAnimation();
+                window.UpdateLayout();
+                SaveWindowSnapshot(window, Path.Combine(outDir, "updates-expanded-" + language + ".png"));
                 var dialog = new Updates.UpdatePermissionDialog("v1.2.3") { Owner = window };
                 dialog.Show();
                 WaitAnimation();
@@ -155,6 +164,11 @@ public partial class App : Application
             }
         }
         window.Close();
+    }
+
+    private static void UpdateSettingsCardPreview(MainWindow window, bool collapsed)
+    {
+        if (window.FindName("UpdateSettingsCard") is Controls.PclCard card) card.IsSwapped = collapsed;
     }
 
     private static void ExportPreviews(string outDir)

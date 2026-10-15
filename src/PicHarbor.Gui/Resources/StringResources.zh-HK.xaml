@@ -1073,11 +1073,24 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
 
     <!-- GitHub Releases updates -->
     <sys:String x:Key="UpdateCardTitle">軟件更新</sys:String>
+    <sys:String x:Key="UpdateNetworkRegion">網絡地區</sys:String>
+    <sys:String x:Key="UpdateRegionAutomatic">自動偵測</sys:String>
+    <sys:String x:Key="UpdateRegionRestricted">受限網絡</sys:String>
+    <sys:String x:Key="UpdateRegionOther">其他網絡</sys:String>
+    <sys:String x:Key="UpdateRouteDirect">GitHub 直連</sys:String>
+    <sys:String x:Key="UpdateRouteProxy">網絡代理（後備）</sys:String>
+    <sys:String x:Key="UpdateLocating">正在偵測網絡地區…</sys:String>
+    <sys:String x:Key="UpdateProbing">正在測試直連及鏡像下載線路…</sys:String>
+    <sys:String x:Key="UpdateReceiving">正在透過下方線路下載更新…</sys:String>
+    <sys:String x:Key="UpdateSwitching">目前線路失敗或持續低速，正在切換…</sys:String>
+    <sys:String x:Key="UpdateVerifying">下載完成，正在按官方資訊驗證檔案…</sys:String>
+    <sys:String x:Key="UpdateReselect">重新選擇線路</sys:String>
+    <sys:String x:Key="UpdateRateLimited">GitHub 暫時限制請求，請於 {0} 後重試。</sys:String>
     <sys:String x:Key="UpdateCurrentVersion">目前版本：{0}</sys:String>
     <sys:String x:Key="UpdateModeAutomatic">自動無感更新（預設）</sys:String>
     <sys:String x:Key="UpdateModeManual">手動更新</sys:String>
     <sys:String x:Key="UpdateModeBrowser">瀏覽器下載</sys:String>
-    <sys:String x:Key="UpdateModeHint">自動模式啟動時檢查、背景下載，退出時安裝。手動模式點擊後自動完成並重新啟動。瀏覽器模式請下載 EXE，關閉程式後取代；已啟用應用鎖時，請在新版點擊下方的「修復應用鎖服務」。</sys:String>
+    <sys:String x:Key="UpdateModeHint">自動模式啟動時檢查、背景下載，退出時安裝。手動模式點擊後自動完成並重新啟動。下載會結合網絡地區和測速選擇直連或鏡像，最後嘗試設定的代理或系統代理；版本與校驗資訊始終來自 GitHub 官方。瀏覽器模式請下載 EXE，關閉程式後取代；已啟用應用鎖時，請在新版點擊下方的「修復應用鎖服務」。</sys:String>
     <sys:String x:Key="UpdateRepairService">修復應用鎖服務</sys:String>
     <sys:String x:Key="UpdateServiceRepaired">應用鎖服務已更新至目前程式版本。</sys:String>
     <sys:String x:Key="UpdateBrowserHint">請從 GitHub 發佈頁下載 EXE，關閉程式後取代。啟用應用鎖時亦需在新版修復服務。</sys:String>

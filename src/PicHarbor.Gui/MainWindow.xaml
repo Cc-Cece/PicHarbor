@@ -2260,7 +2260,7 @@
                                     </Grid>
                                 </controls:PclCard>
 
-                                <controls:PclCard Title="{DynamicResource UpdateCardTitle}" CanSwap="True" IsSwapped="True" DataContext="{Binding Updates}">
+                                <controls:PclCard x:Name="UpdateSettingsCard" Title="{DynamicResource UpdateCardTitle}" CanSwap="True" IsSwapped="True" DataContext="{Binding Updates}">
                                     <StackPanel>
                                         <controls:PclComboBox SelectedIndex="{Binding SelectedMode}" Height="28" Margin="0,0,0,12" HorizontalAlignment="Left" MinWidth="240">
                                             <ComboBoxItem Content="{DynamicResource UpdateModeAutomatic}" />
@@ -2268,15 +2268,28 @@
                                             <ComboBoxItem Content="{DynamicResource UpdateModeBrowser}" />
                                         </controls:PclComboBox>
                                         <TextBlock Text="{DynamicResource UpdateModeHint}" TextWrapping="Wrap" Margin="0,0,0,10" Foreground="{DynamicResource ColorBrushGray2}"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                            <TextBlock Text="{DynamicResource UpdateNetworkRegion}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                            <controls:PclComboBox SelectedIndex="{Binding SelectedNetworkRegion}" Height="28" MinWidth="180">
+                                                <ComboBoxItem Content="{DynamicResource UpdateRegionAutomatic}"/>
+                                                <ComboBoxItem Content="{DynamicResource UpdateRegionRestricted}"/>
+                                                <ComboBoxItem Content="{DynamicResource UpdateRegionOther}"/>
+                                            </controls:PclComboBox>
+                                        </StackPanel>
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                             <TextBlock Text="{DynamicResource UpdateLatestVersion}" Margin="0,0,8,0"/>
                                             <TextBlock Text="{Binding LatestVersion}"/>
                                         </StackPanel>
                                         <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                        <WrapPanel Margin="0,0,0,8">
+                                            <TextBlock Text="{Binding DownloadRouteText}" Margin="0,0,12,0"/>
+                                            <TextBlock Text="{Binding DownloadSpeedText}"/>
+                                        </WrapPanel>
                                         <ProgressBar Value="{Binding Progress}" Maximum="100" Height="5" Margin="0,0,0,12"/>
                                         <WrapPanel>
                                             <controls:PclButton Content="{Binding ActionText}" Command="{Binding CheckAndUpdateCommand}" Height="28" Margin="0,0,10,8" Padding="14,0"/>
                                             <controls:PclButton Content="{DynamicResource UpdateCancel}" Command="{Binding CancelUpdateCommand}" Height="28" Margin="0,0,10,8" Padding="14,0"/>
+                                            <controls:PclButton Content="{DynamicResource UpdateReselect}" Command="{Binding ReselectRouteCommand}" Height="28" Margin="0,0,10,8" Padding="14,0"/>
                                             <controls:PclButton Content="{DynamicResource UpdateReleasePage}" Command="{Binding OpenReleasesCommand}" Height="28" Margin="0,0,0,8" Padding="14,0"/>
                                             <controls:PclButton Content="{DynamicResource UpdateRepairService}" Command="{Binding RepairVaultServiceCommand}" Height="28" Margin="10,0,0,8" Padding="14,0"/>
                                         </WrapPanel>

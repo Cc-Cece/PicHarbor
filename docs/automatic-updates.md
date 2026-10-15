@@ -33,15 +33,60 @@ The original executable starts an ordinary-user relay. A separate worker is elev
 only when necessary. Process IDs, start time, pipe peers and the old executable's hash
 bind the request to the running application. The worker re-fetches the release checksum;
 offline installation is therefore deferred safely, retaining the cached download.
-No GitHub token, mirror, signing key or additional update server is required.
+No GitHub token, signing key or additional application update server is required.
 
-The existing network proxy address setting also applies to GitHub metadata, checksum
-and EXE downloads, including asset redirects. Each check reads the latest setting;
-the installation relay passes a fresh snapshot to its worker over the authenticated
-pipe, including when UAC uses another account. Port-only/host:port shorthand and
-HTTP, HTTPS and SOCKS proxy URLs are supported. Blank keeps the system networking
-defaults. An invalid or unavailable explicit proxy fails the operation rather than
-silently bypassing it. Browser download mode uses the browser's own proxy settings.
+Official metadata and checksum requests first use a true direct connection (5 seconds),
+then the configured network proxy, or system proxy if available (10 seconds). Explicit
+GitHub rate limits are not retried through a different exit IP; their cooldown is shared
+across checks within the process. The installation worker uses the same policy and
+receives a fresh proxy snapshot over its authenticated pipe, including when UAC uses
+another account. Port-only/host:port shorthand and HTTP, HTTPS and SOCKS proxies remain
+supported. Browser download mode uses the browser's own networking settings.
+
+## Region and executable download routes
+
+The update card remains collapsed by default. Its network-region preference offers
+automatic detection, restricted network, and other network. Automatic detection reads
+only the country code from Cloudflare's HTTPS trace, bypassing application/system
+proxies, with a 2-second limit. Only `CN` selects the restricted profile; failure uses
+the unknown profile. Only country and timestamp are cached in `network-region.json`
+under the device's update directory for 7 days. No IP or trace payload is persisted.
+Network-address changes and explicit reselection invalidate this cache.
+
+Restricted/unknown profiles race a direct attachment sample and these four mirrors:
+
+- `https://edgeone.gh-proxy.com/`
+- `https://hk.gh-proxy.com/`
+- `https://gh-proxy.com/`
+- `https://gh.llkk.cc/`
+
+Other networks first sample direct; at 1 MiB/s or better, download directly. Otherwise,
+mirrors compete with direct. Each sample requests bytes 0–524287 of the actual release,
+reads at most 512 KiB, and has a 3-second first-byte and 5-second total limit. Responses
+must match the official size/range and start with `MZ`; HTML/error responses are rejected.
+Effective speed includes connection latency. Direct wins when within 20% of the fastest
+sample; other ties follow the list order. Samples are discarded, never installed.
+
+Direct/mirror clients explicitly bypass all proxies and do not send cookies or credentials.
+Only HTTPS redirects are followed. Mirrors receive the canonical attachment URL appended
+to their root; they never supply the authoritative release version or hash. If official
+metadata cannot be obtained, mirror availability cannot enable installation.
+
+Download failure, 5 seconds without data, or a 10-second window below 200 KiB/s triggers
+another route. Proxy is the final fallback and permits 30 seconds idle and slow transfer;
+the operation has a 30-minute total budget. If no proxy or usable backup exists, a working
+slow route can be resumed once without the low-speed cutoff. Reselection retains safe
+partial bytes, clears region/sample selection and cancels only the current route cycle.
+No route gets more than two formal attempts; the total cap is twelve, including reselections.
+
+Continuation requires a matching `206` range start and official total size. A `200` resets
+the partial file and restarts; invalid ranges are never appended. Final SHA-256, size
+and executable version checks are mandatory. An invalid complete file is discarded and
+subsequent routes restart cleanly. Cancelling the update aborts selection and downloading.
+
+The card shows route, speed and phase, with a reselection button enabled only during
+EXE selection/download. Test clocks and mock HTTP responses cover routing, continuations,
+timeouts and rate limits without relying on public mirror uptime.
 
 The worker validates length, SHA-256 and product version before probing or installing
 the new executable. Elevated staging copies only the EXE into protected storage, not
@@ -85,3 +130,10 @@ Before shipping, complete Windows VM acceptance for real GitHub-driven upgrade/r
 UAC acceptance/refusal, an installed Vault service (including stopped/disabled states),
 protected directories and injected service/rollback failures. Do not run these scenarios
 against a daily-use Vault service. No live service was modified by local validation.
+
+Region/router validation on 2026-10-15: the full solution test run passed 735 tests,
+with 11 existing administrator-only tests skipped. A real v2.5.4 release download
+retained a partial file, reselected routes, switched from a mirror to the proxy and
+completed all 89,877,468 bytes with the official SHA-256 and EXE version verified.
+The downloaded executable was not launched. Public route availability and rankings
+are observations only; no measured ranking is hardcoded.
