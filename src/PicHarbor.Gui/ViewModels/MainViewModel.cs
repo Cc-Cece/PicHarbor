@@ -16,6 +16,15 @@ namespace PicHarbor.Gui.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
+    public UpdateViewModel Updates { get; } = new();
+
+    public bool HasUpdateBlockingWork => IsAnyTaskRunning || IsAnyModalOpen || libraryCheckRunning ||
+        BackupVM.StartBackupCommand.IsRunning || AndroidBackupVM.StartBackupCommand.IsRunning ||
+        IPhoneSyncVM.StartExportCommand.IsRunning || AndroidSyncVM.StartSyncCommand.IsRunning ||
+        GooglePhotosVM.StartSyncCommand.IsRunning || GooglePhotosVM.ResumeSyncCommand.IsRunning ||
+        GooglePhotosVM.RetryFailedItemsCommand.IsRunning ||
+        SettingsVM.IsCheckingLibrary || SettingsVM.IsSyncing || SettingsVM.IsPruning ||
+        SettingsVM.IsRepairing || SettingsVM.IsRefreshingDbMetrics;
     private readonly DispatcherTimer deviceProbeTimer;
     private bool libraryCheckRunning;
     private string lastMemberState = "";
@@ -411,6 +420,7 @@ public partial class MainViewModel : ObservableObject
 
     private async Task CheckLibraryOnChangeAsync()
     {
+        if (PicHarbor.Gui.Updates.UpdateWorkGate.IsInstalling) return;
         if (libraryCheckRunning || BackupVM.IsTransferring || AndroidBackupVM.IsTransferring || ProtectedMediaSession.IsLocked) return;
         if (!File.Exists(PicHarbor.Core.Journal.TransferJournal.ResolveDatabasePath(DestinationPath))) return;
         libraryCheckRunning = true;

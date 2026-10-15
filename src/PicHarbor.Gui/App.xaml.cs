@@ -24,6 +24,7 @@ public partial class App : Application
 
         DispatcherUnhandledException += (s, args) =>
         {
+            (MainWindow?.DataContext as MainViewModel)?.Updates.SuppressExitInstallation();
             try
             {
                 File.WriteAllText("crash.log", args.Exception.ToString() + "\nInner:\n" + args.Exception.InnerException?.ToString());
@@ -41,6 +42,13 @@ public partial class App : Application
         };
 
         var cmdArgs = Environment.GetCommandLineArgs();
+        int updatePreviewIdx = Array.FindIndex(cmdArgs, a => a.Equals("--render-update-preview", StringComparison.OrdinalIgnoreCase));
+        if (updatePreviewIdx >= 0)
+        {
+            ExportUpdatePreviews(updatePreviewIdx + 1 < cmdArgs.Length ? cmdArgs[updatePreviewIdx + 1] : ".");
+            Shutdown(0);
+            return;
+        }
         int previewIdx = Array.FindIndex(cmdArgs, a => a.Equals("--render-preview", StringComparison.OrdinalIgnoreCase));
         if (previewIdx >= 0)
         {
@@ -109,6 +117,8 @@ public partial class App : Application
         // DestinationPath 会在主窗口 DataContext 就绪后可用，这里绑定其后续变化。
         if (mainWindow.DataContext is MainViewModel mainVm)
         {
+            mainVm.Updates.Attach(mainWindow, () => mainVm.HasUpdateBlockingWork || lockVm.IsBusy);
+            SessionEnding += (_, _) => mainVm.Updates.SuppressExitInstallation();
             lockVm.ArchiveRoot = mainVm.DestinationPath;
             mainVm.PropertyChanged += (_, e) =>
             {
@@ -118,6 +128,33 @@ public partial class App : Application
         }
 
         mainWindow.Show();
+    }
+
+    private static void ExportUpdatePreviews(string outDir)
+    {
+        Directory.CreateDirectory(outDir);
+        var window = new MainWindow { Width = 1040, Height = 960 };
+        window.Show();
+        if (window.DataContext is MainViewModel vm)
+        {
+            vm.SelectedTabIndex = 3;
+            vm.SettingsSubTabIndex = 5;
+            foreach (string language in new[] { "zh-CN", "zh-HK", "en-US" })
+            {
+                SwitchLanguage(language);
+                vm.Updates.OnLanguageChanged(language);
+                WaitAnimation();
+                window.UpdateLayout();
+                SaveWindowSnapshot(window, Path.Combine(outDir, "updates-" + language + ".png"));
+                var dialog = new Updates.UpdatePermissionDialog("v1.2.3") { Owner = window };
+                dialog.Show();
+                WaitAnimation();
+                dialog.UpdateLayout();
+                SaveWindowSnapshot(dialog, Path.Combine(outDir, "permission-" + language + ".png"));
+                dialog.Close();
+            }
+        }
+        window.Close();
     }
 
     private static void ExportPreviews(string outDir)

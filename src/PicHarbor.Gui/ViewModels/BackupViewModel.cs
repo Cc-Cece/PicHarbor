@@ -748,6 +748,7 @@ public partial class BackupViewModel : ObservableObject
     [RelayCommand]
     private async Task StartBackupAsync()
     {
+        if (PicHarbor.Gui.Updates.UpdateWorkGate.IsInstalling) return;
         if (IsTransferring) return;
 
         if (ScopeMode == ScopeMode.Manual)

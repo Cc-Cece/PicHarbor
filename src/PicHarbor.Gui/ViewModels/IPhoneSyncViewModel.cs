@@ -1426,6 +1426,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
     [RelayCommand]
     private async Task StartExportAsync()
     {
+        if (PicHarbor.Gui.Updates.UpdateWorkGate.IsInstalling) return;
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
         {
             MessageBox.Show(

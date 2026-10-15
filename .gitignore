@@ -30,6 +30,7 @@ outputs/unlock-timeout-fix/
 outputs/fast-backup-build/
 outputs/repaired-build/
 outputs/local-repair/
+outputs/update-validation/
 
 # other
 .docs/

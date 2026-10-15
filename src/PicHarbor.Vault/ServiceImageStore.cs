@@ -6,7 +6,31 @@ namespace PicHarbor.Vault;
 
 internal static class ServiceImageStore
 {
-    internal static string Prepare(string executable,string? directory=null)
+    internal static void DeleteDeployment(string image)
+    {
+        string basePath=Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),"PicHarbor","Service"));
+        string directory=Path.GetDirectoryName(Path.GetFullPath(image))!;
+        if(!string.Equals(Path.GetDirectoryName(directory),basePath,StringComparison.OrdinalIgnoreCase) ||
+            !System.Text.RegularExpressions.Regex.IsMatch(Path.GetFileName(directory),@"\A[A-F0-9]{64}-[a-f0-9]{32}\z"))
+            throw new InvalidDataException("Invalid staged service deployment.");
+        if(!Directory.Exists(directory)) return;
+        EnsurePrivateDirectory(directory);
+        // Never follow links while deleting the specifically generated deployment tree.
+        static void Remove(DirectoryInfo entry)
+        {
+            if((entry.Attributes&FileAttributes.ReparsePoint)!=0) throw new InvalidDataException("Linked staged directory.");
+            foreach(var child in entry.EnumerateDirectories()) Remove(child);
+            foreach(var file in entry.EnumerateFiles())
+            {
+                if((file.Attributes&FileAttributes.ReparsePoint)!=0) throw new InvalidDataException("Linked staged file.");
+                file.Delete();
+            }
+            entry.Delete();
+        }
+        Remove(new DirectoryInfo(directory));
+    }
+
+    internal static string Prepare(string executable,string? directory=null,bool singleFileOnly=false)
     {
         AclEngine.EnableOwnershipPrivileges();
         string basePath=Path.GetFullPath(directory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),"PicHarbor","Service"));
@@ -23,6 +47,7 @@ internal static class ServiceImageStore
         foreach(string file in Directory.EnumerateFiles(sourceDirectory))
         {
             string name=Path.GetFileName(file);
+            if(singleFileOnly && !string.Equals(file,executable,StringComparison.OrdinalIgnoreCase)) continue;
             if(!string.Equals(file,executable,StringComparison.OrdinalIgnoreCase) &&
                 !name.EndsWith(".dll",StringComparison.OrdinalIgnoreCase) &&
                 !name.EndsWith(".deps.json",StringComparison.OrdinalIgnoreCase) &&

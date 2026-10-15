@@ -35,6 +35,18 @@ internal static class Program
         // 归一化参数，便于大小写不敏感匹配
         string? command = args.FirstOrDefault();
 
+        if (Matches(command, "--update-relay") || Matches(command, "--update-worker"))
+            return Updates.UpdateInstaller.Run(args, Matches(command, "--update-relay"));
+        if (Matches(command, "--update-probe"))
+        {
+            if (args.Contains("--details", StringComparer.OrdinalIgnoreCase))
+                Console.WriteLine(JsonSerializer.Serialize(new { build = typeof(PipeServer).Module.ModuleVersionId.ToString(),
+                    packaged = Updates.UpdateInstaller.IsPackaged, assemblyLocation = typeof(App).Assembly.Location,
+                    requiresElevation = Updates.UpdateInstaller.RequiresElevation(Environment.ProcessPath!) }));
+            else Console.WriteLine(typeof(PipeServer).Module.ModuleVersionId.ToString());
+            return 0;
+        }
+
         if (Matches(command, "--vault-service"))
             return RunVaultService(args);
 

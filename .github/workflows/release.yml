@@ -71,6 +71,16 @@ jobs:
           Write-Host "CLI SHA-256: $cliHash"
           Write-Host "GUI SHA-256: $guiHash"
 
+      - name: Probe GUI update entry point without starting WPF
+        shell: pwsh
+        run: |
+          $build = (& $env:PUBLISH_GUI --update-probe | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0) { throw "GUI update probe failed" }
+          $parsedBuild = [guid]::Empty
+          if (-not [guid]::TryParse($build, [ref]$parsedBuild)) { throw "GUI update probe returned invalid build identity" }
+          $details = (& $env:PUBLISH_GUI --update-probe --details | Out-String) | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or -not $details.packaged) { throw "Published GUI does not recognize its single-file deployment" }
+
       - name: Create GitHub Release and attach assets
         shell: pwsh
         env:
@@ -98,4 +108,11 @@ jobs:
           gh release create "$tag" `
             "$env:PUBLISH_CLI" "$env:PUBLISH_CLI.sha256" `
             "$env:PUBLISH_GUI" "$env:PUBLISH_GUI.sha256" `
-            --title "$tag" --notes-file notes.md --verify-tag
+            --title "$tag" --notes-file notes.md --verify-tag --draft
+          if ($LASTEXITCODE -ne 0) { throw "Draft release upload failed" }
+          if ($tag.Contains('-')) {
+            gh release edit "$tag" --draft=false --prerelease --latest=false
+          } else {
+            gh release edit "$tag" --draft=false --latest
+          }
+          if ($LASTEXITCODE -ne 0) { throw "Release publication failed" }

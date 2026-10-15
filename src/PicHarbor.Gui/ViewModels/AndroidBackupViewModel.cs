@@ -1613,6 +1613,7 @@ public partial class AndroidBackupViewModel : ObservableObject
     [RelayCommand]
     private async Task StartBackupAsync()
     {
+        if (PicHarbor.Gui.Updates.UpdateWorkGate.IsInstalling) return;
         if (IsTransferring) return;
 
         var selectedAlbums = Albums.Where(a => a.IsChecked).Select(a => a.RemotePath).ToList();

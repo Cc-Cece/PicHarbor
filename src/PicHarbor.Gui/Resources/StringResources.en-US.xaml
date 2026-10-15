@@ -1,4 +1,4 @@
-﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
@@ -237,7 +237,7 @@
     <sys:String x:Key="SettingsLabelDisplayLanguage">Display Language</sys:String>
     <sys:String x:Key="SettingsCardAbout">About</sys:String>
     <sys:String x:Key="AboutSubtitleText">PicHarbor</sys:String>
-    <sys:String x:Key="AboutVersionText">Version: 1.0.0 (Release) · Free &amp; open-source local mobile photo backup and cross-device manager</sys:String>
+    <sys:String x:Key="AboutVersionText">Free &amp; open-source local mobile photo backup and cross-device manager</sys:String>
     <sys:String x:Key="AboutFeature1">• Lossless Direct Transfer: Secure iPhone &amp; Android transfer, preserving Live Photos &amp; EXIF.</sys:String>
     <sys:String x:Key="AboutFeature2">• Simple &amp; Efficient: Global cross-drive deduplication with instant transfers, offline indexing and fast search.</sys:String>
     <sys:String x:Key="AboutFeature3">• Multi-Device Restore: Sync and restore across devices to iPhone, Android and Google Photos.</sys:String>
@@ -1070,4 +1070,39 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="LibraryRecoveryTitle">Recoverable Copies</sys:String>
     <sys:String x:Key="LibraryRecoveryHint">View automatically recycled copies and restore them within the retention period.</sys:String>
     <sys:String x:Key="LibraryRecoveryEmpty">No recoverable copies are currently available.</sys:String>
+
+    <!-- GitHub Releases updates -->
+    <sys:String x:Key="UpdateCardTitle">Software updates</sys:String>
+    <sys:String x:Key="UpdateCurrentVersion">Current version: {0}</sys:String>
+    <sys:String x:Key="UpdateModeAutomatic">Automatic updates (default)</sys:String>
+    <sys:String x:Key="UpdateModeManual">Manual updates</sys:String>
+    <sys:String x:Key="UpdateModeBrowser">Download in browser</sys:String>
+    <sys:String x:Key="UpdateModeHint">Automatic mode checks on startup, downloads in the background and installs on exit. Manual mode installs and restarts after clicking. For browser downloads, close the app before replacing the EXE; if app lock is enabled, click “Repair app lock service” below in the new version.</sys:String>
+    <sys:String x:Key="UpdateRepairService">Repair app lock service</sys:String>
+    <sys:String x:Key="UpdateServiceRepaired">The app lock service now matches this app version.</sys:String>
+    <sys:String x:Key="UpdateBrowserHint">Download the EXE from GitHub, close the app, then replace it. If app lock is enabled, repair the service in the new version.</sys:String>
+    <sys:String x:Key="UpdateBrowserButton">Download from GitHub</sys:String>
+    <sys:String x:Key="UpdateManualButton">Check and update</sys:String>
+    <sys:String x:Key="UpdateCheckButton">Check now</sys:String>
+    <sys:String x:Key="UpdateLatestVersion">Latest version:</sys:String>
+    <sys:String x:Key="UpdateReleasePage">GitHub releases</sys:String>
+    <sys:String x:Key="UpdateCancel">Cancel</sys:String>
+    <sys:String x:Key="UpdateConfirm">Confirm</sys:String>
+    <sys:String x:Key="UpdateIdle">Updates have not been checked.</sys:String>
+    <sys:String x:Key="UpdatePackagedOnly">Updates are disabled for development and preview runs. Use a published single-file EXE.</sys:String>
+    <sys:String x:Key="UpdateCheckOnly">Version {0} is available. Development and non-single-file runs can check versions; open GitHub releases to download the published EXE.</sys:String>
+    <sys:String x:Key="UpdateChecking">Checking GitHub for updates…</sys:String>
+    <sys:String x:Key="UpdateNoStableRelease">No stable release is available.</sys:String>
+    <sys:String x:Key="UpdateAlreadyLatest">You are up to date.</sys:String>
+    <sys:String x:Key="UpdateSkipped">Skipped {0}. Click the check button to try it again.</sys:String>
+    <sys:String x:Key="UpdateDownloading">Downloading {0}…</sys:String>
+    <sys:String x:Key="UpdateReady">{0} is ready to install on exit.</sys:String>
+    <sys:String x:Key="UpdateCancelled">Update cancelled. Your current version is unchanged.</sys:String>
+    <sys:String x:Key="UpdateFailed">Update could not complete: {0}. Retry or open GitHub releases.</sys:String>
+    <sys:String x:Key="UpdateWaiting">Waiting for running tasks to finish. You can cancel the wait.</sys:String>
+    <sys:String x:Key="UpdateInstalling">Preparing to install the update…</sys:String>
+    <sys:String x:Key="UpdatePermissionTitle">Administrator permission required</sys:String>
+    <sys:String x:Key="UpdatePermissionExplanation">{0} has been downloaded and verified. Updating the app lock service or replacing the app in a protected folder requires administrator permission. Confirm to request UAC approval, or cancel to keep the current version.</sys:String>
+    <sys:String x:Key="UpdateSkipVersion">Skip this version</sys:String>
+    <sys:String x:Key="UpdateDisableAuto">Stop checking for updates automatically</sys:String>
 </ResourceDictionary>

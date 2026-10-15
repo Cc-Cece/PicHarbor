@@ -1445,6 +1445,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     [RelayCommand]
     private async Task StartSyncAsync()
     {
+        if (PicHarbor.Gui.Updates.UpdateWorkGate.IsInstalling) return;
         if (IsSyncing) return;
 
         // Check if there is an existing paused plan
@@ -1647,6 +1648,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     [RelayCommand]
     private async Task ResumeSyncAsync()
     {
+        if (PicHarbor.Gui.Updates.UpdateWorkGate.IsInstalling) return;
         if (IsSyncing || !IsPaused) return;
 
         if (!EnsureCredential())
@@ -1848,6 +1850,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     [RelayCommand]
     private async Task RetryFailedItemsAsync()
     {
+        if (PicHarbor.Gui.Updates.UpdateWorkGate.IsInstalling) return;
         if (IsSyncing) return;
 
         if (failedDetails.Count == 0)

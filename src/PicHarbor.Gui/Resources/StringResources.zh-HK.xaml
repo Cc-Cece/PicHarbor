@@ -1,4 +1,4 @@
-﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
@@ -237,7 +237,7 @@
     <sys:String x:Key="SettingsLabelDisplayLanguage">軟件顯示語言</sys:String>
     <sys:String x:Key="SettingsCardAbout">關於</sys:String>
     <sys:String x:Key="AboutSubtitleText">PicHarbor</sys:String>
-    <sys:String x:Key="AboutVersionText">版本: 1.0.0 (Release) · 開源免費的手機相簿本地備份與跨端管理系統</sys:String>
+    <sys:String x:Key="AboutVersionText">開源免費的手機相簿本地備份與跨端管理系統</sys:String>
     <sys:String x:Key="AboutFeature1">• 無損直連：支援 iPhone 與 Android 安全傳輸，保留實況相片與 EXIF 元數據。</sys:String>
     <sys:String x:Key="AboutFeature2">• 簡潔高效：跨磁碟機全域防重秒傳，提供離線索引與高效檢索。</sys:String>
     <sys:String x:Key="AboutFeature3">• 多端回傳：支援跨裝置同步與恢復至 iPhone、Android 及 Google 相簿。</sys:String>
@@ -1070,4 +1070,39 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="LibraryRecoveryTitle">可恢復副本</sys:String>
     <sys:String x:Key="LibraryRecoveryHint">查看自動回收的副本，可在保留期內恢復。</sys:String>
     <sys:String x:Key="LibraryRecoveryEmpty">目前沒有可恢復的副本。</sys:String>
+
+    <!-- GitHub Releases updates -->
+    <sys:String x:Key="UpdateCardTitle">軟件更新</sys:String>
+    <sys:String x:Key="UpdateCurrentVersion">目前版本：{0}</sys:String>
+    <sys:String x:Key="UpdateModeAutomatic">自動無感更新（預設）</sys:String>
+    <sys:String x:Key="UpdateModeManual">手動更新</sys:String>
+    <sys:String x:Key="UpdateModeBrowser">瀏覽器下載</sys:String>
+    <sys:String x:Key="UpdateModeHint">自動模式啟動時檢查、背景下載，退出時安裝。手動模式點擊後自動完成並重新啟動。瀏覽器模式請下載 EXE，關閉程式後取代；已啟用應用鎖時，請在新版點擊下方的「修復應用鎖服務」。</sys:String>
+    <sys:String x:Key="UpdateRepairService">修復應用鎖服務</sys:String>
+    <sys:String x:Key="UpdateServiceRepaired">應用鎖服務已更新至目前程式版本。</sys:String>
+    <sys:String x:Key="UpdateBrowserHint">請從 GitHub 發佈頁下載 EXE，關閉程式後取代。啟用應用鎖時亦需在新版修復服務。</sys:String>
+    <sys:String x:Key="UpdateBrowserButton">前往 GitHub 下載</sys:String>
+    <sys:String x:Key="UpdateManualButton">檢查並更新</sys:String>
+    <sys:String x:Key="UpdateCheckButton">立即檢查</sys:String>
+    <sys:String x:Key="UpdateLatestVersion">最新版本：</sys:String>
+    <sys:String x:Key="UpdateReleasePage">GitHub 發佈頁</sys:String>
+    <sys:String x:Key="UpdateCancel">取消</sys:String>
+    <sys:String x:Key="UpdateConfirm">確定</sys:String>
+    <sys:String x:Key="UpdateIdle">尚未檢查更新。</sys:String>
+    <sys:String x:Key="UpdatePackagedOnly">開發或預覽執行不會安裝更新。請使用正式發佈的單檔 EXE。</sys:String>
+    <sys:String x:Key="UpdateCheckOnly">發現新版本 {0}。目前為開發或非單檔執行，可查看最新版本；請開啟 GitHub 發佈頁下載正式 EXE。</sys:String>
+    <sys:String x:Key="UpdateChecking">正在檢查 GitHub 更新…</sys:String>
+    <sys:String x:Key="UpdateNoStableRelease">暫無可用的正式版本。</sys:String>
+    <sys:String x:Key="UpdateAlreadyLatest">目前已是最新版本。</sys:String>
+    <sys:String x:Key="UpdateSkipped">已略過 {0}，可點擊按鈕重新檢查。</sys:String>
+    <sys:String x:Key="UpdateDownloading">正在下載 {0}…</sys:String>
+    <sys:String x:Key="UpdateReady">{0} 已準備好，將於退出時安裝。</sys:String>
+    <sys:String x:Key="UpdateCancelled">已取消更新，保留目前版本。</sys:String>
+    <sys:String x:Key="UpdateFailed">更新未完成：{0}。可重試或開啟 GitHub 發佈頁。</sys:String>
+    <sys:String x:Key="UpdateWaiting">等待執行中的工作結束後安裝，可取消等候。</sys:String>
+    <sys:String x:Key="UpdateInstalling">正在準備安裝更新…</sys:String>
+    <sys:String x:Key="UpdatePermissionTitle">更新需要系統管理員權限</sys:String>
+    <sys:String x:Key="UpdatePermissionExplanation">{0} 已下載並驗證完成。更新應用鎖服務或取代受保護目錄中的程式需要系統管理員權限。確定後將要求 UAC 授權；取消則保留目前版本。</sys:String>
+    <sys:String x:Key="UpdateSkipVersion">略過此版本</sys:String>
+    <sys:String x:Key="UpdateDisableAuto">不再自動檢查更新</sys:String>
 </ResourceDictionary>

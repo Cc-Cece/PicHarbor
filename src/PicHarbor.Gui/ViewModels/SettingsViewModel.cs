@@ -105,12 +105,14 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task CheckLibraryAsync()
     {
+        if (PicHarbor.Gui.Updates.UpdateWorkGate.IsInstalling) return;
         if (IsCheckingLibrary || !Directory.Exists(ArchivePath) || ProtectedMediaSession.IsLocked) return;
         await RunLibraryCheckAsync(new LibraryCatalog(ArchivePath));
     }
 
     public async Task RunLibraryCheckAsync(LibraryCatalog catalog)
     {
+        if (PicHarbor.Gui.Updates.UpdateWorkGate.IsInstalling) return;
         if (IsCheckingLibrary || ProtectedMediaSession.IsLocked) return;
         IsCheckingLibrary = true;
         using var cts = new CancellationTokenSource();libraryCheckCts=cts;
@@ -828,6 +830,7 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanSync))]
     private async Task SyncNowAsync()
     {
+        if (PicHarbor.Gui.Updates.UpdateWorkGate.IsInstalling) return;
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
         {
             SyncStatusMessage = syncStatus.Set("MsgDirNotExist", "归档目录不存在，请先选择有效的备份目标路径。");
@@ -1013,6 +1016,7 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     public async Task PruneRedundantDataAsync()
     {
+        if (PicHarbor.Gui.Updates.UpdateWorkGate.IsInstalling) return;
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
         {
             PruneStatusMessage = pruneStatus.Set("PruneNoArchive", "未指定有效的归档目录。");
@@ -1057,6 +1061,7 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     public async Task RepairDatabaseAsync()
     {
+        if (PicHarbor.Gui.Updates.UpdateWorkGate.IsInstalling) return;
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
         {
             RepairStatusMessage = repairStatus.Set("PruneNoArchive", "未指定有效的归档目录。");

@@ -1151,6 +1151,7 @@ public partial class AndroidSyncViewModel : ObservableObject
     [RelayCommand]
     private async Task StartSyncAsync()
     {
+        if (PicHarbor.Gui.Updates.UpdateWorkGate.IsInstalling) return;
         if (string.IsNullOrWhiteSpace(ArchivePath) || !Directory.Exists(ArchivePath))
         {
             TestStatus = ftpTestSticky.Set("AndroidArchiveMissing", "❌ PC 本地归档目录不存在！请先在主界面或设置中配置归档路径。");

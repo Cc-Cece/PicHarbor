@@ -2260,16 +2260,41 @@
                                     </Grid>
                                 </controls:PclCard>
 
+                                <controls:PclCard Title="{DynamicResource UpdateCardTitle}" CanSwap="True" IsSwapped="True" DataContext="{Binding Updates}">
+                                    <StackPanel>
+                                        <controls:PclComboBox SelectedIndex="{Binding SelectedMode}" Height="28" Margin="0,0,0,12" HorizontalAlignment="Left" MinWidth="240">
+                                            <ComboBoxItem Content="{DynamicResource UpdateModeAutomatic}" />
+                                            <ComboBoxItem Content="{DynamicResource UpdateModeManual}" />
+                                            <ComboBoxItem Content="{DynamicResource UpdateModeBrowser}" />
+                                        </controls:PclComboBox>
+                                        <TextBlock Text="{DynamicResource UpdateModeHint}" TextWrapping="Wrap" Margin="0,0,0,10" Foreground="{DynamicResource ColorBrushGray2}"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                            <TextBlock Text="{DynamicResource UpdateLatestVersion}" Margin="0,0,8,0"/>
+                                            <TextBlock Text="{Binding LatestVersion}"/>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                        <ProgressBar Value="{Binding Progress}" Maximum="100" Height="5" Margin="0,0,0,12"/>
+                                        <WrapPanel>
+                                            <controls:PclButton Content="{Binding ActionText}" Command="{Binding CheckAndUpdateCommand}" Height="28" Margin="0,0,10,8" Padding="14,0"/>
+                                            <controls:PclButton Content="{DynamicResource UpdateCancel}" Command="{Binding CancelUpdateCommand}" Height="28" Margin="0,0,10,8" Padding="14,0"/>
+                                            <controls:PclButton Content="{DynamicResource UpdateReleasePage}" Command="{Binding OpenReleasesCommand}" Height="28" Margin="0,0,0,8" Padding="14,0"/>
+                                            <controls:PclButton Content="{DynamicResource UpdateRepairService}" Command="{Binding RepairVaultServiceCommand}" Height="28" Margin="10,0,0,8" Padding="14,0"/>
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </controls:PclCard>
+
                                 <!-- Card 2: 关于 PicHarbor -->
                                 <controls:PclCard Title="{DynamicResource SettingsCardAbout}" CanSwap="False">
                                     <StackPanel>
                                         <TextBlock Text="{DynamicResource AboutSubtitleText}" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource ColorBrush2}" Margin="0,0,0,6" />
-                                        <TextBlock Text="{DynamicResource AboutVersionText}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,12" />
+                                        <TextBlock Text="{Binding Updates.VersionText}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,6" />
+                                        <TextBlock Text="{DynamicResource AboutVersionText}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,12" />
                                         <TextBlock Text="{DynamicResource AboutFeature1}" FontSize="12" Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,4" />
                                         <TextBlock Text="{DynamicResource AboutFeature2}" FontSize="12" Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,4" />
                                         <TextBlock Text="{DynamicResource AboutFeature3}" FontSize="12" Foreground="{DynamicResource ColorBrush1}" Margin="0,0,0,16" />
 
                                         <WrapPanel Orientation="Horizontal">
+                                            <controls:PclButton Content="{DynamicResource UpdateReleasePage}" Command="{Binding Updates.OpenReleasesCommand}" Height="28" Margin="0,0,10,8" Padding="14,0" />
                                             <controls:PclButton Content="GitHub" Command="{Binding OpenGitHubCommand}" Height="28" Margin="0,0,10,8" Padding="14,0" ToolTip="https://github.com/Cc-Cece/PicHarbor" />
                                             <controls:PclButton Content="{DynamicResource AboutBtnWebsite}" Command="{Binding OpenOfficialWebsiteCommand}" Height="28" Margin="0,0,10,8" Padding="14,0" ToolTip="https://picharbor.akihito.dpdns.org/" />
                                             <controls:PclButton Content="{DynamicResource AboutBtnLicense}" Command="{Binding OpenLicenseCommand}" Height="28" Margin="0,0,10,8" Padding="14,0" ToolTip="https://github.com/Cc-Cece/PicHarbor/blob/main/LICENSE" />
