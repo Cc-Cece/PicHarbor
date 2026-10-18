@@ -410,6 +410,13 @@
     <sys:String x:Key="TaskManagerEmpty">No active or pending tasks right now</sys:String>
     <sys:String x:Key="BtnStop">Stop</sys:String>
     <sys:String x:Key="BtnCopiedDetails">Copied Details</sys:String>
+    <sys:String x:Key="BtnUploadedDetails">Uploaded Details</sys:String>
+    <sys:String x:Key="FmtGoogleRetryFailedButton">Retry failed ({0:N0})</sys:String>
+    <sys:String x:Key="GoogleArchivingAlbums">Organizing albums</sys:String>
+    <sys:String x:Key="GoogleSavingRecords">Saving sync records</sys:String>
+    <sys:String x:Key="GoogleFinishing">Finishing</sys:String>
+    <sys:String x:Key="GoogleFilesProcessedFinishing">Files processed. Finishing up...</sys:String>
+    <sys:String x:Key="FmtGoogleFinalizationProgress">{0}: {1:N0} / {2:N0}</sys:String>
     <sys:String x:Key="BtnSkippedDetails">Skipped Details</sys:String>
     <sys:String x:Key="BtnFailedDetails">Failed Details</sys:String>
     <sys:String x:Key="QualityOriginalUnlimited">Original Quality (Recommended, No Storage Quota Used)</sys:String>

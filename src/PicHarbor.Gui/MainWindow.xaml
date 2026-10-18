@@ -1711,7 +1711,7 @@
                             <StackPanel DataContext="{Binding SettingsVM}">
 
                                 <!-- [基础] HEIC 与实况扩展 -->
-                                <controls:PclCard Title="{DynamicResource SettingsCardCodecs}" CanSwap="False">
+                                <controls:PclCard Title="{DynamicResource SettingsCardCodecs}" CanSwap="True" IsSwapped="{Binding IsCodecCardCollapsed, Mode=TwoWay}">
                                     <StackPanel>
                                         <TextBlock Text="{DynamicResource CodecDescText}"
                                                    FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,0,0,12" />
@@ -2962,6 +2962,9 @@
                     </DataGrid>
 
                     <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                        <controls:PclButton Content="{Binding GooglePhotosVM.RetryFailedLabel}" Command="{Binding RetryGoogleFailedItemsCommand}"
+                                            Visibility="{Binding ShowGoogleFailedRetry, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                            IsEnabled="{Binding GooglePhotosVM.CanRetryFailed}" MinWidth="180" Height="32" Margin="0,0,12,0" />
                         <controls:PclButton Content="{DynamicResource CloseBtn}" Command="{Binding CloseActiveDetailModalCommand}" Width="90" Height="32" />
                     </StackPanel>
                 </Grid>
@@ -3581,15 +3584,18 @@
                                                     <TextBlock Text="{Binding ProgressText}" FontSize="11" Foreground="#343D4A" TextWrapping="Wrap" />
                                                     <TextBlock Text="{Binding SpeedText}" FontSize="11" Foreground="#0B5BCB" Margin="0,2,0,0" />
                                                     <TextBlock Text="{Binding ResultText}" FontSize="11" Foreground="#475569" Margin="0,4,0,0" />
-                                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                                    <WrapPanel Margin="0,8,0,0"
                                                                 Visibility="{Binding HasDetails, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                        <Button Content="{DynamicResource BtnCopiedDetails}" Command="{Binding ShowCopiedCommand}" Margin="0,0,8,0"
+                                                        <Button Content="{Binding CopiedDetailsLabel}" Command="{Binding ShowCopiedCommand}" Margin="0,0,8,0"
                                                                 Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" Foreground="#166534" Cursor="Hand" FontSize="11" Padding="8,3" />
                                                         <Button Content="{DynamicResource BtnSkippedDetails}" Command="{Binding ShowSkippedCommand}" Margin="0,0,8,0"
                                                                 Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" Foreground="#475569" Cursor="Hand" FontSize="11" Padding="8,3" />
                                                         <Button Content="{DynamicResource BtnFailedDetails}" Command="{Binding ShowFailedCommand}"
                                                                 Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1" Foreground="#991B1B" Cursor="Hand" FontSize="11" Padding="8,3" />
-                                                    </StackPanel>
+                                                        <Button Content="{Binding RetryFailedLabel}" Command="{Binding RetryFailedCommand}" Margin="8,0,0,0"
+                                                                Visibility="{Binding CanRetryFailed, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                                Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1" Foreground="#1D4ED8" Cursor="Hand" FontSize="11" Padding="8,3" />
+                                                    </WrapPanel>
                                                 </StackPanel>
                                             </Border>
                                         </DataTemplate>

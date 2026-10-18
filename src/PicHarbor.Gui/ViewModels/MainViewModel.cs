@@ -295,7 +295,7 @@ public partial class MainViewModel : ObservableObject
         GooglePhotosVM.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName is nameof(GooglePhotosSyncViewModel.IsDetailModalOpen) or nameof(GooglePhotosSyncViewModel.IsManualModalOpen)) NotifyModalChanged();
-            if (e.PropertyName is nameof(GooglePhotosSyncViewModel.IsSyncing) or nameof(GooglePhotosSyncViewModel.ProgressValue) or nameof(GooglePhotosSyncViewModel.ProgressText) or nameof(GooglePhotosSyncViewModel.SpeedText) or nameof(GooglePhotosSyncViewModel.RemainingFilesCount) or nameof(GooglePhotosSyncViewModel.CurrentFile) or nameof(GooglePhotosSyncViewModel.UploadedCount) or nameof(GooglePhotosSyncViewModel.SkippedCount) or nameof(GooglePhotosSyncViewModel.FailedCount))
+            if (e.PropertyName is nameof(GooglePhotosSyncViewModel.IsSyncing) or nameof(GooglePhotosSyncViewModel.ProgressValue) or nameof(GooglePhotosSyncViewModel.ProgressText) or nameof(GooglePhotosSyncViewModel.CurrentPhase) or nameof(GooglePhotosSyncViewModel.SpeedText) or nameof(GooglePhotosSyncViewModel.RemainingFilesCount) or nameof(GooglePhotosSyncViewModel.CurrentFile) or nameof(GooglePhotosSyncViewModel.UploadedCount) or nameof(GooglePhotosSyncViewModel.SkippedCount) or nameof(GooglePhotosSyncViewModel.FailedCount) or nameof(GooglePhotosSyncViewModel.RetryFailedLabel))
             {
                 NotifyTaskChanged();
                 if (e.PropertyName == nameof(GooglePhotosSyncViewModel.IsSyncing) && !GooglePhotosVM.IsSyncing)
@@ -459,6 +459,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ActiveDetailModalTitle));
         OnPropertyChanged(nameof(ActiveDetailItems));
         OnPropertyChanged(nameof(IsAnyModalOpen));
+        OnPropertyChanged(nameof(ShowGoogleFailedRetry));
     }
 
     partial void OnSelectedTabIndexChanged(int value)
@@ -537,6 +538,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenCodecSettings()
     {
+        SettingsVM.IsCodecCardCollapsed = false;
         SelectedTabIndex = 3;
         SettingsSubTabIndex = 1;
     }
@@ -724,6 +726,16 @@ public partial class MainViewModel : ObservableObject
             if (AndroidSyncVM.IsDetailModalOpen) return AndroidSyncVM.DetailItems;
             return BackupVM.DetailItems;
         }
+    }
+
+    public bool ShowGoogleFailedRetry => GooglePhotosVM.IsFailedDetailOpen;
+
+    [RelayCommand]
+    private async Task RetryGoogleFailedItemsAsync()
+    {
+        if (!GooglePhotosVM.CanRetryFailed) return;
+        CloseActiveDetailModal();
+        await GooglePhotosVM.RetryFailedItemsCommand.ExecuteAsync(null);
     }
 
     public bool IsAnyModalOpen =>
@@ -1116,7 +1128,8 @@ public partial class MainViewModel : ObservableObject
             () => { if (GooglePhotosVM.IsSyncing) GooglePhotosVM.CancelSyncCommand.Execute(null); },
             () => GooglePhotosVM.ShowUploadedDetailsCommand.Execute(null),
             () => GooglePhotosVM.ShowSkippedDetailsCommand.Execute(null),
-            () => GooglePhotosVM.ShowFailedDetailsCommand.Execute(null)));
+            () => GooglePhotosVM.ShowFailedDetailsCommand.Execute(null),
+            () => GooglePhotosVM.RetryFailedItemsCommand.ExecuteAsync(null)));
         TaskCards.Add(MakeCard(
             "iphone-sync",
             false,
@@ -1139,7 +1152,8 @@ public partial class MainViewModel : ObservableObject
         Action stop,
         Action? copied,
         Action? skipped,
-        Action? failed)
+        Action? failed,
+        Func<Task>? retryFailed = null)
     {
         TransferTaskCardViewModel card = null!;
         card = new TransferTaskCardViewModel(
@@ -1149,7 +1163,7 @@ public partial class MainViewModel : ObservableObject
             copied is null ? null : () => { copied(); NotifyModalChanged(); },
             skipped is null ? null : () => { skipped(); NotifyModalChanged(); },
             failed is null ? null : () => { failed(); NotifyModalChanged(); },
-            () => DismissTaskCard(card));
+            () => DismissTaskCard(card), retryFailed);
         return card;
     }
 
@@ -1178,7 +1192,9 @@ public partial class MainViewModel : ObservableObject
         string backupSuffix = App.GetString("TaskBackupSuffix", "备份");
         ApplyCard(TaskCards[0], BackupVM.IsTransferring, $"{iphoneName} {backupSuffix}", BackupVM.ProgressPercentage, BackupVM.ProgressText, BackupVM.SpeedText, BackupVM.CopiedCount, BackupVM.SkippedCount, BackupVM.FailedCount, App.GetString("TaskCopied", "已复制"));
         ApplyCard(TaskCards[1], AndroidBackupVM.IsTransferring, $"{androidName} {backupSuffix}", AndroidBackupVM.ProgressPercentage, AndroidBackupVM.ProgressText, AndroidBackupVM.SpeedText, AndroidBackupVM.CopiedCount, AndroidBackupVM.SkippedCount, AndroidBackupVM.FailedCount, App.GetString("TaskCopied", "已复制"));
-        ApplyCard(TaskCards[2], GooglePhotosVM.IsSyncing, App.GetString("TaskGooglePhotos", "Google 相册"), GooglePhotosVM.ProgressValue, GooglePhotosVM.ProgressText, GooglePhotosVM.SpeedText, GooglePhotosVM.UploadedCount, GooglePhotosVM.SkippedCount, GooglePhotosVM.FailedCount, App.GetString("TaskUploaded", "已上传"));
+        ApplyCard(TaskCards[2], GooglePhotosVM.IsSyncing, App.GetString("TaskGooglePhotos", "Google 相册"), GooglePhotosVM.ProgressValue, GooglePhotosVM.ProgressText, GooglePhotosVM.SpeedText, GooglePhotosVM.UploadedCount, GooglePhotosVM.SkippedCount, GooglePhotosVM.FailedCount, App.GetString("TaskUploaded", "已上传"), GooglePhotosVM.IsFinalizing ? GooglePhotosVM.CurrentPhase : null);
+        TaskCards[2].CanRetryFailed = GooglePhotosVM.CanRetryFailed;
+        TaskCards[2].RetryFailedLabel = GooglePhotosVM.RetryFailedLabel;
         ApplyCard(TaskCards[3], IPhoneSyncVM.IsExporting, App.GetString("TaskSyncIPhone", "同步到 iPhone"), IPhoneSyncVM.ProgressValue, IPhoneSyncVM.ProgressText, IPhoneSyncVM.SpeedText, IPhoneSyncVM.CopiedCount, IPhoneSyncVM.SkippedCount, IPhoneSyncVM.FailedCount, App.GetString("TaskCopied", "已复制"));
         ApplyCard(TaskCards[4], AndroidSyncVM.IsSyncing, App.GetString("TaskSyncAndroid", "同步到 Android"), AndroidSyncVM.ProgressValue, AndroidSyncVM.ProgressText, AndroidSyncVM.SpeedText, AndroidSyncVM.CopiedCount, AndroidSyncVM.SkippedCount, AndroidSyncVM.FailedCount, App.GetString("TaskCopied", "已复制"));
         OnPropertyChanged(nameof(HasVisibleTaskCard));
@@ -1195,7 +1211,8 @@ public partial class MainViewModel : ObservableObject
         int copied,
         int skipped,
         int failed,
-        string copiedLabel)
+        string copiedLabel,
+        string? runningState = null)
     {
         if (running)
         {
@@ -1206,11 +1223,14 @@ public partial class MainViewModel : ObservableObject
         card.IsRunning = running;
         card.IsShown = running || (card.HasRun && !card.Dismissed);
         card.Title = title;
+        card.CopiedDetailsLabel = card.Key == "google"
+            ? App.GetString("BtnUploadedDetails", "已上传明细")
+            : App.GetString("BtnCopiedDetails", "已复制明细");
         card.Progress = progress;
         card.ProgressText = string.IsNullOrWhiteSpace(progressText) ? "" : progressText;
         card.SpeedText = running ? (string.IsNullOrWhiteSpace(speedText) ? "--" : speedText) : "--";
         card.StateText = running
-            ? App.GetString("TaskStateRunning", "进行中")
+            ? runningState ?? App.GetString("TaskStateRunning", "进行中")
             : failed > 0
                 ? App.GetString("TaskStateEndedFailed", "已结束，有失败")
                 : App.GetString("TaskStateEnded", "已结束");

@@ -410,6 +410,13 @@
     <sys:String x:Key="TaskManagerEmpty">当前没有进行中或未关闭的任务</sys:String>
     <sys:String x:Key="BtnStop">停止</sys:String>
     <sys:String x:Key="BtnCopiedDetails">已复制明细</sys:String>
+    <sys:String x:Key="BtnUploadedDetails">已上传明细</sys:String>
+    <sys:String x:Key="FmtGoogleRetryFailedButton">重试失败项（{0:N0}）</sys:String>
+    <sys:String x:Key="GoogleArchivingAlbums">正在归档相册</sys:String>
+    <sys:String x:Key="GoogleSavingRecords">正在保存同步记录</sys:String>
+    <sys:String x:Key="GoogleFinishing">正在收尾</sys:String>
+    <sys:String x:Key="GoogleFilesProcessedFinishing">文件处理完成，正在收尾...</sys:String>
+    <sys:String x:Key="FmtGoogleFinalizationProgress">{0}：{1:N0} / {2:N0}</sys:String>
     <sys:String x:Key="BtnSkippedDetails">已跳过明细</sys:String>
     <sys:String x:Key="BtnFailedDetails">失败明细</sys:String>
     <sys:String x:Key="QualityOriginalUnlimited">原画质（推荐，不占用账号空间）</sys:String>

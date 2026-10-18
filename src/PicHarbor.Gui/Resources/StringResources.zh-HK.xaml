@@ -410,6 +410,13 @@
     <sys:String x:Key="TaskManagerEmpty">當前冇進行中或未關閉嘅任務</sys:String>
     <sys:String x:Key="BtnStop">停止</sys:String>
     <sys:String x:Key="BtnCopiedDetails">已複製明細</sys:String>
+    <sys:String x:Key="BtnUploadedDetails">已上載明細</sys:String>
+    <sys:String x:Key="FmtGoogleRetryFailedButton">重試失敗項目（{0:N0}）</sys:String>
+    <sys:String x:Key="GoogleArchivingAlbums">正在整理相簿</sys:String>
+    <sys:String x:Key="GoogleSavingRecords">正在儲存同步記錄</sys:String>
+    <sys:String x:Key="GoogleFinishing">正在完成後續處理</sys:String>
+    <sys:String x:Key="GoogleFilesProcessedFinishing">檔案處理完成，正在完成後續處理...</sys:String>
+    <sys:String x:Key="FmtGoogleFinalizationProgress">{0}：{1:N0} / {2:N0}</sys:String>
     <sys:String x:Key="BtnSkippedDetails">已跳過明細</sys:String>
     <sys:String x:Key="BtnFailedDetails">失敗明細</sys:String>
     <sys:String x:Key="QualityOriginalUnlimited">原畫質（推薦，不佔用帳號空間）</sys:String>

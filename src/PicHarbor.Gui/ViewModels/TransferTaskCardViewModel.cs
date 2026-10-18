@@ -15,7 +15,8 @@ public partial class TransferTaskCardViewModel : ObservableObject
         Action? showCopied,
         Action? showSkipped,
         Action? showFailed,
-        Action dismiss)
+        Action dismiss,
+        Func<Task>? retryFailed = null)
     {
         Key = key;
         HasDetails = hasDetails;
@@ -24,6 +25,7 @@ public partial class TransferTaskCardViewModel : ObservableObject
         ShowSkippedCommand = new RelayCommand(() => showSkipped?.Invoke());
         ShowFailedCommand = new RelayCommand(() => showFailed?.Invoke());
         DismissCommand = new RelayCommand(dismiss);
+        RetryFailedCommand = new AsyncRelayCommand(retryFailed ?? (() => Task.CompletedTask), () => CanRetryFailed);
     }
 
     public string Key { get; }
@@ -49,6 +51,16 @@ public partial class TransferTaskCardViewModel : ObservableObject
     private string resultText = "";
 
     [ObservableProperty]
+    private string copiedDetailsLabel = "";
+
+    [ObservableProperty]
+    private string retryFailedLabel = "";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RetryFailedCommand))]
+    private bool canRetryFailed;
+
+    [ObservableProperty]
     private bool isRunning;
 
     [ObservableProperty]
@@ -69,4 +81,6 @@ public partial class TransferTaskCardViewModel : ObservableObject
     public IRelayCommand ShowSkippedCommand { get; }
 
     public IRelayCommand ShowFailedCommand { get; }
+
+    public IAsyncRelayCommand RetryFailedCommand { get; }
 }

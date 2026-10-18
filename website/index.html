@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PicHarbor — Local-First Photo Management & Backup Tool</title>
-  <meta name="description" content="A local-first photo management and backup tool for Windows. Lossless, strictly read-only iPhone USB archiving via AFC, offline SQLite media indexing, and multi-destination sync to iPhone, Android, and Google Photos.">
+  <title>PicHarbor — iPhone & Android Photo Backup for Windows</title>
+  <meta name="description" content="Back up original photos and videos from iPhone over USB (AFC) and Android over FTP to Windows. Browse your library offline and restore or sync to iPhone, Android, and Google Photos.">
   <link rel="canonical" href="https://picharbor.akihito.dpdns.org/">
-  <meta property="og:title" content="PicHarbor — Local-First Photo Management & Backup Tool">
-  <meta property="og:description" content="Lossless, strictly read-only iPhone USB archiving via AFC, offline SQLite media indexing, and multi-destination sync to iPhone, Android, and Google Photos.">
+  <meta property="og:title" content="PicHarbor — iPhone & Android Photo Backup for Windows">
+  <meta property="og:description" content="Back up iPhone over USB (AFC) and Android over FTP. Keep original photos and videos in a local Windows library, with offline browsing and multi-device restore.">
   <meta property="og:url" content="https://picharbor.akihito.dpdns.org/">
   <meta property="og:type" content="website">
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
@@ -55,13 +55,11 @@
       </div>
 
       <h1 class="hero-title">
-        <span data-i18n="hero_title_1">Your Safe Harbor for</span><br>
-        <span class="hero-title-gradient" data-i18n="hero_title_2">Mobile Memories.</span>
+        <span data-i18n="hero_title_1">Your iPhone &amp; Android Photos,</span><br>
+        <span class="hero-title-gradient" data-i18n="hero_title_2">Safely Backed Up.</span>
       </h1>
 
-      <p class="hero-subtitle" data-i18n="hero_subtitle">
-        Lossless, strictly read-only iPhone USB archiving via Apple File Conduit (AFC), offline SQLite media indexing, and multi-destination synchronization across iPhone, Android, and Google Photos.
-      </p>
+      <p class="hero-subtitle" data-i18n="hero_subtitle">Back up iPhone over USB (AFC) and Android over FTP to your Windows PC. Keep original photos and videos, browse your library offline, and restore or sync to iPhone, Android, and Google Photos.</p>
 
       <div class="hero-cta">
         <a href="#download" class="btn btn-primary btn-lg">
@@ -102,9 +100,9 @@
         </div>
 
         <div class="feature-card">
-          <div class="feature-icon">🛡️</div>
-          <h3 data-i18n="feat_2_title">Strictly Read-Only iPhone Safety</h3>
-          <p data-i18n="feat_2_desc">Hardened by architecture and compile-time Mono.Cecil contract tests. PicHarbor only ever reads from /DCIM/ and cannot write, modify, or delete anything on your device.</p>
+          <div class="feature-icon">🤖</div>
+          <h3 data-i18n="feat_2_title">Android FTP Photo &amp; Video Backup</h3>
+          <p data-i18n="feat_2_desc">Connect to an FTP server on your Android phone, select albums, and back up original photos and videos to your PC. Device identification and incremental backups keep each phone's archive organized.</p>
         </div>
 
         <div class="feature-card">
@@ -146,6 +144,7 @@
       <div class="showcase-wrapper">
         <div class="showcase-tabs">
           <button class="tab-btn active" data-tab="tab-iphone" data-i18n="tab_btn_iphone">📥 iPhone USB Archiving</button>
+          <button class="tab-btn" data-tab="tab-android" data-i18n="tab_btn_android">🤖 Android FTP Backup</button>
           <button class="tab-btn" data-tab="tab-restore" data-i18n="tab_btn_restore">🔄 Multi-Device Sync</button>
           <button class="tab-btn" data-tab="tab-gphotos" data-i18n="tab_btn_gphotos">☁️ Google Photos</button>
           <button class="tab-btn" data-tab="tab-cli" data-i18n="tab_btn_cli">⚡ Terminal CLI</button>
@@ -192,7 +191,46 @@
           </div>
         </div>
 
-        <!-- Tab 2: Restore & Android -->
+        <!-- Android backup -->
+        <div id="tab-android" class="tab-content">
+          <div class="tab-grid">
+            <div class="tab-info">
+              <h3 data-i18n="tab_android_h3">Back Up Android Albums to Your PC</h3>
+              <p data-i18n="tab_android_p">Start an FTP server on your Android phone and connect from the desktop app. Select the albums you want to archive, then run an incremental backup of the original photos and videos.</p>
+              <ul>
+                <li>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span data-i18n="tab_android_li1">Connect using the phone's FTP address, port, and credentials</span>
+                </li>
+                <li>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span data-i18n="tab_android_li2">Choose albums and identify devices across backup sessions</span>
+                </li>
+                <li>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span data-i18n="tab_android_li3">Keep a local library for offline browsing and later restore</span>
+                </li>
+              </ul>
+            </div>
+            <div class="terminal-box">
+              <div class="terminal-bar">
+                <span class="terminal-dot dot-red"></span>
+                <span class="terminal-dot dot-yellow"></span>
+                <span class="terminal-dot dot-green"></span>
+                <span class="terminal-title" data-i18n="tab_android_example">Android connection example</span>
+              </div>
+              <div class="terminal-body">
+                <p data-i18n="tab_android_example_1">1. Start the phone's FTP server on a trusted local network</p>
+                <p><span class="terminal-prompt">FTP</span> 192.168.1.108:2121</p>
+                <p data-i18n="tab_android_example_2">2. Enter the server address and credentials in PicHarbor</p>
+                <p data-i18n="tab_android_example_3">3. Select albums and a local backup folder</p>
+                <p style="color:#10b981;" data-i18n="tab_android_example_4">4. Start incremental backup; review progress in Task Center</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Restore & Android -->
         <div id="tab-restore" class="tab-content">
           <div class="tab-grid">
             <div class="tab-info">
@@ -319,10 +357,8 @@
       <div class="safety-banner">
         <div>
           <span class="section-tag" data-i18n="sec_safety_tag">Safety by Design</span>
-          <h2 class="section-title" data-i18n="sec_safety_title">Zero Risk of Data Loss</h2>
-          <p class="section-subtitle" style="text-align: left; margin: 0 0 24px;" data-i18n="sec_safety_sub">
-            Your original photos on iPhone are strictly read-only. Every write on PC is atomic and journaled.
-          </p>
+          <h2 class="section-title" data-i18n="sec_safety_title">Keep Originals. Verify Your Backups.</h2>
+          <p class="section-subtitle" style="text-align: left; margin: 0 0 24px;" data-i18n="sec_safety_sub">iPhone AFC backups read from the camera roll without modifying it. Local archives use transfer records and integrity checks to support reliable backups.</p>
         </div>
 
         <div class="safety-points">
@@ -368,7 +404,7 @@
         <div class="download-card highlight">
           <span class="download-badge" data-i18n="dl_gui_badge">Recommended</span>
           <h3 data-i18n="dl_gui_title">PicHarbor GUI</h3>
-          <p class="download-desc" data-i18n="dl_gui_desc">Full-featured desktop application with visual tabs, media gallery, and Google Photos login.</p>
+          <p class="download-desc" data-i18n="dl_gui_desc">Back up iPhone and Android, browse your local media library, restore across devices, and connect to Google Photos in one desktop app.</p>
           <ul class="download-specs">
             <li><span>Version</span><span class="value release-tag">v1.0.0</span></li>
             <li><span>OS</span><span class="value" data-i18n="dl_gui_os">Windows 10/11 (x64)</span></li>
@@ -409,18 +445,18 @@
       <div class="steps-grid">
         <div class="step-card">
           <div class="step-number">1</div>
-          <h4 data-i18n="step_1_title">1. Install Apple Drivers</h4>
-          <p data-i18n="step_1_desc">Ensure iTunes or Apple Devices app is installed on Windows to provide the USB driver service (usbmuxd).</p>
+          <h4 data-i18n="step_1_title">1. Prepare Your Phone</h4>
+          <p data-i18n="step_1_desc">iPhone: install Apple Devices or iTunes on your PC. Android: start an FTP server on your phone and note its address and credentials.</p>
         </div>
         <div class="step-card">
           <div class="step-number">2</div>
-          <h4 data-i18n="step_2_title">2. Connect &amp; Trust</h4>
-          <p data-i18n="step_2_desc">Connect your iPhone via USB, unlock the screen, and tap 'Trust This Computer'.</p>
+          <h4 data-i18n="step_2_title">2. Connect in PicHarbor</h4>
+          <p data-i18n="step_2_desc">iPhone: connect by USB, unlock, and trust the computer. Android: enter the FTP connection details and test the connection.</p>
         </div>
         <div class="step-card">
           <div class="step-number">3</div>
-          <h4 data-i18n="step_3_title">3. Run PicHarbor</h4>
-          <p data-i18n="step_3_desc">Launch PicHarbor.Gui.exe or run 'picharbor copy --dest D:\Photos' to begin lossless backup.</p>
+          <h4 data-i18n="step_3_title">3. Choose &amp; Back Up</h4>
+          <p data-i18n="step_3_desc">Open PicHarbor.Gui.exe, select iPhone or Android on the Backup page, choose your media and destination, and start the backup.</p>
         </div>
       </div>
     </div>

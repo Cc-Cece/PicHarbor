@@ -57,6 +57,14 @@ public sealed class GooglePhotosProgressEvent
     /// <summary>Backoff delay in seconds before this retry.</summary>
     [JsonPropertyName("retry_delay")]
     public double? RetryDelay { get; set; }
+
+    /// <summary>Completed units in an operation such as album organization.</summary>
+    [JsonPropertyName("phase_processed")]
+    public int PhaseProcessed { get; set; }
+
+    /// <summary>Total units in the current operation.</summary>
+    [JsonPropertyName("phase_total")]
+    public int PhaseTotal { get; set; }
 }
 
 /// <summary>
@@ -73,7 +81,15 @@ public sealed record GooglePhotosProgressSnapshot(
     double SpeedBytesPerSecond,
     string CurrentFile,
     string CurrentPhase,
-    double CurrentFilePercent);
+    double CurrentFilePercent)
+{
+    /// <summary>Session stage after file processing: archiving, saving_records, or finishing.</summary>
+    public string? Stage { get; init; }
+    /// <summary>Completed units within the session stage.</summary>
+    public int StageProcessed { get; init; }
+    /// <summary>Total units within the session stage.</summary>
+    public int StageTotal { get; init; }
+}
 
 /// <summary>
 /// Summary result of a completed Google Photos synchronization run.

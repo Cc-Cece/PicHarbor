@@ -88,5 +88,55 @@ class PreparedUploadTests(unittest.TestCase):
                 self.assertEqual(bundle.read(name), (RUNTIME / name).read_bytes())
 
 
+class AlbumFinalizationTests(unittest.TestCase):
+    def setUp(self):
+        self.client = Client.__new__(Client)
+        self.client._handle_target_input = MagicMock(return_value={Path("photo.JPG"): None})
+        self.client._upload_concurrently = MagicMock(return_value={"photo.JPG": "media-key"})
+        self.client.add_to_album = MagicMock()
+        self.client.add_to_existing_album = MagicMock()
+
+    def test_upload_reports_album_stage_after_file_processing_and_before_return(self):
+        events = []
+
+        def organize(keys, name, **kwargs):
+            self.assertEqual(events[-1]["phase"], "archiving")
+            self.assertEqual(events[-1]["phase_processed"], 0)
+
+        self.client.add_to_album.side_effect = organize
+        result = self.client.upload(["photo.JPG"], album_name="Photos", progress_callback=events.append)
+
+        self.assertEqual(result, {"photo.JPG": "media-key"})
+        self.assertEqual([event["phase_processed"] for event in events], [0, 1])
+        self.assertTrue(all(event["phase_total"] == 1 for event in events))
+
+    def test_auto_albums_report_each_group_including_remote_duplicates(self):
+        updates = []
+        self.client._handle_album_creation(
+            {"2025-01/photo.JPG": "existing-key", "2025-02/video.MOV": "uploaded-key"},
+            "AUTO", False, lambda done, total: updates.append((done, total)),
+        )
+
+        self.assertEqual(updates, [(0, 2), (1, 2), (2, 2)])
+        self.assertEqual(self.client.add_to_album.call_count, 2)
+
+    def test_failed_album_operation_does_not_report_finalization_as_complete(self):
+        events = []
+        self.client.add_to_album.side_effect = RuntimeError("album request failed")
+
+        with self.assertRaisesRegex(RuntimeError, "album request failed"):
+            self.client.upload(["photo.JPG"], album_name="Photos", progress_callback=events.append)
+
+        self.assertEqual([event["phase_processed"] for event in events], [0])
+
+    def test_no_successful_files_does_not_start_album_finalization(self):
+        events = []
+        self.client._upload_concurrently.return_value = {}
+
+        self.assertEqual(self.client.upload(["photo.JPG"], album_name="Photos", progress_callback=events.append), {})
+        self.client.add_to_album.assert_not_called()
+        self.assertEqual(events, [])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -754,6 +754,18 @@ public static class GooglePhotosSyncEngine
             long uploadedBytes = 0;
             var stopwatch = Stopwatch.StartNew();
 
+            void ReportStage(string stage, int processed, int total)
+            {
+                int done = config.BaseUploadedFiles + completedCount + config.BaseSkippedFiles + skippedCount + config.BaseFailedFiles + failedCount;
+                progressTarget?.Report(new GooglePhotosProgressSnapshot(
+                    effectiveTotalFiles, config.BaseUploadedFiles + completedCount,
+                    config.BaseSkippedFiles + skippedCount, config.BaseFailedFiles + failedCount,
+                    effectiveTotalBytes, config.BaseUploadedBytes + uploadedBytes,
+                    effectiveTotalFiles > 0 ? Math.Clamp(100d * done / effectiveTotalFiles, 0, 100) : 0,
+                    0, "", "", 0)
+                { Stage = stage, StageProcessed = processed, StageTotal = total });
+            }
+
             var readStderrTask = Task.Run(async () =>
             {
                 using var reader = process.StandardError;
@@ -841,7 +853,13 @@ public static class GooglePhotosSyncEngine
                                     CurrentFile: evt.Filename,
                                     CurrentPhase: friendlyPhase,
                                     CurrentFilePercent: currentFilePercent
-                                );
+                                )
+                                {
+                                    Stage = phase == "archiving" ? "archiving"
+                                        : effectiveTotalFiles > 0 && processedFiles >= effectiveTotalFiles ? "finishing" : null,
+                                    StageProcessed = evt.PhaseProcessed,
+                                    StageTotal = evt.PhaseTotal
+                                };
 
                                 progressTarget?.Report(snapshot);
                             }
@@ -907,23 +925,6 @@ public static class GooglePhotosSyncEngine
                                 string fullPath = prop.Name;
                                 string mediaKey = prop.Value.GetString() ?? "";
                                 mediaKeys[fullPath] = mediaKey;
-
-                                if (journal != null && !string.IsNullOrWhiteSpace(pcDestinationRoot))
-                                {
-                                    try
-                                    {
-                                        string relPath = config.ScopeMode == GooglePhotosScopeMode.CustomTarget
-                                            ? Path.GetRelativePath(pcDestinationRoot, fullPath).Replace('\\', '/')
-                                            : PicHarbor.Core.Search.ArchiveRepository.ReadLibraryManifest(pcDestinationRoot)
-                                                .First(m=>string.Equals(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(m.ArchiveRoot ?? pcDestinationRoot,m.DestPath),fullPath,StringComparison.OrdinalIgnoreCase)).SelectionKey;
-                                        long size = File.Exists(fullPath) ? new FileInfo(fullPath).Length : 0;
-                                        journal.RecordGooglePhotosSync(relPath, mediaKey, DateTimeOffset.UtcNow, albumName, size);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Debug.WriteLine($"Failed to record Google Photos sync: {ex.Message}");
-                                    }
-                                }
                             }
                         }
                     }
@@ -946,10 +947,43 @@ public static class GooglePhotosSyncEngine
                 onLog?.Invoke($"[Google Photos] 引擎异常退出: {errMsg}");
                 throw new InvalidOperationException($"Google Photos 同步失败: {errMsg}");
             }
-            else
+            if (journal != null && mediaKeys.Count > 0)
             {
-                onLog?.Invoke($"[Google Photos] 同步完成! 上传: {completedCount}, 跳过: {skippedCount}, 失败: {failedCount}");
+                ReportStage("saving_records", 0, mediaKeys.Count);
+                // Resolve every archive path once, rather than rereading the whole library for each result.
+                var selectionMap = config.ScopeMode == GooglePhotosScopeMode.CustomTarget
+                    ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    : BuildSyncSelectionMap(pcDestinationRoot, ArchiveRepository.ReadLibraryManifest(pcDestinationRoot));
+                int saved = 0;
+                var reportClock = Stopwatch.StartNew();
+                foreach (var (fullPath, mediaKey) in mediaKeys)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    try
+                    {
+                        string? relativePath = config.ScopeMode == GooglePhotosScopeMode.CustomTarget
+                            ? Path.GetRelativePath(pcDestinationRoot, fullPath).Replace('\\', '/')
+                            : selectionMap.GetValueOrDefault(fullPath);
+                        if (relativePath is not null)
+                        {
+                            long size = File.Exists(fullPath) ? new FileInfo(fullPath).Length : 0;
+                            journal.RecordGooglePhotosSync(relativePath, mediaKey, DateTimeOffset.UtcNow, albumName, size);
+                        }
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        Debug.WriteLine($"Failed to record Google Photos sync: {ex.Message}");
+                    }
+                    saved++;
+                    if (saved == mediaKeys.Count || reportClock.ElapsedMilliseconds >= 150)
+                    {
+                        ReportStage("saving_records", saved, mediaKeys.Count);
+                        reportClock.Restart();
+                    }
+                }
             }
+
+            onLog?.Invoke($"[Google Photos] 同步完成! 上传: {completedCount}, 跳过: {skippedCount}, 失败: {failedCount}");
 
             int totalUploaded = config.BaseUploadedFiles + completedCount;
             int totalSkipped = config.BaseSkippedFiles + skippedCount;
@@ -997,6 +1031,21 @@ public static class GooglePhotosSyncEngine
             >= 1024L => $"{(double)bytes / 1024:F0} KB",
             _ => $"{bytes} B"
         };
+    }
+
+    internal static Dictionary<string, string> BuildSyncSelectionMap(string root, IEnumerable<ManifestEntry> manifest)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in manifest)
+        {
+            try
+            {
+                string fullPath = PicHarbor.Core.Storage.ArchivePathResolver.Resolve(entry.ArchiveRoot ?? root, entry.DestPath);
+                result.TryAdd(fullPath, entry.SelectionKey);
+            }
+            catch (IOException) { }
+        }
+        return result;
     }
 
     private const string EmbeddedBridgeSource = """

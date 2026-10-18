@@ -445,6 +445,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     private bool isSyncing = false;
 
     public bool IsNotSyncing => !IsSyncing;
+    public bool IsFinalizing => IsSyncing && (phaseToken is "archiving" or "saving_records" or "finishing");
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanResume))]
@@ -522,9 +523,12 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanRetryFailed))]
+    [NotifyPropertyChangedFor(nameof(RetryFailedLabel))]
     private int failedCount = 0;
 
     public bool CanRetryFailed => FailedCount > 0 && IsNotSyncing;
+    public string RetryFailedLabel => string.Format(App.GetString("FmtGoogleRetryFailedButton", "重试失败项（{0:N0}）"), FailedCount);
+    public bool IsFailedDetailOpen => IsDetailModalOpen && currentDetailView == GooglePhotosDetailViewType.Failed;
 
     [ObservableProperty]
     private bool isDetailModalOpen = false;
@@ -626,6 +630,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             UpdatePausedBanner();
         }
 
+        OnPropertyChanged(nameof(RetryFailedLabel));
         RefreshPhaseLabel();
         if (progressSticky.HasValue)
         {
@@ -706,7 +711,32 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             case "ended":
                 SetPhase("ended", "GooglePhaseEnded", "已结束");
                 break;
+            case "archiving":
+                SetPhase("archiving", "GoogleArchivingAlbums", "正在归档相册");
+                break;
+            case "saving_records":
+                SetPhase("saving_records", "GoogleSavingRecords", "正在保存同步记录");
+                break;
+            case "finishing":
+                SetPhase("finishing", "GoogleFinishing", "正在收尾");
+                break;
         }
+    }
+
+    private bool ApplyFinalizationProgress(GooglePhotosProgressSnapshot snapshot)
+    {
+        if (snapshot.Stage is not ("archiving" or "saving_records" or "finishing")) return false;
+        if (isPauseRequested) return true;
+        phaseToken = snapshot.Stage;
+        RefreshPhaseLabel();
+        SpeedBytesPerSecond = 0;
+        SpeedText = "--";
+        EtaText = "--";
+        CurrentFile = "--";
+        ProgressText = snapshot.StageTotal > 0
+            ? progressSticky.Set("FmtGoogleFinalizationProgress", "{0}：{1:N0} / {2:N0}", CurrentPhase, snapshot.StageProcessed, snapshot.StageTotal)
+            : progressSticky.Set("GoogleFilesProcessedFinishing", "文件处理完成，正在收尾...");
+        return true;
     }
 
     private bool EnsureCredential()
@@ -1553,6 +1583,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             SpeedBytesPerSecond = s.SpeedBytesPerSecond;
             SpeedText = s.SpeedBytesPerSecond > 0 ? $"{FormatSize((long)s.SpeedBytesPerSecond)}/s" : "--";
             CurrentFile = s.CurrentFile;
+            if (ApplyFinalizationProgress(s)) return;
             phaseToken = "engine";
             CurrentPhase = s.CurrentPhase;
             CurrentFilePercent = s.CurrentFilePercent;
@@ -1640,6 +1671,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
 
             ProgressText = progressSticky.Set("FmtGoogleSyncDone", "同步完成: 上传 {0}, 跳过 {1}, 失败 {2}", result.UploadedCount, result.SkippedCount, result.FailedCount);
             ProgressValue = 100;
+            SetPhase("ended", "GooglePhaseEnded", "Ended");
             IsPaused = false;
         }
         catch (OperationCanceledException)
@@ -1770,6 +1802,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             SpeedBytesPerSecond = s.SpeedBytesPerSecond;
             SpeedText = s.SpeedBytesPerSecond > 0 ? $"{FormatSize((long)s.SpeedBytesPerSecond)}/s" : "--";
             CurrentFile = s.CurrentFile;
+            if (ApplyFinalizationProgress(s)) return;
             phaseToken = "engine";
             CurrentPhase = s.CurrentPhase;
             CurrentFilePercent = s.CurrentFilePercent;
@@ -1809,6 +1842,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
 
             ProgressText = progressSticky.Set("FmtGoogleSyncDone", "同步完成: 上传 {0}, 跳过 {1}, 失败 {2}", result.UploadedCount, result.SkippedCount, result.FailedCount);
             ProgressValue = 100;
+            SetPhase("ended", "GooglePhaseEnded", "Ended");
             IsPaused = false;
         }
         catch (OperationCanceledException)
@@ -1968,6 +2002,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             SpeedBytesPerSecond = s.SpeedBytesPerSecond;
             SpeedText = s.SpeedBytesPerSecond > 0 ? $"{FormatSize((long)s.SpeedBytesPerSecond)}/s" : "--";
             CurrentFile = s.CurrentFile;
+            if (ApplyFinalizationProgress(s)) return;
             phaseToken = "engine";
             CurrentPhase = s.CurrentPhase;
             CurrentFilePercent = s.CurrentFilePercent;
@@ -2007,6 +2042,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
 
             ProgressText = progressSticky.Set("FmtGoogleRetryDone", "重试完成: 成功上传 {0}, 跳过 {1}, 仍失败 {2}", result.UploadedCount, result.SkippedCount, result.FailedCount);
             ProgressValue = 100;
+            SetPhase("ended", "GooglePhaseEnded", "Ended");
         }
         catch (OperationCanceledException)
         {

@@ -225,6 +225,9 @@ public partial class SettingsViewModel : ObservableObject
 
     // Advanced Section Expansion State
     [ObservableProperty]
+    private bool isCodecCardCollapsed = true;
+
+    [ObservableProperty]
     private bool isBackupAdvancedExpanded = false;
 
     [ObservableProperty]

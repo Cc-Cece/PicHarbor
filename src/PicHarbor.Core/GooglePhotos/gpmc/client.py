@@ -43,7 +43,7 @@ ALBUM_BATCH_SIZE = 500  # Number of items to add per API call
 
 
 LogLevel = Literal["INFO", "DEBUG", "WARNING", "ERROR", "CRITICAL"]
-UploadPhase = Literal["hashing", "checking", "uploading", "finalizing", "complete", "skipped", "error", "retrying"]
+UploadPhase = Literal["hashing", "checking", "uploading", "finalizing", "complete", "skipped", "error", "retrying", "archiving"]
 
 
 class UploadOptions(TypedDict, total=False):
@@ -69,6 +69,8 @@ class UploadProgressEvent(TypedDict, total=False):
     filename: str
     bytes_completed: int
     bytes_total: int
+    phase_processed: int
+    phase_total: int
     retry_attempt: int | None
     retry_max: int | None
     retry_delay: float | None
@@ -415,7 +417,8 @@ class Client:
             hash_bytes,
         )
 
-    def _handle_album_creation(self, results: dict[str, str], album_name: str, show_progress: bool) -> None:
+    def _handle_album_creation(self, results: dict[str, str], album_name: str, show_progress: bool,
+                               on_progress: Callable[[int, int], None] | None = None) -> None:
         """
         Handle album creation based on the provided album_name.
 
@@ -427,7 +430,11 @@ class Client:
         if album_name != "AUTO":
             # Add all media keys to the specified album
             media_keys = list(results.values())
+            if on_progress:
+                on_progress(0, 1)
             self.add_to_album(media_keys, album_name, show_progress=show_progress)
+            if on_progress:
+                on_progress(1, 1)
             return
 
         # Group media keys by the full path of their parent directory
@@ -438,9 +445,14 @@ class Client:
                 media_keys_by_album[parent_dir] = []
             media_keys_by_album[parent_dir].append(media_key)
 
-        for parent_dir, media_keys in media_keys_by_album.items():
+        total_albums = len(media_keys_by_album)
+        if on_progress:
+            on_progress(0, total_albums)
+        for index, (parent_dir, media_keys) in enumerate(media_keys_by_album.items(), 1):
             album_name_from_path = Path(parent_dir).name  # Use the directory name as the album name
             self.add_to_album(media_keys, album_name_from_path, show_progress=show_progress)
+            if on_progress:
+                on_progress(index, total_albums)
 
     @staticmethod
     def _filter_files(expression: str, filter_exclude: bool, filter_regex: bool, filter_ignore_case: bool, filter_path: bool, paths: list[Path]) -> list[Path]:
@@ -585,10 +597,19 @@ class Client:
             retry_delay=retry_delay,
         )
 
-        if album_id:
+        def report_archiving(completed: int, total: int) -> None:
+            if progress_callback:
+                progress_callback({
+                    "version": 1, "type": "progress", "operation": "upload",
+                    "phase": "archiving", "phase_processed": completed, "phase_total": total,
+                })
+
+        if results and album_id:
+            report_archiving(0, 1)
             self.add_to_existing_album(list(results.values()), album_id, show_progress)
-        elif album_name:
-            self._handle_album_creation(results, album_name, show_progress)
+            report_archiving(1, 1)
+        elif results and album_name:
+            self._handle_album_creation(results, album_name, show_progress, report_archiving)
 
         return results
 

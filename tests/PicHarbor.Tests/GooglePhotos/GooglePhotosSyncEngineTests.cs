@@ -94,6 +94,46 @@ public sealed class GooglePhotosSyncEngineTests : IDisposable
     }
 
     [Fact]
+    public void Sync_record_lookup_reads_the_manifest_once_and_preserves_member_identity()
+    {
+        string rootA = Path.Combine(archiveDir.Path, "A");
+        string rootB = Path.Combine(archiveDir.Path, "B");
+        Directory.CreateDirectory(rootA);
+        Directory.CreateDirectory(rootB);
+        var first = new ManifestEntry("photo.JPG", 1, null, null) { ArchiveRoot = rootA, MediaId = "first" };
+        var second = new ManifestEntry("photo.JPG", 1, null, null) { ArchiveRoot = rootB, MediaId = "second" };
+        int reads = 0;
+        IEnumerable<ManifestEntry> ReadOnce()
+        {
+            if (++reads > 1) throw new InvalidOperationException("Manifest was enumerated again");
+            yield return first;
+            yield return second;
+        }
+
+        var map = GooglePhotosSyncEngine.BuildSyncSelectionMap(archiveDir.Path, ReadOnce());
+
+        reads.ShouldBe(1);
+        map.Count.ShouldBe(2);
+        map[Path.Combine(rootA, "photo.JPG")].ShouldBe(first.SelectionKey);
+        map[Path.Combine(rootB, "photo.JPG")].ShouldBe(second.SelectionKey);
+        // Repeated result lookups never read the library again.
+        for (int i = 0; i < 100; i++) map.ContainsKey(Path.Combine(rootA, "photo.JPG")).ShouldBeTrue();
+        reads.ShouldBe(1);
+    }
+
+    [Fact]
+    public void Album_progress_event_preserves_stage_counts_without_representing_a_file_result()
+    {
+        var progress = System.Text.Json.JsonSerializer.Deserialize<GooglePhotosProgressEvent>(
+            """{"phase":"archiving","phase_processed":2,"phase_total":5}""")!;
+
+        progress.Phase.ShouldBe("archiving");
+        progress.PhaseProcessed.ShouldBe(2);
+        progress.PhaseTotal.ShouldBe(5);
+        progress.Path.ShouldBeEmpty();
+    }
+
+    [Fact]
     public void Preparation_verifies_candidates_during_the_scan_before_reporting_filter_summary()
     {
         string photo = Materialize("photo.JPG", [1]);
