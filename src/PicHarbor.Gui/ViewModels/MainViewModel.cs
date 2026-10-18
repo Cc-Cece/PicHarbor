@@ -24,7 +24,20 @@ public partial class MainViewModel : ObservableObject
         GooglePhotosVM.StartSyncCommand.IsRunning || GooglePhotosVM.ResumeSyncCommand.IsRunning ||
         GooglePhotosVM.RetryFailedItemsCommand.IsRunning ||
         SettingsVM.IsCheckingLibrary || SettingsVM.IsSyncing || SettingsVM.IsPruning ||
-        SettingsVM.IsRepairing || SettingsVM.IsRefreshingDbMetrics;
+        SettingsVM.IsRepairing;
+
+    public string UpdateBlockingReason => IsAnyTaskRunning ||
+        BackupVM.StartBackupCommand.IsRunning || AndroidBackupVM.StartBackupCommand.IsRunning ||
+        IPhoneSyncVM.StartExportCommand.IsRunning || AndroidSyncVM.StartSyncCommand.IsRunning ||
+        GooglePhotosVM.StartSyncCommand.IsRunning || GooglePhotosVM.ResumeSyncCommand.IsRunning || GooglePhotosVM.RetryFailedItemsCommand.IsRunning
+            ? App.GetString("UpdateWaitingTransfers", "等待备份或同步任务安全结束，可取消本次安装。")
+            : libraryCheckRunning || SettingsVM.IsCheckingLibrary
+                ? App.GetString("UpdateWaitingLibrary", "正在停止后台图库自检，可取消本次安装。")
+                : SettingsVM.IsSyncing || SettingsVM.IsPruning || SettingsVM.IsRepairing
+                    ? App.GetString("UpdateWaitingMaintenance", "等待图库维护操作安全结束，可取消本次安装。")
+                    : App.GetString("UpdateWaitingDialog", "请先关闭打开的弹窗，或取消本次安装。");
+
+    public void PrepareForUpdateInstallation() => SettingsVM.CancelLibraryCheckCommand.Execute(null);
     private readonly DispatcherTimer deviceProbeTimer;
     private bool libraryCheckRunning;
     private string lastMemberState = "";
@@ -433,8 +446,9 @@ public partial class MainViewModel : ObservableObject
                 { SettingsVM.LibraryCheckStatus=App.GetString("LibraryProtectionUnavailable","无法确认图库保护状态，请先解锁或修复应用锁。");return; }
             string state = string.Join("|",catalog.Members.Select(m => m.StorageId + ":" + Directory.Exists(m.Root)));
             if (state == lastMemberState) return;
+            if (PicHarbor.Gui.Updates.UpdateWorkGate.IsInstalling) return;
             await SettingsVM.RunLibraryCheckAsync(catalog);
-            lastMemberState = state;
+            if (!PicHarbor.Gui.Updates.UpdateWorkGate.IsInstalling) lastMemberState = state;
         }
         catch (Exception ex) { SettingsVM.LibraryCheckStatus = ex.Message; }
         finally { libraryCheckRunning = false; }

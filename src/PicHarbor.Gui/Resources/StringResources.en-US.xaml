@@ -1093,6 +1093,7 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="UpdateLocating">Detecting the network region…</sys:String>
     <sys:String x:Key="UpdateProbing">Testing direct and mirror download routes…</sys:String>
     <sys:String x:Key="UpdateReceiving">Downloading the update using the route below…</sys:String>
+    <sys:String x:Key="UpdateReceivingParallel">Downloading update segments using the route below (up to {0} connections)…</sys:String>
     <sys:String x:Key="UpdateSwitching">The route failed or remained slow. Switching routes…</sys:String>
     <sys:String x:Key="UpdateVerifying">Download complete. Verifying against official release information…</sys:String>
     <sys:String x:Key="UpdateReselect">Choose route again</sys:String>
@@ -1124,6 +1125,13 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="UpdateCancelled">Update cancelled. Your current version is unchanged.</sys:String>
     <sys:String x:Key="UpdateFailed">Update could not complete: {0}. Retry or open GitHub releases.</sys:String>
     <sys:String x:Key="UpdateWaiting">Waiting for running tasks to finish. You can cancel the wait.</sys:String>
+    <sys:String x:Key="UpdateWaitingReason">{0} Close the window again to skip this installation and exit.</sys:String>
+    <sys:String x:Key="UpdateWaitingTransfers">Waiting for backup or sync tasks to finish safely. You can cancel this installation.</sys:String>
+    <sys:String x:Key="UpdateWaitingLibrary">Stopping the background library check. You can cancel this installation.</sys:String>
+    <sys:String x:Key="UpdateWaitingMaintenance">Waiting for library maintenance to finish safely. You can cancel this installation.</sys:String>
+    <sys:String x:Key="UpdateWaitingDialog">Close the open dialog, or cancel this installation.</sys:String>
+    <sys:String x:Key="UpdateWaitingSecurity">Waiting for the app lock operation to finish. You can cancel this installation.</sys:String>
+    <sys:String x:Key="UpdateRepairingService">Repairing the app lock service…</sys:String>
     <sys:String x:Key="UpdateInstalling">Preparing to install the update…</sys:String>
     <sys:String x:Key="UpdatePermissionTitle">Administrator permission required</sys:String>
     <sys:String x:Key="UpdatePermissionExplanation">{0} has been downloaded and verified. Updating the app lock service or replacing the app in a protected folder requires administrator permission. Confirm to request UAC approval, or cancel to keep the current version.</sys:String>

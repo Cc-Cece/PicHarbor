@@ -34,14 +34,24 @@ public sealed record UpdateRouteSample(UpdateDownloadRoute Route, double BytesPe
 /// <summary>Observable download state without private URLs or credentials.</summary>
 /// <param name="Stage">Current phase.</param>
 /// <param name="Route">Public route identifier.</param>
-/// <param name="Received">Bytes retained in the partial file.</param>
+/// <param name="Received">Bytes currently retained in the temporary download files.</param>
 /// <param name="Total">Official expected executable length.</param>
 /// <param name="BytesPerSecond">Recent transfer rate.</param>
-public sealed record UpdateDownloadProgress(UpdateDownloadStage Stage, string Route, long Received, long Total, double BytesPerSecond);
+public sealed record UpdateDownloadProgress(UpdateDownloadStage Stage, string Route, long Received, long Total, double BytesPerSecond)
+{
+    /// <summary>Current maximum simultaneous segment requests; one denotes sequential download.</summary>
+    public int Connections { get; init; } = 1;
+}
 
 /// <summary>Bounded timing/size policy; injectable to test failures without depending on public mirrors.</summary>
 public sealed class UpdateDownloadOptions
 {
+    /// <summary>Initial segment concurrency, bounded to four connections.</summary>
+    public int ParallelConnections { get; init; } = 4;
+    /// <summary>Files smaller than this use sequential download.</summary>
+    public long ParallelMinimumBytes { get; init; } = 16 * 1024 * 1024;
+    /// <summary>Maximum bytes per independently retried segment.</summary>
+    public int SegmentBytes { get; init; } = 8 * 1024 * 1024;
     /// <summary>Maximum sample bytes per candidate.</summary>
     public int SampleBytes { get; init; } = 512 * 1024;
     /// <summary>Sample time until first byte.</summary>
@@ -63,7 +73,7 @@ public sealed class UpdateDownloadOptions
 }
 
 /// <summary>Measures direct/mirror routes, resumes valid ranges, and verifies every completed candidate.</summary>
-public sealed class UpdateDownloadRouter : IDisposable
+public sealed partial class UpdateDownloadRouter : IDisposable
 {
     /// <summary>Fixed candidate roots, in deterministic order; never supplied by release metadata.</summary>
     public static IReadOnlyList<string> Mirrors { get; } = Array.AsReadOnly(new[]
@@ -91,6 +101,8 @@ public sealed class UpdateDownloadRouter : IDisposable
         this.options = options ?? new();
         this.verify = verify ?? UpdatePolicy.VerifyAsync;
         if (this.options.SampleBytes < 2) throw new ArgumentOutOfRangeException(nameof(options));
+        if (this.options.ParallelConnections is < 1 or > 4 || this.options.SegmentBytes < 2 || this.options.ParallelMinimumBytes < 2)
+            throw new ArgumentOutOfRangeException(nameof(options));
     }
 
     /// <summary>Ranks by effective speed, with direct preferred when within 20 percent of the fastest route.</summary>
@@ -122,6 +134,7 @@ public sealed class UpdateDownloadRouter : IDisposable
         using var budget = new CancellationTokenSource(options.TotalTimeout, time);
         using var operation = CancellationTokenSource.CreateLinkedTokenSource(ct, budget.Token);
         var attempts = new Dictionary<string, int>();
+        using var segments = new SegmentedDownloadSession(this, release, path);
         lock (sync) mode = regionMode;
         var direct = new UpdateDownloadRoute("direct", release.Download, false, 0);
         var mirrors = Mirrors.Select((root, index) => new UpdateDownloadRoute(new Uri(root).Host,
@@ -137,7 +150,7 @@ public sealed class UpdateDownloadRouter : IDisposable
             UpdateRegionMode currentMode;
             lock (sync) { active = cycle; before = generation; currentMode = mode; }
             void Report(UpdateDownloadStage stage, string route = "", double speed = 0)
-                => progress?.Report(new(stage, route, File.Exists(path) ? new FileInfo(path).Length : 0, release.Size, speed));
+                => progress?.Report(new(stage, route, segments.RetainedBytes ?? (File.Exists(path) ? new FileInfo(path).Length : 0), release.Size, speed));
             try
             {
                 Report(UpdateDownloadStage.Locating);
@@ -187,7 +200,11 @@ public sealed class UpdateDownloadRouter : IDisposable
                     try
                     {
                         if (!File.Exists(path) || new FileInfo(path).Length != release.Size)
-                            await DownloadOneAsync(route, release, path, progress, !route.IsProxy && route.Id != lastSlowRoute, cycle.Token).ConfigureAwait(false);
+                        {
+                            bool switchOnSlow = !route.IsProxy && route.Id != lastSlowRoute;
+                            if (!await segments.TryDownloadAsync(route, progress, switchOnSlow, cycle.Token).ConfigureAwait(false))
+                                await DownloadOneAsync(route, release, path, progress, switchOnSlow, cycle.Token).ConfigureAwait(false);
+                        }
                         Report(UpdateDownloadStage.Verifying, route.Id);
                         await verify(path, release, officialHash, cycle.Token).ConfigureAwait(false);
                         return;
@@ -196,7 +213,11 @@ public sealed class UpdateDownloadRouter : IDisposable
                     {
                         if (ex is SlowDownloadException) slowRoutes.Add(route);
                         // A complete but invalid candidate can contain bad bytes from any preceding route.
-                        if (ex is InvalidDataException || (File.Exists(path) && new FileInfo(path).Length >= release.Size)) File.Delete(path);
+                        if (ex is InvalidDataException || (File.Exists(path) && new FileInfo(path).Length >= release.Size))
+                        {
+                            segments.Reset();
+                            File.Delete(path);
+                        }
                         Report(UpdateDownloadStage.Switching, route.Id);
                     }
                 }

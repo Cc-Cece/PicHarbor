@@ -25,8 +25,9 @@ public partial class UpdateViewModel : ObservableObject
     private string? candidate;
     private Window? owner;
     private Func<bool> hasWork = () => false;
-    private bool allowClose;
-    private bool handlingClose;
+    private readonly UpdateCloseCoordinator closeCoordinator = new();
+    private Func<string> blockingReason = () => App.GetString("UpdateWaiting", "Waiting for active work to finish.");
+    private Action prepareForInstallation = () => { };
     private bool installOnExit;
     private bool loading;
     private string statusKey = "UpdateIdle";
@@ -65,10 +66,12 @@ public partial class UpdateViewModel : ObservableObject
         SetStatus("UpdateIdle");
     }
 
-    public void Attach(Window window, Func<bool> busy)
+    public void Attach(Window window, Func<bool> busy, Func<string>? reason = null, Action? prepare = null)
     {
         owner = window;
         hasWork = busy;
+        if (reason is not null) blockingReason = reason;
+        if (prepare is not null) prepareForInstallation = prepare;
         window.Closing += OnClosing;
         window.ContentRendered += OnFirstRendered;
         window.Closed += (_, _) => { operation?.Cancel(); regions.Dispose(); LocalizationService.LanguageChanged -= OnLanguageChanged; };
@@ -123,6 +126,11 @@ public partial class UpdateViewModel : ObservableObject
         DownloadRouteText = RouteName(value.Route);
         DownloadSpeedText = value.BytesPerSecond > 0 ? $"{value.BytesPerSecond / 1024:N0} KiB/s" : "";
         Progress = value.Total > 0 ? value.Received * 100d / value.Total : 0;
+        if (value.Stage == UpdateDownloadStage.Downloading && value.Connections > 1)
+        {
+            SetStatus("UpdateReceivingParallel", value.Connections);
+            return;
+        }
         SetStatus(value.Stage switch
         {
             UpdateDownloadStage.Locating => "UpdateLocating",
@@ -164,12 +172,13 @@ public partial class UpdateViewModel : ObservableObject
         using var cancellation = new CancellationTokenSource();
         operation = cancellation;
         IsBusy = true;
+        UpdateWorkGate.IsInstalling = true;
         try
         {
-            SetStatus("UpdateWaiting");
-            while (hasWork()) await Task.Delay(300, cancellation.Token);
+            prepareForInstallation();
+            await WaitForWorkAsync(cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
-            UpdateWorkGate.IsInstalling = true;
+            SetStatus("UpdateRepairingService");
             owner.IsEnabled = false;
             var result = await VaultServiceManager.EnsureServiceInstalledAsync();
             SetStatus(result.ok ? "UpdateServiceRepaired" : "UpdateFailed", result.message);
@@ -187,7 +196,12 @@ public partial class UpdateViewModel : ObservableObject
     }
 
     [RelayCommand(CanExecute = nameof(CanCancel))]
-    private void CancelUpdate() => operation?.Cancel();
+    private void CancelUpdate()
+    {
+        // Cancelling an exit wait also cancels the scheduled install; the next close must not re-arm it.
+        installOnExit = false;
+        operation?.Cancel();
+    }
 
     private async Task CheckAsync(bool explicitAction)
     {
@@ -270,11 +284,15 @@ public partial class UpdateViewModel : ObservableObject
 
     private async void OnClosing(object? sender, CancelEventArgs e)
     {
-        if (allowClose) return;
-        if (handlingClose) { e.Cancel = true; return; }
-        if (ready is null || !installOnExit) { operation?.Cancel(); return; }
+        var action = closeCoordinator.RequestClose(ready is not null, installOnExit);
+        if (action == UpdateCloseAction.Close) { operation?.Cancel(); return; }
+        if (action == UpdateCloseAction.CancelInstallationAndClose)
+        {
+            installOnExit = false;
+            operation?.Cancel();
+            return;
+        }
         e.Cancel = true;
-        handlingClose = true;
         operation?.Cancel();
         using var closing = new CancellationTokenSource();
         operation = closing;
@@ -283,24 +301,45 @@ public partial class UpdateViewModel : ObservableObject
         {
             bool launched = await InstallAsync(restart: false, closing.Token);
             // Cancelling permission/UAC still honours the user's request to exit.
-            if (!launched && !closing.IsCancellationRequested) { allowClose = true; owner!.Close(); }
+            if (!launched && !closing.IsCancellationRequested) CloseAfterInstallationAttempt();
         }
         catch (OperationCanceledException) { SetStatus("UpdateCancelled"); }
-        catch (Exception ex) { Log(ex); allowClose = true; owner!.Close(); }
-        finally { handlingClose = false; IsBusy = false; operation = null; }
+        catch (Exception ex) { Log(ex); CloseAfterInstallationAttempt(); }
+        finally { closeCoordinator.FinishCloseAttempt(); IsBusy = false; operation = null; }
+    }
+
+    private void CloseAfterInstallationAttempt()
+    {
+        closeCoordinator.PermitClose();
+        if (owner is not { } window) return;
+        // Consent can be declined synchronously inside Closing. Queue the second close only
+        // after WPF has returned from that event, rather than trying to close reentrantly.
+        window.Dispatcher.BeginInvoke(new Action(() => { if (window.IsLoaded) window.Close(); }));
+    }
+
+    private async Task WaitForWorkAsync(CancellationToken ct)
+    {
+        while (hasWork())
+        {
+            SetStatus("UpdateWaitingReason", blockingReason());
+            await Task.Delay(300, ct);
+        }
+        ct.ThrowIfCancellationRequested();
     }
 
     private async Task<bool> InstallAsync(bool restart, CancellationToken ct)
     {
         if (ready is null || candidate is null || owner is null) return false;
-        SetStatus("UpdateWaiting");
-        while (hasWork()) { await Task.Delay(300, ct); }
-        ct.ThrowIfCancellationRequested();
         bool enabled = owner.IsEnabled;
         UpdateWorkGate.IsInstalling = true;
-        owner.IsEnabled = false;
         try
         {
+            // Stop cancellable background maintenance and prevent timer-driven work from restarting
+            // while we wait. Keep the window enabled so Cancel and Close remain usable.
+            prepareForInstallation();
+            await WaitForWorkAsync(ct);
+            SetStatus("UpdateInstalling");
+            owner.IsEnabled = false;
             bool elevated = UpdateInstaller.RequiresElevation(Environment.ProcessPath!);
             // Only a ready update being installed on exit AND requiring UAC can show the exit dialog.
             if ((restart && elevated) || UpdatePolicy.ShowExitPrompt(ready is not null, installOnExit, elevated))
@@ -326,13 +365,13 @@ public partial class UpdateViewModel : ObservableObject
             }
             ct.ThrowIfCancellationRequested();
             // The modal can pump task completion/commands; verify idle again before committing.
-            if (hasWork()) { SetStatus("UpdateWaiting"); return false; }
+            if (hasWork()) { SetStatus("UpdateWaitingReason", blockingReason()); return false; }
             SetStatus("UpdateInstalling");
             await UpdateInstaller.LaunchAsync(candidate, ready!.Tag, restart, elevated);
-            allowClose = true;
-            owner.Close();
+            CloseAfterInstallationAttempt();
             return true;
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             Log(ex);

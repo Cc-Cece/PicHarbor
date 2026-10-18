@@ -117,7 +117,9 @@ public partial class App : Application
         // DestinationPath 会在主窗口 DataContext 就绪后可用，这里绑定其后续变化。
         if (mainWindow.DataContext is MainViewModel mainVm)
         {
-            mainVm.Updates.Attach(mainWindow, () => mainVm.HasUpdateBlockingWork || lockVm.IsBusy);
+            mainVm.Updates.Attach(mainWindow, () => mainVm.HasUpdateBlockingWork || lockVm.IsBusy,
+                () => lockVm.IsBusy ? GetString("UpdateWaitingSecurity", "等待应用锁操作结束，可取消本次安装。") : mainVm.UpdateBlockingReason,
+                mainVm.PrepareForUpdateInstallation);
             SessionEnding += (_, _) => mainVm.Updates.SuppressExitInstallation();
             lockVm.ArchiveRoot = mainVm.DestinationPath;
             mainVm.PropertyChanged += (_, e) =>
