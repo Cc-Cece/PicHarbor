@@ -1,3 +1,5 @@
+import { ThumbnailLoader } from './thumbnail-loader.js?v=1';
+
 function l(h, t, e) {
   const s = document.createElement(h);
   return t && (s.className = t), e && e.appendChild(s), s;
@@ -332,6 +334,7 @@ function Q(h, t) {
 const tt = 40, et = 12, st = "dirty";
 class it {
   constructor(t, e) {
+    this.thumbLoader = new ThumbnailLoader();
     this.content = t, this.ctx = e, this.range = _, this.layout = null, this.mountedTiles = /* @__PURE__ */ new Map(), this.freeTiles = [], this.mountedHeaders = /* @__PURE__ */ new Map(), this.freeHeaders = [], this.pressTimer = 0, this.pressOrigin = null, this.swallowClick = !1, this.handlePointerDown = (s) => {
       if (this.cancelLongPress(), s.pointerType === "mouse" || s.target?.closest("[data-role]")) return;
       const i = this.tileFromEvent(s);
@@ -383,6 +386,7 @@ class it {
     }, this.content.addEventListener("click", this.handleClick), this.content.addEventListener("contextmenu", this.handleContextMenu), this.content.addEventListener("pointerdown", this.handlePointerDown), this.content.addEventListener("pointermove", this.handlePointerMove), this.content.addEventListener("pointerup", this.cancelLongPress), this.content.addEventListener("pointercancel", this.cancelLongPress);
   }
   destroy() {
+    this.thumbLoader.destroy();
     this.cancelLongPress(), this.content.removeEventListener("click", this.handleClick), this.content.removeEventListener("contextmenu", this.handleContextMenu), this.content.removeEventListener("pointerdown", this.handlePointerDown), this.content.removeEventListener("pointermove", this.handlePointerMove), this.content.removeEventListener("pointerup", this.cancelLongPress), this.content.removeEventListener("pointercancel", this.cancelLongPress), this.content.textContent = "", this.mountedTiles.clear(), this.mountedHeaders.clear(), this.freeTiles = [], this.freeHeaders = [], this.layout = null, this.range = _;
   }
   setLayout(t) {
@@ -390,6 +394,7 @@ class it {
   }
   /** Render the window around `scrollTop`. Cheap to call on every scroll frame. */
   update(t, e, s) {
+    this.viewportCenter = t + e / 2;
     const i = this.layout;
     if (!i) return;
     const o = q(i, t, e, s);
@@ -420,11 +425,13 @@ class it {
       const r = this.mountedTiles.get(i);
       if (r) {
         this.placeTile(r, o);
+        this.thumbLoader.prioritize(r, Math.abs(o.y + o.height / 2 - this.viewportCenter));
         continue;
       }
       const n = this.freeTiles.pop() ?? this.createTile();
       this.bindTile(n, o), this.mountedTiles.set(i, n), this.content.appendChild(n.root);
     }
+    window.chrome?.webview?.postMessage({ action: 'thumbnailViewport', urls: [...this.mountedTiles.values()].map(tile => tile.src) });
   }
   createTile() {
     const t = l("figure", "sp-tile"), e = l("img", "sp-tile__img", t);
@@ -456,7 +463,13 @@ class it {
     const s = e.photo;
     t.photo = s, t.root.dataset.key = s.key, t.root.classList.remove("is-error");
     const i = this.ctx.thumbUrl ? this.ctx.thumbUrl(s.raw, { width: e.width, height: e.height }) : s.thumbUrl;
-    t.src !== i ? (t.root.classList.remove("is-loaded"), t.src = i, t.img.src = i, t.img.alt = s.alt) : t.img.complete && t.root.classList.add("is-loaded"), this.placeTile(t, e), this.paintState(t, s), this.paintBadges(t, s);
+    if (t.src !== i) {
+      t.root.classList.remove("is-loaded");
+      t.src = i;
+      t.img.alt = s.alt;
+      this.thumbLoader.request(t, i, Math.abs(e.y + e.height / 2 - this.viewportCenter));
+    } else if (t.img.complete && t.img.naturalWidth > 0) t.root.classList.add("is-loaded");
+    this.placeTile(t, e), this.paintState(t, s), this.paintBadges(t, s);
   }
   placeTile(t, e) {
     const s = t.root.style;
@@ -476,6 +489,8 @@ class it {
     }
   }
   releaseTile(t, e) {
+    this.thumbLoader.release(e);
+    e.src = "";
     if (this.mountedTiles.delete(t), e.photo = null, e.badgeKey = st, e.root.remove(), this.freeTiles.length >= tt) {
       const s = this.freeTiles.shift();
       s && (s.img.removeAttribute("src"), s.src = "");
@@ -718,6 +733,7 @@ class ut {
         cancelAnimationFrame(this.seekRaf);
         this.seekRaf = 0;
       }
+      if (this.dragging) this.onSeek(this.fractionAt(i.clientY));
       this.dragging && (this.dragging = !1, this.root.hasPointerCapture(i.pointerId) && this.root.releasePointerCapture(i.pointerId), this.root.classList.remove("is-dragging"));
     }, this.onPointerLeave = () => {
       this.dragging || (this.bubble.hidden = !0);

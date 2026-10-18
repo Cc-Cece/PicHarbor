@@ -1,4 +1,4 @@
-import { SweetAlbum } from './sweet-album.js';
+import { SweetAlbum } from './sweet-album.js?v=9';
 
 let albumInstance = null;
 let currentPhotos = [];

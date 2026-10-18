@@ -20,6 +20,16 @@ public sealed class SimpleFtpClient : IDisposable
     /// <summary>Gets a value indicating whether the FTP control connection is open.</summary>
     public bool IsConnected => controlClient is { Connected: true };
 
+    /// <summary>Keeps an idle control session alive while a transfer task is paused between files.</summary>
+    public async Task KeepAliveAsync(CancellationToken cancellationToken = default)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(15));
+        string response = await SendCommandAsync("NOOP", timeout.Token).ConfigureAwait(false);
+        if (!response.StartsWith("2", StringComparison.Ordinal))
+            throw new IOException("The FTP server rejected the keep-alive request.");
+    }
+
     /// <summary>
     /// Connects to the remote FTP server and authenticates with username and password.
     /// </summary>

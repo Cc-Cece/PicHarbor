@@ -65,6 +65,7 @@
         <!--  TOP BAR (PCL2 PanTitle Gradient + Logo + Capsule Tabs)  -->
         <!-- ======================================================== -->
         <Border Grid.Row="0" Background="{DynamicResource ColorBrushTitleGradient}" 
+                PreviewMouseLeftButtonDown="TitleBar_PreviewMouseLeftButtonDown"
                 MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
             <Grid Margin="16,0,12,0">
                 <Grid.ColumnDefinitions>
@@ -1169,8 +1170,8 @@
                                         <TextBlock Text="{Binding ScopeSummaryText}" FontSize="12" Foreground="{DynamicResource ColorBrush2}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
                                         <TextBlock Text="{DynamicResource LabelGoogleAlbumMode}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" Margin="0,12,0,8" />
-                                        <controls:PclRadioBox Content="{DynamicResource AlbumModeAuto}" IsChecked="{Binding IsAlbumAuto, Mode=TwoWay}" Margin="0,0,0,6" />
                                         <controls:PclRadioBox Content="{DynamicResource AlbumModeNone}" IsChecked="{Binding IsAlbumNone, Mode=TwoWay}" Margin="0,0,0,6" />
+                                        <controls:PclRadioBox Content="{DynamicResource AlbumModeAuto}" IsChecked="{Binding IsAlbumAuto, Mode=TwoWay}" Margin="0,0,0,6" />
                                         <controls:PclRadioBox Content="{DynamicResource AlbumModeCustom}" IsChecked="{Binding IsAlbumCustom, Mode=TwoWay}" Margin="0,0,0,6" />
 
                                         <Grid Margin="24,0,0,4" Visibility="{Binding IsAlbumCustom, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -3516,6 +3517,7 @@
         <!-- 任务中心展开时的全屏透明点击捕获层：点面板外任意处收起。
              ZIndex 1010 高于普通内容、低于模态弹窗（1020/1025）与面板本体（1100）。 -->
         <Border Grid.RowSpan="2" Panel.ZIndex="1010"
+                WindowChrome.IsHitTestVisibleInChrome="True"
                 Background="Transparent"
                 Visibility="{Binding IsTaskManagerOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
                 MouseLeftButtonDown="TaskManagerBackdrop_MouseLeftButtonDown" />
@@ -3572,15 +3574,22 @@
                                                             <TextBlock Text="{Binding StateText}" Foreground="#64748B" FontSize="12" Margin="8,0,0,0" VerticalAlignment="Center" />
                                                         </StackPanel>
                                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                            <Button Content="{DynamicResource TaskPause}" Command="{Binding PauseCommand}"
+                                                                    Visibility="{Binding CanPause, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                                    ToolTip="{DynamicResource TaskPauseHint}"
+                                                                    Background="Transparent" BorderThickness="0" Foreground="#0B5BCB" Cursor="Hand" FontSize="12" Padding="6,2" />
+                                                            <Button Content="{DynamicResource TaskResume}" Command="{Binding ResumeCommand}"
+                                                                    Visibility="{Binding CanResume, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                                    Background="Transparent" BorderThickness="0" Foreground="#0B5BCB" Cursor="Hand" FontSize="12" Padding="6,2" />
                                                             <Button Content="{DynamicResource BtnStop}" Command="{Binding StopCommand}"
-                                                                    Visibility="{Binding IsRunning, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                                    Visibility="{Binding CanStop, Converter={StaticResource BooleanToVisibilityConverter}}"
                                                                     Background="Transparent" BorderThickness="0" Foreground="#EF4444" Cursor="Hand" FontSize="12" Padding="6,2" />
                                                             <Button Content="{DynamicResource CloseBtn}" Command="{Binding DismissCommand}"
-                                                                    Visibility="{Binding IsRunning, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
+                                                                    Visibility="{Binding CanStop, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
                                                                     Background="Transparent" BorderThickness="0" Foreground="#64748B" Cursor="Hand" FontSize="12" Padding="6,2" />
                                                         </StackPanel>
                                                     </Grid>
-                                                    <ProgressBar Value="{Binding Progress}" Maximum="100" Height="6" Margin="0,8,0,6" Foreground="#0B5BCB" Background="#E2E8F0" BorderThickness="0" />
+                                                    <ProgressBar Value="{Binding Progress}" IsIndeterminate="{Binding IsProgressIndeterminate}" Maximum="100" Height="6" Margin="0,8,0,6" Foreground="#0B5BCB" Background="#E2E8F0" BorderThickness="0" />
                                                     <TextBlock Text="{Binding ProgressText}" FontSize="11" Foreground="#343D4A" TextWrapping="Wrap" />
                                                     <TextBlock Text="{Binding SpeedText}" FontSize="11" Foreground="#0B5BCB" Margin="0,2,0,0" />
                                                     <TextBlock Text="{Binding ResultText}" FontSize="11" Foreground="#475569" Margin="0,4,0,0" />

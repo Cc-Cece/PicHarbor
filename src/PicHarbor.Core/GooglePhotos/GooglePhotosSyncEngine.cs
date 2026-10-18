@@ -570,7 +570,8 @@ public static class GooglePhotosSyncEngine
                     if (before.Exists && before.Length == size && before.LastWriteTimeUtc == modified)
                     {
                         preparedFiles.Add(new(Path.GetFullPath(fullPath), size,
-                            new DateTimeOffset(modified).ToUnixTimeMilliseconds(), item.MediaId));
+                            new DateTimeOffset(modified).ToUnixTimeMilliseconds(), item.MediaId)
+                        { SelectionKey = item.SelectionKey });
                         verified = true;
                     }
                 }
@@ -949,38 +950,14 @@ public static class GooglePhotosSyncEngine
             }
             if (journal != null && mediaKeys.Count > 0)
             {
-                ReportStage("saving_records", 0, mediaKeys.Count);
-                // Resolve every archive path once, rather than rereading the whole library for each result.
-                var selectionMap = config.ScopeMode == GooglePhotosScopeMode.CustomTarget
-                    ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                    : BuildSyncSelectionMap(pcDestinationRoot, ArchiveRepository.ReadLibraryManifest(pcDestinationRoot));
-                int saved = 0;
-                var reportClock = Stopwatch.StartNew();
-                foreach (var (fullPath, mediaKey) in mediaKeys)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    try
-                    {
-                        string? relativePath = config.ScopeMode == GooglePhotosScopeMode.CustomTarget
-                            ? Path.GetRelativePath(pcDestinationRoot, fullPath).Replace('\\', '/')
-                            : selectionMap.GetValueOrDefault(fullPath);
-                        if (relativePath is not null)
-                        {
-                            long size = File.Exists(fullPath) ? new FileInfo(fullPath).Length : 0;
-                            journal.RecordGooglePhotosSync(relativePath, mediaKey, DateTimeOffset.UtcNow, albumName, size);
-                        }
-                    }
-                    catch (Exception ex) when (ex is not OperationCanceledException)
-                    {
-                        Debug.WriteLine($"Failed to record Google Photos sync: {ex.Message}");
-                    }
-                    saved++;
-                    if (saved == mediaKeys.Count || reportClock.ElapsedMilliseconds >= 150)
-                    {
-                        ReportStage("saving_records", saved, mediaKeys.Count);
-                        reportClock.Restart();
-                    }
-                }
+                ReportStage("preparing_records", 0, 0);
+                var records = PrepareSyncRecords(pcDestinationRoot, config.ScopeMode, plan, mediaKeys, albumName,
+                    () => BuildSyncSelectionMap(pcDestinationRoot, ArchiveRepository.ReadLibraryManifest(pcDestinationRoot),
+                        (processed, total) => ReportStage("preparing_records", processed, total), cancellationToken),
+                    cancellationToken);
+                ReportStage("saving_records", 0, records.Count);
+                journal.RecordGooglePhotosSyncBatch(records,
+                    saved => ReportStage("saving_records", saved, records.Count), cancellationToken);
             }
 
             onLog?.Invoke($"[Google Photos] 同步完成! 上传: {completedCount}, 跳过: {skippedCount}, 失败: {failedCount}");
@@ -1033,18 +1010,54 @@ public static class GooglePhotosSyncEngine
         };
     }
 
-    internal static Dictionary<string, string> BuildSyncSelectionMap(string root, IEnumerable<ManifestEntry> manifest)
+    internal static IReadOnlyList<GooglePhotosSyncRecord> PrepareSyncRecords(string root, GooglePhotosScopeMode scope,
+        GooglePhotosUploadPlan plan, IReadOnlyDictionary<string, string> mediaKeys, string? albumName,
+        Func<Dictionary<string, string>> readLegacySelections, CancellationToken cancellationToken = default)
+    {
+        var files = plan.Files.DistinctBy(f => f.Path, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(f => f.Path, StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, string>? legacySelections = null;
+        var records = new List<GooglePhotosSyncRecord>();
+        var uploadedAt = DateTimeOffset.UtcNow;
+        foreach (var (path, mediaKey) in mediaKeys)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            // Only persist results belonging to this prepared upload, including resumed/retried subsets.
+            if (!files.TryGetValue(path, out var file)) continue;
+            string? selection = scope == GooglePhotosScopeMode.CustomTarget
+                ? Path.GetRelativePath(root, path).Replace('\\', '/')
+                : file.SelectionKey ?? (legacySelections ??= readLegacySelections()).GetValueOrDefault(path);
+            if (selection is not null)
+                records.Add(new(selection, mediaKey, uploadedAt, albumName, file.Size));
+        }
+        return records;
+    }
+
+    internal static Dictionary<string, string> BuildSyncSelectionMap(string root, IEnumerable<ManifestEntry> manifest,
+        Action<int, int>? progress = null, CancellationToken cancellationToken = default)
     {
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        int total = manifest.TryGetNonEnumeratedCount(out int count) ? count : 0;
+        int processed = 0;
+        var clock = Stopwatch.StartNew();
+        progress?.Invoke(0, total);
         foreach (var entry in manifest)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 string fullPath = PicHarbor.Core.Storage.ArchivePathResolver.Resolve(entry.ArchiveRoot ?? root, entry.DestPath);
                 result.TryAdd(fullPath, entry.SelectionKey);
             }
             catch (IOException) { }
+            processed++;
+            if (processed == total || clock.ElapsedMilliseconds >= 150)
+            {
+                progress?.Invoke(processed, total);
+                clock.Restart();
+            }
         }
+        if (total == 0) progress?.Invoke(processed, processed);
         return result;
     }
 

@@ -110,15 +110,67 @@ public sealed class GooglePhotosSyncEngineTests : IDisposable
             yield return second;
         }
 
-        var map = GooglePhotosSyncEngine.BuildSyncSelectionMap(archiveDir.Path, ReadOnce());
+        var updates = new List<(int Processed, int Total)>();
+        var map = GooglePhotosSyncEngine.BuildSyncSelectionMap(archiveDir.Path, ReadOnce(),
+            (processed, total) => updates.Add((processed, total)), TestContext.Current.CancellationToken);
 
         reads.ShouldBe(1);
         map.Count.ShouldBe(2);
+        updates[0].ShouldBe((0, 0));
+        updates[^1].ShouldBe((2, 2));
         map[Path.Combine(rootA, "photo.JPG")].ShouldBe(first.SelectionKey);
         map[Path.Combine(rootB, "photo.JPG")].ShouldBe(second.SelectionKey);
         // Repeated result lookups never read the library again.
         for (int i = 0; i < 100; i++) map.ContainsKey(Path.Combine(rootA, "photo.JPG")).ShouldBeTrue();
         reads.ShouldBe(1);
+    }
+
+    [Fact]
+    public void Sync_record_lookup_reports_known_total_and_honors_cancellation()
+    {
+        var entries = new[] { new ManifestEntry("photo.JPG", 1, null, null) };
+        var updates = new List<(int Processed, int Total)>();
+        GooglePhotosSyncEngine.BuildSyncSelectionMap(archiveDir.Path, entries,
+            (processed, total) => updates.Add((processed, total)), TestContext.Current.CancellationToken);
+        updates[0].ShouldBe((0, 1));
+        updates[^1].ShouldBe((1, 1));
+
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        Should.Throw<OperationCanceledException>(() => GooglePhotosSyncEngine.BuildSyncSelectionMap(
+            archiveDir.Path, entries, cancellationToken: cancellation.Token));
+    }
+
+    [Fact]
+    public void Prepared_results_keep_stable_identity_and_size_without_reading_the_library_or_files()
+    {
+        string path = Path.Combine(archiveDir.Path, "no-longer-present.JPG");
+        var file = new GooglePhotosPreparedFile(path, 123, 0, "digest") { SelectionKey = "#media/digest" };
+        var plan = new GooglePhotosUploadPlan([file], null).SelectFiles([path]);
+        var keys = new Dictionary<string, string> { [path] = "cloud-key", [path + ".foreign"] = "foreign-key" };
+        var records = GooglePhotosSyncEngine.PrepareSyncRecords(archiveDir.Path, GooglePhotosScopeMode.All,
+            plan, keys, "album", () => throw new InvalidOperationException("Must not read the library"),
+            TestContext.Current.CancellationToken);
+        records.Count.ShouldBe(1);
+        records[0].DestPath.ShouldBe("#media/digest");
+        records[0].FileSize.ShouldBe(123);
+        records[0].MediaKey.ShouldBe("cloud-key");
+    }
+
+    [Fact]
+    public void Legacy_explicit_results_read_the_library_only_once()
+    {
+        string first = Path.Combine(archiveDir.Path, "first.JPG");
+        string second = Path.Combine(archiveDir.Path, "second.JPG");
+        var plan = new GooglePhotosUploadPlan([
+            new GooglePhotosPreparedFile(first, 1, 0, null), new GooglePhotosPreparedFile(second, 2, 0, null)], null);
+        int reads = 0;
+        var records = GooglePhotosSyncEngine.PrepareSyncRecords(archiveDir.Path, GooglePhotosScopeMode.All,
+            plan, new Dictionary<string, string> { [first] = "one", [second] = "two" }, null,
+            () => { reads++; return new() { [first] = "first.JPG", [second] = "second.JPG" }; },
+            TestContext.Current.CancellationToken);
+        reads.ShouldBe(1);
+        records.Select(r => r.DestPath).ShouldBe(["first.JPG", "second.JPG"]);
     }
 
     [Fact]
@@ -147,6 +199,7 @@ public sealed class GooglePhotosSyncEngineTests : IDisposable
         // The candidate was already verified when the scan summary was emitted.
         plan.Files.Count.ShouldBe(1);
         plan.Files[0].Size.ShouldBe(1);
+        plan.Files[0].SelectionKey.ShouldBe("photo.JPG");
         new FileInfo(photo).Length.ShouldBe(2);
     }
 

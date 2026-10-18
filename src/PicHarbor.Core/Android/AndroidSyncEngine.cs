@@ -42,6 +42,7 @@ public static class AndroidSyncEngine
     /// <param name="onLog">日志回调。</param>
     /// <param name="onItemOutcome">单个文件结果回调。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <param name="pauseGate">Optional cooperative pause at file boundaries.</param>
     public static async Task<AndroidSyncResult> SyncAsync(
         string pcDestinationRoot,
         AndroidSyncConfig config,
@@ -49,7 +50,8 @@ public static class AndroidSyncEngine
         IProgress<ProgressSnapshot>? progressTarget = null,
         Action<string>? onLog = null,
         Action<string, string, long, CopyStatus, string?>? onItemOutcome = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        PicHarbor.Core.Transfer.TransferPauseGate? pauseGate = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pcDestinationRoot);
         ArgumentNullException.ThrowIfNull(config);
@@ -109,6 +111,7 @@ public static class AndroidSyncEngine
 
         foreach (ManifestEntry file in manifestFiles)
         {
+            if (pauseGate is not null) await pauseGate.WaitAsync(cancellationToken, ftp.KeepAliveAsync).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             if (!PicHarbor.Core.Storage.MediaFileGuard.TryVerify(file,pcDestinationRoot,out string localPath,cancellationToken))
             {
@@ -204,6 +207,7 @@ public static class AndroidSyncEngine
             }
         }
 
+        if (pauseGate is not null) await pauseGate.WaitAsync(cancellationToken, ftp.KeepAliveAsync).ConfigureAwait(false);
         onLog?.Invoke($"[ANDROID COMPLETED] Device {deviceId}: {copied:N0} copied, {skipped:N0} skipped, {failed:N0} failed.");
         return new AndroidSyncResult(deviceId, copied, skipped, failed, bytesCopied);
     }

@@ -97,6 +97,8 @@
 }
 
 .sp-scroller {
+    /* Tile recycling already controls the viewport; browser anchoring can move it again. */
+    overflow-anchor: none;
   position: relative;
   flex: 1 1 auto;
   min-width: 0;

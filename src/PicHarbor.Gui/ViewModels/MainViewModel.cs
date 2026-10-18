@@ -117,11 +117,11 @@ public partial class MainViewModel : ObservableObject
         get
         {
             double bytes = 0;
-            if (BackupVM.IsTransferring) bytes += BackupVM.SpeedBytesPerSecond;
-            if (AndroidBackupVM.IsTransferring) bytes += AndroidBackupVM.SpeedBytesPerSecond;
+            if (BackupVM.IsTransferring && !BackupVM.PauseGate.IsPaused) bytes += BackupVM.SpeedBytesPerSecond;
+            if (AndroidBackupVM.IsTransferring && !AndroidBackupVM.PauseGate.IsPaused) bytes += AndroidBackupVM.SpeedBytesPerSecond;
             if (GooglePhotosVM.IsSyncing) bytes += GooglePhotosVM.SpeedBytesPerSecond;
-            if (IPhoneSyncVM.IsExporting) bytes += IPhoneSyncVM.SpeedBytesPerSecond;
-            if (AndroidSyncVM.IsSyncing) bytes += AndroidSyncVM.SpeedBytesPerSecond;
+            if (IPhoneSyncVM.IsExporting && !IPhoneSyncVM.PauseGate.IsPaused) bytes += IPhoneSyncVM.SpeedBytesPerSecond;
+            if (AndroidSyncVM.IsSyncing && !AndroidSyncVM.PauseGate.IsPaused) bytes += AndroidSyncVM.SpeedBytesPerSecond;
             return FormatTotalSpeed(bytes);
         }
     }
@@ -1139,7 +1139,7 @@ public partial class MainViewModel : ObservableObject
         TaskCards.Add(MakeCard(
             "google",
             true,
-            () => { if (GooglePhotosVM.IsSyncing) GooglePhotosVM.CancelSyncCommand.Execute(null); },
+            () => { if (GooglePhotosVM.IsSyncing || GooglePhotosVM.IsPaused) GooglePhotosVM.CancelSyncCommand.Execute(null); },
             () => GooglePhotosVM.ShowUploadedDetailsCommand.Execute(null),
             () => GooglePhotosVM.ShowSkippedDetailsCommand.Execute(null),
             () => GooglePhotosVM.ShowFailedDetailsCommand.Execute(null),
@@ -1177,13 +1177,33 @@ public partial class MainViewModel : ObservableObject
             copied is null ? null : () => { copied(); NotifyModalChanged(); },
             skipped is null ? null : () => { skipped(); NotifyModalChanged(); },
             failed is null ? null : () => { failed(); NotifyModalChanged(); },
-            () => DismissTaskCard(card), retryFailed);
+            () => DismissTaskCard(card), retryFailed,
+            () =>
+            {
+                if (key == "google") GooglePhotosVM.PauseSyncCommand.Execute(null);
+                else GetPauseGate(key)?.Pause();
+            },
+            async () =>
+            {
+                if (key == "google") await GooglePhotosVM.ResumeSyncCommand.ExecuteAsync(null);
+                else GetPauseGate(key)?.Resume();
+            });
+        if (GetPauseGate(key) is { } gate) gate.StateChanged += NotifyTaskChanged;
         return card;
     }
 
+    private PicHarbor.Core.Transfer.TransferPauseGate? GetPauseGate(string key) => key switch
+    {
+        "iphone-backup" => BackupVM.PauseGate,
+        "android-backup" => AndroidBackupVM.PauseGate,
+        "iphone-sync" => IPhoneSyncVM.PauseGate,
+        "android-sync" => AndroidSyncVM.PauseGate,
+        _ => null
+    };
+
     private void DismissTaskCard(TransferTaskCardViewModel card)
     {
-        if (card.IsRunning)
+        if (card.CanStop)
         {
             return;
         }
@@ -1208,6 +1228,7 @@ public partial class MainViewModel : ObservableObject
         ApplyCard(TaskCards[1], AndroidBackupVM.IsTransferring, $"{androidName} {backupSuffix}", AndroidBackupVM.ProgressPercentage, AndroidBackupVM.ProgressText, AndroidBackupVM.SpeedText, AndroidBackupVM.CopiedCount, AndroidBackupVM.SkippedCount, AndroidBackupVM.FailedCount, App.GetString("TaskCopied", "已复制"));
         ApplyCard(TaskCards[2], GooglePhotosVM.IsSyncing, App.GetString("TaskGooglePhotos", "Google 相册"), GooglePhotosVM.ProgressValue, GooglePhotosVM.ProgressText, GooglePhotosVM.SpeedText, GooglePhotosVM.UploadedCount, GooglePhotosVM.SkippedCount, GooglePhotosVM.FailedCount, App.GetString("TaskUploaded", "已上传"), GooglePhotosVM.IsFinalizing ? GooglePhotosVM.CurrentPhase : null);
         TaskCards[2].CanRetryFailed = GooglePhotosVM.CanRetryFailed;
+        TaskCards[2].IsProgressIndeterminate = GooglePhotosVM.IsSyncing && GooglePhotosVM.IsProgressIndeterminate;
         TaskCards[2].RetryFailedLabel = GooglePhotosVM.RetryFailedLabel;
         ApplyCard(TaskCards[3], IPhoneSyncVM.IsExporting, App.GetString("TaskSyncIPhone", "同步到 iPhone"), IPhoneSyncVM.ProgressValue, IPhoneSyncVM.ProgressText, IPhoneSyncVM.SpeedText, IPhoneSyncVM.CopiedCount, IPhoneSyncVM.SkippedCount, IPhoneSyncVM.FailedCount, App.GetString("TaskCopied", "已复制"));
         ApplyCard(TaskCards[4], AndroidSyncVM.IsSyncing, App.GetString("TaskSyncAndroid", "同步到 Android"), AndroidSyncVM.ProgressValue, AndroidSyncVM.ProgressText, AndroidSyncVM.SpeedText, AndroidSyncVM.CopiedCount, AndroidSyncVM.SkippedCount, AndroidSyncVM.FailedCount, App.GetString("TaskCopied", "已复制"));
@@ -1215,7 +1236,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowTaskBall));
     }
 
-    private static void ApplyCard(
+    private void ApplyCard(
         TransferTaskCardViewModel card,
         bool running,
         string title,
@@ -1228,6 +1249,10 @@ public partial class MainViewModel : ObservableObject
         string copiedLabel,
         string? runningState = null)
     {
+        bool justStarted = running && !card.IsRunning;
+        var gate = GetPauseGate(card.Key);
+        bool paused = card.Key == "google" ? GooglePhotosVM.IsPaused : running && gate?.IsPaused == true;
+        bool pausing = card.Key == "google" ? GooglePhotosVM.IsPausing : running && gate?.IsPauseRequested == true && !paused;
         if (running)
         {
             card.HasRun = true;
@@ -1235,7 +1260,10 @@ public partial class MainViewModel : ObservableObject
         }
 
         card.IsRunning = running;
-        card.IsShown = running || (card.HasRun && !card.Dismissed);
+        card.CanStop = running || paused;
+        card.CanPause = running && !paused && !pausing && (card.Key != "google" || GooglePhotosVM.CanPause);
+        card.CanResume = paused && (card.Key != "google" || GooglePhotosVM.CanResume);
+        card.IsShown = running || paused || (card.HasRun && !card.Dismissed);
         card.Title = title;
         card.CopiedDetailsLabel = card.Key == "google"
             ? App.GetString("BtnUploadedDetails", "已上传明细")
@@ -1248,6 +1276,11 @@ public partial class MainViewModel : ObservableObject
             : failed > 0
                 ? App.GetString("TaskStateEndedFailed", "已结束，有失败")
                 : App.GetString("TaskStateEnded", "已结束");
+        if (paused || pausing)
+        {
+            card.StateText = paused ? App.GetString("TaskPaused", "已暂停") : App.GetString("TaskPausing", "正在暂停（等待当前文件完成）");
+            if (paused) card.SpeedText = "--";
+        }
         card.ResultText = string.Format(
             App.GetString("FmtTaskResult", "{0} {1:N0} · {2} {3:N0} · {4} {5:N0}"),
             copiedLabel,
@@ -1256,6 +1289,9 @@ public partial class MainViewModel : ObservableObject
             skipped,
             App.GetString("TaskFailed", "失败"),
             failed);
+
+        // Open once for each new run (also resume/retry), never on ordinary progress updates.
+        if (justStarted) IsTaskManagerOpen = true;
     }
 
     private static string FormatTotalSpeed(double bytesPerSecond)

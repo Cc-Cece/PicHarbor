@@ -35,6 +35,10 @@ public partial class PclGalleryWebControl : UserControl
     private bool isWebReady = false;
     private readonly DispatcherTimer pushDebounceTimer;
     private static readonly ConcurrentDictionary<string, byte[]> ThumbnailCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly SemaphoreSlim ThumbnailWorkers = new(4);
+    private IReadOnlyDictionary<string, (string Root, string Relative)> authorizedMediaPaths =
+        new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase);
+    private volatile HashSet<string>? activeThumbnailPaths;
     private static readonly string DiskCacheFolder = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "PicHarbor", "Cache", "Thumbnails");
@@ -149,6 +153,9 @@ public partial class PclGalleryWebControl : UserControl
         }
 
         currentSearchVM = vm;
+        authorizedMediaPaths = new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase);
+        activeThumbnailPaths = null;
+        lastPushedFingerprint = null;
 
         if (currentSearchVM != null)
         {
@@ -169,6 +176,8 @@ public partial class PclGalleryWebControl : UserControl
             Dispatcher.InvokeAsync(() => CurrentSearchVM_HitsUpdated(sender, e));
             return;
         }
+        lastPushedFingerprint = null;
+        authorizedMediaPaths = new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase);
         TriggerPush();
     }
 
@@ -374,6 +383,9 @@ public partial class PclGalleryWebControl : UserControl
         Dispatcher.Invoke(() =>
         {
             ThumbnailCache.Clear();
+            authorizedMediaPaths = new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase);
+            activeThumbnailPaths = null;
+            lastPushedFingerprint = null;
             CloseNativePlayer();
             if (AlbumWebView.CoreWebView2 is not null)
                 AlbumWebView.CoreWebView2.Navigate(ProtectedMediaSession.IsLocked ? "about:blank" : $"https://gallery.local/index.html?v=8&lang={GalleryLocaleCode}");
@@ -403,22 +415,13 @@ public partial class PclGalleryWebControl : UserControl
             if (!uri.Host.Equals("media.gallery.local", StringComparison.OrdinalIgnoreCase)) return;
 
             var query = HttpUtility.ParseQueryString(uri.Query);
-            string? filePath = query["path"];
-            if (!IsAuthorizedMediaPath(filePath))
+            string? requestedFilePath = query["path"];
+            // Membership lookup only on the UI thread. Validate the single path on the worker.
+            if (requestedFilePath is null || !authorizedMediaPaths.TryGetValue(requestedFilePath, out var authorizedPath))
                 return;
-            string ext = Path.GetExtension(filePath ?? "").ToLowerInvariant();
+            string filePath = requestedFilePath;
+            string ext = Path.GetExtension(filePath).ToLowerInvariant();
             bool isVideo = ext is ".mp4" or ".mov" or ".avi" or ".mkv" or ".3gp";
-
-            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
-            {
-                byte[] placeholder = GetPlaceholderTileBytes(Path.GetFileName(filePath ?? "Media"), isVideo);
-                e.Response = env.CreateWebResourceResponse(
-                    new MemoryStream(placeholder),
-                    200,
-                    "OK",
-                    PlaceholderResponseHeaders);
-                return;
-            }
 
             string? rangeHeader = null;
             try
@@ -441,9 +444,20 @@ public partial class PclGalleryWebControl : UserControl
 
                 try
                 {
+                    if (ProtectedMediaSession.IsLocked ||
+                        !string.Equals(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(authorizedPath.Root, authorizedPath.Relative),
+                            filePath, StringComparison.OrdinalIgnoreCase))
+                        throw new UnauthorizedAccessException("Media path is no longer available.");
                     if (isThumb)
                     {
-                        thumbBytes = await GetOrCreateThumbnailBytesAsync(filePath).ConfigureAwait(false);
+                        await ThumbnailWorkers.WaitAsync().ConfigureAwait(false);
+                        try
+                        {
+                            if (!ProtectedMediaSession.IsLocked &&
+                                (activeThumbnailPaths is not { } visible || visible.Contains(filePath)))
+                                thumbBytes = await GetOrCreateThumbnailBytesAsync(filePath).ConfigureAwait(false);
+                        }
+                        finally { ThumbnailWorkers.Release(); }
                         if (thumbBytes == null)
                         {
                             placeholderBytes = GetPlaceholderTileBytes(Path.GetFileName(filePath), isVideo);
@@ -489,6 +503,11 @@ public partial class PclGalleryWebControl : UserControl
                 {
                     try
                     {
+                        if (ProtectedMediaSession.IsLocked || !authorizedMediaPaths.ContainsKey(filePath))
+                        {
+                            fileStream?.Dispose();
+                            return;
+                        }
                         if (isThumb)
                         {
                             if (thumbBytes != null)
@@ -850,6 +869,20 @@ public partial class PclGalleryWebControl : UserControl
 
             switch (action)
             {
+                case "thumbnailViewport":
+                    if (obj["urls"] is JsonArray urls && urls.Count <= 1000)
+                    {
+                        var visible = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var value in urls)
+                        {
+                            if (!Uri.TryCreate(value?.GetValue<string>(), UriKind.Absolute, out var thumbnailUri) ||
+                                thumbnailUri.Host != "media.gallery.local" || thumbnailUri.AbsolutePath != "/thumb") continue;
+                            string? path = HttpUtility.ParseQueryString(thumbnailUri.Query)["path"];
+                            if (path is not null && authorizedMediaPaths.ContainsKey(path)) visible.Add(path);
+                        }
+                        activeThumbnailPaths = visible;
+                    }
+                    break;
                 case "ready":
                     Dispatcher.Invoke(() =>
                     {
@@ -1027,10 +1060,9 @@ public partial class PclGalleryWebControl : UserControl
         if (ProtectedMediaSession.IsLocked || currentSearchVM is null || string.IsNullOrEmpty(path)) return false;
         try
         {
-            return currentSearchVM.GetCurrentHits().Any(hit => hit.Availability == PicHarbor.Core.Storage.ReplicaState.Available &&
-                (string.Equals(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(hit.ArchiveRoot ?? currentSearchVM.ArchivePath,hit.RelativePath),path,StringComparison.OrdinalIgnoreCase) ||
-                 string.Equals(currentSearchVM.GetLiveVideoFullPath(hit.SelectionKey),path,StringComparison.OrdinalIgnoreCase) &&
-                 string.Equals(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(Path.GetDirectoryName(path)!,Path.GetFileName(path)),path,StringComparison.OrdinalIgnoreCase)));
+            return authorizedMediaPaths.TryGetValue(path, out var authorized) &&
+                string.Equals(PicHarbor.Core.Storage.ArchivePathResolver.Resolve(authorized.Root, authorized.Relative),
+                    path, StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return false; }
     }
@@ -1056,6 +1088,7 @@ public partial class PclGalleryWebControl : UserControl
         lastPushedFingerprint = fingerprint;
 
         var photosList = new List<object>(totalCount);
+        var authorizedPaths = new Dictionary<string, (string Root, string Relative)>(StringComparer.OrdinalIgnoreCase);
         var entries = new List<PreviewEntry>(Math.Max(totalCount, 0));
 
         if (hits.Count > 0)
@@ -1073,6 +1106,12 @@ public partial class PclGalleryWebControl : UserControl
                 bool isVideo = hit.Type == MediaType.Video || ext is "MP4" or "MOV" or "M4V" or "AVI" or "MKV";
                 bool isLive = currentSearchVM.IsLivePhotoRelativePath(hit.SelectionKey);
                 string? liveVideoFullPath = isLive && !isVideo ? currentSearchVM.GetLiveVideoFullPath(hit.SelectionKey) : null;
+                if (hit.Availability == PicHarbor.Core.Storage.ReplicaState.Available)
+                {
+                    authorizedPaths[full] = (hit.ArchiveRoot ?? archivePath, rel);
+                    if (!string.IsNullOrEmpty(liveVideoFullPath))
+                        authorizedPaths[liveVideoFullPath] = (Path.GetDirectoryName(liveVideoFullPath)!, Path.GetFileName(liveVideoFullPath));
+                }
                 string? liveVideoUrl = string.IsNullOrEmpty(liveVideoFullPath)
                     ? null
                     : GalleryMediaUrl("image", liveVideoFullPath);
@@ -1196,6 +1235,8 @@ public partial class PclGalleryWebControl : UserControl
             }
         }
 
+        authorizedMediaPaths = authorizedPaths;
+        activeThumbnailPaths = null;
         ReplacePreviewEntries(entries);
 
         var payload = new

@@ -16,11 +16,15 @@ public partial class TransferTaskCardViewModel : ObservableObject
         Action? showSkipped,
         Action? showFailed,
         Action dismiss,
-        Func<Task>? retryFailed = null)
+        Func<Task>? retryFailed = null,
+        Action? pause = null,
+        Func<Task>? resume = null)
     {
         Key = key;
         HasDetails = hasDetails;
         StopCommand = new RelayCommand(stop);
+        PauseCommand = new RelayCommand(() => pause?.Invoke(), () => CanPause);
+        ResumeCommand = new AsyncRelayCommand(resume ?? (() => Task.CompletedTask), () => CanResume);
         ShowCopiedCommand = new RelayCommand(() => showCopied?.Invoke());
         ShowSkippedCommand = new RelayCommand(() => showSkipped?.Invoke());
         ShowFailedCommand = new RelayCommand(() => showFailed?.Invoke());
@@ -40,6 +44,9 @@ public partial class TransferTaskCardViewModel : ObservableObject
 
     [ObservableProperty]
     private double progress;
+
+    [ObservableProperty]
+    private bool isProgressIndeterminate;
 
     [ObservableProperty]
     private string progressText = "";
@@ -64,6 +71,17 @@ public partial class TransferTaskCardViewModel : ObservableObject
     private bool isRunning;
 
     [ObservableProperty]
+    private bool canStop;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(PauseCommand))]
+    private bool canPause;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ResumeCommand))]
+    private bool canResume;
+
+    [ObservableProperty]
     private bool isShown;
 
     [ObservableProperty]
@@ -73,6 +91,8 @@ public partial class TransferTaskCardViewModel : ObservableObject
     private bool dismissed;
 
     public IRelayCommand StopCommand { get; }
+    public IRelayCommand PauseCommand { get; }
+    public IAsyncRelayCommand ResumeCommand { get; }
 
     public IRelayCommand DismissCommand { get; }
 

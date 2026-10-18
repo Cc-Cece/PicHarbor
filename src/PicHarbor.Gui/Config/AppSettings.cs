@@ -79,7 +79,7 @@ public sealed class AppConfig
     public string GooglePhotosAccountEmail { get; set; } = string.Empty;
     public string GooglePhotosAuthData { get; set; } = string.Empty;
     public string GooglePhotosProxy { get; set; } = string.Empty;
-    public int GooglePhotosAlbumMode { get; set; } = 0;
+    public int GooglePhotosAlbumMode { get; set; } = (int)Core.GooglePhotos.GooglePhotosAlbumMode.None;
     public string GooglePhotosCustomAlbumName { get; set; } = string.Empty;
     public string GooglePhotosAlbumId { get; set; } = string.Empty;
     public int GooglePhotosThreads { get; set; } = 3;

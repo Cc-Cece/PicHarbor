@@ -20,6 +20,7 @@ namespace PicHarbor.Gui.ViewModels;
 public partial class AndroidSyncViewModel : ObservableObject
 {
     private CancellationTokenSource? cts;
+    public PicHarbor.Core.Transfer.TransferPauseGate PauseGate { get; } = new();
 
     [ObservableProperty]
     private string archivePath = "";
@@ -1320,7 +1321,7 @@ public partial class AndroidSyncViewModel : ObservableObject
                         }
                     });
                 },
-                cts.Token);
+                cts.Token, pauseGate: PauseGate);
 
             if (result.Aborted)
             {
@@ -1352,6 +1353,7 @@ public partial class AndroidSyncViewModel : ObservableObject
         }
         finally
         {
+            PauseGate.Resume();
             IsSyncing = false;
             cts?.Dispose();
             cts = null;

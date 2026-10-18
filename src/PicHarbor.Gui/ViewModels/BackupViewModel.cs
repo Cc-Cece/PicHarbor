@@ -23,6 +23,7 @@ public partial class BackupViewModel : ObservableObject
 {
     private readonly Action<string>? onPathChangedCallback;
     private CancellationTokenSource? backupCts;
+    public PicHarbor.Core.Transfer.TransferPauseGate PauseGate { get; } = new();
 
     public Action? NavigateToSettingsAction { get; set; }
 
@@ -822,6 +823,7 @@ public partial class BackupViewModel : ObservableObject
 
                 await foreach (RemoteFile file in enumerator.EnumerateAsync(cancellationToken: ct).ConfigureAwait(false))
                 {
+                    await PauseGate.WaitAsync(ct).ConfigureAwait(false);
                     files.Add(file);
                 }
 
@@ -932,6 +934,7 @@ public partial class BackupViewModel : ObservableObject
 
                     foreach (RemoteFile file in files)
                     {
+                        await PauseGate.WaitAsync(ct).ConfigureAwait(false);
                         ct.ThrowIfCancellationRequested();
                         progressModel.StartFile(DateFolderOrganizer.ExtractFileName(file.Path), file.Size);
 
@@ -991,6 +994,7 @@ public partial class BackupViewModel : ObservableObject
                         });
                     }
 
+                    await PauseGate.WaitAsync(ct).ConfigureAwait(false);
                     stopwatch.Stop();
                     if (backupSessionId > 0)
                     {
@@ -1035,6 +1039,7 @@ public partial class BackupViewModel : ObservableObject
         }
         finally
         {
+            PauseGate.Resume();
             IsTransferring = false;
             SpeedText = "0.0 MB/s";
             CurrentFileName = "Idle";

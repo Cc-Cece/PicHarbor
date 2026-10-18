@@ -28,4 +28,8 @@ public sealed class GooglePhotosUploadPlan
 }
 
 /// <summary>Metadata and optional catalog digest associated with a verified file.</summary>
-public sealed record GooglePhotosPreparedFile(string Path, long Size, long ModifiedUnixMilliseconds, string? Sha256);
+public sealed record GooglePhotosPreparedFile(string Path, long Size, long ModifiedUnixMilliseconds, string? Sha256)
+{
+    /// <summary>Original stable archive selection, retained so finalization need not reread the library.</summary>
+    public string? SelectionKey { get; init; }
+}

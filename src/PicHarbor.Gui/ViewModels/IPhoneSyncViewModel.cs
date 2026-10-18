@@ -75,6 +75,7 @@ public partial class ManualSelectedItemViewModel : ObservableObject
 public partial class IPhoneSyncViewModel : ObservableObject
 {
     private CancellationTokenSource? cts;
+    public PicHarbor.Core.Transfer.TransferPauseGate PauseGate { get; } = new();
 
     [ObservableProperty]
     private string archivePath = "";
@@ -1556,7 +1557,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
                 config,
                 progress,
                 msg => Application.Current.Dispatcher.Invoke(() => AddLog(msg)),
-                cts.Token));
+                cts.Token, pauseGate: PauseGate));
 
             DeletedCount = result.DeletedCount;
             HasExported = true;
@@ -1577,6 +1578,7 @@ public partial class IPhoneSyncViewModel : ObservableObject
         }
         finally
         {
+            PauseGate.Resume();
             IsExporting = false;
         }
     }

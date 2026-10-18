@@ -10,6 +10,32 @@ namespace PicHarbor.Tests.iPhone;
 
 public sealed class IPhoneSyncEngineTests : IDisposable
 {
+    [Fact]
+    public async Task Paused_export_does_not_copy_until_resumed_and_keeps_the_original_plan()
+    {
+        File.WriteAllBytes(Path.Combine(archiveDir.Path, "pause.JPG"), [1, 2, 3]);
+        using (var journal = TransferJournal.Open(archiveDir.Path))
+        {
+            var file = new RemoteFile("/DCIM/pause.JPG", 3, null);
+            journal.EnsurePending(file);
+            journal.MarkDone(file.Path, file.Size, "pause.JPG", MediaMetadata.Empty, DateTimeOffset.UtcNow);
+        }
+        var gate = new PicHarbor.Core.Transfer.TransferPauseGate();
+        var acknowledged = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        gate.StateChanged += () => { if (gate.IsPaused) acknowledged.TrySetResult(); };
+        gate.Pause();
+        var config = new IPhoneExportConfig { DeviceModel = "pause-test" };
+        var task = IPhoneSyncEngine.ExportAsync(archiveDir.Path, config,
+            cancellationToken: TestContext.Current.CancellationToken, pauseGate: gate);
+        await acknowledged.Task.WaitAsync(TestContext.Current.CancellationToken);
+        task.IsCompleted.ShouldBeFalse();
+        Directory.EnumerateFiles(config.GetEffectiveExportPath(archiveDir.Path), "*.JPG", SearchOption.AllDirectories).ShouldBeEmpty();
+        gate.Resume();
+        var result = await task;
+        result.CopiedCount.ShouldBe(1);
+        Directory.EnumerateFiles(config.GetEffectiveExportPath(archiveDir.Path), "*.JPG", SearchOption.AllDirectories).Count().ShouldBe(1);
+    }
+
     private readonly TempDirectory archiveDir = new();
 
     public void Dispose() => archiveDir.Dispose();

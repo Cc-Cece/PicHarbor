@@ -414,6 +414,13 @@
     <sys:String x:Key="FmtGoogleRetryFailedButton">Retry failed ({0:N0})</sys:String>
     <sys:String x:Key="GoogleArchivingAlbums">Organizing albums</sys:String>
     <sys:String x:Key="GoogleSavingRecords">Saving sync records</sys:String>
+    <sys:String x:Key="TaskPause">Pause</sys:String>
+    <sys:String x:Key="TaskResume">Resume</sys:String>
+    <sys:String x:Key="TaskPaused">Paused</sys:String>
+    <sys:String x:Key="TaskPausing">Pausing</sys:String>
+    <sys:String x:Key="TaskPauseHint">Local tasks pause after the current file. Google Photos retains the plan and resumes the remaining files.</sys:String>
+    <sys:String x:Key="GooglePreparingRecords">Preparing database index</sys:String>
+    <sys:String x:Key="FmtGoogleFinalizationPending">{0}, please wait…</sys:String>
     <sys:String x:Key="GoogleFinishing">Finishing</sys:String>
     <sys:String x:Key="GoogleFilesProcessedFinishing">Files processed. Finishing up...</sys:String>
     <sys:String x:Key="FmtGoogleFinalizationProgress">{0}: {1:N0} / {2:N0}</sys:String>

@@ -84,6 +84,7 @@ public partial class AndroidBackupViewModel : ObservableObject
 {
     private readonly Action<string>? onPathChangedCallback;
     private CancellationTokenSource? backupCts;
+    public PicHarbor.Core.Transfer.TransferPauseGate PauseGate { get; } = new();
 
     public Action? NavigateToSettingsAction { get; set; }
 
@@ -1770,6 +1771,7 @@ public partial class AndroidBackupViewModel : ObservableObject
 
                     foreach (var file in files)
                     {
+                        await PauseGate.WaitAsync(ct, client.UnderlyingFtpClient.KeepAliveAsync).ConfigureAwait(false);
                         ct.ThrowIfCancellationRequested();
                         progressModel.StartFile(DateFolderOrganizer.ExtractFileName(file.Path), file.Size);
 
@@ -1833,6 +1835,7 @@ public partial class AndroidBackupViewModel : ObservableObject
                         });
                     }
 
+                    await PauseGate.WaitAsync(ct, client.UnderlyingFtpClient.KeepAliveAsync).ConfigureAwait(false);
                     stopwatch.Stop();
                     if (backupSessionId > 0)
                     {
@@ -1883,6 +1886,7 @@ public partial class AndroidBackupViewModel : ObservableObject
             }
             finally
             {
+                PauseGate.Resume();
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     IsTransferring = false;

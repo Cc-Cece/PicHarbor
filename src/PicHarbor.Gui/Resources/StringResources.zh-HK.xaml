@@ -414,6 +414,13 @@
     <sys:String x:Key="FmtGoogleRetryFailedButton">重試失敗項目（{0:N0}）</sys:String>
     <sys:String x:Key="GoogleArchivingAlbums">正在整理相簿</sys:String>
     <sys:String x:Key="GoogleSavingRecords">正在儲存同步記錄</sys:String>
+    <sys:String x:Key="TaskPause">暫停</sys:String>
+    <sys:String x:Key="TaskResume">繼續</sys:String>
+    <sys:String x:Key="TaskPaused">已暫停</sys:String>
+    <sys:String x:Key="TaskPausing">正在暫停</sys:String>
+    <sys:String x:Key="TaskPauseHint">本機任務在目前檔案處理完後暫停；Google 相簿保留方案，繼續時處理剩餘檔案。</sys:String>
+    <sys:String x:Key="GooglePreparingRecords">正在整理資料庫索引</sys:String>
+    <sys:String x:Key="FmtGoogleFinalizationPending">{0}，請稍候…</sys:String>
     <sys:String x:Key="GoogleFinishing">正在完成後續處理</sys:String>
     <sys:String x:Key="GoogleFilesProcessedFinishing">檔案處理完成，正在完成後續處理...</sys:String>
     <sys:String x:Key="FmtGoogleFinalizationProgress">{0}：{1:N0} / {2:N0}</sys:String>

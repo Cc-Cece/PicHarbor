@@ -23,13 +23,15 @@ public static class IPhoneSyncEngine
     /// <param name="progress">Optional progress reporter.</param>
     /// <param name="onLog">Optional log message callback.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="pauseGate">Optional cooperative pause at file boundaries.</param>
     /// <returns>Summary of export results.</returns>
     public static async Task<IPhoneSyncResult> ExportAsync(
         string pcDestinationRoot,
         IPhoneExportConfig config,
         IProgress<ProgressSnapshot>? progress = null,
         Action<string>? onLog = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        TransferPauseGate? pauseGate = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pcDestinationRoot);
         ArgumentNullException.ThrowIfNull(config);
@@ -72,6 +74,7 @@ public static class IPhoneSyncEngine
         // 4. Incremental Copy Phase using Current Target Equivalence
         for (int i = 0; i < manifest.Count; i++)
         {
+            if (pauseGate is not null) await pauseGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
 
             var entry = manifest[i];
@@ -178,6 +181,7 @@ public static class IPhoneSyncEngine
         }
 
         // 6. Record device sync history
+        if (pauseGate is not null) await pauseGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         journal.UpsertIPhoneDevice(deviceRef, exportRoot, DateTimeOffset.UtcNow, config.DeviceModel);
 
         stopwatch.Stop();

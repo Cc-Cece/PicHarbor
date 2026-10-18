@@ -517,6 +517,12 @@ public partial class MainWindow : Window
         }
     }
 
+    private void TitleBar_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is MainViewModel vm && vm.IsTaskManagerOpen)
+            vm.CloseTaskManager();
+    }
+
     private void MinimizeButton_Click(object sender, RoutedEventArgs e)
     {
         WindowState = WindowState.Minimized;

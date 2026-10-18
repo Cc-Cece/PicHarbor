@@ -445,7 +445,12 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     private bool isSyncing = false;
 
     public bool IsNotSyncing => !IsSyncing;
-    public bool IsFinalizing => IsSyncing && (phaseToken is "archiving" or "saving_records" or "finishing");
+    public bool IsFinalizing => IsSyncing && (phaseToken is "archiving" or "preparing_records" or "saving_records" or "finishing");
+
+    [ObservableProperty]
+    private bool isProgressIndeterminate;
+
+    partial void OnIsSyncingChanged(bool value) => IsProgressIndeterminate = false;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanResume))]
@@ -454,8 +459,11 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     private bool isPaused = false;
 
     private bool isPauseRequested = false;
+    private bool isStopRequested;
+    private bool preparationInProgress;
+    public bool IsPausing => IsSyncing && isPauseRequested;
 
-    public bool CanPause => IsSyncing;
+    public bool CanPause => IsSyncing && !preparationInProgress && !IsFinalizing && !isPauseRequested;
     public bool CanResume => IsPaused && !IsSyncing;
     public bool IsFreshIdle => !IsSyncing && !IsPaused;
     public bool ShowPauseBanner => IsPaused;
@@ -717,6 +725,9 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             case "saving_records":
                 SetPhase("saving_records", "GoogleSavingRecords", "正在保存同步记录");
                 break;
+            case "preparing_records":
+                SetPhase("preparing_records", "GooglePreparingRecords", "正在整理数据库索引");
+                break;
             case "finishing":
                 SetPhase("finishing", "GoogleFinishing", "正在收尾");
                 break;
@@ -725,9 +736,17 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
 
     private bool ApplyFinalizationProgress(GooglePhotosProgressSnapshot snapshot)
     {
-        if (snapshot.Stage is not ("archiving" or "saving_records" or "finishing")) return false;
+        if (snapshot.Stage is not ("archiving" or "preparing_records" or "saving_records" or "finishing"))
+        {
+            IsProgressIndeterminate = false;
+            return false;
+        }
         if (isPauseRequested) return true;
         phaseToken = snapshot.Stage;
+        IsProgressIndeterminate = snapshot.StageTotal <= 0;
+        ProgressValue = snapshot.StageTotal > 0
+            ? Math.Clamp(100d * snapshot.StageProcessed / snapshot.StageTotal, 0, 100)
+            : 0;
         RefreshPhaseLabel();
         SpeedBytesPerSecond = 0;
         SpeedText = "--";
@@ -735,7 +754,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         CurrentFile = "--";
         ProgressText = snapshot.StageTotal > 0
             ? progressSticky.Set("FmtGoogleFinalizationProgress", "{0}：{1:N0} / {2:N0}", CurrentPhase, snapshot.StageProcessed, snapshot.StageTotal)
-            : progressSticky.Set("GoogleFilesProcessedFinishing", "文件处理完成，正在收尾...");
+            : progressSticky.Set("FmtGoogleFinalizationPending", "{0}，请稍候…", CurrentPhase);
         return true;
     }
 
@@ -775,7 +794,9 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         {
             AccountEmail = config.GooglePhotosAccountEmail;
         }
-        AlbumMode = (GooglePhotosAlbumMode)config.GooglePhotosAlbumMode;
+        AlbumMode = Enum.IsDefined(typeof(GooglePhotosAlbumMode), config.GooglePhotosAlbumMode)
+            ? (GooglePhotosAlbumMode)config.GooglePhotosAlbumMode
+            : GooglePhotosAlbumMode.None;
         CustomAlbumName = config.GooglePhotosCustomAlbumName;
         AlbumId = config.GooglePhotosAlbumId;
         Threads = config.GooglePhotosThreads > 0 ? config.GooglePhotosThreads : 3;
@@ -1535,6 +1556,8 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             CustomTargetPath = CustomTargetPath
         };
 
+        isStopRequested = false;
+        preparationInProgress = true;
         IsSyncing = true;
         IsPaused = false;
         isPauseRequested = false;
@@ -1573,6 +1596,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         var progressTarget = new Progress<GooglePhotosProgressSnapshot>(s =>
         {
             preparationActive = false;
+            preparationInProgress = false;
             ProgressValue = s.OverallPercent;
             UploadedCount = s.UploadedFiles;
             SkippedCount = s.SkippedFiles;
@@ -1644,6 +1668,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             }
             cts.Token.ThrowIfCancellationRequested();
             preparationActive = false;
+            preparationInProgress = false;
             ProgressValue = 0;
             CurrentFile = "--";
             ProgressText = progressSticky.Set("GoogleStarting", "启动中...");
@@ -1706,6 +1731,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         finally
         {
             preparationActive = false;
+            preparationInProgress = false;
             IsSyncing = false;
             isPauseRequested = false;
             cts?.Dispose();
@@ -1750,6 +1776,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             return;
         }
 
+        isStopRequested = false;
         IsSyncing = true;
         IsPaused = false;
         isPauseRequested = false;
@@ -1890,6 +1917,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     [RelayCommand]
     private void PauseSync()
     {
+        if (!CanPause) return;
         if (cts != null && !cts.IsCancellationRequested)
         {
             isPauseRequested = true;
@@ -1960,6 +1988,8 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         }
 
         bool wasPaused = IsPaused;
+        IsPaused = false;
+        isStopRequested = false;
         IsSyncing = true;
         isPauseRequested = false;
         ProgressValue = 0;
@@ -2066,7 +2096,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             IsSyncing = false;
             cts?.Dispose();
             cts = null;
-            if (wasPaused)
+            if ((wasPaused || isPauseRequested) && !isStopRequested)
             {
                 IsPaused = true;
                 UpdatePausedBanner();
@@ -2083,7 +2113,15 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     [RelayCommand]
     private void CancelSync()
     {
-        PauseSync();
+        isStopRequested = true;
+        isPauseRequested = false;
+        IsPaused = false;
+        cts?.Cancel();
+        if (!IsSyncing)
+        {
+            SetPhase("stopped", "GoogleStopped", "已停止");
+            ProgressText = progressSticky.Set("GoogleUserStopped", "用户已停止上传。");
+        }
     }
 
     [RelayCommand]
