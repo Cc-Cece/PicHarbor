@@ -826,6 +826,10 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="FmtGoogleResolveFailed">Could not list the files to upload: {0}</sys:String>
     <sys:String x:Key="GoogleNoMedia">No matching media in the current selection.</sys:String>
     <sys:String x:Key="GooglePreparing">Preparing the upload...</sys:String>
+    <sys:String x:Key="GoogleCheckingFiles">Checking upload files</sys:String>
+    <sys:String x:Key="FmtGooglePreparingCount">{0}: {1:N0} / {2:N0} files</sys:String>
+    <sys:String x:Key="FmtGoogleScanningCheckingCount">Preparing upload: {0:N0} scanned, {1:N0} checked</sys:String>
+    <sys:String x:Key="FmtGoogleDiscoveringCount">Scanning upload files: {0:N0} found</sys:String>
     <sys:String x:Key="GoogleStarting">Starting...</sys:String>
     <sys:String x:Key="FmtGoogleProgress">{0:F1}% ({1}/{2})</sys:String>
     <sys:String x:Key="GoogleSmartAlbum">Google Photos (auto albums)</sys:String>

@@ -826,6 +826,10 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="FmtGoogleResolveFailed">解析上传目标文件失败: {0}</sys:String>
     <sys:String x:Key="GoogleNoMedia">当前选定范围内未找到符合条件的媒体文件。</sys:String>
     <sys:String x:Key="GooglePreparing">正在准备上传...</sys:String>
+    <sys:String x:Key="GoogleCheckingFiles">正在检查上传文件</sys:String>
+    <sys:String x:Key="FmtGooglePreparingCount">{0}：{1:N0} / {2:N0} 项</sys:String>
+    <sys:String x:Key="FmtGoogleScanningCheckingCount">正在准备上传：已扫描 {0:N0} 项，已检查 {1:N0} 项</sys:String>
+    <sys:String x:Key="FmtGoogleDiscoveringCount">正在扫描上传文件：已发现 {0:N0} 项</sys:String>
     <sys:String x:Key="GoogleStarting">启动中...</sys:String>
     <sys:String x:Key="FmtGoogleProgress">进度: {0:F1}% ({1}/{2})</sys:String>
     <sys:String x:Key="GoogleSmartAlbum">Google Photos (智能相册)</sys:String>

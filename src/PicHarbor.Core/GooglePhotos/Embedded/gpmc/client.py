@@ -217,6 +217,22 @@ class Client:
         file_path = Path(file_path)
         file_progress_id = progress.add_task(description="")
         try:
+            prepared_files = getattr(self, "prepared_files", None)
+            expected = None
+            if prepared_files is not None:
+                expected = prepared_files.get(os.path.normcase(os.path.abspath(file_path)))
+                if expected is None:
+                    raise ValueError(f"File is not in the prepared upload plan: {file_path}")
+
+            def verify_prepared_file():
+                if expected is None:
+                    return
+                current = file_path.stat()
+                if (current.st_size != expected["size"] or
+                        current.st_mtime_ns // 1_000_000 != expected["modified_ms"]):
+                    raise ValueError(f"File changed after preparation; prepare a new upload plan: {file_path}")
+
+            verify_prepared_file()
             file_size = file_path.stat().st_size
             effective_filename = filename if filename else file_path.name
 
@@ -253,10 +269,10 @@ class Client:
                 except Exception as error_cb:
                     self.logger.warning(f"Progress callback failed: {error_cb}")
 
-            if hash_value:
+            if hash_value and expected is None:
                 hash_bytes, hash_b64 = convert_sha1_hash(hash_value)
             else:
-                hash_bytes, hash_b64 = calculate_sha1_hash(file_path, progress, file_progress_id, lambda completed, _total: report("hashing", completed))
+                hash_bytes, hash_b64 = calculate_sha1_hash(file_path, progress, file_progress_id, lambda completed, _total: report("hashing", completed), expected_sha256=expected.get("sha256") if expected else None)
 
             max_attempts = max(1, auto_retries + 1)
             last_exception: Exception | None = None
@@ -272,6 +288,7 @@ class Client:
                     time.sleep(sleep_time)
 
                 try:
+                    verify_prepared_file()
                     if not force_upload:
                         report("checking")
                         progress.update(task_id=file_progress_id, description=f"Checking: {file_path.name}")
@@ -286,8 +303,10 @@ class Client:
                     progress.reset(task_id=file_progress_id)
                     progress.update(task_id=file_progress_id, description=f"Uploading: {file_path.name}")
                     with progress.open(file_path, "rb", task_id=file_progress_id) as file:
+                        verify_prepared_file()
                         report("uploading")
                         upload_response = self.api.upload_file(file=_ProgressReader(file, file_size, lambda completed, _total: report("uploading", completed)), upload_token=upload_token)
+                    verify_prepared_file()
                     report("finalizing", file_size)
                     progress.update(task_id=file_progress_id, description=f"Finalizing Upload: {file_path.name}")
                     last_modified_timestamp = int(file_path.stat().st_mtime)

@@ -190,6 +190,14 @@ def main():
 
         try:
             client = Client(auth_data=auth_data, proxy=proxy, timeout=timeout, log_level="WARNING")
+            # Only files selected and verified by the desktop preparation step may be uploaded.
+            client.prepared_files = {
+                os.path.normcase(os.path.abspath(item["path"])): item
+                for item in config.get("prepared_files", [])
+            } if "prepared_files" in config else None
+            if client.prepared_files is not None:
+                # A mapping avoids directory expansion or a second filesystem scan by gpmc.
+                target = {Path(p): None for p in target}
             results = client.upload(
                 target=target,
                 album_name=album_name,

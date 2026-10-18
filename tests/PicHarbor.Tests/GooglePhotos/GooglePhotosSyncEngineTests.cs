@@ -49,6 +49,144 @@ public sealed class GooglePhotosSyncEngineTests : IDisposable
     }
 
     [Fact]
+    public void Preparation_progress_counts_checked_files_including_rejected_files()
+    {
+        Materialize("good.JPG", [1]);
+        string changed = Materialize("changed.JPG", [2]);
+        Materialize("sidecar.AAE", [3]);
+        SeedManifest(("good.JPG", 1, null), ("changed.JPG", 1, null), ("sidecar.AAE", 1, null));
+        File.WriteAllBytes(changed, [2, 3]);
+        var updates = new List<GooglePhotosPreparationProgress>();
+
+        var (files, _, _) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path,
+            new GooglePhotosSyncConfig(), cancellationToken: TestContext.Current.CancellationToken,
+            preparationProgress: new InlinePreparationProgress(updates.Add));
+
+        files.Count.ShouldBe(1);
+        updates[0].TotalFiles.ShouldBeNull();
+        updates[^1].ScannedFiles.ShouldBe(3);
+        updates[^1].TotalFiles.ShouldBe(2);
+        updates[^1].ProcessedFiles.ShouldBe(2);
+    }
+
+    [Fact]
+    public void Custom_target_preparation_reports_discovered_file_count()
+    {
+        File.WriteAllBytes(Path.Combine(externalDir.Path, "one.JPG"), [1]);
+        File.WriteAllBytes(Path.Combine(externalDir.Path, "two.JPG"), [2]);
+        var updates = new List<GooglePhotosPreparationProgress>();
+
+        GooglePhotosSyncEngine.ResolveCandidateFiles(null, new GooglePhotosSyncConfig
+        {
+            ScopeMode = GooglePhotosScopeMode.CustomTarget,
+            CustomTargetPath = externalDir.Path
+        }, cancellationToken: TestContext.Current.CancellationToken,
+            preparationProgress: new InlinePreparationProgress(updates.Add));
+
+        updates[0].TotalFiles.ShouldBeNull();
+        updates[^1].ShouldBe(new GooglePhotosPreparationProgress(2, 2, "", 2));
+    }
+
+    private sealed class InlinePreparationProgress(Action<GooglePhotosPreparationProgress> report)
+        : IProgress<GooglePhotosPreparationProgress>
+    {
+        public void Report(GooglePhotosPreparationProgress value) => report(value);
+    }
+
+    [Fact]
+    public void Preparation_verifies_candidates_during_the_scan_before_reporting_filter_summary()
+    {
+        string photo = Materialize("photo.JPG", [1]);
+        Materialize("photo.AAE", [2]);
+        SeedManifest(("photo.JPG", 1, null), ("photo.AAE", 1, null));
+
+        var plan = GooglePhotosSyncEngine.PrepareUpload(archiveDir.Path, new GooglePhotosSyncConfig(),
+            onLog: _ => File.WriteAllBytes(photo, [3, 4]),
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        // The candidate was already verified when the scan summary was emitted.
+        plan.Files.Count.ShouldBe(1);
+        plan.Files[0].Size.ShouldBe(1);
+        new FileInfo(photo).Length.ShouldBe(2);
+    }
+
+    [Fact]
+    public void Prepared_directory_plan_is_fixed_and_preserves_evidence_for_resume()
+    {
+        string first = Path.Combine(externalDir.Path, "first.JPG");
+        File.WriteAllBytes(first, [1, 2]);
+        var plan = GooglePhotosSyncEngine.PrepareUpload(null, new GooglePhotosSyncConfig
+        {
+            ScopeMode = GooglePhotosScopeMode.CustomTarget,
+            CustomTargetPath = externalDir.Path
+        }, cancellationToken: TestContext.Current.CancellationToken);
+
+        string addedLater = Path.Combine(externalDir.Path, "later.JPG");
+        File.WriteAllBytes(addedLater, [3]);
+        File.WriteAllBytes(first, [4, 5, 6]);
+
+        plan.Files.Count.ShouldBe(1);
+        plan.TotalBytes.ShouldBe(2);
+        var resumed = plan.SelectFiles([first]);
+        resumed.Files[0].ShouldBeSameAs(plan.Files[0]);
+        resumed.Files[0].Size.ShouldBe(2);
+        Should.Throw<ArgumentException>(() => plan.SelectFiles([addedLater]));
+        plan.SelectFiles([]).Files.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Sync_reuses_prepared_plan_without_rescanning_the_scope()
+    {
+        string file = Path.Combine(externalDir.Path, "first.JPG");
+        File.WriteAllBytes(file, [1]);
+        var config = new GooglePhotosSyncConfig
+        {
+            ScopeMode = GooglePhotosScopeMode.CustomTarget,
+            CustomTargetPath = externalDir.Path,
+            AuthData = "test-credential"
+        };
+        var plan = GooglePhotosSyncEngine.PrepareUpload(null, config, cancellationToken: TestContext.Current.CancellationToken);
+        // Resolving the scope again would now fail. Stop at process launch so no network is used.
+        config.CustomTargetPath = Path.Combine(externalDir.Path, "does-not-exist");
+        var updates = new List<GooglePhotosPreparationProgress>();
+
+        var error = await Should.ThrowAsync<InvalidOperationException>(() => GooglePhotosSyncEngine.SyncAsync(
+            archiveDir.Path, config,
+            onLog: message =>
+            {
+                if (message.Contains("gpmc")) throw new InvalidOperationException("Stopped before process launch");
+            },
+            cancellationToken: TestContext.Current.CancellationToken,
+            preparationProgress: new InlinePreparationProgress(updates.Add), preparedPlan: plan));
+
+        error.Message.ShouldBe("Stopped before process launch");
+        updates.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void ResolveCandidateFiles_stops_before_accessing_files_when_cancelled()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Should.Throw<OperationCanceledException>(() =>
+            GooglePhotosSyncEngine.ResolveCandidateFiles(null, new GooglePhotosSyncConfig(), cancellationToken: cts.Token));
+    }
+
+    [Fact]
+    public void ResolveCandidateFiles_honors_cancellation_before_finishing_preparation()
+    {
+        Materialize("photo.JPG", [1, 2, 3]);
+        Materialize("photo.AAE", [4]);
+        SeedManifest(("photo.JPG", 3, null), ("photo.AAE", 1, null));
+        using var cts = new CancellationTokenSource();
+
+        Should.Throw<OperationCanceledException>(() =>
+            GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, new GooglePhotosSyncConfig(),
+                onLog: _ => cts.Cancel(), cancellationToken: cts.Token));
+    }
+
+    [Fact]
     public void ExplicitTargetFiles_bypass_everything_and_filter_missing_files()
     {
         string existing = Materialize("A.JPG", [1]);
@@ -57,7 +195,7 @@ public sealed class GooglePhotosSyncEngineTests : IDisposable
             ExplicitTargetFiles = [existing, Path.Combine(archiveDir.Path, "missing.JPG")]
         };
 
-        var (files, targetDirectory, totalBytes) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config);
+        var (files, targetDirectory, totalBytes) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config, cancellationToken: TestContext.Current.CancellationToken);
 
         files.Count.ShouldBe(1);
         files[0].ShouldBe(existing);
@@ -79,7 +217,7 @@ public sealed class GooglePhotosSyncEngineTests : IDisposable
             CustomTargetPath = dir
         };
 
-        var (files, targetDirectory, totalBytes) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config);
+        var (files, targetDirectory, totalBytes) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config, cancellationToken: TestContext.Current.CancellationToken);
 
         files.Count.ShouldBe(2);
         targetDirectory.ShouldBe(dir);
@@ -98,7 +236,7 @@ public sealed class GooglePhotosSyncEngineTests : IDisposable
             CustomTargetPath = file
         };
 
-        var (files, _, totalBytes) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config);
+        var (files, _, totalBytes) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config, cancellationToken: TestContext.Current.CancellationToken);
 
         files.Count.ShouldBe(1);
         totalBytes.ShouldBe(1);
@@ -114,7 +252,7 @@ public sealed class GooglePhotosSyncEngineTests : IDisposable
         };
 
         Should.Throw<FileNotFoundException>(() =>
-            GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config));
+            GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -127,7 +265,7 @@ public sealed class GooglePhotosSyncEngineTests : IDisposable
 
         var config = new GooglePhotosSyncConfig { ScopeMode = GooglePhotosScopeMode.All };
 
-        var (files, _, totalBytes) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config);
+        var (files, _, totalBytes) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config, cancellationToken: TestContext.Current.CancellationToken);
 
         files.Count.ShouldBe(1);
         Path.GetFullPath(files[0]).ShouldBe(Path.GetFullPath(onDisk));
@@ -152,7 +290,7 @@ public sealed class GooglePhotosSyncEngineTests : IDisposable
             DateRangeEnd = new DateTimeOffset(2024, 6, 15, 23, 59, 59, TimeSpan.Zero)
         };
 
-        var (files, _, _) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config);
+        var (files, _, _) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config, cancellationToken: TestContext.Current.CancellationToken);
 
         files.Select(Path.GetFileName).ShouldBe(new[] { "in-range.JPG", "undated.JPG" });
     }
@@ -174,7 +312,7 @@ public sealed class GooglePhotosSyncEngineTests : IDisposable
             SelectedSubfolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "2024-08" }
         };
 
-        var (files, _, _) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config);
+        var (files, _, _) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config, cancellationToken: TestContext.Current.CancellationToken);
 
         files.Select(Path.GetFileName).ShouldBe(new[] { "IMG_01.JPG", "IMG_03.JPG" });
     }
@@ -192,7 +330,7 @@ public sealed class GooglePhotosSyncEngineTests : IDisposable
             ManualSelectedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "A.JPG" }
         };
 
-        var (files, _, _) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config);
+        var (files, _, _) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config, cancellationToken: TestContext.Current.CancellationToken);
 
         files.Count.ShouldBe(1);
         files[0].ShouldEndWith("A.JPG");
@@ -220,7 +358,7 @@ public sealed class GooglePhotosSyncEngineTests : IDisposable
             }
         };
 
-        var (files, _, _) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config);
+        var (files, _, _) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config, cancellationToken: TestContext.Current.CancellationToken);
 
         files.Count.ShouldBe(1);
         files[0].ShouldEndWith("both.JPG");
@@ -244,7 +382,7 @@ public sealed class GooglePhotosSyncEngineTests : IDisposable
             }
         };
 
-        var (files, _, _) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config);
+        var (files, _, _) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config, cancellationToken: TestContext.Current.CancellationToken);
 
         files.Count.ShouldBe(1);
         files[0].ShouldEndWith("dated.JPG");
@@ -260,7 +398,7 @@ public sealed class GooglePhotosSyncEngineTests : IDisposable
         var logs = new List<string>();
         var config = new GooglePhotosSyncConfig { ScopeMode = GooglePhotosScopeMode.All };
 
-        var (files, _, _) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config, onLog: logs.Add);
+        var (files, _, _) = GooglePhotosSyncEngine.ResolveCandidateFiles(archiveDir.Path, config, onLog: logs.Add, cancellationToken: TestContext.Current.CancellationToken);
 
         files.Count.ShouldBe(1);
         files[0].ShouldEndWith("IMG_02.JPG");

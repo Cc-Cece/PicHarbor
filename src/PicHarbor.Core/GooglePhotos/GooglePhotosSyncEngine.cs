@@ -386,24 +386,57 @@ public static class GooglePhotosSyncEngine
     public static (List<string> Files, string? TargetDirectory, long TotalBytes) ResolveCandidateFiles(
         string? pcDestinationRoot,
         GooglePhotosSyncConfig config,
-        Action<string>? onLog = null)
+        Action<string>? onLog = null,
+        CancellationToken cancellationToken = default,
+        IProgress<GooglePhotosPreparationProgress>? preparationProgress = null)
+    {
+        var plan = PrepareUpload(pcDestinationRoot, config, onLog, cancellationToken, preparationProgress);
+        return (plan.Files.Select(f => f.Path).ToList(), plan.TargetDirectory, plan.TotalBytes);
+    }
+
+    /// <summary>Filters and verifies each candidate in one pass, retaining the exact upload selection.</summary>
+    public static GooglePhotosUploadPlan PrepareUpload(
+        string? pcDestinationRoot,
+        GooglePhotosSyncConfig config,
+        Action<string>? onLog = null,
+        CancellationToken cancellationToken = default,
+        IProgress<GooglePhotosPreparationProgress>? preparationProgress = null)
     {
         ArgumentNullException.ThrowIfNull(config);
-        List<string> targetAbsoluteFiles = [];
+        cancellationToken.ThrowIfCancellationRequested();
+        List<GooglePhotosPreparedFile> preparedFiles = [];
         string? targetDirectory = null;
-        long totalBytes = 0;
+        void AddFile(string path, string? sha256 = null)
+        {
+            var file = new FileInfo(path);
+            preparedFiles.Add(new(Path.GetFullPath(path), file.Length,
+                new DateTimeOffset(file.LastWriteTimeUtc).ToUnixTimeMilliseconds(), sha256));
+        }
+        var progressClock = Stopwatch.StartNew();
+        int scannedFiles = 0;
+        void ReportPreparation(int processed, int? total, string file = "", bool force = false)
+        {
+            if (preparationProgress is null || (!force && progressClock.ElapsedMilliseconds < 150)) return;
+            preparationProgress.Report(new(processed, total, Path.GetFileName(file), Math.Max(scannedFiles, processed)));
+            progressClock.Restart();
+        }
+        ReportPreparation(0, null, force: true);
 
         if (config.ExplicitTargetFiles != null && config.ExplicitTargetFiles.Count > 0)
         {
+            int processed = 0;
+            ReportPreparation(0, config.ExplicitTargetFiles.Count, force: true);
             foreach (string filePath in config.ExplicitTargetFiles)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (File.Exists(filePath))
                 {
-                    targetAbsoluteFiles.Add(filePath);
+                    AddFile(filePath);
                 }
+                ReportPreparation(++processed, config.ExplicitTargetFiles.Count, filePath);
             }
-            totalBytes = targetAbsoluteFiles.Sum(f => new FileInfo(f).Length);
-            return (targetAbsoluteFiles, null, totalBytes);
+            ReportPreparation(config.ExplicitTargetFiles.Count, config.ExplicitTargetFiles.Count, force: true);
+            return new GooglePhotosUploadPlan(preparedFiles, null);
         }
 
         if (config.ScopeMode == GooglePhotosScopeMode.CustomTarget)
@@ -415,24 +448,23 @@ public static class GooglePhotosSyncEngine
             if (Directory.Exists(config.CustomTargetPath))
             {
                 targetDirectory = config.CustomTargetPath;
-                try
+                foreach (string file in Directory.EnumerateFiles(targetDirectory, "*.*", SearchOption.AllDirectories))
                 {
-                    var files = Directory.GetFiles(targetDirectory, "*.*", SearchOption.AllDirectories);
-                    totalBytes = files.Sum(f => new FileInfo(f).Length);
-                    targetAbsoluteFiles.AddRange(files);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    AddFile(file);
+                    ReportPreparation(preparedFiles.Count, null, file);
                 }
-                catch { }
             }
             else if (File.Exists(config.CustomTargetPath))
             {
-                targetAbsoluteFiles.Add(config.CustomTargetPath);
-                totalBytes = new FileInfo(config.CustomTargetPath).Length;
+                AddFile(config.CustomTargetPath);
             }
             else
             {
                 throw new FileNotFoundException($"找不到指定的上传路径: {config.CustomTargetPath}");
             }
-            return (targetAbsoluteFiles, targetDirectory, totalBytes);
+            ReportPreparation(preparedFiles.Count, preparedFiles.Count, force: true);
+            return new GooglePhotosUploadPlan(preparedFiles, targetDirectory);
         }
 
         ArgumentException.ThrowIfNullOrWhiteSpace(pcDestinationRoot);
@@ -482,10 +514,13 @@ public static class GooglePhotosSyncEngine
         bool dateFilterActive = dateStart is not null || dateEnd is not null;
         int undatedCount = 0;
 
-        List<ManifestEntry> filtered = [];
+        int checkedFiles = 0;
         int nonMediaCount = 0;
         foreach (var item in fullManifest)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            scannedFiles++;
+            ReportPreparation(checkedFiles, null, item.DestPath);
             if (baseIsManual && !manualSet.Contains(item.SelectionKey) && !manualSet.Contains(item.DestPath))
             {
                 continue;
@@ -520,7 +555,33 @@ public static class GooglePhotosSyncEngine
                 continue;
             }
 
-            filtered.Add(item);
+            // Verify as soon as a candidate passes the filters; do not build a second batch.
+            ReportPreparation(checkedFiles, null, item.DestPath);
+            bool verified = false;
+            try
+            {
+                string path = PicHarbor.Core.Storage.ArchivePathResolver.Resolve(item.ArchiveRoot ?? pcDestinationRoot, item.DestPath);
+                var before = new FileInfo(path);
+                long size = before.Length;
+                DateTime modified = before.LastWriteTimeUtc;
+                if (PicHarbor.Core.Storage.MediaFileGuard.TryVerify(item, pcDestinationRoot, out string fullPath, cancellationToken))
+                {
+                    before.Refresh();
+                    if (before.Exists && before.Length == size && before.LastWriteTimeUtc == modified)
+                    {
+                        preparedFiles.Add(new(Path.GetFullPath(fullPath), size,
+                            new DateTimeOffset(modified).ToUnixTimeMilliseconds(), item.MediaId));
+                        verified = true;
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            if (!verified)
+            {
+                onLog?.Invoke($"[Google Photos] Selected photo unavailable or changed: {item.DestPath}");
+            }
+            checkedFiles++;
+            ReportPreparation(checkedFiles, null, item.DestPath);
         }
 
         if (nonMediaCount > 0)
@@ -534,19 +595,10 @@ public static class GooglePhotosSyncEngine
             onLog?.Invoke($"[Google Photos] {undatedCount:N0} 项无拍摄日期（无 EXIF 且无修改时间），按策略{policyText}。");
         }
 
-        totalBytes = 0;
-        foreach (var item in filtered)
-        {
-            if (!PicHarbor.Core.Storage.MediaFileGuard.TryVerify(item,pcDestinationRoot,out string fullPath))
-            { onLog?.Invoke($"[Google Photos] Selected photo unavailable or changed: {item.DestPath}");continue; }
-            if (File.Exists(fullPath))
-            {
-                targetAbsoluteFiles.Add(fullPath);
-                totalBytes += new FileInfo(fullPath).Length;
-            }
-        }
+        cancellationToken.ThrowIfCancellationRequested();
+        ReportPreparation(checkedFiles, checkedFiles, force: true);
 
-        return (targetAbsoluteFiles, null, totalBytes);
+        return new GooglePhotosUploadPlan(preparedFiles, null);
     }
 
     /// <summary>
@@ -558,7 +610,9 @@ public static class GooglePhotosSyncEngine
         IProgress<GooglePhotosProgressSnapshot>? progressTarget = null,
         Action<string>? onLog = null,
         Action<GooglePhotosProgressEvent>? onItemProcessed = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IProgress<GooglePhotosPreparationProgress>? preparationProgress = null,
+        GooglePhotosUploadPlan? preparedPlan = null)
     {
         ArgumentNullException.ThrowIfNull(config);
         string credential = config.EffectiveAuthCredential;
@@ -572,7 +626,11 @@ public static class GooglePhotosSyncEngine
 
         string bridgePath = LocateBridgeScript();
 
-        var (targetAbsoluteFiles, targetDirectory, totalBytes) = ResolveCandidateFiles(pcDestinationRoot, config, onLog);
+        cancellationToken.ThrowIfCancellationRequested();
+        var plan = preparedPlan ?? PrepareUpload(pcDestinationRoot, config, onLog, cancellationToken, preparationProgress);
+        var targetAbsoluteFiles = plan.Files.Select(f => f.Path).ToList();
+        long totalBytes = plan.TotalBytes;
+        string? targetDirectory = plan.TargetDirectory;
         int totalFileCount = targetAbsoluteFiles.Count;
 
         if (config.ExplicitTargetFiles != null && config.ExplicitTargetFiles.Count > 0)
@@ -642,8 +700,16 @@ public static class GooglePhotosSyncEngine
                 proxy = config.Proxy ?? "",
                 timeout = config.TimeoutSeconds > 0 ? config.TimeoutSeconds : 60,
                 gpmc_path = config.GpmcPath ?? "",
-                target_dir = targetDirectory,
-                target_paths = targetAbsoluteFiles.Count > 0 ? targetAbsoluteFiles : null,
+                // Always send the fixed list, including external directories. Never rescan in Python.
+                target_dir = (string?)null,
+                target_paths = targetAbsoluteFiles,
+                prepared_files = plan.Files.Select(f => new
+                {
+                    path = f.Path,
+                    size = f.Size,
+                    modified_ms = f.ModifiedUnixMilliseconds,
+                    sha256 = f.Sha256
+                }),
                 album_name = albumName,
                 album_id = albumId,
                 threads = Math.Max(1, config.Threads),
@@ -941,6 +1007,7 @@ public static class GooglePhotosSyncEngine
     import json
     import threading
     import warnings
+    from pathlib import Path
 
     warnings.filterwarnings("ignore")
     try:
@@ -1098,6 +1165,12 @@ public static class GooglePhotosSyncEngine
 
             try:
                 client = Client(auth_data=auth_data, proxy=proxy, timeout=timeout, log_level="WARNING")
+                client.prepared_files = {
+                    os.path.normcase(os.path.abspath(item["path"])): item
+                    for item in config.get("prepared_files", [])
+                } if "prepared_files" in config else None
+                if client.prepared_files is not None:
+                    target = {Path(p): None for p in target}
                 results = client.upload(
                     target=target,
                     album_name=album_name,

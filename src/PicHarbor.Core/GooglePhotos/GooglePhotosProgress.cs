@@ -2,6 +2,9 @@ using System.Text.Json.Serialization;
 
 namespace PicHarbor.Core.GooglePhotos;
 
+/// <summary>File preparation progress; TotalFiles is unknown while discovering candidates.</summary>
+public sealed record GooglePhotosPreparationProgress(int ProcessedFiles, int? TotalFiles, string CurrentFile, int ScannedFiles = 0);
+
 /// <summary>
 /// A raw progress event emitted by gpmc with --json-progress over stderr.
 /// </summary>

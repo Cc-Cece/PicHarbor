@@ -466,6 +466,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     private string pausedBannerSubtitle = "";
 
     private List<string> activePlanCandidateFiles = [];
+    private GooglePhotosUploadPlan? activeUploadPlan;
     private int activePlanTotalFiles = 0;
     private long activePlanTotalBytes = 0;
     private long activePlanUploadedBytes = 0;
@@ -486,6 +487,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     {
         IsPaused = false;
         activePlanCandidateFiles.Clear();
+        activeUploadPlan = null;
         activePlanTotalFiles = 0;
         activePlanTotalBytes = 0;
         activePlanUploadedBytes = 0;
@@ -1498,37 +1500,10 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             DateRangeEnd = ScopeDateTo?.AddDays(1).AddTicks(-1),
             SelectedSubfolders = SubfolderTreeBuilder.CollectSelected(FolderTree),
             Filters = BuildScopeFilters(ScopeDateFrom, ScopeDateTo),
-            ManualSelectedPaths = GetManualSelectionPathsSet(),
+            // Resolve manual selections from the journal on the worker thread.
+            ManualSelectedPaths = null,
             CustomTargetPath = CustomTargetPath
         };
-
-        try
-        {
-            var (candidates, customDir, totalBytes) = GooglePhotosSyncEngine.ResolveCandidateFiles(ArchivePath, config);
-            activePlanCandidateFiles = candidates;
-            activePlanTotalFiles = candidates.Count;
-            activePlanTotalBytes = totalBytes;
-            activePlanUploadedBytes = 0;
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(
-                string.Format(App.GetString("FmtGoogleResolveFailed", "解析上传目标文件失败: {0}"), ex.Message),
-                App.GetString("MsgBoxTitle", "提示"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
-            return;
-        }
-
-        if (activePlanCandidateFiles.Count == 0 && config.ScopeMode != GooglePhotosScopeMode.CustomTarget)
-        {
-            MessageBox.Show(
-                App.GetString("GoogleNoMedia", "当前选定范围内未找到符合条件的媒体文件。"),
-                App.GetString("MsgBoxTitle", "提示"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            return;
-        }
 
         IsSyncing = true;
         IsPaused = false;
@@ -1551,8 +1526,23 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
 
         cts = new CancellationTokenSource();
 
+        bool preparationActive = true;
+        var preparationTarget = new Progress<GooglePhotosPreparationProgress>(s =>
+        {
+            // Ignore queued preparation updates after cancellation or upload has started.
+            if (!preparationActive || isPauseRequested) return;
+            string stage = App.GetString("GoogleCheckingFiles", "正在检查上传文件");
+            ProgressText = s.TotalFiles is int total
+                ? progressSticky.Set("FmtGooglePreparingCount", "{0}：{1:N0} / {2:N0} 项", stage, s.ProcessedFiles, total)
+                : progressSticky.Set("FmtGoogleScanningCheckingCount", "正在准备上传：已扫描 {0:N0} 项，已检查 {1:N0} 项", s.ScannedFiles, s.ProcessedFiles);
+            ProgressValue = s.TotalFiles is > 0 ? 100d * s.ProcessedFiles / s.TotalFiles.Value : 0;
+            CurrentFile = string.IsNullOrEmpty(s.CurrentFile) ? "--" : s.CurrentFile;
+            SetPhase("starting", "GooglePreparing", "正在准备上传...");
+        });
+
         var progressTarget = new Progress<GooglePhotosProgressSnapshot>(s =>
         {
+            preparationActive = false;
             ProgressValue = s.OverallPercent;
             UploadedCount = s.UploadedFiles;
             SkippedCount = s.SkippedFiles;
@@ -1577,8 +1567,56 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             }
         });
 
+        string archivePath = ArchivePath;
+        bool planResolved = false;
+        activePlanCandidateFiles = [];
+        activeUploadPlan = null;
+        activePlanTotalFiles = 0;
+        activePlanTotalBytes = 0;
+        activePlanUploadedBytes = 0;
+
         try
         {
+            try
+            {
+                activeUploadPlan = await Task.Run(() =>
+                    GooglePhotosSyncEngine.PrepareUpload(archivePath, config, cancellationToken: cts.Token,
+                        preparationProgress: preparationTarget));
+                activePlanCandidateFiles = activeUploadPlan.Files.Select(f => f.Path).ToList();
+                activePlanTotalFiles = activePlanCandidateFiles.Count;
+                activePlanTotalBytes = activeUploadPlan.TotalBytes;
+                activePlanUploadedBytes = 0;
+                planResolved = true;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    string.Format(App.GetString("FmtGoogleResolveFailed", "解析上传目标文件失败: {0}"), ex.Message),
+                    App.GetString("MsgBoxTitle", "提示"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            if (activePlanCandidateFiles.Count == 0 && config.ScopeMode != GooglePhotosScopeMode.CustomTarget)
+            {
+                MessageBox.Show(
+                    App.GetString("GoogleNoMedia", "当前选定范围内未找到符合条件的媒体文件。"),
+                    App.GetString("MsgBoxTitle", "提示"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+            cts.Token.ThrowIfCancellationRequested();
+            preparationActive = false;
+            ProgressValue = 0;
+            CurrentFile = "--";
+            ProgressText = progressSticky.Set("GoogleStarting", "启动中...");
+
             string effectiveAlbumName = config.AlbumMode switch
             {
                 GooglePhotosAlbumMode.CustomName => !string.IsNullOrWhiteSpace(config.CustomAlbumName) ? config.CustomAlbumName : "Google Photos",
@@ -1590,12 +1628,13 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             var result = await Task.Run(async () =>
             {
                 return await GooglePhotosSyncEngine.SyncAsync(
-                    ArchivePath,
+                    archivePath,
                     config,
                     progressTarget,
                     msg => Application.Current?.Dispatcher.Invoke(() => LogEntries.Add(msg)),
                     evt => HandleItemProcessed(evt, effectiveAlbumName, isRetry: false),
-                    cts.Token
+                    cts.Token,
+                    preparedPlan: activeUploadPlan
                 );
             });
 
@@ -1605,7 +1644,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         }
         catch (OperationCanceledException)
         {
-            if (isPauseRequested)
+            if (isPauseRequested && planResolved)
             {
                 IsPaused = true;
                 SetPhase("paused", "GooglePhotosPausedPhase", "已暂停");
@@ -1634,6 +1673,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         }
         finally
         {
+            preparationActive = false;
             IsSyncing = false;
             isPauseRequested = false;
             cts?.Dispose();
@@ -1762,7 +1802,8 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
                     progressTarget,
                     msg => Application.Current?.Dispatcher.Invoke(() => LogEntries.Add(msg)),
                     evt => HandleItemProcessed(evt, effectiveAlbumName, isRetry: false),
-                    cts.Token
+                    cts.Token,
+                    preparedPlan: activeUploadPlan?.SelectFiles(remainingFiles)
                 );
             });
 
@@ -1959,7 +2000,8 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
                     progressTarget,
                     msg => Application.Current?.Dispatcher.Invoke(() => LogEntries.Add(msg)),
                     evt => HandleItemProcessed(evt, effectiveAlbumName, isRetry: true),
-                    cts.Token
+                    cts.Token,
+                    preparedPlan: activeUploadPlan?.SelectFiles(retryTargetFiles)
                 );
             });
 
