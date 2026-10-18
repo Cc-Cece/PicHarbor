@@ -139,3 +139,5 @@ This project makes use of ideas and components from the following open-source pr
 ## License
 
 This project is licensed under the [GNU General Public License v3.0 (GNU GPLv3)](https://www.gnu.org/licenses/gpl-3.0.html).
+
+The author opposes using this project to drive traffic or for marketing. Please do not impersonate the official project or falsely claim the author's endorsement.

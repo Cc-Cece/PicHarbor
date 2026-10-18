@@ -118,6 +118,7 @@ const I18N = {
     footer_troubleshoot: "Troubleshooting",
     footer_license: "GNU GPLv3 License",
     footer_attrib: "Acknowledgements: Based on ideas from get-and-see (MIT) & gpmc (MIT).",
+    footer_author_notice: "The author opposes using this project to drive traffic or for marketing. Please do not impersonate the official project or falsely claim the author's endorsement.",
     footer_copy: "PicHarbor Open Source Project. Released under GNU GPLv3."
   },
   zh: {
@@ -237,6 +238,7 @@ const I18N = {
     footer_troubleshoot: "故障排除与常见问题",
     footer_license: "GNU GPLv3 开源协议",
     footer_attrib: "开源致谢：部分思路与组件参考自 get-and-see (MIT) 与 gpmc (MIT)。",
+    footer_author_notice: "作者反对利用本项目引流、营销。请勿冒充官方或虚称作者背书。",
     footer_copy: "PicHarbor 开源项目。采用 GNU GPLv3 协议开源。"
   }
 };

@@ -140,3 +140,5 @@ picharbor status --dest "D:\Photos"
 
 本项目采用 [GNU General Public License v3.0 (GNU GPLv3)](https://www.gnu.org/licenses/gpl-3.0.html) 协议发布。
 
+作者反对利用本项目引流、营销。请勿冒充官方或虚称作者背书。
+
