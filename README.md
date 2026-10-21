@@ -1,143 +1,205 @@
+<div align="center">
+
+<img src="src/PicHarbor.Gui/Assets/PicHarbor.png" alt="PicHarbor logo" width="96" />
+
 # PicHarbor
 
-> This project is primarily based on [get-and-see](https://github.com/denis-a-evdokimov/get-and-see) with additional features.
+**Keep your photos local. Back them up, browse them, and take them with you.**
 
-[English](README.md) | [简体中文](README.zh-CN.md) | [Website](https://picharbor.akihito.dpdns.org/)
+[![CI](https://github.com/Cc-Cece/PicHarbor/actions/workflows/ci.yml/badge.svg)](https://github.com/Cc-Cece/PicHarbor/actions/workflows/ci.yml)
+![Platform](https://img.shields.io/badge/platform-Windows_x64-0078D4)
+![.NET](https://img.shields.io/badge/.NET-10-512BD4)
 
-A local-first **photo management and backup tool** for Windows. It provides reliable, lossless media archiving from mobile devices via USB, offline indexing and search, and multi-destination synchronization across iPhone, Android, and Google Photos.
+[Download](https://github.com/Cc-Cece/PicHarbor/releases/latest) · [Website](https://picharbor.akihito.dpdns.org/) · [简体中文](README.zh-CN.md)
 
----
+[Features](#features) · [Get started](#get-started) · [Command line](#command-line) · [Build from source](#build-from-source) · [Documentation](#documentation)
 
-Choose backup verification under Settings → advanced backup settings: Fast skips existing completed files by existence and size without reading content; Normal verifies the local backup; Strict also verifies source content. Normal remains the default. Fast cannot detect same-size content changes; missing files and size mismatches are copied again.
+</div>
 
-## Key Features
+PicHarbor is a local-first photo management and backup app for Windows. Archive iPhone media over USB, back up Android media over FTP, and browse your collection through a local gallery and searchable SQLite index. Keep archives across multiple disks, prepare photos for another device, or upload selected media to Google Photos.
 
-### 📥 Lossless iPhone USB Archiving (AFC Protocol)
-- **Native AFC Connection**: Communicates directly with iOS devices over Apple File Conduit (AFC) via USB, avoiding connection drops and 0-byte corrupted files commonly seen with Windows MTP / Explorer.
-- **Strictly Read-Only Guarantee**: Enforced by architectural design and compile-time contract tests (`ReadOnlyContractTests`). The tool only reads the iPhone camera roll (`/DCIM/`) and does not write, modify, or delete files on the device.
-- **Atomic & Resumable**: Employs SQLite journaling and atomic writes (`.partial` → size verification → atomic rename). Interrupted transfers (unplugging, sleep, Ctrl+C) resume cleanly without duplicate writes or corrupt files.
-- **Flexible Scope**: Back up the entire camera roll, a specific capture date range, or selected DCIM folders.
+This project is primarily based on [get-and-see](https://github.com/denis-a-evdokimov/get-and-see), with additional desktop, library management, and synchronization features.
 
-### 🔄 Multi-Destination Restore & Sync
-- **Restore to iPhone**: Prepares structured sync folders (flat or `YYYY-MM` albums) for synchronization via Apple Devices or iTunes into iOS Photos, keeping Live Photo pairs intact.
-- **Restore to Android**: Directly uploads media to Android / Pixel devices over FTP, with support for full copy or historical incremental sync (tracking transferred files via SQLite).
-- **Google Photos Sync**: Integrates cloud backup via `gpmc`. Supports automatic OAuth token capture or Android GmsCore credentials, Pixel original quality (unlimited quota) or Storage Saver, custom/auto albums, multi-threaded uploads, and automatic retry with jitter backoff.
+## Features
 
-### 🔍 Offline Media Indexing & Gallery
-- **Offline Search**: Query media using the local SQLite manifest (`picharbor.db`, with backward compatibility for legacy `get-and-see.db`) without connecting devices. Filter by capture date, camera make/model, media type, GPS coordinates, and file size.
-- **Visual Browser**: Browse archives in table or gallery view with built-in lightbox preview and direct video playback.
-- **Smart Pairing**: Automatically pairs and manages Live Photos (`.HEIC`/`.JPG` + `.MOV`), `.AAE` sidecar edits, and RAW pairs (`.DNG` + `.JPG`).
+| What you want to do | What PicHarbor provides |
+| --- | --- |
+| Back up an iPhone | Read media from `/DCIM/` through native Apple File Conduit (AFC), with date/folder selection in the GUI and resumable backup runs. |
+| Back up an Android device | Scan and copy selected media folders through an FTP connection, with device identity and incremental backup history. |
+| Browse without a phone | Table and gallery views, image previews, video playback, and filters for capture date, media type, camera, GPS availability, and file size. |
+| Keep related files together | Recognition of Live Photo components, `.AAE` edit sidecars, and RAW/JPEG pairs. |
+| Manage a growing collection | Multiple archive disks in one logical library, offline member tracking, integrity checks, and recoverable duplicate copies. |
+| Organize files on disk | Month, nested year/month, year, or flat layouts, plus in-place reorganization of existing archives. |
+| Copy media to another destination | iPhone sync-folder export, Android FTP uploads, and Google Photos uploads through the bundled `gpmc` integration. |
+| Control the desktop experience | Light/dark themes, English and Chinese interfaces, optional app lock, and desktop updates from GitHub Releases. |
 
-### 📁 Archive Management & Integrity
-- **Configurable Layouts**: Automatically organizes files into date structures: `month` (`YYYY-MM`), `year-month` (`YYYY/YYYY-MM`), `year`, or `flat`.
-- **Lossless Reorganization**: In-place directory reorganization tool (`reorganize`) to switch folder layouts on the PC without re-copying.
-- **Metadata Integrity**: Preserves original EXIF and metadata. Optional SHA-256 hash calculation and verification. Provides one-click synchronization of EXIF capture timestamps to Windows file system dates.
-- **Reports**: Generates structured SQLite database manifests and human-readable `summary.txt` logs after each backup run.
+The GUI covers backup, browsing, synchronization, and settings. The CLI covers iPhone backup, archive search/status, reorganization, and library maintenance; both use the same archive metadata.
 
----
+## Get started
 
-## Interfaces
+### 1. Download the desktop app
 
-PicHarbor provides two interfaces sharing the same SQLite manifest and destination folder:
+Open the [latest release](https://github.com/Cc-Cece/PicHarbor/releases/latest) and download **`PicHarbor.Gui.exe`**. Save it in a writable folder and launch it. Release executables are portable and self-contained; a separate .NET installation is not required.
 
-1. **Desktop GUI (`PicHarbor.Gui`)**: Full-featured graphical interface with tabs for Backup to PC, Restore to iPhone, Restore to Android, Google Photos, Archive Status, Media Search, Layout Reorganize, and Settings.
-2. **Command Line CLI (`picharbor.exe`)**: Lightweight CLI designed for scriptable calls and automated tasks, featuring a real-time interactive terminal dashboard (primarily [get-and-see](https://github.com/denis-a-evdokimov/get-and-see)).
+For terminal use, download **`picharbor.exe`** instead. Each executable has a matching `.sha256` file in the release assets. Compare the published checksum with:
 
----
+```powershell
+Get-FileHash .\PicHarbor.Gui.exe -Algorithm SHA256
+```
 
-## Prerequisites
+### 2. Prepare the features you need
 
-- **OS**: Windows 10 (version 2004 / build 19041 or newer, x64) or Windows 11.
-- **Apple Drivers**: Apple USB driver installed via **iTunes for Windows** or the **Apple Devices** app from Microsoft Store (provides `usbmuxd`).
-  
-  > *Tip: If using Apple Devices from the Microsoft Store, launch it once after each PC reboot so its background service is running.*
-- **Device Setup**: Unlock the iPhone and tap **"Trust This Computer"**.
-- **For Build**: [.NET 10 SDK](https://dotnet.microsoft.com/download).
+| Feature | Requirements |
+| --- | --- |
+| Desktop app | Windows 10 version 2004 / build 19041 or newer, or Windows 11; x64. The gallery and embedded sign-in use Microsoft Edge WebView2 Runtime. Media playback depends on installed Windows codecs. |
+| iPhone USB backup | Apple USB drivers from Apple Devices or iTunes for Windows. Connect with a USB cable, unlock the iPhone, and accept **Trust This Computer**. |
+| Android backup or restore | An FTP server running on the phone, a reachable connection, and the server address/credentials configured in PicHarbor. Use the device pairing flow to bind its identity. |
+| iPhone restore | Apple Devices or iTunes to sync the folder exported by PicHarbor into Photos. PicHarbor does not import it directly over AFC. |
+| Google Photos | A working Python interpreter and Google credentials configured in the Google Photos view. The app bundles the `gpmc` bridge/package; an external `gpmc` directory can also be configured. |
+| Build from source | .NET 10 SDK on Windows. |
 
----
+> [!TIP]
+> If your iPhone is not detected after a PC reboot, open Apple Devices once to start its background service, then reconnect the unlocked phone.
 
-## Quick Start
+### 3. Make your first backup
 
-### Desktop Application
+1. Choose a destination folder on a disk with enough free space, such as `D:\Photos`.
+2. Select the iPhone or Android backup view and connect the device. For Android, test the FTP connection and select the media folders to include.
+3. Choose the backup scope and folder layout, then start the backup. **Normal** verification is the default; see [verification modes](#verification-modes).
+4. Browse the archive or search it after the run. If a transfer is interrupted, reconnect the device and run the backup again to retry unfinished files and skip completed ones.
 
-Run from source:
-```pwsh
+> [!NOTE]
+> iPhone USB backup reads the camera roll; it does not write, modify, or delete media on the iPhone. Android pairing and restore/upload operations have their own write behavior. This is a media archive, not a full device or iCloud backup.
+
+## How your archive works
+
+Photos remain ordinary files on disk. Each archive keeps its journal and index under `.picharbor/`; the current database is `.picharbor/picharbor.db`, with support for legacy root-level databases. Keep the **whole archive folder**, including `.picharbor`, together when moving it, then open the new location in PicHarbor.
+
+| Layout | Example relative folder |
+| --- | --- |
+| `month` (default) | `2026-10/` |
+| `year-month` | `2026/2026-10/` |
+| `year` | `2026/` |
+| `flat` | Archive root |
+
+An existing archive retains its recorded layout. Use **reorganize** to change it rather than changing the layout option on a later copy run.
+
+### Verification modes
+
+New copies record SHA-256 while streaming, check the transferred size, and flush the staged file before publishing it to its final path. An interrupted staging file is retried on the next run; individual files do not resume from a byte offset.
+
+For existing backups, choose a mode in **Settings → advanced backup settings**:
+
+| Mode | Check before skipping a completed backup |
+| --- | --- |
+| Fast | Use backup records, file existence, and size without reading file content. Cannot detect same-size content changes. |
+| Normal (default) | Verify the backup content on the computer. |
+| Strict | Also reread the source device content before skipping. Slower, especially over USB. |
+
+The CLI uses normal verification by default and offers `--strict-verify`. The legacy `--verify-hash` option remains accepted for compatibility; new copies already record hashes.
+
+### Multiple disks and duplicate recovery
+
+Register archive folders as members of one library to browse and search them together. Offline members retain their indexed records, but unavailable copies are not treated as proof that a new backup can be skipped.
+
+Library self-checks can run at startup, after backup, and when a member reconnects. They operate on registered media and can move verified duplicate copies into the member's `.picharbor/recycle` area. The default retention is 30 days; expired copies are removed only after the surviving copy is verified again. Recoverable copies can be restored from Settings or the CLI.
+
+See the [multi-disk library guide (Chinese)](docs/user/multi-disk-library.md) for member relocation, deletion/rebackup preferences, recovery, and writer coordination. Finish tasks on one PC before moving member disks to another; simultaneous disconnected writes from multiple PCs are unsupported.
+
+### App lock and synchronization
+
+The optional app lock protects registered folders through Windows permissions and a local service. It **does not encrypt original photos** or protect against administrators or offline disk access. FTP and Google credentials are stored using the current Windows user's DPAPI protection.
+
+Android transfers use FTP, which does not add transport encryption. Google Photos uploads require network access and account authentication; local backup, indexing, and browsing do not require a Google account.
+
+## Command line
+
+Run these PowerShell examples from the folder containing the downloaded `picharbor.exe`:
+
+```powershell
+# Preview an iPhone backup without copying files
+.\picharbor.exe copy --dest "D:\Photos" --dry-run
+
+# Start an incremental backup; choose the layout when creating the archive
+.\picharbor.exe copy --dest "D:\Photos" --organize-by year-month
+
+# Verify source content before skipping an existing backup
+.\picharbor.exe copy --dest "D:\Photos" --strict-verify
+
+# Search the archive without connecting the phone
+.\picharbor.exe search --dest "D:\Photos" --type video --from 2026-01-01 --has-gps
+
+# Show archive status
+.\picharbor.exe status --dest "D:\Photos"
+
+# Preview a layout change; remove --dry-run to apply it
+.\picharbor.exe reorganize --dest "D:\Photos" --organize-by month --dry-run
+
+# List recoverable duplicate copies
+.\picharbor.exe library recycled --dest "D:\Photos"
+```
+
+Use `--help` on any command for its full options:
+
+```powershell
+.\picharbor.exe --help
+.\picharbor.exe copy --help
+.\picharbor.exe search --help
+.\picharbor.exe library --help
+```
+
+For scripts, `copy --no-dashboard` enables plain text output. The default read-stall timeout is 30 seconds; `--read-timeout 60` allows more time for a slow device.
+
+## Build from source
+
+Clone this repository, then run these commands on Windows with the .NET 10 SDK installed:
+
+```powershell
+git clone https://github.com/Cc-Cece/PicHarbor.git
+cd PicHarbor
+dotnet restore PicHarbor.sln
 dotnet run --project src/PicHarbor.Gui -c Release
 ```
-Or build a self-contained portable executable:
-```pwsh
-dotnet publish src/PicHarbor.Gui -c Release -r win-x64 --self-contained true
+
+To run the CLI from source:
+
+```powershell
+dotnet run --project src/PicHarbor.Cli -c Release -- --help
 ```
 
-### Command Line (CLI)
+To publish the same self-contained Windows x64 executable format used by releases:
 
-```pwsh
-# Incremental backup to target directory
-picharbor copy --dest "D:\Photos"
-
-# Backup with specified folder structure (month, year-month, year, flat)
-picharbor copy --dest "D:\Photos" --organize-by year-month
-
-# Dry-run preview (scans files without copying)
-picharbor copy --dest "D:\Photos" --dry-run
-
-# Search archived media (without device connected)
-picharbor search --dest "D:\Photos" --type video --from 2024-01-01 --has-gps
-
-# Reorganize folder layout of existing archive
-picharbor reorganize --dest "D:\Photos" --organize-by year-month
-
-# View archive summary and stats
-picharbor status --dest "D:\Photos"
+```powershell
+dotnet publish src/PicHarbor.Gui -c Release -r win-x64 --self-contained true -o artifacts/gui
+dotnet publish src/PicHarbor.Cli -c Release -r win-x64 --self-contained true -o artifacts/cli
 ```
 
----
+The outputs are `artifacts/gui/PicHarbor.Gui.exe` and `artifacts/cli/picharbor.exe`. Apple drivers, WebView2, and feature-specific dependencies still apply.
 
-## CLI Options
+### Repository map and checks
 
-### `copy`
-| Option | Default | Description |
-|---|---|---|
-| `--dest, -d` | *(Required)* | Destination directory for the archive. |
-| `--organize-by` | `month` | Organization layout: `month` (`YYYY-MM`), `year-month`, `year`, or `flat`. |
-| `--dry-run` | off | Enumerate files and plan transfer without copying. |
-| `--verify-hash` | off | Calculate and store SHA-256 hashes during transfer. |
-| `--read-timeout` | `30` | Seconds without data before timing out (auto-resumable). |
-| `--no-dashboard` | off | Plain text output instead of the interactive terminal dashboard. |
+| Directory | Purpose |
+| --- | --- |
+| `src/PicHarbor.Gui` | WPF desktop app, gallery, settings, and updates. |
+| `src/PicHarbor.Cli` | Command parser and terminal interface. |
+| `src/PicHarbor.Core` | Device access, transfers, SQLite journal, metadata, library management, and sync. |
+| `src/PicHarbor.Vault` | App-lock service and Windows permission protection. |
+| `src/PicHarbor.FakeDevice` | Opt-in fake-device harness for testing. |
+| `tests/` | Core, safety-contract, Vault, and supporting JavaScript/Python tests. |
+| `docs/` | User guides and engineering records. |
+| `website/` | Static project website. |
 
-### `search`
-| Option | Description |
-|---|---|
-| `--dest, -d` | *(Required)* Target archive directory. |
-| `--from <YYYY-MM-DD>` | Filter by capture date on or after this date. |
-| `--to <YYYY-MM-DD>` | Filter by capture date on or before this date. |
-| `--type <photo\|video\|screenshot\|other>` | Filter by media type. |
-| `--camera <string>` | Filter by camera model or brand substring. |
-| `--has-gps` | Only include items with GPS coordinates. |
-| `--open` | Open matched items' folders in Windows Explorer. |
+For the .NET build and tests, including compiled-code checks for prohibited iPhone device mutation calls:
 
----
+```powershell
+dotnet build PicHarbor.sln -c Release
+dotnet test PicHarbor.sln -c Release --no-build --filter "Category!=E2E"
+```
 
-## Documentation
-
-- [Manifest Schema](docs/user/manifest-schema.md)
-- [Troubleshooting Guide](docs/user/troubleshooting.md)
-
----
+The separate executable E2E lane and published-executable smoke checks are defined in [CI](.github/workflows/ci.yml).
 
 ## Acknowledgements
 
-This project makes use of ideas and components from the following open-source projects:
-
-- [get-and-see](https://github.com/denis-a-evdokimov/get-and-see) (MIT)
-- [gpmc](https://github.com/xob0t/gpmc) (MIT)
-- [PCL](https://github.com/Meloong-Git/PCL) (other)
-- [sweet-album](https://github.com/leuvi/sweet-album) (MIT)
-
----
-
-## License
-
-This project is licensed under the [GNU General Public License v3.0 (GNU GPLv3)](https://www.gnu.org/licenses/gpl-3.0.html).
+PicHarbor builds on work from [get-and-see](https://github.com/denis-a-evdokimov/get-and-see), [gpmc](https://github.com/xob0t/gpmc), [PCL](https://github.com/Meloong-Git/PCL), and [sweet-album](https://github.com/leuvi/sweet-album).
 
 The author opposes using this project to drive traffic or for marketing. Please do not impersonate the official project or falsely claim the author's endorsement.

@@ -421,7 +421,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     private string pythonPath = "python";
 
     [ObservableProperty]
-    private string gpmcPath = @"C:\Users\Kanbara\Code\vscode\gpmc";
+    private string gpmcPath = @"C:\Users\Kanbara\Code\01_projects\01_PicHarbor\gpmc";
 
     [ObservableProperty]
     private int timeoutSeconds = 60;
