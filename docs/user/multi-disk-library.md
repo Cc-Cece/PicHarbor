@@ -78,28 +78,3 @@ FTP 和 Google 凭证使用当前 Windows 用户的 DPAPI 保存，旧明文配�
 照片较多时，锁定或解锁需要等待目录权限应用完成。期间可查询服务状态，界面显示
 正在处理；完成之前不会报告解锁成功。解锁后的再次验证不会重复扫描整个图库。
 通信超时会显示实际等待时长，不会被误报为密码错误。
-
-## CLI 示例
-
-```powershell
-picharbor library include --dest "D:\Photos" --member "E:\Photos"
-picharbor library check --dest "E:\Photos"
-picharbor library recycled --dest "E:\Photos"
-picharbor library restore --dest "E:\Photos" --operation "列出的操作ID"
-picharbor library reclaim-writer --dest "E:\Photos"
-picharbor copy --dest "E:\Photos" --strict-verify
-picharbor status --dest "E:\Photos"
-```
-
-CLI 第一次遇到删除时会在交互终端询问。输入被重定向时沿用当前安全默认值，且不记为
-已经询问。`--verify-hash` 保留兼容，所有新复制本来就会记录哈希。
-
-## 升级与故障处理
-
-v8 升级前通过 SQLite 一致性备份保留 `.pre-v8`，结构迁移在事务内验证再提交。
-旧根目录数据库搬入 `.picharbor` 采用备份、验证和发布流程，保留原数据库作为恢复
-依据，不能逐个移动正在使用的 DB/WAL/SHM。不要手动降低数据库版本号或用旧程序写库。
-
-出现身份冲突、权限故障或迁移失败时保留原文件及整个 `.picharbor`，先修复定位或权限。
-不要凭文件日期猜测哪份数据库有效，也不要删除回收区来掩盖故障。未知历史关系保留
-在迁移审查记录中，不作为新设备跳过备份的依据。
