@@ -17,7 +17,11 @@ Local-first photo management, backup, and synchronization application for Window
 </p>
 
 <p align="center">
-  <a href="https://github.com/Cc-Cece/PicHarbor/releases/latest">Download Releases</a> · <a href="https://picharbor.akihito.dpdns.org/">Website</a>
+  <a href="https://github.com/Cc-Cece/PicHarbor">GitHub Repository</a> · <a href="https://github.com/Cc-Cece/PicHarbor/releases/latest">Download Releases</a> · <a href="https://picharbor.akihito.dpdns.org/">Website</a>
+</p>
+
+<p align="center">
+  Related: <a href="https://github.com/Cc-Cece/PicHarbor-iOS">iOS</a> · <a href="https://github.com/Cc-Cece/PicHarbor-Android">Android</a>
 </p>
 
 </div>

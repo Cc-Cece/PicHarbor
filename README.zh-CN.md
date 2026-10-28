@@ -17,7 +17,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Cc-Cece/PicHarbor/releases/latest">下载发布版本</a> · <a href="https://picharbor.akihito.dpdns.org/">项目主页</a>
+  <a href="https://github.com/Cc-Cece/PicHarbor">GitHub 仓库</a> · <a href="https://github.com/Cc-Cece/PicHarbor/releases/latest">下载发布版本</a> · <a href="https://picharbor.akihito.dpdns.org/">项目主页</a>
+</p>
+
+<p align="center">
+  相关项目：<a href="https://github.com/Cc-Cece/PicHarbor-iOS">iOS</a> · <a href="https://github.com/Cc-Cece/PicHarbor-Android">Android</a>
 </p>
 
 </div>
