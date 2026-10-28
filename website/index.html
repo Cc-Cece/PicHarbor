@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PicHarbor — iPhone & Android Photo Backup for Windows</title>
-  <meta name="description" content="Back up original photos and videos from iPhone over USB (AFC) and Android over FTP to Windows. Browse your library offline and restore or sync to iPhone, Android, and Google Photos.">
+  <title>PicHarbor — iPhone & Android 照片本地无损备份与管理</title>
+  <meta name="description" content="通过 USB (AFC) 与局域网 FTP，将 iPhone 与 Android 原始照片与视频备份到 Windows 电脑。支持本地离线画廊浏览与多端同步恢复。">
   <link rel="canonical" href="https://picharbor.akihito.dpdns.org/">
-  <meta property="og:title" content="PicHarbor — iPhone & Android Photo Backup for Windows">
-  <meta property="og:description" content="Back up iPhone over USB (AFC) and Android over FTP. Keep original photos and videos in a local Windows library, with offline browsing and multi-device restore.">
+  <meta property="og:title" content="PicHarbor — iPhone & Android 照片本地无损备份与管理">
+  <meta property="og:description" content="iPhone 通过 USB 直连、Android 通过局域网 FTP，将原始媒体无损归档至 Windows，支持离线秒级检索与跨设备同步。">
   <meta property="og:url" content="https://picharbor.akihito.dpdns.org/">
   <meta property="og:type" content="website">
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
@@ -24,18 +24,17 @@
       </a>
 
       <ul class="nav-links">
-        <li><a href="#features" class="nav-link" data-i18n="nav_features">Features</a></li>
-        <li><a href="#showcase" class="nav-link" data-i18n="nav_showcase">Showcase</a></li>
-        <li><a href="#safety" class="nav-link" data-i18n="nav_safety">Safety</a></li>
-        <li><a href="#download" class="nav-link" data-i18n="nav_download">Download</a></li>
-        <li><a href="https://github.com/Cc-Cece/PicHarbor#readme" target="_blank" rel="noopener" class="nav-link" data-i18n="nav_docs">Docs</a></li>
+        <li><a href="#features" class="nav-link" data-i18n="nav_features">功能特性</a></li>
+        <li><a href="#showcase" class="nav-link" data-i18n="nav_showcase">界面演示</a></li>
+        <li><a href="#safety" class="nav-link" data-i18n="nav_safety">安全保证</a></li>
+        <li><a href="#download" class="nav-link" data-i18n="nav_download">下载软件</a></li>
+        <li><a href="https://github.com/Cc-Cece/PicHarbor#readme" target="_blank" rel="noopener" class="nav-link" data-i18n="nav_docs">参考文档</a></li>
       </ul>
 
       <div class="nav-controls">
-        <button id="langToggle" class="btn-icon lang-switch" title="Switch Language">中文</button>
+        <button id="langToggle" class="btn-icon lang-switch" title="Switch Language">English</button>
         <button id="themeToggle" class="btn-icon" title="Toggle Theme">
           <span id="themeIcon">
-            <!-- Moon icon by default -->
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
           </span>
         </button>
@@ -51,34 +50,34 @@
     <div class="container">
       <div class="hero-badge">
         <span class="dot"></span>
-        <span data-i18n="hero_badge">Open Source • Local-First Photo Harbor</span>
+        <span data-i18n="hero_badge">开源项目 • 本地化照片安全避风港</span>
       </div>
 
       <h1 class="hero-title">
-        <span data-i18n="hero_title_1">Your iPhone &amp; Android Photos,</span><br>
-        <span class="hero-title-gradient" data-i18n="hero_title_2">Safely Backed Up.</span>
+        <span data-i18n="hero_title_1">iPhone 与 Android 相册</span><br>
+        <span class="hero-title-gradient" data-i18n="hero_title_2">本地无损备份与管理</span>
       </h1>
 
-      <p class="hero-subtitle" data-i18n="hero_subtitle">Back up iPhone over USB (AFC) and Android over FTP to your Windows PC. Keep original photos and videos, browse your library offline, and restore or sync to iPhone, Android, and Google Photos.</p>
+      <p class="hero-subtitle" data-i18n="hero_subtitle">iPhone 通过 USB（AFC）、Android 通过 FTP，将原始照片视频无损备份至本地电脑。支持离线图册浏览与跨设备同步。</p>
 
       <div class="hero-cta">
         <a href="#download" class="btn btn-primary btn-lg">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          <span data-i18n="btn_download_gui">Download GUI (App)</span>
+          <span data-i18n="btn_download_gui">下载桌面客户端 (GUI)</span>
         </a>
-        <a href="#download" class="btn btn-secondary btn-lg">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-          <span data-i18n="btn_download_cli">Download CLI</span>
+        <a href="https://qm.qq.com/q/sTkhSX5HBo" target="_blank" rel="noopener" class="btn btn-secondary btn-lg btn-qq">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          <span data-i18n="btn_qq_group">加入 QQ 群</span>
         </a>
         <a href="https://github.com/Cc-Cece/PicHarbor" target="_blank" rel="noopener" class="btn btn-secondary btn-lg">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-          <span data-i18n="btn_github">GitHub</span>
+          <span data-i18n="btn_github">访问 GitHub 仓库</span>
         </a>
       </div>
 
-      <div class="quick-cmd-box">
-        <code>picharbor copy --dest "D:\Photos"</code>
-        <button class="btn-copy" data-copy="picharbor copy --dest &quot;D:\Photos&quot;" data-i18n="cmd_copy">Copy</button>
+      <div class="hero-notice">
+        <span class="notice-tag" data-i18n="hero_notice_tag">移动端内测</span>
+        <span class="notice-text" data-i18n="hero_notice_text">已支持 iPhone 端与安卓端内测，加群即可获取体验</span>
       </div>
     </div>
   </section>
@@ -87,46 +86,46 @@
   <section id="features" class="section">
     <div class="container">
       <div class="section-header">
-        <span class="section-tag" data-i18n="sec_features_tag">Core Capabilities</span>
-        <h2 class="section-title" data-i18n="sec_features_title">Engineered for Reliability & Data Safety</h2>
-        <p class="section-subtitle" data-i18n="sec_features_sub">No cloud lock-in, no lossy compression, and no accidental deletion. Built on high-performance .NET 10.</p>
+        <span class="section-tag" data-i18n="sec_features_tag">核心功能</span>
+        <h2 class="section-title" data-i18n="sec_features_title">为数据安全与绝对可靠性而设计</h2>
+        <p class="section-subtitle" data-i18n="sec_features_sub">无云端厂商锁定、无有损画质压缩、杜绝意外误删。基于高性能 .NET 10 构建。</p>
       </div>
 
       <div class="features-grid">
         <div class="feature-card">
           <div class="feature-icon">📥</div>
-          <h3 data-i18n="feat_1_title">Lossless iPhone USB Archiving</h3>
-          <p data-i18n="feat_1_desc">Direct Apple File Conduit (AFC) protocol over USB. Eliminates Windows MTP explorer crashes and 0-byte corrupt transfers. Live Photos, RAW, and AAE sidecars paired seamlessly.</p>
+          <h3 data-i18n="feat_1_title">iPhone USB 无损直接归档</h3>
+          <p data-i18n="feat_1_desc">直连原生 AFC 协议，规避 Windows MTP 断连与 0 字节损坏文件，完整保留 Live Photo、RAW 与编辑关联。</p>
         </div>
 
         <div class="feature-card">
           <div class="feature-icon">🤖</div>
-          <h3 data-i18n="feat_2_title">Android FTP Photo &amp; Video Backup</h3>
-          <p data-i18n="feat_2_desc">Connect to an FTP server on your Android phone, select albums, and back up original photos and videos to your PC. Device identification and incremental backups keep each phone's archive organized.</p>
+          <h3 data-i18n="feat_2_title">Android FTP 无线极速备份</h3>
+          <p data-i18n="feat_2_desc">局域网无线连接手机，选择相册极速备份原始照片视频，支持多设备标识与智能增量。</p>
         </div>
 
         <div class="feature-card">
           <div class="feature-icon">🔍</div>
-          <h3 data-i18n="feat_3_title">Offline SQLite Index & Search</h3>
-          <p data-i18n="feat_3_desc">Browse archives and search media instantly without reconnecting devices. Query by date, camera model, media type, file size, or GPS coordinates with gallery lightbox preview.</p>
+          <h3 data-i18n="feat_3_title">SQLite 离线即时检索与画廊</h3>
+          <p data-i18n="feat_3_desc">无需插手机即可离线秒级检索。支持时间、机型、类型与 GPS 多维筛选，内置大图与视频播放。</p>
         </div>
 
         <div class="feature-card">
           <div class="feature-icon">🍏</div>
-          <h3 data-i18n="feat_4_title">Restore & Sync to iPhone</h3>
-          <p data-i18n="feat_4_desc">Generates structured sync albums (flat or YYYY-MM) for Apple Devices or iTunes to synchronize back into iOS Photos, keeping Live Photo video/photo links completely intact.</p>
+          <h3 data-i18n="feat_4_title">一键导出恢复至 iPhone</h3>
+          <p data-i18n="feat_4_desc">一键生成标准同步相册，配合 iTunes / Apple Devices 导回 iOS 相册，完美保留实况照片动态效果。</p>
         </div>
 
         <div class="feature-card">
-          <div class="feature-icon">🤖</div>
-          <h3 data-i18n="feat_5_title">Restore & Incremental Android Sync</h3>
-          <p data-i18n="feat_5_desc">Direct FTP synchronization to Android or Pixel devices. Supports full restore or incremental skip based on SQLite historical records to avoid repeated transfers.</p>
+          <div class="feature-icon">🔄</div>
+          <h3 data-i18n="feat_5_title">Android 极速恢复与增量同步</h3>
+          <p data-i18n="feat_5_desc">通过 FTP 极速上传媒体至 Android 设备，基于数据库智能跳过已有文件，避免重复传输。</p>
         </div>
 
         <div class="feature-card">
           <div class="feature-icon">☁️</div>
-          <h3 data-i18n="feat_6_title">Google Photos Cloud Backup</h3>
-          <p data-i18n="feat_6_desc">Integrated gpmc cloud bridge with automatic OAuth token capture, Pixel unlimited storage or Storage Saver quality, auto-albums, and retry with jitter backoff.</p>
+          <h3 data-i18n="feat_6_title">Google 相册云端备份集成</h3>
+          <p data-i18n="feat_6_desc">集成 gpmc 桥接工具，支持 Pixel 原画（不计配额）与节省空间画质，自动按年月归类并支持重试。</p>
         </div>
       </div>
     </div>
@@ -136,38 +135,38 @@
   <section id="showcase" class="section section-alt">
     <div class="container">
       <div class="section-header">
-        <span class="section-tag" data-i18n="sec_showcase_tag">Dual Interfaces</span>
-        <h2 class="section-title" data-i18n="sec_showcase_title">Choose the Way You Work</h2>
-        <p class="section-subtitle" data-i18n="sec_showcase_sub">A rich modern desktop application and a powerful scriptable command-line tool, sharing the same archive format.</p>
+        <span class="section-tag" data-i18n="sec_showcase_tag">界面演示</span>
+        <h2 class="section-title" data-i18n="sec_showcase_title">简单、极速、一切尽在掌控</h2>
+        <p class="section-subtitle" data-i18n="sec_showcase_sub">功能完备的现代化桌面客户端与高效命令行工具，共享同一本地无损数据库。</p>
       </div>
 
       <div class="showcase-wrapper">
         <div class="showcase-tabs">
-          <button class="tab-btn active" data-tab="tab-iphone" data-i18n="tab_btn_iphone">📥 iPhone USB Archiving</button>
-          <button class="tab-btn" data-tab="tab-android" data-i18n="tab_btn_android">🤖 Android FTP Backup</button>
-          <button class="tab-btn" data-tab="tab-restore" data-i18n="tab_btn_restore">🔄 Multi-Device Sync</button>
-          <button class="tab-btn" data-tab="tab-gphotos" data-i18n="tab_btn_gphotos">☁️ Google Photos</button>
-          <button class="tab-btn" data-tab="tab-cli" data-i18n="tab_btn_cli">⚡ Terminal CLI</button>
+          <button class="tab-btn active" data-tab="tab-iphone" data-i18n="tab_btn_iphone">📥 iPhone USB 归档</button>
+          <button class="tab-btn" data-tab="tab-android" data-i18n="tab_btn_android">🤖 Android FTP 备份</button>
+          <button class="tab-btn" data-tab="tab-restore" data-i18n="tab_btn_restore">🔄 跨设备同步恢复</button>
+          <button class="tab-btn" data-tab="tab-gphotos" data-i18n="tab_btn_gphotos">☁️ Google 相册</button>
+          <button class="tab-btn" data-tab="tab-cli" data-i18n="tab_btn_cli">⚡ 命令行 CLI</button>
         </div>
 
         <!-- Tab 1: iPhone -->
         <div id="tab-iphone" class="tab-content active">
           <div class="tab-grid">
             <div class="tab-info">
-              <h3 data-i18n="tab_iphone_h3">True Native AFC Archiving</h3>
-              <p data-i18n="tab_iphone_p">Bypasses flaky Windows MTP. Employs SQLite journaling and atomic writes (.partial → size verification → atomic rename). Transfers cleanly resume after disconnects.</p>
+              <h3 data-i18n="tab_iphone_h3">真正的原生 AFC 高速无损归档</h3>
+              <p data-i18n="tab_iphone_p">摆脱 Windows 资源管理器 MTP 协议的卡死与断流。基于原子写入机制，中途拔线重新连接自动无缝续传。</p>
               <ul>
                 <li>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span data-i18n="tab_iphone_li1">Direct AFC protocol via usbmuxd service</span>
+                  <span data-i18n="tab_iphone_li1">通过 usbmuxd 服务直连原生 AFC 协议</span>
                 </li>
                 <li>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span data-i18n="tab_iphone_li2">Flexible scope: full roll, date range, or DCIM folder</span>
+                  <span data-i18n="tab_iphone_li2">灵活范围：全量相机胶卷、日期区间或 DCIM 子目录</span>
                 </li>
                 <li>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span data-i18n="tab_iphone_li3">Automatic organization: month, year-month, year, or flat</span>
+                  <span data-i18n="tab_iphone_li3">多种目录结构：月份、年月层级、年份或平铺</span>
                 </li>
               </ul>
             </div>
@@ -179,13 +178,10 @@
                 <span class="terminal-title">PicHarbor Copy Engine</span>
               </div>
               <div class="terminal-body">
-                <p><span class="terminal-prompt">&gt;</span> picharbor copy --dest "D:\Photos" --organize-by year-month</p>
-                <p style="color:#10b981;">[Preflight] iPhone 15 Pro (iOS 18.2) connected via USB (AFC).</p>
-                <p>[Scan] Enumerating /DCIM/... Found 4,218 items (84.2 GB).</p>
-                <p>[Journal] Loaded picharbor.db — 1,420 items already archived.</p>
-                <p style="color:#38bdf8;">[Copying] 2024-09/IMG_4821.HEIC + IMG_4821.MOV (Live Photo) [OK]</p>
-                <p style="color:#38bdf8;">[Copying] 2024-09/IMG_4822.DNG (ProRAW 48MP) [OK]</p>
-                <p style="color:#10b981;">[Summary] Done: 2,798 copied, 1,420 skipped, 0 failed. Manifest updated.</p>
+                <p style="color:#10b981;">[Ready] iPhone 15 Pro (iOS 18) connected via USB (AFC)</p>
+                <p>[Scan] DCIM catalog: 4,218 items (84.2 GB) found</p>
+                <p style="color:#38bdf8;">[Copying] 2024-09/IMG_4821.HEIC + MOV (Live Photo) [OK]</p>
+                <p style="color:#10b981;">[Summary] 2,798 copied, 1,420 skipped, 0 failed. Manifest updated.</p>
               </div>
             </div>
           </div>
@@ -195,20 +191,20 @@
         <div id="tab-android" class="tab-content">
           <div class="tab-grid">
             <div class="tab-info">
-              <h3 data-i18n="tab_android_h3">Back Up Android Albums to Your PC</h3>
-              <p data-i18n="tab_android_p">Start an FTP server on your Android phone and connect from the desktop app. Select the albums you want to archive, then run an incremental backup of the original photos and videos.</p>
+              <h3 data-i18n="tab_android_h3">将 Android 相册备份到电脑</h3>
+              <p data-i18n="tab_android_p">手机开启 FTP 服务，客户端秒级连接，选择相册即可将原始照片视频增量备份至电脑本地。</p>
               <ul>
                 <li>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span data-i18n="tab_android_li1">Connect using the phone's FTP address, port, and credentials</span>
+                  <span data-i18n="tab_android_li1">局域网直连手机 FTP 地址与端口</span>
                 </li>
                 <li>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span data-i18n="tab_android_li2">Choose albums and identify devices across backup sessions</span>
+                  <span data-i18n="tab_android_li2">按相册选择范围，支持多设备历史识别</span>
                 </li>
                 <li>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span data-i18n="tab_android_li3">Keep a local library for offline browsing and later restore</span>
+                  <span data-i18n="tab_android_li3">备份后可离线浏览本地图册，支持随时恢复</span>
                 </li>
               </ul>
             </div>
@@ -217,14 +213,13 @@
                 <span class="terminal-dot dot-red"></span>
                 <span class="terminal-dot dot-yellow"></span>
                 <span class="terminal-dot dot-green"></span>
-                <span class="terminal-title" data-i18n="tab_android_example">Android connection example</span>
+                <span class="terminal-title" data-i18n="tab_android_example">Android 连接步骤</span>
               </div>
               <div class="terminal-body">
-                <p data-i18n="tab_android_example_1">1. Start the phone's FTP server on a trusted local network</p>
-                <p><span class="terminal-prompt">FTP</span> 192.168.1.108:2121</p>
-                <p data-i18n="tab_android_example_2">2. Enter the server address and credentials in PicHarbor</p>
-                <p data-i18n="tab_android_example_3">3. Select albums and a local backup folder</p>
-                <p style="color:#10b981;" data-i18n="tab_android_example_4">4. Start incremental backup; review progress in Task Center</p>
+                <p data-i18n="tab_android_example_1">1. 手机在同一 Wi-Fi 下开启 FTP 服务</p>
+                <p><span class="terminal-prompt">FTP</span> 192.168.1.108:2121 (Connected)</p>
+                <p data-i18n="tab_android_example_3">3. 勾选要备份的相册与本地保存目录</p>
+                <p style="color:#10b981;" data-i18n="tab_android_example_4">4. 开始增量备份，在任务中心查看进度</p>
               </div>
             </div>
           </div>
@@ -234,20 +229,20 @@
         <div id="tab-restore" class="tab-content">
           <div class="tab-grid">
             <div class="tab-info">
-              <h3 data-i18n="tab_restore_h3">Multi-Destination Cross-Device Restore</h3>
-              <p data-i18n="tab_restore_p">Effortlessly send archived photos to new phones. Synchronize back into iOS Photos via iTunes, or upload directly to Android via FTP.</p>
+              <h3 data-i18n="tab_restore_h3">多端跨设备同步与恢复</h3>
+              <p data-i18n="tab_restore_p">轻松将备份的照片导出至新手机。既可借助 iTunes / Apple Devices 导回 iPhone，亦可通过局域网 FTP 极速同步至 Android 设备。</p>
               <ul>
                 <li>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span data-i18n="tab_restore_li1">Retains Live Photo motion pairs and edit sidecars</span>
+                  <span data-i18n="tab_restore_li1">完整保留实况照片（Live Photo）与编辑记录</span>
                 </li>
                 <li>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span data-i18n="tab_restore_li2">Android FTP auto-pairing with .picharbor-device-id</span>
+                  <span data-i18n="tab_restore_li2">Android 端自动配对设备标识</span>
                 </li>
                 <li>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span data-i18n="tab_restore_li3">Smart incremental skip using local journal</span>
+                  <span data-i18n="tab_restore_li3">基于数据库记录的智能增量跳过，不重复传输</span>
                 </li>
               </ul>
             </div>
@@ -256,37 +251,36 @@
                 <span class="terminal-dot dot-red"></span>
                 <span class="terminal-dot dot-yellow"></span>
                 <span class="terminal-dot dot-green"></span>
-                <span class="terminal-title">Android FTP Restore Pipeline</span>
+                <span class="terminal-title">Cross-Device Restore Pipeline</span>
               </div>
               <div class="terminal-body">
-                <p><span class="terminal-prompt">&gt;</span> Android Device: Pixel 8 Pro (192.168.1.108:2121)</p>
-                <p style="color:#10b981;">[Pairing] Verified device identifier: .picharbor-device-id [Matched]</p>
-                <p>[Target] /DCIM/PicHarbor/iPhone Photos/</p>
-                <p>[Transfer] Uploading 1,840 items with SHA-256 verification...</p>
-                <p style="color:#10b981;">[Result] 1,840 files synchronized. Metadata &amp; capture timestamps preserved.</p>
+                <p><span class="terminal-prompt">&gt;</span> Target: Pixel 8 Pro (192.168.1.108:2121)</p>
+                <p style="color:#10b981;">[Pairing] Device verified via .picharbor-device-id</p>
+                <p>[Transfer] Uploading 1,840 items with SHA-256 verification</p>
+                <p style="color:#10b981;">[Result] 1,840 files synchronized. Metadata & timestamps preserved.</p>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Tab 3: Google Photos -->
+        <!-- Tab 4: Google Photos -->
         <div id="tab-gphotos" class="tab-content">
           <div class="tab-grid">
             <div class="tab-info">
-              <h3 data-i18n="tab_gphotos_h3">Google Photos Cloud Integration</h3>
-              <p data-i18n="tab_gphotos_p">Integrated gpmc bridge enables cloud synchronization with support for Pixel unlimited storage tier credentials.</p>
+              <h3 data-i18n="tab_gphotos_h3">Google 相册云端备份无缝衔接</h3>
+              <p data-i18n="tab_gphotos_p">集成 gpmc 云端桥接工具，提供内置窗口登录认证，完整支持 Pixel 专属不计配额画质上传。</p>
               <ul>
                 <li>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span data-i18n="tab_gphotos_li1">OAuth browser capture or GmsCore credentials</span>
+                  <span data-i18n="tab_gphotos_li1">内置窗口自动捕获登录凭据</span>
                 </li>
                 <li>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span data-i18n="tab_gphotos_li2">Supports Original Quality or Storage Saver</span>
+                  <span data-i18n="tab_gphotos_li2">支持 Pixel 原画质（无限配额）或节省空间画质</span>
                 </li>
                 <li>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span data-i18n="tab_gphotos_li3">Multi-threaded upload with automatic rate backoff</span>
+                  <span data-i18n="tab_gphotos_li3">多线程并发上传与网络抖动自动退避重试</span>
                 </li>
               </ul>
             </div>
@@ -295,38 +289,36 @@
                 <span class="terminal-dot dot-red"></span>
                 <span class="terminal-dot dot-yellow"></span>
                 <span class="terminal-dot dot-green"></span>
-                <span class="terminal-title">Google Photos Cloud Bridge (gpmc)</span>
+                <span class="terminal-title">Google Photos Cloud Bridge</span>
               </div>
               <div class="terminal-body">
-                <p><span class="terminal-prompt">&gt;</span> Auth: OAuth Token authenticated (user@example.com)</p>
-                <p>[Quality] Storage Tier: Original (Pixel unlimited tier)</p>
-                <p>[Albums] Auto-grouping by YYYY-MM albums</p>
-                <p style="color:#38bdf8;">[Uploading] Thread #1: 2024-08/IMG_3901.HEIC (100%)</p>
-                <p style="color:#38bdf8;">[Uploading] Thread #2: 2024-08/IMG_3902.MOV (100%)</p>
+                <p><span class="terminal-prompt">&gt;</span> Auth: OAuth authenticated successfully</p>
+                <p>[Tier] Storage Tier: Original (Pixel unlimited)</p>
+                <p style="color:#38bdf8;">[Upload] Concurrently uploading 520 items...</p>
                 <p style="color:#10b981;">[Status] Batch complete: 520 uploaded, 0 errors.</p>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Tab 4: CLI -->
+        <!-- Tab 5: CLI -->
         <div id="tab-cli" class="tab-content">
           <div class="tab-grid">
             <div class="tab-info">
-              <h3 data-i18n="tab_cli_h3">Scriptable Command Line with Live Dashboard</h3>
-              <p data-i18n="tab_cli_p">Designed for automation, headless tasks, or power users. Features a real-time interactive terminal status dashboard.</p>
+              <h3 data-i18n="tab_cli_h3">可脚本化调用的命令行与实时看板</h3>
+              <p data-i18n="tab_cli_p">专为自动化脚本、定时任务或进阶用户设计。内置美观的终端交互式实时进度看板。</p>
               <ul>
                 <li>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span data-i18n="tab_cli_li1">Atomic resume on Ctrl+C or unplug</span>
+                  <span data-i18n="tab_cli_li1">Ctrl+C 或断开拔线后安全保存，可直接续传</span>
                 </li>
                 <li>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span data-i18n="tab_cli_li2">Dry-run simulation mode (--dry-run)</span>
+                  <span data-i18n="tab_cli_li2">支持仅扫描计划不实际写入的预览模式 (--dry-run)</span>
                 </li>
                 <li>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span data-i18n="tab_cli_li3">Offline lossless archive reorganizer (reorganize)</span>
+                  <span data-i18n="tab_cli_li3">支持电脑本地零拷贝目录重整 (reorganize)</span>
                 </li>
               </ul>
             </div>
@@ -338,11 +330,10 @@
                 <span class="terminal-title">picharbor.exe Terminal</span>
               </div>
               <div class="terminal-body">
-                <p><span class="terminal-prompt">&gt;</span> picharbor search --dest "D:\Photos" --type video --from 2024-01-01 --has-gps</p>
-                <p style="color:#94a3b8;">Searching local manifest 'picharbor.db'...</p>
-                <p>2024/2024-08/IMG_4110.MOV | 2024-08-15 14:22:01 | 184.2 MB | 35.6895, 139.6917</p>
-                <p>2024/2024-07/IMG_3890.MOV | 2024-07-20 09:15:30 |  92.5 MB | 31.2304, 121.4737</p>
-                <p style="color:#10b981;">Matched 2 videos in 14ms (offline, no phone needed).</p>
+                <p><span class="terminal-prompt">&gt;</span> picharbor search --dest "D:\Photos" --type video --has-gps</p>
+                <p style="color:#94a3b8;">Searching local SQLite database 'picharbor.db'...</p>
+                <p>2024/2024-08/IMG_4110.MOV | 184.2 MB | 35.6895, 139.6917</p>
+                <p style="color:#10b981;">Matched 2 videos in 14ms (instant offline search).</p>
               </div>
             </div>
           </div>
@@ -356,33 +347,33 @@
     <div class="container">
       <div class="safety-banner">
         <div>
-          <span class="section-tag" data-i18n="sec_safety_tag">Safety by Design</span>
-          <h2 class="section-title" data-i18n="sec_safety_title">Keep Originals. Verify Your Backups.</h2>
-          <p class="section-subtitle" style="text-align: left; margin: 0 0 24px;" data-i18n="sec_safety_sub">iPhone AFC backups read from the camera roll without modifying it. Local archives use transfer records and integrity checks to support reliable backups.</p>
+          <span class="section-tag" data-i18n="sec_safety_tag">安全设计理念</span>
+          <h2 class="section-title" data-i18n="sec_safety_title">保留原始文件，核验本地备份</h2>
+          <p class="section-subtitle" style="text-align: left; margin: 0 0 20px;" data-i18n="sec_safety_sub">iPhone AFC 备份仅读取相机胶卷，不修改其中的原始文件。结合传输记录与完整性校验，守护每一张照片。</p>
         </div>
 
         <div class="safety-points">
           <div class="safety-point">
             <div class="safety-point-icon">🛡️</div>
             <div class="safety-point-text">
-              <h4 data-i18n="safety_1_title">Architectural Read-Only Contract</h4>
-              <p data-i18n="safety_1_desc">Enforced at build time via Mono.Cecil byte-scanning unit tests. The core engine does not import or call any device-write API.</p>
+              <h4 data-i18n="safety_1_title">架构级只读合约保证</h4>
+              <p data-i18n="safety_1_desc">核心底层代码严格遵循只读协议，绝不引用、不执行任何修改或写入手机存储的指令。</p>
             </div>
           </div>
 
           <div class="safety-point">
             <div class="safety-point-icon">⚡</div>
             <div class="safety-point-text">
-              <h4 data-i18n="safety_2_title">Atomic Write Pipeline</h4>
-              <p data-i18n="safety_2_desc">Transfers write to .partial temporary files, verify byte lengths, and rename atomically. Interrupted files never leave corrupt zero-byte artifacts.</p>
+              <h4 data-i18n="safety_2_title">原子写入与完整性校验</h4>
+              <p data-i18n="safety_2_desc">文件先写入 .partial 临时文件，严格核验字节大小无误后原子重命名到位，绝无半截损坏文件。</p>
             </div>
           </div>
 
           <div class="safety-point">
             <div class="safety-point-icon">⏱️</div>
             <div class="safety-point-text">
-              <h4 data-i18n="safety_3_title">Forward-Progress Watchdog</h4>
-              <p data-i18n="safety_3_desc">Detects stalled connections and graceful disconnect timeouts. Unplugging mid-copy safely exits and seamlessly resumes on reconnect.</p>
+              <h4 data-i18n="safety_3_title">断连看门狗机制</h4>
+              <p data-i18n="safety_3_desc">毫秒级心跳检测，中途拔出手机或进入休眠时自动保存进度，重新连接后平滑断点续传。</p>
             </div>
           </div>
         </div>
@@ -394,69 +385,76 @@
   <section id="download" class="section download-section section-alt">
     <div class="container">
       <div class="section-header">
-        <span class="section-tag" data-i18n="sec_download_tag">Get Started</span>
-        <h2 class="section-title" data-i18n="sec_download_title">Download PicHarbor</h2>
-        <p class="section-subtitle" data-i18n="sec_download_sub">Portable single-file executables for Windows 10 (19041+) &amp; Windows 11. No installer required.</p>
+        <span class="section-tag" data-i18n="sec_download_tag">即刻体验</span>
+        <h2 class="section-title" data-i18n="sec_download_title">获取 PicHarbor</h2>
+        <p class="section-subtitle" data-i18n="sec_download_sub">适用于 Windows 10/11 的独立单文件桌面版，及全新移动端内测。</p>
       </div>
 
       <div class="download-cards">
         <!-- GUI Card -->
         <div class="download-card highlight">
-          <span class="download-badge" data-i18n="dl_gui_badge">Recommended</span>
-          <h3 data-i18n="dl_gui_title">PicHarbor GUI</h3>
-          <p class="download-desc" data-i18n="dl_gui_desc">Back up iPhone and Android, browse your local media library, restore across devices, and connect to Google Photos in one desktop app.</p>
+          <span class="download-badge" data-i18n="dl_gui_badge">推荐使用</span>
+          <h3 data-i18n="dl_gui_title">PicHarbor 桌面客户端</h3>
+          <p class="download-desc" data-i18n="dl_gui_desc">在同一个桌面应用中无损备份 iPhone 与 Android、离线浏览本地图册、跨设备恢复，并支持云端同步。</p>
           <ul class="download-specs">
-            <li><span>Version</span><span class="value release-tag">v1.0.0</span></li>
-            <li><span>OS</span><span class="value" data-i18n="dl_gui_os">Windows 10/11 (x64)</span></li>
-            <li><span>Package</span><span class="value" data-i18n="dl_gui_type">Portable Single-File EXE</span></li>
-            <li><span>Size</span><span id="guiFileSize" class="value">~38 MB</span></li>
+            <li><span>版本</span><span class="value release-tag">v1.0.0</span></li>
+            <li><span>支持系统</span><span class="value" data-i18n="dl_gui_os">Windows 10/11 (x64)</span></li>
+            <li><span>程序形式</span><span class="value" data-i18n="dl_gui_type">独立单文件便携版 (EXE)</span></li>
+            <li><span>文件大小</span><span id="guiFileSize" class="value">~38 MB</span></li>
           </ul>
           <a id="guiDownloadBtn" href="https://github.com/Cc-Cece/PicHarbor/releases/latest" class="btn btn-primary btn-lg">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            <span data-i18n="dl_gui_btn">Download PicHarbor.Gui.exe</span>
+            <span data-i18n="dl_gui_btn">下载 PicHarbor.Gui.exe</span>
           </a>
         </div>
 
-        <!-- CLI Card -->
-        <div class="download-card">
-          <span class="download-badge" data-i18n="dl_cli_badge">Terminal / Scripts</span>
-          <h3 data-i18n="dl_cli_title">PicHarbor CLI</h3>
-          <p class="download-desc" data-i18n="dl_cli_desc">High-speed CLI with interactive dashboard for automated backups and scheduled tasks.</p>
+        <!-- Mobile Beta Card -->
+        <div class="download-card beta-card">
+          <span class="download-badge badge-beta" data-i18n="dl_mobile_badge">内测招募</span>
+          <h3 data-i18n="dl_mobile_title">PicHarbor 移动端</h3>
+          <p class="download-desc" data-i18n="dl_mobile_desc">已支持 iPhone 端与安卓端内测！移动端支持本地极速备份与电脑无线互传，加群获取测试版与安装指引。</p>
           <ul class="download-specs">
-            <li><span>Version</span><span class="value release-tag">v1.0.0</span></li>
-            <li><span>OS</span><span class="value" data-i18n="dl_cli_os">Windows 10/11 (x64)</span></li>
-            <li><span>Package</span><span class="value" data-i18n="dl_cli_type">Portable Single-File EXE</span></li>
-            <li><span>Size</span><span id="cliFileSize" class="value">~30 MB</span></li>
+            <li><span data-i18n="dl_mobile_platform_label">支持平台</span><span class="value" data-i18n="dl_mobile_platform_val">iOS & Android</span></li>
+            <li><span data-i18n="dl_mobile_stage_label">当前状态</span><span class="value" data-i18n="dl_mobile_stage_val">公开内测中</span></li>
+            <li><span data-i18n="dl_mobile_channel_label">获取方式</span><span class="value" data-i18n="dl_mobile_channel_val">QQ 交流群</span></li>
+            <li><span data-i18n="dl_mobile_price_label">开源许可</span><span class="value" data-i18n="dl_mobile_price_val">完全免费 / 遵循开源</span></li>
           </ul>
-          <a id="cliDownloadBtn" href="https://github.com/Cc-Cece/PicHarbor/releases/latest" class="btn btn-secondary btn-lg">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            <span data-i18n="dl_cli_btn">Download picharbor.exe</span>
+          <a href="https://qm.qq.com/q/sTkhSX5HBo" target="_blank" rel="noopener" class="btn btn-primary btn-lg btn-qq-glow">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            <span data-i18n="dl_mobile_btn">加入 QQ 群</span>
           </a>
         </div>
       </div>
 
+      <!-- CLI Option Note -->
+      <div class="cli-alt-bar">
+        <span data-i18n="cli_alt_note">需要脚本自动化或静默运行？亦提供：</span>
+        <a id="cliDownloadBtn" href="https://github.com/Cc-Cece/PicHarbor/releases/latest" target="_blank" rel="noopener" data-i18n="cli_alt_link">下载 PicHarbor 命令行工具 (CLI)</a>
+        <span id="cliFileSize" style="display:none;"></span>
+      </div>
+
       <div class="release-notes-banner">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-        <span data-i18n="release_notes_label">View changelog and SHA-256 verification on</span>
-        <a id="releaseLink" href="https://github.com/Cc-Cece/PicHarbor/releases/latest" target="_blank" rel="noopener" data-i18n="release_notes_link">GitHub Releases</a>
+        <span data-i18n="release_notes_label">查看版本详细更新日志与 SHA-256 校验和：</span>
+        <a id="releaseLink" href="https://github.com/Cc-Cece/PicHarbor/releases/latest" target="_blank" rel="noopener" data-i18n="release_notes_link">GitHub Releases 页面</a>
       </div>
 
       <!-- Quick Setup Steps -->
       <div class="steps-grid">
         <div class="step-card">
           <div class="step-number">1</div>
-          <h4 data-i18n="step_1_title">1. Prepare Your Phone</h4>
-          <p data-i18n="step_1_desc">iPhone: install Apple Devices or iTunes on your PC. Android: start an FTP server on your phone and note its address and credentials.</p>
+          <h4 data-i18n="step_1_title">1. 准备手机连接</h4>
+          <p data-i18n="step_1_desc">iPhone 用 USB 连接电脑并解锁信任；Android 在同一 Wi-Fi 下开启 FTP 服务。</p>
         </div>
         <div class="step-card">
           <div class="step-number">2</div>
-          <h4 data-i18n="step_2_title">2. Connect in PicHarbor</h4>
-          <p data-i18n="step_2_desc">iPhone: connect by USB, unlock, and trust the computer. Android: enter the FTP connection details and test the connection.</p>
+          <h4 data-i18n="step_2_title">2. 在客户端中连接</h4>
+          <p data-i18n="step_2_desc">打开 PicHarbor.Gui.exe，选择对应设备类型并完成一键连接测试。</p>
         </div>
         <div class="step-card">
           <div class="step-number">3</div>
-          <h4 data-i18n="step_3_title">3. Choose &amp; Back Up</h4>
-          <p data-i18n="step_3_desc">Open PicHarbor.Gui.exe, select iPhone or Android on the Backup page, choose your media and destination, and start the backup.</p>
+          <h4 data-i18n="step_3_title">3. 勾选相册，开始备份</h4>
+          <p data-i18n="step_3_desc">选择目标相册与电脑存储目录，点击即可开始无损增量归档。</p>
         </div>
       </div>
     </div>
@@ -471,12 +469,12 @@
             <img src="assets/PicHarbor.png" alt="PicHarbor">
             <span class="brand-text">PicHarbor</span>
           </div>
-          <p data-i18n="footer_desc">A local-first, lossless photo management and backup tool for Windows. Protecting your irreplaceable memories with engineering rigor.</p>
+          <p data-i18n="footer_desc">一款面向 Windows 的本地化、无损照片管理与备份工具。以严苛的工程实践守护每一份无可替代的珍贵回忆。</p>
         </div>
 
         <div class="footer-links">
           <div class="footer-col">
-            <h5 data-i18n="footer_links_title">Links</h5>
+            <h5 data-i18n="footer_links_title">相关链接</h5>
             <ul>
               <li><a href="https://github.com/Cc-Cece/PicHarbor" target="_blank" rel="noopener">GitHub</a></li>
               <li><a href="https://github.com/Cc-Cece/PicHarbor/releases" target="_blank" rel="noopener">Releases</a></li>
@@ -484,20 +482,20 @@
             </ul>
           </div>
           <div class="footer-col">
-            <h5 data-i18n="footer_resources_title">Resources</h5>
+            <h5 data-i18n="footer_resources_title">参考资料</h5>
             <ul>
-              <li><a href="https://github.com/Cc-Cece/PicHarbor/blob/main/docs/user/manifest-schema.md" target="_blank" rel="noopener" data-i18n="footer_manifest">Manifest Schema</a></li>
-              <li><a href="https://github.com/Cc-Cece/PicHarbor/blob/main/docs/user/troubleshooting.md" target="_blank" rel="noopener" data-i18n="footer_troubleshoot">Troubleshooting</a></li>
-              <li><a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener" data-i18n="footer_license">GNU GPLv3 License</a></li>
+              <li><a href="https://github.com/Cc-Cece/PicHarbor/blob/main/docs/user/manifest-schema.md" target="_blank" rel="noopener" data-i18n="footer_manifest">数据库清单说明</a></li>
+              <li><a href="https://github.com/Cc-Cece/PicHarbor/blob/main/docs/user/troubleshooting.md" target="_blank" rel="noopener" data-i18n="footer_troubleshoot">故障排除与常见问题</a></li>
+              <li><a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener" data-i18n="footer_license">GNU GPLv3 开源协议</a></li>
             </ul>
           </div>
         </div>
       </div>
 
       <div class="footer-bottom">
-        <p data-i18n="footer_author_notice">The author opposes using this project to drive traffic or for marketing. Please do not impersonate the official project or falsely claim the author's endorsement.</p>
-        <p data-i18n="footer_attrib">Acknowledgements: Based on ideas from <a href="https://github.com/denis-a-evdokimov/get-and-see" target="_blank" rel="noopener">get-and-see</a> (MIT) &amp; <a href="https://github.com/xob0t/gpmc" target="_blank" rel="noopener">gpmc</a> (MIT).</p>
-        <p data-i18n="footer_copy">PicHarbor Open Source Project. Released under GNU GPLv3.</p>
+        <p data-i18n="footer_author_notice">作者反对利用本项目引流、营销。请勿冒充官方或虚称作者背书。</p>
+        <p data-i18n="footer_attrib">开源致谢：部分思路与组件参考自 <a href="https://github.com/denis-a-evdokimov/get-and-see" target="_blank" rel="noopener">get-and-see</a> (MIT) 、 <a href="https://github.com/xob0t/gpmc" target="_blank" rel="noopener">gpmc</a> (MIT) 与 <a href="https://github.com/Hex-Common/PCL2" target="_blank" rel="noopener">PCL</a> (other)。</p>
+        <p data-i18n="footer_copy">PicHarbor 开源项目。采用 GNU GPLv3 协议开源。</p>
       </div>
     </div>
   </footer>
