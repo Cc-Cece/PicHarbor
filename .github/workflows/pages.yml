@@ -21,6 +21,8 @@ concurrency:
 
 jobs:
   deploy:
+    # A prerelease tag such as v2.6.0-beta.1 must not replace the stable site or version.json.
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.ref_name, '-') }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

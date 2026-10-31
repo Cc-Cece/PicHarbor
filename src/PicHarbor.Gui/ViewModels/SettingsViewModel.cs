@@ -217,6 +217,16 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private int selectedGooglePhotosQualityIndex = 0;
 
+    public ObservableCollection<string> GooglePhotosLiveStrategyOptions { get; } = new()
+    {
+        "动态照片封装",
+        "原始照片配对",
+        "原始照片配对（分步上传）"
+    };
+
+    [ObservableProperty]
+    private int selectedGooglePhotosLiveStrategyIndex = 1;
+
     [ObservableProperty]
     private bool googlePhotosSkipExistingFilenames = false;
 
@@ -538,6 +548,12 @@ public partial class SettingsViewModel : ObservableObject
         {
             SelectedGooglePhotosQualityIndex = 0;
         }
+        SelectedGooglePhotosLiveStrategyIndex = config.GooglePhotosLiveStrategy switch
+        {
+            "motion" => 0,
+            "appleReconcile" => 2,
+            _ => 1,
+        };
         GooglePhotosSkipExistingFilenames = config.GooglePhotosSkipExistingFilenames;
         RefreshIdleProxyText();
         loadingConfig = false;
@@ -566,6 +582,12 @@ public partial class SettingsViewModel : ObservableObject
         config.GooglePhotosAutoRetryAttempts = GooglePhotosAutoRetryAttempts;
         config.GooglePhotosUnlimitedQuality = SelectedGooglePhotosQualityIndex == 0;
         config.GooglePhotosStorageSaver = SelectedGooglePhotosQualityIndex == 2;
+        config.GooglePhotosLiveStrategy = SelectedGooglePhotosLiveStrategyIndex switch
+        {
+            0 => "motion",
+            2 => "appleReconcile",
+            _ => "applePair",
+        };
         config.GooglePhotosSkipExistingFilenames = GooglePhotosSkipExistingFilenames;
         Config.AppSettings.Save(config);
     }
@@ -618,6 +640,7 @@ public partial class SettingsViewModel : ObservableObject
     {
         RefreshSchemeLabels();
         RefreshQualityLabels();
+        RefreshLiveStrategyLabels();
         NotifyCodecStatus();
         RefreshIdleProxyText();
         OnPropertyChanged(nameof(BackupAdvancedButtonText));
@@ -704,6 +727,17 @@ public partial class SettingsViewModel : ObservableObject
         SelectedGooglePhotosQualityIndex = index;
     }
 
+    private void RefreshLiveStrategyLabels()
+    {
+        int index = SelectedGooglePhotosLiveStrategyIndex is >= 0 and <= 2 ? SelectedGooglePhotosLiveStrategyIndex : 1;
+        UiLists.Replace(
+            GooglePhotosLiveStrategyOptions,
+            App.GetString("LiveStrategyMotion", "动态照片封装"),
+            App.GetString("LiveStrategyApplePair", "原始照片配对"),
+            App.GetString("LiveStrategyAppleReconcile", "原始照片配对（分步上传）"));
+        SelectedGooglePhotosLiveStrategyIndex = index;
+    }
+
     private void RefreshSchemeLabels()
     {
         string token = SchemeToken(SelectedScheme);
@@ -757,6 +791,7 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnGooglePhotosTimeoutSecondsChanged(int value) => SaveConfig();
     partial void OnGooglePhotosAutoRetryAttemptsChanged(int value) => SaveConfig();
     partial void OnSelectedGooglePhotosQualityIndexChanged(int value) => SaveConfig();
+    partial void OnSelectedGooglePhotosLiveStrategyIndexChanged(int value) => SaveConfig();
     partial void OnGooglePhotosSkipExistingFilenamesChanged(bool value) => SaveConfig();
 
     [RelayCommand(CanExecute = nameof(CanTestProxy))]

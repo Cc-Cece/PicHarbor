@@ -415,6 +415,9 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     private bool storageSaver = false;
 
     [ObservableProperty]
+    private GooglePhotosLiveStrategy liveStrategy = GooglePhotosLiveStrategy.ApplePair;
+
+    [ObservableProperty]
     private bool skipExistingFilenames = true;
 
     [ObservableProperty]
@@ -799,6 +802,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         Threads = config.GooglePhotosThreads > 0 ? config.GooglePhotosThreads : 3;
         UnlimitedQuality = config.GooglePhotosUnlimitedQuality;
         StorageSaver = config.GooglePhotosStorageSaver;
+        LiveStrategy = ParseLiveStrategy(config.GooglePhotosLiveStrategy);
         SkipExistingFilenames = config.GooglePhotosSkipExistingFilenames;
         GpmcPath = config.GooglePhotosGpmcPath;
         TimeoutSeconds = config.GooglePhotosTimeoutSeconds > 0 ? config.GooglePhotosTimeoutSeconds : 60;
@@ -832,6 +836,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         config.GooglePhotosThreads = Threads;
         config.GooglePhotosUnlimitedQuality = UnlimitedQuality;
         config.GooglePhotosStorageSaver = StorageSaver;
+        config.GooglePhotosLiveStrategy = FormatLiveStrategy(LiveStrategy);
         config.GooglePhotosSkipExistingFilenames = SkipExistingFilenames;
         config.GooglePhotosGpmcPath = GpmcPath;
         config.GooglePhotosTimeoutSeconds = TimeoutSeconds;
@@ -870,6 +875,21 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     partial void OnThreadsChanged(int value) => SaveConfig();
     partial void OnUnlimitedQualityChanged(bool value) => SaveConfig();
     partial void OnStorageSaverChanged(bool value) => SaveConfig();
+    partial void OnLiveStrategyChanged(GooglePhotosLiveStrategy value) => SaveConfig();
+
+    private static GooglePhotosLiveStrategy ParseLiveStrategy(string? value) => value switch
+    {
+        "motion" => GooglePhotosLiveStrategy.Motion,
+        "appleReconcile" => GooglePhotosLiveStrategy.AppleReconcile,
+        _ => GooglePhotosLiveStrategy.ApplePair,
+    };
+
+    private static string FormatLiveStrategy(GooglePhotosLiveStrategy value) => value switch
+    {
+        GooglePhotosLiveStrategy.Motion => "motion",
+        GooglePhotosLiveStrategy.AppleReconcile => "appleReconcile",
+        _ => "applePair",
+    };
     partial void OnSkipExistingFilenamesChanged(bool value) => SaveConfig();
     partial void OnGpmcPathChanged(string value) => SaveConfig();
     partial void OnTimeoutSecondsChanged(int value) => SaveConfig();
@@ -1067,7 +1087,8 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             AuthData = AuthData,
             Proxy = Proxy,
             TimeoutSeconds = TimeoutSeconds,
-            GpmcPath = GpmcPath
+            GpmcPath = GpmcPath,
+            LiveStrategy = LiveStrategy,
         };
 
         try
@@ -1519,6 +1540,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             Threads = Threads,
             UnlimitedQuality = UnlimitedQuality,
             StorageSaver = StorageSaver,
+            LiveStrategy = LiveStrategy,
             SkipExistingFilenames = SkipExistingFilenames,
             GpmcPath = GpmcPath,
             TimeoutSeconds = TimeoutSeconds,
@@ -1780,6 +1802,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             Threads = Threads,
             UnlimitedQuality = UnlimitedQuality,
             StorageSaver = StorageSaver,
+            LiveStrategy = LiveStrategy,
             SkipExistingFilenames = SkipExistingFilenames,
             GpmcPath = GpmcPath,
             TimeoutSeconds = TimeoutSeconds,
@@ -1992,6 +2015,7 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             Threads = Threads,
             UnlimitedQuality = UnlimitedQuality,
             StorageSaver = StorageSaver,
+            LiveStrategy = LiveStrategy,
             SkipExistingFilenames = false,
             GpmcPath = GpmcPath,
             TimeoutSeconds = TimeoutSeconds,

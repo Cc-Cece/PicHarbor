@@ -85,6 +85,9 @@ public sealed class AppConfig
     public int GooglePhotosThreads { get; set; } = 3;
     public bool GooglePhotosUnlimitedQuality { get; set; } = true;
     public bool GooglePhotosStorageSaver { get; set; } = false;
+
+    /// <summary>motion, applePair, or appleReconcile. New uploads only.</summary>
+    public string GooglePhotosLiveStrategy { get; set; } = "applePair";
     public bool GooglePhotosSkipExistingFilenames { get; set; } = false;
     public string GooglePhotosGpmcPath { get; set; } = string.Empty;
     public int GooglePhotosTimeoutSeconds { get; set; } = 60;

@@ -177,7 +177,8 @@ def main():
             target = valid_media
 
         if not target:
-            output_error("No target media files found to upload", code=4)
+            output_result({"status": "ok", "results": {}})
+            sys.exit(0)
 
         album_name = config.get("album_name")
         album_id = config.get("album_id")

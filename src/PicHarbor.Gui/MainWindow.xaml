@@ -341,6 +341,11 @@
                                     </Style>
                                 </StackPanel.Style>
 
+                                <controls:PclButton Content="{DynamicResource HeroReceiveWireless}"
+                                                    Command="{Binding OpenWirelessLinkCommand}"
+                                                    Height="40"
+                                                    Margin="0,0,0,10" />
+
                                 <!-- Hero Action Button (Idle) -->
                                 <controls:PclButton Content="{DynamicResource HeroStartBackup}"
                                                     Subtitle="{Binding BackupVM.DestinationSubtitle}"
@@ -384,6 +389,11 @@
                                         </Style.Triggers>
                                     </Style>
                                 </StackPanel.Style>
+
+                                <controls:PclButton Content="{DynamicResource HeroReceiveWireless}"
+                                                    Command="{Binding OpenWirelessLinkCommand}"
+                                                    Height="40"
+                                                    Margin="0,0,0,10" />
 
                                 <!-- Hero Action Button (Idle) -->
                                 <controls:PclButton Content="{DynamicResource HeroStartBackup}"
@@ -1874,6 +1884,18 @@
                                                                       ItemsSource="{Binding GooglePhotosQualityOptions}"
                                                                       SelectedIndex="{Binding SelectedGooglePhotosQualityIndex, Mode=TwoWay}" Height="28" />
                                             </Grid>
+
+                                            <Grid Margin="0,0,0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{DynamicResource SettingsLiveStrategyLabel}" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" Margin="0,0,16,0" />
+                                                <controls:PclComboBox Grid.Column="1"
+                                                                      ItemsSource="{Binding GooglePhotosLiveStrategyOptions}"
+                                                                      SelectedIndex="{Binding SelectedGooglePhotosLiveStrategyIndex, Mode=TwoWay}" Height="28" />
+                                            </Grid>
+                                            <TextBlock Text="{DynamicResource SettingsLiveStrategyHint}" FontSize="11.5" Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,0,0,12" />
 
                                             <!-- 跳过同名文件 (默认关) -->
                                             <controls:PclCheckBox Content="{DynamicResource SettingsSkipExistingFilenamesOption}" IsChecked="{Binding GooglePhotosSkipExistingFilenames, Mode=TwoWay}" Margin="0,0,0,12" />

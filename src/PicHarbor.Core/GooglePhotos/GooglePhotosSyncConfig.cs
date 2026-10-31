@@ -64,6 +64,12 @@ public sealed class GooglePhotosSyncConfig
     /// <summary>Upload in Storage Saver quality.</summary>
     public bool StorageSaver { get; set; } = false;
 
+    /// <summary>
+    /// How two-part Live Photos are sent. Single-file motion photos are uploaded unchanged.
+    /// The default links the original still and video into one Google Photos item.
+    /// </summary>
+    public GooglePhotosLiveStrategy LiveStrategy { get; set; } = GooglePhotosLiveStrategy.ApplePair;
+
     /// <summary>Skip uploading duplicate filenames based on synced local cache.</summary>
     public bool SkipExistingFilenames { get; set; } = true;
 

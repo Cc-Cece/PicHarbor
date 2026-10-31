@@ -29,6 +29,7 @@
   <ItemGroup>
     <EmbeddedResource Include="GooglePhotos\gpmc_bundle.zip" LogicalName="gpmc_bundle.zip" />
     <EmbeddedResource Include="GooglePhotos\python_runtime.zip" LogicalName="python_runtime.zip" />
+    <EmbeddedResource Include="GooglePhotos\live_pair.py" LogicalName="live_pair.py" />
   </ItemGroup>
 
 </Project>

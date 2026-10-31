@@ -809,6 +809,34 @@ public static class GooglePhotosSyncEngine
         long effectiveTotalBytes = config.SessionTotalBytes ?? totalBytes;
 
         string tempConfigFile = SecureTemporaryFile.CreatePath("gpmc_upload");
+        var (ordinaryFiles, livePairs) = LivePhotoGrouper.Separate(plan.Files);
+        var uploadFiles = new List<GooglePhotosPreparedFile>(ordinaryFiles);
+        var motionAliases = new Dictionary<string, (string Still, string Video)>(StringComparer.OrdinalIgnoreCase);
+        string? motionDirectory = null;
+        int motionFailures = 0;
+        if (config.LiveStrategy == GooglePhotosLiveStrategy.Motion && livePairs.Count > 0)
+        {
+            motionDirectory = Path.Combine(Path.GetTempPath(), "picharbor-motion-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(motionDirectory);
+            foreach (var pair in livePairs)
+            {
+                try
+                {
+                    string muxed = MotionPhotoMux.Package(pair.Still.Path, pair.Video.Path, motionDirectory);
+                    var muxInfo = new FileInfo(muxed);
+                    uploadFiles.Add(new GooglePhotosPreparedFile(muxed, muxInfo.Length, pair.Still.ModifiedUnixMilliseconds, null));
+                    motionAliases[muxed] = (pair.Still.Path, pair.Video.Path);
+                    onLog?.Invoke($"[Google Photos] 已封装动态照片: {Path.GetFileName(pair.Still.Path)}。未读取到实况关键帧，动态照片从开头播放。");
+                }
+                catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException)
+                {
+                    motionFailures += 2;
+                    onLog?.Invoke($"[Google Photos] 实况封装失败: {Path.GetFileName(pair.Still.Path)}: {ex.Message}");
+                }
+            }
+        }
+
+        targetAbsoluteFiles = uploadFiles.Select(file => file.Path).ToList();
 
         try
         {
@@ -833,7 +861,7 @@ public static class GooglePhotosSyncEngine
                 // Always send the fixed list, including external directories. Never rescan in Python.
                 target_dir = (string?)null,
                 target_paths = targetAbsoluteFiles,
-                prepared_files = plan.Files.Select(f => new
+                prepared_files = uploadFiles.Select(f => new
                 {
                     path = f.Path,
                     size = f.Size,
@@ -867,7 +895,7 @@ public static class GooglePhotosSyncEngine
 
             int completedCount = 0;
             int skippedCount = 0;
-            int failedCount = 0;
+            int failedCount = motionFailures;
             long uploadedBytes = 0;
             var stopwatch = Stopwatch.StartNew();
 
@@ -1064,6 +1092,29 @@ public static class GooglePhotosSyncEngine
                 onLog?.Invoke($"[Google Photos] 引擎异常退出: {errMsg}");
                 throw new InvalidOperationException($"Google Photos 同步失败: {errMsg}");
             }
+            foreach (var alias in motionAliases)
+            {
+                if (!mediaKeys.TryGetValue(alias.Key, out string? mediaKey) || string.IsNullOrWhiteSpace(mediaKey))
+                {
+                    continue;
+                }
+
+                mediaKeys[alias.Value.Still] = mediaKey;
+                mediaKeys[alias.Value.Video] = mediaKey;
+                mediaKeys.Remove(alias.Key);
+                completedCount++;
+            }
+
+            if (config.LiveStrategy != GooglePhotosLiveStrategy.Motion && livePairs.Count > 0)
+            {
+                await UploadLivePairsAsync(config, livePairs, mediaKeys, (completed, skipped, failed) =>
+                {
+                    completedCount += completed;
+                    skippedCount += skipped;
+                    failedCount += failed;
+                }, onLog, onItemProcessed, cancellationToken).ConfigureAwait(false);
+            }
+
             if (journal != null && mediaKeys.Count > 0)
             {
                 ReportStage("preparing_records", 0, 0);
@@ -1095,7 +1146,153 @@ public static class GooglePhotosSyncEngine
         {
             journal?.Dispose();
             try { if (File.Exists(tempConfigFile)) File.Delete(tempConfigFile); } catch { }
+            if (motionDirectory is not null)
+            {
+                try { Directory.Delete(motionDirectory, true); } catch (IOException) { }
+            }
         }
+    }
+
+    private static async Task UploadLivePairsAsync(
+        GooglePhotosSyncConfig config,
+        IReadOnlyList<LivePhotoPair> pairs,
+        Dictionary<string, string> mediaKeys,
+        Action<int, int, int> note,
+        Action<string>? onLog,
+        Action<GooglePhotosProgressEvent>? onItemProcessed,
+        CancellationToken cancellationToken)
+    {
+        string script = LocateLivePairScript();
+        string quality = config.StorageSaver ? "saver" : config.UnlimitedQuality ? "original" : "quota";
+        string route = config.LiveStrategy == GooglePhotosLiveStrategy.AppleReconcile ? "reconcile" : "joint";
+        var payload = new
+        {
+            auth_data = config.EffectiveAuthCredential,
+            proxy = config.Proxy ?? "",
+            timeout = config.TimeoutSeconds > 0 ? config.TimeoutSeconds : 60,
+            gpmc_path = config.GpmcPath ?? "",
+            quality,
+            route,
+            pairs = pairs.Select(pair => new
+            {
+                photo = pair.Still.Path,
+                video = pair.Video.Path,
+                photo_name = Path.GetFileName(pair.Still.Path),
+                video_name = Path.GetFileName(pair.Video.Path),
+                created = pair.Still.ModifiedUnixMilliseconds / 1000,
+            }),
+        };
+        string tempConfigFile = SecureTemporaryFile.CreatePath("gpmc_live_pair");
+        try
+        {
+            await File.WriteAllTextAsync(tempConfigFile, JsonSerializer.Serialize(payload), Utf8NoBom, cancellationToken).ConfigureAwait(false);
+            var psi = CreateGpmcProcess(script, tempConfigFile);
+            onLog?.Invoke($"[Google Photos] 按{(route == "joint" ? "原始照片配对" : "分步配对")}上传 {pairs.Count} 组实况照片...");
+            using var process = new Process { StartInfo = psi };
+            process.Start();
+            using var stop = cancellationToken.Register(() =>
+            {
+                try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+                catch (InvalidOperationException) { }
+                catch (System.ComponentModel.Win32Exception) { }
+            });
+            var stderr = Task.Run(async () =>
+            {
+                string? line;
+                while ((line = await process.StandardError.ReadLineAsync(cancellationToken).ConfigureAwait(false)) != null)
+                {
+                    if (string.IsNullOrWhiteSpace(line) || !line.StartsWith('{'))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        var evt = JsonSerializer.Deserialize<GooglePhotosProgressEvent>(line, JsonOptions);
+                        if (evt is null)
+                        {
+                            continue;
+                        }
+
+                        string phase = evt.Phase?.ToLowerInvariant() ?? "";
+                        if (phase is "completed" or "complete")
+                        {
+                            note(1, 0, 0);
+                            onItemProcessed?.Invoke(evt);
+                        }
+                        else if (phase is "skipped")
+                        {
+                            note(0, 1, 0);
+                            onItemProcessed?.Invoke(evt);
+                        }
+                        else if (phase is "failed" or "error")
+                        {
+                            note(0, 0, 2);
+                            onLog?.Invoke($"[Google Photos] 实况配对失败: {evt.Filename} {evt.Error}");
+                            onItemProcessed?.Invoke(evt);
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                    }
+                }
+            }, cancellationToken);
+            string stdout = await process.StandardOutput.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            await stderr.ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(stdout))
+            {
+                return;
+            }
+
+            var json = ExtractJsonResult(stdout);
+            if (!json.HasValue)
+            {
+                return;
+            }
+
+            if (json.Value.TryGetProperty("results", out var results) && results.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in results.EnumerateObject())
+                {
+                    string key = prop.Value.GetString() ?? "";
+                    if (!string.IsNullOrWhiteSpace(key))
+                    {
+                        mediaKeys[prop.Name] = key;
+                    }
+                }
+            }
+
+            if (json.Value.TryGetProperty("error", out var error) && error.GetString() is { Length: > 0 } message)
+            {
+                onLog?.Invoke($"[Google Photos] 实况配对未完成: {message}");
+            }
+        }
+        finally
+        {
+            try { if (File.Exists(tempConfigFile)) File.Delete(tempConfigFile); } catch (IOException) { }
+        }
+    }
+
+    private static string LocateLivePairScript()
+    {
+        string path = Path.Combine(RuntimeDirectory, "live_pair.py");
+        Directory.CreateDirectory(RuntimeDirectory);
+        byte[]? bytes = ReadEmbeddedBytes("live_pair.py");
+        if (bytes is null)
+        {
+            throw new FileNotFoundException("未找到内置实况配对脚本。请重新安装 PicHarbor。", "live_pair.py");
+        }
+
+        string marker = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes));
+        string markerPath = path + ".sha256";
+        if (!File.Exists(path) || !File.Exists(markerPath) || !string.Equals(File.ReadAllText(markerPath).Trim(), marker, StringComparison.OrdinalIgnoreCase))
+        {
+            File.WriteAllBytes(path, bytes);
+            File.WriteAllText(markerPath, marker, Utf8NoBom);
+        }
+
+        return path;
     }
 
     private static DateTimeOffset? ParseCaptureDate(ManifestEntry entry)
@@ -1330,7 +1527,8 @@ public static class GooglePhotosSyncEngine
                 target = valid_media
 
             if not target:
-                output_error("No target media files found to upload", code=4)
+                output_result({"status": "ok", "results": {}})
+                sys.exit(0)
 
             album_name = config.get("album_name")
             album_id = config.get("album_id")

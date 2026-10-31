@@ -7,6 +7,8 @@ using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PicHarbor.Core.Device;
+using PicHarbor.Core.GooglePhotos;
+using PicHarbor.Core.Organize;
 using PicHarbor.Core.Storage;
 using PicHarbor.Core.Util;
 using PicHarbor.Gui.Config;
@@ -266,6 +268,15 @@ public partial class MainViewModel : ObservableObject
             if (e.PropertyName == nameof(SettingsViewModel.GooglePhotosSkipExistingFilenames))
             {
                 GooglePhotosVM.SkipExistingFilenames = SettingsVM.GooglePhotosSkipExistingFilenames;
+            }
+            if (e.PropertyName == nameof(SettingsViewModel.SelectedGooglePhotosLiveStrategyIndex))
+            {
+                GooglePhotosVM.LiveStrategy = SettingsVM.SelectedGooglePhotosLiveStrategyIndex switch
+                {
+                    0 => GooglePhotosLiveStrategy.Motion,
+                    2 => GooglePhotosLiveStrategy.AppleReconcile,
+                    _ => GooglePhotosLiveStrategy.ApplePair,
+                };
             }
         };
 
@@ -1092,6 +1103,36 @@ public partial class MainViewModel : ObservableObject
     {
         SelectedTabIndex = 2;
         SyncSubTabIndex = 1;
+    }
+
+    [RelayCommand]
+    public void OpenWirelessLink()
+    {
+        if (string.IsNullOrWhiteSpace(DestinationPath))
+        {
+            MessageBox.Show(
+                App.GetString("WirelessNeedArchive", "请先选择归档目录，手机传来的照片会写入这个目录。"),
+                App.GetString("MsgBoxTitle", "提示"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var window = new WirelessLinkWindow(DestinationPath, ParseOrganizeScheme(SettingsVM.SelectedScheme), SettingsVM.GroupMediaByDevice);
+        if (Application.Current?.MainWindow is Window owner)
+        {
+            window.Owner = owner;
+        }
+
+        window.Show();
+    }
+
+    private static OrganizeScheme ParseOrganizeScheme(string schemeText)
+    {
+        if (schemeText.StartsWith("year-month", StringComparison.Ordinal)) return OrganizeScheme.YearMonth;
+        if (schemeText.StartsWith("year", StringComparison.Ordinal)) return OrganizeScheme.Year;
+        if (schemeText.StartsWith("flat", StringComparison.Ordinal)) return OrganizeScheme.Flat;
+        return OrganizeScheme.Month;
     }
 
     [RelayCommand]
