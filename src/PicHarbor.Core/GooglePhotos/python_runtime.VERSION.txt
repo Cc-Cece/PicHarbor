@@ -1,0 +1,19 @@
+PicHarbor bundled Python runtime
+CPython 3.12.10 embeddable win-amd64
+Source: https://www.python.org/ftp/python/3.12.10/python-3.12.10-embeddable-amd64.zip
+
+Third-party wheels:
+certifi-2026.10.23-py3-none-any
+charset_normalizer-3.5.2-cp312-cp312-win_amd64
+idna-3.20-py3-none-any
+markdown_it_py-4.2.0-py3-none-any
+mdurl-0.1.2-py3-none-any
+pygments-2.21.0-py3-none-any
+requests-2.34.2-py3-none-any
+rich-15.0.0-py3-none-any
+six-1.17.0-py2.py3-none-any
+urllib3-2.8.0-py3-none-any
+
+CPython is licensed under the PSF License (LICENSE.txt in this archive).
+Each wheel keeps its license in *.dist-info.
+This runtime is private to PicHarbor. It is not added to PATH.

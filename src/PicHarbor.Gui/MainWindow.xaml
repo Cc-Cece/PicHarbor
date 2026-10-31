@@ -1860,25 +1860,7 @@
 
                                 <!-- [高级 折叠] -->
                                 <StackPanel Visibility="{Binding IsCloudAdvancedExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <!-- Card 1: Python 解释器路径 [新增] -->
-                                    <controls:PclCard Title="{DynamicResource SettingsCardPythonPath}" CanSwap="False">
-                                        <StackPanel>
-                                            <TextBlock Text="{DynamicResource SettingsPythonPathDesc}"
-                                                       FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,0,0,10" />
-                                            <Grid Margin="0,0,0,4">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Text="{DynamicResource SettingsPythonLabel}" Foreground="{DynamicResource ColorBrush1}" VerticalAlignment="Center" Margin="0,0,14,0" />
-                                                <TextBox Grid.Column="1" Text="{Binding GooglePhotosPythonPath, UpdateSourceTrigger=PropertyChanged}" Height="28" VerticalContentAlignment="Center" Padding="6,0" BorderBrush="{DynamicResource ColorBrush6}" />
-                                                <controls:PclButton Grid.Column="2" Content="{DynamicResource SettingsBtnBrowse}" Command="{Binding BrowsePythonPathCommand}" Height="28" Margin="8,0,0,0" Padding="12,0" />
-                                            </Grid>
-                                        </StackPanel>
-                                    </controls:PclCard>
-
-                                    <!-- Card 2: 谷歌相册上传参数 (原: 云上传引擎底层参数 (Google Photos Engine)) -->
+                                    <!-- 谷歌相册上传参数 -->
                                     <controls:PclCard Title="{DynamicResource SettingsCardGooglePhotosParams}" CanSwap="False">
                                         <StackPanel>
                                             <!-- 画质与配额策略 (下拉选择) -->

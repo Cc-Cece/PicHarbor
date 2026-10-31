@@ -418,9 +418,6 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     private bool skipExistingFilenames = true;
 
     [ObservableProperty]
-    private string pythonPath = "python";
-
-    [ObservableProperty]
     private string gpmcPath = @"C:\Users\Kanbara\Code\01_projects\01_PicHarbor\gpmc";
 
     [ObservableProperty]
@@ -803,7 +800,6 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         UnlimitedQuality = config.GooglePhotosUnlimitedQuality;
         StorageSaver = config.GooglePhotosStorageSaver;
         SkipExistingFilenames = config.GooglePhotosSkipExistingFilenames;
-        PythonPath = !string.IsNullOrWhiteSpace(config.GooglePhotosPythonPath) ? config.GooglePhotosPythonPath : "python";
         GpmcPath = config.GooglePhotosGpmcPath;
         TimeoutSeconds = config.GooglePhotosTimeoutSeconds > 0 ? config.GooglePhotosTimeoutSeconds : 60;
         AutoRetryAttempts = config.GooglePhotosAutoRetryAttempts > 0 ? config.GooglePhotosAutoRetryAttempts : 3;
@@ -837,7 +833,6 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         config.GooglePhotosUnlimitedQuality = UnlimitedQuality;
         config.GooglePhotosStorageSaver = StorageSaver;
         config.GooglePhotosSkipExistingFilenames = SkipExistingFilenames;
-        config.GooglePhotosPythonPath = PythonPath;
         config.GooglePhotosGpmcPath = GpmcPath;
         config.GooglePhotosTimeoutSeconds = TimeoutSeconds;
         config.GooglePhotosAutoRetryAttempts = AutoRetryAttempts;
@@ -876,7 +871,6 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
     partial void OnUnlimitedQualityChanged(bool value) => SaveConfig();
     partial void OnStorageSaverChanged(bool value) => SaveConfig();
     partial void OnSkipExistingFilenamesChanged(bool value) => SaveConfig();
-    partial void OnPythonPathChanged(string value) => SaveConfig();
     partial void OnGpmcPathChanged(string value) => SaveConfig();
     partial void OnTimeoutSecondsChanged(int value) => SaveConfig();
     partial void OnAutoRetryAttemptsChanged(int value) => SaveConfig();
@@ -1073,7 +1067,6 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             AuthData = AuthData,
             Proxy = Proxy,
             TimeoutSeconds = TimeoutSeconds,
-            PythonPath = PythonPath,
             GpmcPath = GpmcPath
         };
 
@@ -1150,20 +1143,6 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
         if (dialog.ShowDialog() == true)
         {
             CustomTargetPath = dialog.FolderName;
-        }
-    }
-
-    [RelayCommand]
-    private void BrowsePythonPath()
-    {
-        var dialog = new OpenFileDialog
-        {
-            Title = App.GetString("GooglePickPython", "选择 Python 解释器 (python.exe)"),
-            Filter = "Python (python*.exe)|python*.exe|All Executables (*.exe)|*.exe|All Files (*.*)|*.*"
-        };
-        if (dialog.ShowDialog() == true)
-        {
-            PythonPath = dialog.FileName;
         }
     }
 
@@ -1541,7 +1520,6 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             UnlimitedQuality = UnlimitedQuality,
             StorageSaver = StorageSaver,
             SkipExistingFilenames = SkipExistingFilenames,
-            PythonPath = PythonPath,
             GpmcPath = GpmcPath,
             TimeoutSeconds = TimeoutSeconds,
             AutoRetryAttempts = AutoRetryAttempts,
@@ -1803,7 +1781,6 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             UnlimitedQuality = UnlimitedQuality,
             StorageSaver = StorageSaver,
             SkipExistingFilenames = SkipExistingFilenames,
-            PythonPath = PythonPath,
             GpmcPath = GpmcPath,
             TimeoutSeconds = TimeoutSeconds,
             AutoRetryAttempts = AutoRetryAttempts,
@@ -2016,7 +1993,6 @@ public partial class GooglePhotosSyncViewModel : ObservableObject
             UnlimitedQuality = UnlimitedQuality,
             StorageSaver = StorageSaver,
             SkipExistingFilenames = false,
-            PythonPath = PythonPath,
             GpmcPath = GpmcPath,
             TimeoutSeconds = TimeoutSeconds,
             AutoRetryAttempts = AutoRetryAttempts,

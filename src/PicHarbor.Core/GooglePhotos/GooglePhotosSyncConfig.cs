@@ -70,9 +70,6 @@ public sealed class GooglePhotosSyncConfig
     /// <summary>Force re-upload even if remote hash exists.</summary>
     public bool ForceUpload { get; set; } = false;
 
-    /// <summary>Python executable path.</summary>
-    public string PythonPath { get; set; } = "python";
-
     /// <summary>Path to the gpmc repository or installation (optional, bundled by default).</summary>
     public string? GpmcPath { get; set; }
 

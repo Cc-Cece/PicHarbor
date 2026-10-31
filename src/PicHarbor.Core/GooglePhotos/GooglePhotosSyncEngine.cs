@@ -109,6 +109,148 @@ public static class GooglePhotosSyncEngine
         return targetBridge;
     }
 
+    /// <summary>
+    /// Directory of the private CPython runtime.
+    /// Path: %LocalAppData%\PicHarbor\runtime\python\
+    /// </summary>
+    public static string PythonDirectory => Path.Combine(RuntimeDirectory, "python");
+
+    /// <summary>
+    /// Extracts the embedded CPython runtime when its hash changes and returns python.exe.
+    /// The interpreter is isolated by its ._pth file and is never resolved from PATH.
+    /// </summary>
+    public static string LocatePythonExecutable()
+    {
+        byte[] bundleBytes = ReadEmbeddedBytes("python_runtime.zip")
+            ?? throw new FileNotFoundException("未找到内置 Python 运行时。请重新安装 PicHarbor。", "python_runtime.zip");
+
+        string versionMarker = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bundleBytes));
+        string pythonDir = PythonDirectory;
+        string pythonExe = Path.Combine(pythonDir, "python.exe");
+        string markerFile = Path.Combine(pythonDir, "python_runtime_version.txt");
+        if (File.Exists(pythonExe)
+            && File.Exists(markerFile)
+            && string.Equals(File.ReadAllText(markerFile).Trim(), versionMarker, StringComparison.OrdinalIgnoreCase))
+        {
+            return pythonExe;
+        }
+
+        string staging = pythonDir + ".new";
+        try
+        {
+            if (Directory.Exists(staging)) Directory.Delete(staging, recursive: true);
+            Directory.CreateDirectory(staging);
+            ExtractZip(bundleBytes, staging);
+            File.WriteAllText(Path.Combine(staging, "python_runtime_version.txt"), versionMarker, Utf8NoBom);
+
+            if (Directory.Exists(pythonDir))
+            {
+                string backup = pythonDir + ".old";
+                if (Directory.Exists(backup)) Directory.Delete(backup, recursive: true);
+                Directory.Move(pythonDir, backup);
+                try
+                {
+                    Directory.Move(staging, pythonDir);
+                    Directory.Delete(backup, recursive: true);
+                }
+                catch
+                {
+                    if (!Directory.Exists(pythonDir) && Directory.Exists(backup))
+                    {
+                        Directory.Move(backup, pythonDir);
+                    }
+                    throw;
+                }
+            }
+            else
+            {
+                Directory.Move(staging, pythonDir);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new InvalidOperationException("内置 Python 正在使用，请结束正在进行的 Google 相册任务后重试。", ex);
+        }
+
+        if (!File.Exists(pythonExe))
+        {
+            throw new FileNotFoundException("内置 Python 运行时解压失败。", pythonExe);
+        }
+
+        return pythonExe;
+    }
+
+    private static ProcessStartInfo CreateGpmcProcess(string bridgePath, string tempConfigFile)
+    {
+        var start = new ProcessStartInfo
+        {
+            FileName = LocatePythonExecutable(),
+            Arguments = $"\"{bridgePath}\" \"{tempConfigFile}\"",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = Utf8NoBom,
+            StandardErrorEncoding = Utf8NoBom,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        start.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+        start.EnvironmentVariables["PYTHONUTF8"] = "1";
+        start.EnvironmentVariables["PYTHONPATH"] = RuntimeDirectory;
+        return start;
+    }
+
+    private static byte[]? ReadEmbeddedBytes(string logicalName)
+    {
+        var assembly = typeof(GooglePhotosSyncEngine).Assembly;
+        Stream? resourceStream = assembly.GetManifestResourceStream(logicalName);
+        if (resourceStream == null)
+        {
+            string? resName = assembly.GetManifestResourceNames()
+                .FirstOrDefault(n => n.EndsWith(logicalName, StringComparison.OrdinalIgnoreCase));
+            if (resName != null)
+            {
+                resourceStream = assembly.GetManifestResourceStream(resName);
+            }
+        }
+
+        if (resourceStream == null) return null;
+        using (resourceStream)
+        using (var ms = new MemoryStream())
+        {
+            resourceStream.CopyTo(ms);
+            return ms.ToArray();
+        }
+    }
+
+    private static void ExtractZip(byte[] zipBytes, string destination)
+    {
+        string root = Path.GetFullPath(destination);
+        Directory.CreateDirectory(root);
+        string rootPrefix = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        using var archive = new ZipArchive(new MemoryStream(zipBytes), ZipArchiveMode.Read);
+        foreach (ZipArchiveEntry entry in archive.Entries)
+        {
+            string relative = entry.FullName.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+            if (string.IsNullOrWhiteSpace(relative)) continue;
+            string target = Path.GetFullPath(Path.Combine(root, relative));
+            if (!target.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(target, root, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException("内置 Python 运行时包含非法路径。");
+            }
+
+            if (string.IsNullOrEmpty(entry.Name))
+            {
+                Directory.CreateDirectory(target);
+                continue;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            entry.ExtractToFile(target, overwrite: true);
+        }
+    }
+
     private static string Redact(string text,GooglePhotosSyncConfig config)
     {
         foreach(string secret in new[]{config.AuthData,config.OAuthTokenCookie,config.EffectiveAuthCredential})
@@ -318,20 +460,7 @@ public static class GooglePhotosSyncEngine
 
             await File.WriteAllTextAsync(tempConfigFile, JsonSerializer.Serialize(payload), Utf8NoBom, cancellationToken).ConfigureAwait(false);
 
-            var psi = new ProcessStartInfo
-            {
-                FileName = string.IsNullOrWhiteSpace(config.PythonPath) ? "python" : config.PythonPath,
-                Arguments = $"\"{bridgePath}\" \"{tempConfigFile}\"",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                StandardOutputEncoding = Utf8NoBom,
-                StandardErrorEncoding = Utf8NoBom,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
-            psi.EnvironmentVariables["PYTHONUTF8"] = "1";
-            psi.EnvironmentVariables["PYTHONPATH"] = RuntimeDirectory;
+            var psi = CreateGpmcProcess(bridgePath, tempConfigFile);
 
             using var process = new Process { StartInfo = psi };
             process.Start();
@@ -723,20 +852,7 @@ public static class GooglePhotosSyncEngine
 
             await File.WriteAllTextAsync(tempConfigFile, JsonSerializer.Serialize(payload), Utf8NoBom, cancellationToken).ConfigureAwait(false);
 
-            var psi = new ProcessStartInfo
-            {
-                FileName = string.IsNullOrWhiteSpace(config.PythonPath) ? "python" : config.PythonPath,
-                Arguments = $"\"{bridgePath}\" \"{tempConfigFile}\"",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                StandardOutputEncoding = Utf8NoBom,
-                StandardErrorEncoding = Utf8NoBom,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
-            psi.EnvironmentVariables["PYTHONUTF8"] = "1";
-            psi.EnvironmentVariables["PYTHONPATH"] = RuntimeDirectory;
+            var psi = CreateGpmcProcess(bridgePath, tempConfigFile);
 
             onLog?.Invoke($"[Google Photos] 启动 gpmc 引擎 (并发线程: {payload.threads}, 自动重试: {payload.auto_retries}次, 无限原画: {config.UnlimitedQuality})...");
 

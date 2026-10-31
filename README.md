@@ -65,7 +65,7 @@ Get-FileHash .\PicHarbor.Gui.exe -Algorithm SHA256
 | **iPhone Backup** | Apple USB drivers (via iTunes for Windows or the Apple Devices app). Connect via USB, unlock device, and tap **Trust This Computer**. |
 | **Android Backup** | Running FTP server on the device, network connectivity, and configured server credentials in PicHarbor. |
 | **iPhone Restore** | Sync exported folders to iPhone Photos via Apple Devices or iTunes (AFC does not support direct import). |
-| **Google Photos** | Python interpreter and Google credentials configured in the Google Photos view. |
+| **Google Photos** | Google credentials configured in the Google Photos view. The upload engine uses PicHarbor's bundled Python runtime. |
 | **Build from Source** | Windows with .NET 10 SDK. |
 
 > [!TIP]

@@ -112,4 +112,42 @@ public sealed class GooglePhotosConfigTests
         Directory.Exists(Path.Combine(GooglePhotosSyncEngine.RuntimeDirectory, "gpmc")).ShouldBeTrue();
         Directory.Exists(Path.Combine(GooglePhotosSyncEngine.RuntimeDirectory, "blackboxprotobuf")).ShouldBeTrue();
     }
+
+    [Fact]
+    public async Task Bundled_python_imports_gpmc_without_a_system_interpreter()
+    {
+        GooglePhotosSyncEngine.LocateBridgeScript();
+        string pythonExe = GooglePhotosSyncEngine.LocatePythonExecutable();
+        pythonExe.ShouldStartWith(GooglePhotosSyncEngine.PythonDirectory);
+        File.Exists(pythonExe).ShouldBeTrue();
+
+        string pthPath = Directory.GetFiles(GooglePhotosSyncEngine.PythonDirectory, "python*._pth").Single();
+        string pth = File.ReadAllText(pthPath);
+        pth.ShouldContain("Lib/site-packages");
+        pth.ShouldContain("../");
+        pth.ShouldNotContain("import site");
+
+        var start = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = pythonExe,
+            Arguments = "-c \"import requests, rich, gpmc, blackboxprotobuf, gpmc.auth; print('ok')\"",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            StandardOutputEncoding = System.Text.Encoding.UTF8,
+            StandardErrorEncoding = System.Text.Encoding.UTF8
+        };
+        using var process = System.Diagnostics.Process.Start(start);
+        process.ShouldNotBeNull();
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync(timeout.Token);
+        Task<string> stderrTask = process.StandardError.ReadToEndAsync(timeout.Token);
+        await process.WaitForExitAsync(timeout.Token);
+        string stdout = await stdoutTask;
+        string stderr = await stderrTask;
+        process.ExitCode.ShouldBe(0, $"{stdout}\n{stderr}");
+        stdout.ShouldContain("ok");
+    }
 }

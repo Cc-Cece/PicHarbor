@@ -209,9 +209,6 @@
     <sys:String x:Key="CodecThirdPartyWarning">When using third-party download or installation methods, the software cannot guarantee that the links and files are valid or safe. Verify the source yourself and comply with the license; you bear the risk.</sys:String>
     <sys:String x:Key="SettingsCardProxy">Proxy</sys:String>
     <sys:String x:Key="SettingsProxyLabel">Proxy Address:</sys:String>
-    <sys:String x:Key="SettingsCardPythonPath">Python Interpreter Path</sys:String>
-    <sys:String x:Key="SettingsPythonPathDesc">Used by the Google Photos cloud sync engine. If Google Photos cloud sync is already working properly, please do not change this.</sys:String>
-    <sys:String x:Key="SettingsPythonLabel">Interpreter Path:</sys:String>
     <sys:String x:Key="SettingsBtnBrowse">📂 Browse...</sys:String>
     <sys:String x:Key="SettingsCardGooglePhotosParams">Google Photos Upload Parameters</sys:String>
     <sys:String x:Key="SettingsQualityQuotaLabel">Quality &amp; Quota Policy:</sys:String>
@@ -738,7 +735,6 @@ Open the page in your system browser and paste the credential by hand.</sys:Stri
     <sys:String x:Key="GoogleBrowserManual">Could not open the browser. Visit this page yourself:
 https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="GooglePickUploadFolder">Choose a folder to upload</sys:String>
-    <sys:String x:Key="GooglePickPython">Choose the Python interpreter (python.exe)</sys:String>
     <sys:String x:Key="GooglePickGpmc">Choose the gpmc repository folder</sys:String>
     <sys:String x:Key="GoogleScopePickExternal">📊 Choose an external folder or file</sys:String>
     <sys:String x:Key="FmtGoogleScopeDir">📊 External folder: {0:N0} files, about {1}</sys:String>
@@ -755,8 +751,6 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="CodecMissingHevc">The HEVC video extension is not installed.</sys:String>
     <sys:String x:Key="ProxyConfiguredSuffix">(configured)</sys:String>
     <sys:String x:Key="ProxyDirect">Direct (no proxy)</sys:String>
-    <sys:String x:Key="PythonBrowseFilter">Python (python.exe)|python.exe|Programs (*.exe)|*.exe|All files (*.*)|*.*</sys:String>
-    <sys:String x:Key="PythonBrowseTitle">Choose the Python executable</sys:String>
     <sys:String x:Key="ReorgNotReady">Not ready</sys:String>
     <sys:String x:Key="FmtReorgMoveCount">{0:N0} items would move</sys:String>
     <sys:String x:Key="FmtReorgMoveCountPreview">{0:N0} items would move (showing the first {1:N0})</sys:String>

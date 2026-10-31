@@ -207,9 +207,6 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private int googlePhotosAutoRetryAttempts = 3;
 
-    [ObservableProperty]
-    private string googlePhotosPythonPath = "python";
-
     public ObservableCollection<string> GooglePhotosQualityOptions { get; } = new()
     {
         "原画质不计配额（推荐）",
@@ -258,20 +255,6 @@ public partial class SettingsViewModel : ObservableObject
 
     [RelayCommand]
     private void ToggleCloudAdvanced() => IsCloudAdvancedExpanded = !IsCloudAdvancedExpanded;
-
-    [RelayCommand]
-    private void BrowsePythonPath()
-    {
-        var dlg = new Microsoft.Win32.OpenFileDialog
-        {
-            Filter = App.GetString("PythonBrowseFilter", "Python 解释器 (python.exe)|python.exe|可执行文件 (*.exe)|*.exe|所有文件 (*.*)|*.*"),
-            Title = App.GetString("PythonBrowseTitle", "选择 Python 可执行文件路径")
-        };
-        if (dlg.ShowDialog() == true)
-        {
-            GooglePhotosPythonPath = dlg.FileName;
-        }
-    }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SyncNowCommand))]
@@ -543,7 +526,6 @@ public partial class SettingsViewModel : ObservableObject
         GooglePhotosThreads = config.GooglePhotosThreads > 0 ? config.GooglePhotosThreads : 3;
         GooglePhotosTimeoutSeconds = config.GooglePhotosTimeoutSeconds > 0 ? config.GooglePhotosTimeoutSeconds : 60;
         GooglePhotosAutoRetryAttempts = config.GooglePhotosAutoRetryAttempts > 0 ? config.GooglePhotosAutoRetryAttempts : 3;
-        GooglePhotosPythonPath = !string.IsNullOrWhiteSpace(config.GooglePhotosPythonPath) ? config.GooglePhotosPythonPath : "python";
         if (config.GooglePhotosStorageSaver)
         {
             SelectedGooglePhotosQualityIndex = 2;
@@ -582,7 +564,6 @@ public partial class SettingsViewModel : ObservableObject
         config.GooglePhotosThreads = GooglePhotosThreads;
         config.GooglePhotosTimeoutSeconds = GooglePhotosTimeoutSeconds;
         config.GooglePhotosAutoRetryAttempts = GooglePhotosAutoRetryAttempts;
-        config.GooglePhotosPythonPath = GooglePhotosPythonPath;
         config.GooglePhotosUnlimitedQuality = SelectedGooglePhotosQualityIndex == 0;
         config.GooglePhotosStorageSaver = SelectedGooglePhotosQualityIndex == 2;
         config.GooglePhotosSkipExistingFilenames = GooglePhotosSkipExistingFilenames;
@@ -775,7 +756,6 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnGooglePhotosThreadsChanged(int value) => SaveConfig();
     partial void OnGooglePhotosTimeoutSecondsChanged(int value) => SaveConfig();
     partial void OnGooglePhotosAutoRetryAttemptsChanged(int value) => SaveConfig();
-    partial void OnGooglePhotosPythonPathChanged(string value) => SaveConfig();
     partial void OnSelectedGooglePhotosQualityIndexChanged(int value) => SaveConfig();
     partial void OnGooglePhotosSkipExistingFilenamesChanged(bool value) => SaveConfig();
 

@@ -65,7 +65,7 @@ Get-FileHash .\PicHarbor.Gui.exe -Algorithm SHA256
 | **iPhone 备份** | Apple USB 驱动（通过 iTunes for Windows 或微软商店「Apple 设备」获取）。数据线连接并信任此电脑。 |
 | **Android 备份** | 手机端运行 FTP 服务，局域网连接可达，并在 PicHarbor 中配置对应凭据。 |
 | **iPhone 恢复** | 将 PicHarbor 导出的同步目录通过 Apple 设备或 iTunes 同步至手机（AFC 协议不支持反向直接写入相册）。 |
-| **Google 相册** | 需配置本地 Python 环境与 Google 凭据。 |
+| **Google 相册** | 在 Google 相册页面完成账号授权。同步引擎使用 PicHarbor 内置的 Python 运行时，无需另行安装 Python。 |
 | **源码构建** | Windows 环境与 .NET 10 SDK。 |
 
 > [!TIP]

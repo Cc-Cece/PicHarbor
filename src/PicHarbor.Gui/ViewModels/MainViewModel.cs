@@ -255,7 +255,6 @@ public partial class MainViewModel : ObservableObject
         SettingsVM.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName == nameof(SettingsViewModel.GooglePhotosProxy)) GooglePhotosVM.Proxy = SettingsVM.GooglePhotosProxy;
-            if (e.PropertyName == nameof(SettingsViewModel.GooglePhotosPythonPath)) GooglePhotosVM.PythonPath = SettingsVM.GooglePhotosPythonPath;
             if (e.PropertyName == nameof(SettingsViewModel.GooglePhotosThreads)) GooglePhotosVM.Threads = SettingsVM.GooglePhotosThreads;
             if (e.PropertyName == nameof(SettingsViewModel.GooglePhotosTimeoutSeconds)) GooglePhotosVM.TimeoutSeconds = SettingsVM.GooglePhotosTimeoutSeconds;
             if (e.PropertyName == nameof(SettingsViewModel.GooglePhotosAutoRetryAttempts)) GooglePhotosVM.AutoRetryAttempts = SettingsVM.GooglePhotosAutoRetryAttempts;

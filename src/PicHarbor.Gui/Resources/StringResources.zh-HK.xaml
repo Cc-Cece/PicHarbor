@@ -209,9 +209,6 @@
     <sys:String x:Key="CodecThirdPartyWarning">使用第三方下載或安裝方式時，連結與檔案是否有效、是否安全，本軟件無法保證。請自行確認來源並遵守許可，風險由您承擔。</sys:String>
     <sys:String x:Key="SettingsCardProxy">代理</sys:String>
     <sys:String x:Key="SettingsProxyLabel">網絡代理位址:</sys:String>
-    <sys:String x:Key="SettingsCardPythonPath">Python 解譯器路徑</sys:String>
-    <sys:String x:Key="SettingsPythonPathDesc">供 Google 相簿雲端同步引擎調用。如果 Google 相簿雲端同步已經能正常運行，請不要更改此項。</sys:String>
-    <sys:String x:Key="SettingsPythonLabel">解譯器路徑:</sys:String>
     <sys:String x:Key="SettingsBtnBrowse">📂 瀏覽...</sys:String>
     <sys:String x:Key="SettingsCardGooglePhotosParams">Google 相簿上載參數</sys:String>
     <sys:String x:Key="SettingsQualityQuotaLabel">畫質與配額策略:</sys:String>
@@ -738,7 +735,6 @@
     <sys:String x:Key="GoogleBrowserManual">無法自動打開瀏覽器，請手動前往:
 https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="GooglePickUploadFolder">選擇要上載嘅資料夾</sys:String>
-    <sys:String x:Key="GooglePickPython">選擇 Python 解譯器 (python.exe)</sys:String>
     <sys:String x:Key="GooglePickGpmc">選擇 gpmc 倉庫根目錄</sys:String>
     <sys:String x:Key="GoogleScopePickExternal">📊 請選擇外部目錄或檔案路徑</sys:String>
     <sys:String x:Key="FmtGoogleScopeDir">📊 外部目錄: 共 {0:N0} 個檔案，約 {1}</sys:String>
@@ -755,8 +751,6 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="CodecMissingHevc">仲未偵測到 HEVC 影片擴充功能。</sys:String>
     <sys:String x:Key="ProxyConfiguredSuffix">(已設定)</sys:String>
     <sys:String x:Key="ProxyDirect">直連（未設定代理）</sys:String>
-    <sys:String x:Key="PythonBrowseFilter">Python 解譯器 (python.exe)|python.exe|可執行檔 (*.exe)|*.exe|所有檔案 (*.*)|*.*</sys:String>
-    <sys:String x:Key="PythonBrowseTitle">選擇 Python 可執行檔路徑</sys:String>
     <sys:String x:Key="ReorgNotReady">未就緒</sys:String>
     <sys:String x:Key="FmtReorgMoveCount">需要移動重構 {0:N0} 項</sys:String>
     <sys:String x:Key="FmtReorgMoveCountPreview">需要移動重構 {0:N0} 項（只預覽頭 {1:N0} 項）</sys:String>
