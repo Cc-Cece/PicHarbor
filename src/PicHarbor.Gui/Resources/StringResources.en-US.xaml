@@ -1201,4 +1201,5 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="PairCancelBackup">Cancel request / backup</sys:String>
     <sys:String x:Key="PairNoDevices">No paired devices. Open Connection info and scan the QR code on your phone.</sys:String>
     <sys:String x:Key="PairArchiveMissing">Choose the archive folder in Settings first</sys:String>
+    <sys:String x:Key="PairPhoneScope">Uses the phone selection; computer scope filters do not apply.</sys:String>
 </ResourceDictionary>

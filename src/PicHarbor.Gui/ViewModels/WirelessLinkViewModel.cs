@@ -505,7 +505,7 @@ public partial class WirelessLinkViewModel : ObservableObject
         }
 
         TimeSpan left = offer.Expires - DateTimeOffset.UtcNow;
-        OfferDetail = string.Format(CultureInfo.CurrentCulture, App.GetString("WirelessSeconds", "还剩 {0} 秒"), Math.Max(0, (int)left.TotalSeconds));
+        OfferDetail = (offer.Direction == "phone-to-computer" ? App.GetString("PairPhoneScope", "本次采用手机选择，不叠加电脑范围。") + "\n" : "") + string.Format(CultureInfo.CurrentCulture, App.GetString("WirelessSeconds", "还剩 {0} 秒"), Math.Max(0, (int)left.TotalSeconds));
         CanConfirm = offer.Direction == "phone-to-computer" && HasArchive;
     }
 
@@ -570,6 +570,7 @@ public partial class WirelessLinkViewModel : ObservableObject
             : offer.Count > 0
                 ? string.Format(CultureInfo.CurrentCulture, App.GetString("WirelessOfferReceive", "接收 {0} 项，来自 {1}"), offer.Count, name)
                 : string.Format(CultureInfo.CurrentCulture, App.GetString("WirelessOfferReceiveOpen", "接收来自 {0} 的照片。确认后才开始传输。"), name);
+        OfferDetail = offer.Direction == "phone-to-computer" ? App.GetString("PairPhoneScope", "本次采用手机选择，不叠加电脑范围。") : ScopeSummary;
         CanConfirm = offer.Direction == "phone-to-computer" && HasArchive && !offer.Accepted;
         if (notify && offer.Direction == "phone-to-computer" && Application.Current?.MainWindow?.IsActive != true)
         {

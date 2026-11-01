@@ -1201,4 +1201,5 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="PairCancelBackup">取消請求 / 備份</sys:String>
     <sys:String x:Key="PairNoDevices">尚無配對裝置。按「連線資訊」，用手機掃描二維碼配對。</sys:String>
     <sys:String x:Key="PairArchiveMissing">請先在設定中配置歸檔目錄</sys:String>
+    <sys:String x:Key="PairPhoneScope">本次採用手機選擇，不疊加電腦範圍。</sys:String>
 </ResourceDictionary>

@@ -1201,4 +1201,5 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="PairCancelBackup">取消请求 / 备份</sys:String>
     <sys:String x:Key="PairNoDevices">尚无配对设备。点击“连接信息”，用手机扫描二维码进行配对。</sys:String>
     <sys:String x:Key="PairArchiveMissing">请先在设置中配置归档目录</sys:String>
+    <sys:String x:Key="PairPhoneScope">本次采用手机选择，不叠加电脑范围。</sys:String>
 </ResourceDictionary>
