@@ -297,6 +297,8 @@ public partial class MainViewModel : ObservableObject
                 ApplyWirelessArchive();
             }
         };
+        Wireless.TransferCompleted = () => { _ = StatusVM.RefreshStatsCommand.ExecuteAsync(null); BackupVM.RefreshDriveSpace(); };
+        Wireless.ActivatePairingPage = () => { SelectedTabIndex = 0; SelectedDeviceIndex = 2; };
         Wireless.CurrentIphoneUdid = () => string.IsNullOrWhiteSpace(BackupVM.DeviceUdid) ? IPhoneSyncVM.DeviceUdid : BackupVM.DeviceUdid;
         AndroidBackupVM.BoundWirelessCodes = Wireless.AndroidCodes;
 
@@ -540,6 +542,7 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnSelectedDeviceIndexChanged(int value)
     {
+        if (value == 2 && !Wireless.Enabled) Wireless.Enabled = true;
         _ = StatusVM.RefreshStatsCommand.ExecuteAsync(null);
         BackupVM.RefreshDriveSpace();
         AndroidBackupVM.RefreshDriveSpace();
@@ -816,8 +819,12 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenPairingSettings() { SelectedTabIndex = 3; SettingsSubTabIndex = 0; }
+
+    [RelayCommand]
     private void OpenScopeModal()
     {
+        if (SelectedDeviceIndex == 2) { Wireless.OpenWirelessScopeCommand.Execute(null); return; }
         IsScopeModalOpen = true;
         if (SelectedDeviceIndex == 1)
         {
@@ -1136,7 +1143,7 @@ public partial class MainViewModel : ObservableObject
     public void OpenWirelessLink()
     {
         SelectedTabIndex = 0;
-        BackupSubTabIndex = 0;
+        SelectedDeviceIndex = 2;
         if (!Wireless.Enabled)
         {
             Wireless.Enabled = true;
@@ -1144,7 +1151,7 @@ public partial class MainViewModel : ObservableObject
 
         if (!Wireless.ShowPairing)
         {
-            Wireless.TogglePairingCommand.Execute(null);
+            Wireless.OpenConnectionInfoCommand.Execute(null);
         }
     }
 

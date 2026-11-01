@@ -30,11 +30,14 @@ internal sealed class LinkClient : IAsyncDisposable
         token = json.RootElement.GetProperty("token").GetString();
     }
 
-    public async Task HelloAsync(string archiveId, string platform, bool directory, CancellationToken cancellationToken)
+    public async Task HelloAsync(string archiveId, string platform, bool directory, CancellationToken cancellationToken, string[]? capabilities = null)
     {
-        string body = LinkJson.Text(new { archiveId, platform, directory, unreadable = false, name = "测试手机" });
+        string body = LinkJson.Text(new { archiveId, platform, directory, unreadable = false, name = "测试手机", capabilities });
         using var json = await SendAsync("POST", "/v1/hello", Encoding.UTF8.GetBytes(body), token, cancellationToken).ConfigureAwait(false);
     }
+
+    public Task<JsonDocument> ExchangeAsync(string method, string path, object? value, CancellationToken ct) =>
+        SendAsync(method, path, value is null ? [] : Encoding.UTF8.GetBytes(LinkJson.Text(value)), token, ct);
 
     public async Task<string> OfferAsync(int count, CancellationToken cancellationToken)
     {

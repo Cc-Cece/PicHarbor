@@ -192,9 +192,13 @@
                                             <Path Data="{StaticResource PclIconAndroid}" Width="12" Height="12" Stretch="Uniform"
                                                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
                                                   VerticalAlignment="Center" Margin="0,0,6,0" />
-                                            <TextBlock Text="{DynamicResource DeviceAndroid}" VerticalAlignment="Center" />
+                                            <TextBlock Text="{DynamicResource BackupFtp}" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </RadioButton>
+                                <RadioButton Style="{StaticResource PclSegmentedTab}"
+ IsChecked="{Binding SelectedDeviceIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=2}">
+ <StackPanel Orientation="Horizontal"><Path Data="{StaticResource PclIconPairing}" Width="12" Height="12" Stretch="Uniform" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" VerticalAlignment="Center" Margin="0,0,6,0"/><TextBlock Text="{DynamicResource PairingTab}" VerticalAlignment="Center"/></StackPanel>
+ </RadioButton>
                                 </StackPanel>
                             </Border>
 
@@ -208,7 +212,7 @@
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding SelectedDeviceIndex}" Value="1">
                                                     <Setter Property="Visibility" Value="Collapsed" />
-                                                </DataTrigger>
+                                                </DataTrigger><DataTrigger Binding="{Binding SelectedDeviceIndex}" Value="2"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </StackPanel.Style>
@@ -326,6 +330,19 @@
                                         </Border>
                                     </Border>
                                 </StackPanel>
+                                <Grid Margin="18,20,18,10" DataContext="{Binding Wireless}">
+ <Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding DataContext.SelectedDeviceIndex, RelativeSource={RelativeSource AncestorType=Window}}" Value="2"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Grid.Style>
+ <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+ <TextBlock Text="{DynamicResource PairDevices}" FontWeight="Bold" FontSize="16" Margin="0,0,0,12"/>
+ <ListBox Grid.Row="1" ItemsSource="{Binding Peers}" SelectedItem="{Binding SelectedPeer}" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+ <ListBox.ItemTemplate><DataTemplate><StackPanel Margin="3,8"><TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding Detail}" FontSize="11" TextWrapping="Wrap"/></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox>
+ <TextBlock Grid.Row="1" Text="{DynamicResource PairNoDevices}" TextWrapping="Wrap" Foreground="{DynamicResource ColorBrushGray2}" VerticalAlignment="Center" Visibility="{Binding HasPeers, Converter={StaticResource InverseBooleanToVisibilityConverter}}"/>
+ <Border Grid.Row="2" x:Name="PairingHeroHoverMenu" Height="0" Opacity="0" ClipToBounds="True" Margin="0,8,0,0" HorizontalAlignment="Center">
+ <Border Background="#F1F5F9" CornerRadius="14" Padding="4,2" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1"><StackPanel Orientation="Horizontal">
+ <Button Command="{Binding OpenConnectionInfoCommand}" Style="{StaticResource PclHeroMiniBtn}" Margin="0,0,3,0"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,4,0"/><TextBlock Text="{DynamicResource PairConnectionInfo}"/></StackPanel></Button>
+ <Button Command="{Binding RefreshPeersCommand}" Style="{StaticResource PclHeroMiniBtn}"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Margin="0,0,4,0"/><TextBlock Text="{DynamicResource PairRefresh}"/></StackPanel></Button>
+ </StackPanel></Border></Border>
+ </Grid>
                             </Grid>
 
                             <!-- Bottom: Hero Action Buttons & Operations: iPhone -->
@@ -336,15 +353,10 @@
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding SelectedDeviceIndex}" Value="1">
                                                 <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
+                                            </DataTrigger><DataTrigger Binding="{Binding SelectedDeviceIndex}" Value="2"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </StackPanel.Style>
-
-                                <controls:PclButton Content="{DynamicResource HeroReceiveWireless}"
-                                                    Command="{Binding OpenWirelessLinkCommand}"
-                                                    Height="40"
-                                                    Margin="0,0,0,10" />
 
                                 <!-- Hero Action Button (Idle) -->
                                 <controls:PclButton Content="{DynamicResource HeroStartBackup}"
@@ -390,11 +402,6 @@
                                     </Style>
                                 </StackPanel.Style>
 
-                                <controls:PclButton Content="{DynamicResource HeroReceiveWireless}"
-                                                    Command="{Binding OpenWirelessLinkCommand}"
-                                                    Height="40"
-                                                    Margin="0,0,0,10" />
-
                                 <!-- Hero Action Button (Idle) -->
                                 <controls:PclButton Content="{DynamicResource HeroStartBackup}"
                                                     Subtitle="{Binding AndroidBackupVM.DestinationSubtitle}"
@@ -425,6 +432,12 @@
                                     <controls:PclButton Grid.Column="2" Content="{DynamicResource HeroTransferLog}" Height="35" Command="{Binding AndroidBackupVM.ShowCopiedDetailsCommand}" />
                                 </Grid>
                             </StackPanel>
+                            <StackPanel Grid.Row="2" Margin="18,0,18,20" DataContext="{Binding Wireless}">
+ <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding DataContext.SelectedDeviceIndex, RelativeSource={RelativeSource AncestorType=Window}}" Value="2"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
+ <controls:PclButton Content="{DynamicResource HeroStartBackup}" Subtitle="{Binding BackupSubtitle}" ToolTip="{Binding SelectedDeviceStatus}" Command="{Binding StartSelectedCommand}" IsEnabled="{Binding CanStartSelected}" ButtonType="Hero" Height="56" Margin="0,0,0,10" Visibility="{Binding HasOffer, Converter={StaticResource InverseBooleanToVisibilityConverter}}"/>
+ <controls:PclButton Content="{Binding OfferCancelLabel}" Subtitle="{Binding SelectedDeviceStatus}" ToolTip="{Binding OfferTitle}" Command="{Binding RejectOfferCommand}" ButtonType="Hero" Height="56" Margin="0,0,0,10" Visibility="{Binding HasOffer, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+ <UniformGrid Columns="2"><controls:PclButton Content="{DynamicResource HeroBackupScope}" Command="{Binding OpenWirelessScopeCommand}" Height="35" Margin="0,0,4,0"/><controls:PclButton Content="{DynamicResource HeroTransferLog}" Command="{Binding OpenWirelessLogCommand}" Height="35"/></UniformGrid>
+ </StackPanel>
                         </Grid>
                     </Border>
 
@@ -480,71 +493,6 @@
                                     </Style>
                                 </controls:PclPageHost.Style>
                                 <StackPanel>
-
-                                    <controls:PclCard Title="{DynamicResource WirelessCardTitle}" CanSwap="False">
-                                        <StackPanel>
-                                            <TextBlock Text="{Binding Wireless.ComputerName}" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" />
-                                            <TextBlock Text="{Binding Wireless.AddressText}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,4,0,0" />
-                                            <TextBlock Text="{Binding Wireless.CertText}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,2,0,0" />
-                                            <TextBlock Text="{Binding Wireless.ArchiveHint}" FontSize="12" Foreground="#B45309" TextWrapping="Wrap" Margin="0,6,0,0" />
-                                            <TextBlock Text="{Binding Wireless.StatusText}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,6,0,8" />
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                                <controls:PclButton Content="{DynamicResource WirelessPairShow}" Command="{Binding Wireless.TogglePairingCommand}" Height="32" Padding="12,0" Margin="0,0,8,0"
-                                                                    Visibility="{Binding Wireless.ShowPairing, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
-                                                <controls:PclButton Content="{DynamicResource WirelessPairHide}" Command="{Binding Wireless.TogglePairingCommand}" Height="32" Padding="12,0" Margin="0,0,8,0"
-                                                                    Visibility="{Binding Wireless.ShowPairing, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                                                <controls:PclButton Content="{DynamicResource WirelessPickArchive}" Command="{Binding Wireless.PickArchiveCommand}" Height="32" Padding="12,0" />
-                                            </StackPanel>
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8" Visibility="{Binding Wireless.ShowPairing, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                <Image Width="132" Height="132" Source="{Binding Wireless.QrImage}" Margin="0,0,12,0" />
-                                                <StackPanel VerticalAlignment="Center">
-                                                    <TextBlock Text="{DynamicResource WirelessCodeLabel}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" />
-                                                    <TextBlock Text="{Binding Wireless.CodeText}" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" />
-                                                </StackPanel>
-                                            </StackPanel>
-                                            <TextBlock Text="{DynamicResource WirelessOnlineTitle}" FontWeight="SemiBold" Margin="0,4,0,6" />
-                                            <TextBlock Text="{DynamicResource WirelessOnlineEmpty}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap"
-                                                       Visibility="{Binding Wireless.HasPeers, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
-                                            <ItemsControl ItemsSource="{Binding Wireless.Peers}" Margin="0,0,0,8">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Grid Margin="0,0,0,8">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*" />
-                                                                <ColumnDefinition Width="Auto" />
-                                                            </Grid.ColumnDefinitions>
-                                                            <StackPanel>
-                                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
-                                                                <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" />
-                                                            </StackPanel>
-                                                            <controls:PclButton Grid.Column="1" Content="{DynamicResource WirelessAskAll}" Height="32" Padding="12,0"
-                                                                                Command="{Binding DataContext.Wireless.AskPeerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                                CommandParameter="{Binding PairingId}"
-                                                                                IsEnabled="{Binding CanAsk}" />
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                                <TextBlock Text="{DynamicResource WirelessScopeFrom}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                                <DatePicker SelectedDate="{Binding Wireless.ScopeFrom}" Width="140" Margin="0,0,12,0" />
-                                                <TextBlock Text="{DynamicResource WirelessScopeTo}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                                <DatePicker SelectedDate="{Binding Wireless.ScopeTo}" Width="140" />
-                                            </StackPanel>
-                                            <Border Background="#F8FAFC" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,4,0,0"
-                                                    Visibility="{Binding Wireless.HasOffer, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                <StackPanel>
-                                                    <TextBlock Text="{Binding Wireless.OfferTitle}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                    <TextBlock Text="{Binding Wireless.OfferDetail}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,4,0,8" />
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <controls:PclButton Content="{DynamicResource WirelessAccept}" Command="{Binding Wireless.AcceptOfferCommand}" Height="32" Padding="12,0" Margin="0,0,8,0"
-                                                                            IsEnabled="{Binding Wireless.CanConfirm}" />
-                                                        <controls:PclButton Content="{DynamicResource WirelessReject}" Command="{Binding Wireless.RejectOfferCommand}" Height="32" Padding="12,0" />
-                                                    </StackPanel>
-                                                </StackPanel>
-                                            </Border>
-                                        </StackPanel>
-                                    </controls:PclCard>
 
                                     <!-- Card 1: 存储主盘与图库概览 (Common for both iPhone and Android) -->
                                     <controls:PclCard Title="{DynamicResource CardStorageOverview}" CanSwap="False">
@@ -3058,6 +3006,29 @@
                 </Grid>
             </Border>
         </controls:PclModalHost>
+
+        <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1060" DataContext="{Binding Wireless}" IsOpen="{Binding IsIncomingConfirmationOpen}" CloseCommand="{Binding RejectOfferCommand}">
+ <Border Style="{StaticResource PclDialogContainer}" Width="540" Padding="24"><StackPanel>
+ <TextBlock Text="{Binding OfferTitle}" FontSize="18" FontWeight="Bold" TextWrapping="Wrap"/><TextBlock Text="{Binding OfferDetail}" TextWrapping="Wrap" Margin="0,12"/>
+ <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><controls:PclButton Content="{DynamicResource WirelessAccept}" Command="{Binding AcceptOfferCommand}" IsEnabled="{Binding CanConfirm}" Height="32" Margin="0,0,8,0"/><controls:PclButton Content="{DynamicResource WirelessReject}" Command="{Binding RejectOfferCommand}" Height="32"/></StackPanel>
+ </StackPanel></Border></controls:PclModalHost>
+        <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1050" DataContext="{Binding Wireless}" IsOpen="{Binding IsConnectionInfoOpen}" CloseCommand="{Binding CloseConnectionInfoCommand}">
+ <Border Style="{StaticResource PclDialogContainer}" Width="600" Padding="24"><StackPanel>
+ <TextBlock Text="{DynamicResource PairConnectionInfo}" FontSize="20" FontWeight="Bold"/>
+ <TextBlock Text="{Binding ComputerName}" Margin="0,12,0,4"/><TextBlock Text="{Binding AddressText}" TextWrapping="Wrap"/><TextBlock Text="{Binding CertText}" TextWrapping="Wrap" Margin="0,6,0,12"/>
+ <TextBlock Text="{Binding SelectedPeer.Title}" FontWeight="Bold"/>
+ <TextBlock Text="{Binding SelectedPeer.Detail}" TextWrapping="Wrap"/><TextBlock Text="{Binding SelectedDeviceStatus}" TextWrapping="Wrap"/>
+ <StackPanel Orientation="Horizontal" Margin="0,16" Visibility="{Binding ShowPairing, Converter={StaticResource BooleanToVisibilityConverter}}"><Image Source="{Binding QrImage}" Width="180" Height="180" Margin="0,0,16,0"/><StackPanel VerticalAlignment="Center"><TextBlock Text="{DynamicResource WirelessCodeLabel}"/><TextBlock Text="{Binding CodeText}" FontSize="28" FontWeight="Bold"/></StackPanel></StackPanel>
+ <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><controls:PclButton Content="{DynamicResource PairNewCode}" Command="{Binding RenewPairingCommand}" Height="32" Margin="0,0,8,0"/><controls:PclButton Content="{DynamicResource CloseBtn}" Command="{Binding CloseConnectionInfoCommand}" Height="32"/></StackPanel>
+ </StackPanel></Border></controls:PclModalHost>
+ <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1040" DataContext="{Binding Wireless}" IsOpen="{Binding IsScopeOpen}" CloseCommand="{Binding CloseWirelessScopeCommand}">
+ <Border Style="{StaticResource PclDialogContainer}" Width="660" MaxHeight="720" Padding="20"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+ <TextBlock Text="{DynamicResource ScopeModalTitle}" FontSize="18" FontWeight="Bold" Margin="0,0,0,12"/>
+ <ScrollViewer Grid.Row="1" MaxHeight="570" VerticalScrollBarVisibility="Auto"><controls:PairingScopePanel/></ScrollViewer>
+ <controls:PclButton Grid.Row="2" Content="{DynamicResource CloseBtn}" Command="{Binding CloseWirelessScopeCommand}" Height="32" HorizontalAlignment="Right" Margin="0,12,0,0"/>
+ </Grid></Border></controls:PclModalHost>
+ <controls:PclModalHost Grid.RowSpan="2" Panel.ZIndex="1040" DataContext="{Binding Wireless}" IsOpen="{Binding IsLogOpen}" CloseCommand="{Binding CloseWirelessLogCommand}">
+ <Border Style="{StaticResource PclDialogContainer}" Width="760" Height="500" Padding="20"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="{DynamicResource HeroTransferLog}" FontSize="18" FontWeight="Bold"/><ListBox Grid.Row="1" ItemsSource="{Binding TransferLog}" Margin="0,12"/><controls:PclButton Grid.Row="2" Content="{DynamicResource CloseBtn}" Command="{Binding CloseWirelessLogCommand}" Height="32" HorizontalAlignment="Right"/></Grid></Border></controls:PclModalHost>
 
         <!-- ======================================================== -->
         <!--  MODAL 2: 备份范围选择弹窗 (PCL2 选项弹窗)                 -->
