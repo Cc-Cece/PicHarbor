@@ -111,7 +111,15 @@ public partial class App : Application
         MainWindow = mainWindow;
 
         // 显式退出模式：主窗口关闭即代表用户希望退出应用。
-        mainWindow.Closed += (_, _) => Shutdown(0);
+        mainWindow.Closed += (_, _) =>
+        {
+            if (mainWindow.DataContext is MainViewModel vm)
+            {
+                vm.Wireless.Stop();
+            }
+
+            Shutdown(0);
+        };
 
         // 把当前归档根注入应用锁，供「启用」时登记并锁定。
         // DestinationPath 会在主窗口 DataContext 就绪后可用，这里绑定其后续变化。

@@ -30,6 +30,29 @@ internal sealed class LinkClient : IAsyncDisposable
         token = json.RootElement.GetProperty("token").GetString();
     }
 
+    public async Task HelloAsync(string archiveId, string platform, bool directory, CancellationToken cancellationToken)
+    {
+        string body = LinkJson.Text(new { archiveId, platform, directory, unreadable = false, name = "测试手机" });
+        using var json = await SendAsync("POST", "/v1/hello", Encoding.UTF8.GetBytes(body), token, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<string> OfferAsync(int count, CancellationToken cancellationToken)
+    {
+        string body = LinkJson.Text(new { direction = "phone-to-computer", scope = "all", count });
+        using var json = await SendAsync("POST", "/v1/offers", Encoding.UTF8.GetBytes(body), token, cancellationToken).ConfigureAwait(false);
+        return json.RootElement.GetProperty("id").GetString() ?? throw new IOException("没有请求编号。");
+    }
+
+    public async Task AcceptAsync(string offerId, CancellationToken cancellationToken)
+    {
+        using var json = await SendAsync("POST", "/v1/offers/" + offerId + "/accept", [], token, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task FinishAsync(string offerId, CancellationToken cancellationToken)
+    {
+        using var json = await SendAsync("POST", "/v1/offers/" + offerId + "/finish", [], token, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<JsonDocument> ManifestAsync(string model, object[] items, CancellationToken cancellationToken) =>
         await SendAsync("POST", "/v1/manifest", Encoding.UTF8.GetBytes(LinkJson.Text(new { model, items })), token, cancellationToken).ConfigureAwait(false);
 

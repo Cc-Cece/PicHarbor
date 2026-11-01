@@ -740,6 +740,35 @@ public sealed partial class TransferJournal : IDisposable
         command.ExecuteNonQuery();
     }
 
+    /// <summary>True when this device already has a completed file with the same SHA-256 still on disk.</summary>
+    public bool HasCompletedHash(string sha256, string archiveRoot)
+    {
+        if (string.IsNullOrWhiteSpace(sha256) || string.IsNullOrWhiteSpace(deviceId) || !ColumnExists("files", "sha256"))
+        {
+            return false;
+        }
+
+        using SqliteCommand command = CreateCommand(
+            """
+            SELECT dest_path FROM files
+            WHERE device_id = $device AND state = 'done' AND lower(sha256) = lower($sha)
+            LIMIT 8;
+            """);
+        command.Parameters.AddWithValue("$device", deviceId);
+        command.Parameters.AddWithValue("$sha", sha256.Trim().ToLowerInvariant());
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            string? dest = reader.IsDBNull(0) ? null : reader.GetString(0);
+            if (dest is not null && File.Exists(Path.Combine(archiveRoot, dest)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Marks a file <see cref="FileState.Done"/>, recording its destination path and metadata.</summary>
     /// <param name="sourcePath">Device source path.</param>
     /// <param name="sourceSize">Source size in bytes.</param>

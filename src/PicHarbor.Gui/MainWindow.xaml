@@ -481,6 +481,71 @@
                                 </controls:PclPageHost.Style>
                                 <StackPanel>
 
+                                    <controls:PclCard Title="{DynamicResource WirelessCardTitle}" CanSwap="False">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Wireless.ComputerName}" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" />
+                                            <TextBlock Text="{Binding Wireless.AddressText}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                            <TextBlock Text="{Binding Wireless.CertText}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,2,0,0" />
+                                            <TextBlock Text="{Binding Wireless.ArchiveHint}" FontSize="12" Foreground="#B45309" TextWrapping="Wrap" Margin="0,6,0,0" />
+                                            <TextBlock Text="{Binding Wireless.StatusText}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,6,0,8" />
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                                <controls:PclButton Content="{DynamicResource WirelessPairShow}" Command="{Binding Wireless.TogglePairingCommand}" Height="32" Padding="12,0" Margin="0,0,8,0"
+                                                                    Visibility="{Binding Wireless.ShowPairing, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                                                <controls:PclButton Content="{DynamicResource WirelessPairHide}" Command="{Binding Wireless.TogglePairingCommand}" Height="32" Padding="12,0" Margin="0,0,8,0"
+                                                                    Visibility="{Binding Wireless.ShowPairing, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                                <controls:PclButton Content="{DynamicResource WirelessPickArchive}" Command="{Binding Wireless.PickArchiveCommand}" Height="32" Padding="12,0" />
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8" Visibility="{Binding Wireless.ShowPairing, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <Image Width="132" Height="132" Source="{Binding Wireless.QrImage}" Margin="0,0,12,0" />
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{DynamicResource WirelessCodeLabel}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" />
+                                                    <TextBlock Text="{Binding Wireless.CodeText}" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource ColorBrush1}" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                            <TextBlock Text="{DynamicResource WirelessOnlineTitle}" FontWeight="SemiBold" Margin="0,4,0,6" />
+                                            <TextBlock Text="{DynamicResource WirelessOnlineEmpty}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap"
+                                                       Visibility="{Binding Wireless.HasPeers, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                                            <ItemsControl ItemsSource="{Binding Wireless.Peers}" Margin="0,0,0,8">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,0,0,8">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel>
+                                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{Binding Detail}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" />
+                                                            </StackPanel>
+                                                            <controls:PclButton Grid.Column="1" Content="{DynamicResource WirelessAskAll}" Height="32" Padding="12,0"
+                                                                                Command="{Binding DataContext.Wireless.AskPeerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                CommandParameter="{Binding PairingId}"
+                                                                                IsEnabled="{Binding CanAsk}" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                                <TextBlock Text="{DynamicResource WirelessScopeFrom}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                <DatePicker SelectedDate="{Binding Wireless.ScopeFrom}" Width="140" Margin="0,0,12,0" />
+                                                <TextBlock Text="{DynamicResource WirelessScopeTo}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                <DatePicker SelectedDate="{Binding Wireless.ScopeTo}" Width="140" />
+                                            </StackPanel>
+                                            <Border Background="#F8FAFC" BorderBrush="{DynamicResource ColorBrush6}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,4,0,0"
+                                                    Visibility="{Binding Wireless.HasOffer, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Wireless.OfferTitle}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding Wireless.OfferDetail}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" Margin="0,4,0,8" />
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <controls:PclButton Content="{DynamicResource WirelessAccept}" Command="{Binding Wireless.AcceptOfferCommand}" Height="32" Padding="12,0" Margin="0,0,8,0"
+                                                                            IsEnabled="{Binding Wireless.CanConfirm}" />
+                                                        <controls:PclButton Content="{DynamicResource WirelessReject}" Command="{Binding Wireless.RejectOfferCommand}" Height="32" Padding="12,0" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </controls:PclCard>
+
                                     <!-- Card 1: 存储主盘与图库概览 (Common for both iPhone and Android) -->
                                     <controls:PclCard Title="{DynamicResource CardStorageOverview}" CanSwap="False">
                                         <StackPanel>
@@ -1581,6 +1646,15 @@
                             </controls:PclPageHost.Style>
                             <StackPanel DataContext="{Binding SettingsVM}">
 
+                                <controls:PclCard Title="{DynamicResource WirelessCardTitle}" CanSwap="False">
+                                    <StackPanel>
+                                        <controls:PclCheckBox Content="{DynamicResource WirelessEnabledLabel}"
+                                                              IsChecked="{Binding DataContext.Wireless.Enabled, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}"
+                                                              Margin="0,0,0,8" />
+                                        <TextBlock Text="{DynamicResource WirelessEnabledHint}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </controls:PclCard>
+
                                 <!-- [基础] 备份位置 (原: 主归档磁盘库) -->
                                 <controls:PclCard Title="{DynamicResource SettingsCardBackupLocation}" CanSwap="False">
                                     <Grid Grid.IsSharedSizeScope="True">
@@ -1642,6 +1716,15 @@
 
                                 <!-- [高级 折叠] 子目录配置 (原: 目录分类与时间层级规范) -->
                                 <StackPanel Visibility="{Binding IsBackupAdvancedExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <controls:PclCard Title="{DynamicResource WirelessIphoneCard}" CanSwap="False">
+                                        <StackPanel>
+                                            <TextBlock Text="{DynamicResource WirelessWriteHint}" FontSize="12" Foreground="{DynamicResource ColorBrushGray2}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                                            <controls:PclButton Content="{DynamicResource WirelessWriteIphone}" Height="32" Padding="12,0" HorizontalAlignment="Left"
+                                                                Command="{Binding DataContext.Wireless.WriteIphoneCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                            <TextBlock Text="{Binding DataContext.Wireless.IphoneWriteText, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                       FontSize="12" Foreground="{DynamicResource ColorBrush1}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                        </StackPanel>
+                                    </controls:PclCard>
                                     <controls:PclCard Title="{DynamicResource SettingsCardBackupSafety}" CanSwap="False">
                                         <StackPanel>
                                             <controls:PclCheckBox Content="{DynamicResource RebackupDeletedOption}" IsChecked="{Binding RebackupDeletedPhotos, Mode=TwoWay}" Margin="0,0,0,12" />

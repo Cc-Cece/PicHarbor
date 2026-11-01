@@ -88,6 +88,9 @@ public partial class AndroidBackupViewModel : ObservableObject
 
     public Action? NavigateToSettingsAction { get; set; }
 
+    /// <summary>Codes already issued over wireless. An empty FTP file reuses the only one.</summary>
+    public Func<IReadOnlyList<string>>? BoundWirelessCodes { get; set; }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FullDestinationPreview))]
     [NotifyPropertyChangedFor(nameof(TargetDriveSummary))]
@@ -1240,7 +1243,11 @@ public partial class AndroidBackupViewModel : ObservableObject
             return;
         }
 
-        string generated = DeviceSerialGenerator.CreateInternalId();
+        IReadOnlyList<string> bound = string.IsNullOrWhiteSpace(current)
+            ? BoundWirelessCodes?.Invoke() ?? []
+            : [];
+        // An empty shared file reuses the code already given to this phone. Do not mint a second one.
+        string generated = bound.Count == 1 ? bound[0] : DeviceSerialGenerator.CreateInternalId();
 
         if (!RunPairing(generated))
         {

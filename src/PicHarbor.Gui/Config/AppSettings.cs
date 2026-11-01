@@ -97,6 +97,9 @@ public sealed class AppConfig
     // Preview playback. Missing values stay muted.
     public bool PreviewMuted { get; set; } = true;
 
+    /// <summary>Listen for a phone while PicHarbor is open. A missing value stays on.</summary>
+    public bool WirelessReceiveEnabled { get; set; } = true;
+
     // 应用锁：系统空闲 N 分钟后自动重新锁定（0 = 关闭）。
     public int IdleLockMinutes { get; set; } = 0;
 }

@@ -195,6 +195,8 @@ public partial class MainViewModel : ObservableObject
     public SyncFolderMaintenanceViewModel SyncFolderMaintenanceVM { get; } = new();
     public SettingsViewModel SettingsVM { get; }
 
+    public WirelessLinkViewModel Wireless { get; } = new();
+
     public MainViewModel()
     {
         BackupVM = new BackupViewModel(OnDestinationPathUpdatedFromBackup);
@@ -278,7 +280,25 @@ public partial class MainViewModel : ObservableObject
                     _ => GooglePhotosLiveStrategy.ApplePair,
                 };
             }
+            if (e.PropertyName is nameof(SettingsViewModel.SelectedScheme) or nameof(SettingsViewModel.GroupMediaByDevice))
+            {
+                ApplyWirelessArchive();
+            }
         };
+
+        Wireless.ChooseArchive = path =>
+        {
+            if (!string.Equals(DestinationPath, path, StringComparison.OrdinalIgnoreCase))
+            {
+                DestinationPath = path;
+            }
+            else
+            {
+                ApplyWirelessArchive();
+            }
+        };
+        Wireless.CurrentIphoneUdid = () => string.IsNullOrWhiteSpace(BackupVM.DeviceUdid) ? IPhoneSyncVM.DeviceUdid : BackupVM.DeviceUdid;
+        AndroidBackupVM.BoundWirelessCodes = Wireless.AndroidCodes;
 
         CreateTaskCards();
         SettingsVM.LibraryChanged += () =>
@@ -374,6 +394,8 @@ public partial class MainViewModel : ObservableObject
 
         // Sync initial destination path across all sub-ViewModels
         SyncDestinationPath(DestinationPath);
+        ApplyWirelessArchive();
+        Wireless.Start();
 
 
         deviceProbeTimer = new DispatcherTimer
@@ -570,8 +592,12 @@ public partial class MainViewModel : ObservableObject
     partial void OnDestinationPathChanged(string value)
     {
         SyncDestinationPath(value);
+        ApplyWirelessArchive();
         SaveConfig();
     }
+
+    private void ApplyWirelessArchive() =>
+        Wireless.UseArchive(DestinationPath, ParseOrganizeScheme(SettingsVM.SelectedScheme ?? ""), SettingsVM.GroupMediaByDevice);
 
     private void SaveConfig()
     {
@@ -645,6 +671,7 @@ public partial class MainViewModel : ObservableObject
             {
                 // Key the restore chain by UDID (sticky folder name, per-device journal records).
                 IPhoneSyncVM.ApplyDeviceIdentity(device.Udid, device.Name, device.ProductType);
+                Wireless.NoteCableUdid(device.Udid);
             }
         }
         else if (result.Status == DeviceProbeStatus.TrustRequired)
@@ -1108,23 +1135,17 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void OpenWirelessLink()
     {
-        if (string.IsNullOrWhiteSpace(DestinationPath))
+        SelectedTabIndex = 0;
+        BackupSubTabIndex = 0;
+        if (!Wireless.Enabled)
         {
-            MessageBox.Show(
-                App.GetString("WirelessNeedArchive", "请先选择归档目录，手机传来的照片会写入这个目录。"),
-                App.GetString("MsgBoxTitle", "提示"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            return;
+            Wireless.Enabled = true;
         }
 
-        var window = new WirelessLinkWindow(DestinationPath, ParseOrganizeScheme(SettingsVM.SelectedScheme), SettingsVM.GroupMediaByDevice);
-        if (Application.Current?.MainWindow is Window owner)
+        if (!Wireless.ShowPairing)
         {
-            window.Owner = owner;
+            Wireless.TogglePairingCommand.Execute(null);
         }
-
-        window.Show();
     }
 
     private static OrganizeScheme ParseOrganizeScheme(string schemeText)
