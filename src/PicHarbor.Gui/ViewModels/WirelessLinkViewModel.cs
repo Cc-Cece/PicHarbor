@@ -25,6 +25,8 @@ public sealed class WirelessPeerRow
     public required string Detail { get; init; }
 
     public bool CanAsk { get; init; }
+    public string? ArchiveId { get; init; }
+    public bool ScopeV2 { get; init; }
 }
 
 /// <summary>
@@ -98,6 +100,7 @@ public partial class WirelessLinkViewModel : ObservableObject
     private bool hasArchive;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsIncomingConfirmationOpen))]
     private bool hasOffer;
 
     [ObservableProperty]
@@ -110,7 +113,13 @@ public partial class WirelessLinkViewModel : ObservableObject
     private string offerDetail = "";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OfferCancelLabel))]
+    [NotifyPropertyChangedFor(nameof(IsIncomingConfirmationOpen))]
     private bool canConfirm;
+
+    public bool IsIncomingConfirmationOpen => HasOffer && CanConfirm;
+    public Action? TransferCompleted { get; set; }
+    public string OfferCancelLabel => CanConfirm ? App.GetString("WirelessReject", "拒绝") : App.GetString("PairCancelBackup", "取消请求 / 备份");
 
     [ObservableProperty]
     private string iphoneWriteText = "";
@@ -182,6 +191,7 @@ public partial class WirelessLinkViewModel : ObservableObject
     public void UseArchive(string? path, OrganizeScheme nextScheme, bool nextGroup)
     {
         archivePath = path?.Trim() ?? "";
+        NotifySelection();
         scheme = nextScheme;
         groupByDevice = nextGroup;
         host?.UseArchive(archivePath, scheme, groupByDevice);
@@ -308,6 +318,8 @@ public partial class WirelessLinkViewModel : ObservableObject
             return;
         }
 
+        var spec = BuildSelection();
+        if (spec.Validate() is { } error) { StatusText = error; return; }
         LinkOffer? offer = host.AskPhone(pairingId, BuildScope(), 0);
         if (offer is null)
         {
@@ -367,15 +379,20 @@ public partial class WirelessLinkViewModel : ObservableObject
 
     private void OnStatus(string message) => dispatcher.BeginInvoke(() =>
     {
-        if (!string.IsNullOrWhiteSpace(message))
+        if (!string.IsNullOrWhiteSpace(message) && !message.StartsWith("已重新连接 ", StringComparison.Ordinal))
         {
             StatusText = message;
+            if (message.StartsWith("备份完成", StringComparison.Ordinal) || message.StartsWith("备份未完成", StringComparison.Ordinal)) TransferCompleted?.Invoke();
+            TransferLog.Add(DateTime.Now.ToString("HH:mm:ss") + " " + message);
+            if (TransferLog.Count > 1000) TransferLog.RemoveAt(0);
+
         }
 
         Refresh();
     });
 
-    private void OnOffer(LinkOffer offer) => dispatcher.BeginInvoke(() => ShowOffer(offer, notify: true));
+    public Action? ActivatePairingPage { get; set; }
+    private void OnOffer(LinkOffer offer) => dispatcher.BeginInvoke(() => { SelectedPeer = Peers.FirstOrDefault(peer => peer.PairingId == offer.PairingId) ?? SelectedPeer; ShowOffer(offer, notify: true); ActivatePairingPage?.Invoke(); });
 
     private void OnConflict(string archiveId) => dispatcher.BeginInvoke(() =>
     {
@@ -400,12 +417,13 @@ public partial class WirelessLinkViewModel : ObservableObject
         Listening = true;
         AddressText = string.Join("  ", host.Addresses.Select(address => address + ":" + host.Port));
         string prefix = host.Fingerprint.Length >= 16 ? host.Fingerprint[..16] : host.Fingerprint;
-        CertText = App.GetString("WirelessCertPrefix", "证书 ") + prefix;
+        CertText = App.GetString("WirelessCertPrefix", "证书 ") + host.Fingerprint;
         HasArchive = !string.IsNullOrWhiteSpace(archivePath) && Directory.Exists(archivePath);
         ArchiveHint = HasArchive ? "" : App.GetString("WirelessNeedArchive", "请先选择归档目录，手机传来的照片会写入这个目录。");
         UpdatePeers();
         UpdateOffer();
         UpdateQr();
+        UpdateCatalog();
     }
 
     private void UpdatePeers()
@@ -415,26 +433,34 @@ public partial class WirelessLinkViewModel : ObservableObject
             return;
         }
 
-        var rows = host.OnlinePeers.Select(peer => new WirelessPeerRow
+        var rows = host.KnownPeers.Select(peer => new WirelessPeerRow
         {
             PairingId = peer.PairingId,
-            Title = string.IsNullOrWhiteSpace(peer.Name) ? peer.Platform : peer.Name,
+            Title = (string.IsNullOrWhiteSpace(peer.Name) ? peer.Platform : peer.Name) + (peer.Online ? " · 在线" : " · 离线"),
             Detail = string.IsNullOrWhiteSpace(peer.ArchiveId)
                 ? App.GetString("WirelessIdentityPending", "身份还没就绪")
                 : peer.Platform + " · " + peer.ArchiveId,
-            CanAsk = !string.IsNullOrWhiteSpace(peer.ArchiveId),
+            CanAsk = peer.Online && peer.Ready, ArchiveId = peer.ArchiveId, ScopeV2 = peer.ScopeV2,
         }).ToList();
         HasPeers = rows.Count > 0;
-        if (rows.Count == Peers.Count && rows.Select(row => row.PairingId + row.Detail).SequenceEqual(Peers.Select(row => row.PairingId + row.Detail)))
+        if (rows.Count == Peers.Count && rows.Select(row => row.PairingId + row.Detail + row.Title + row.ScopeV2).SequenceEqual(Peers.Select(row => row.PairingId + row.Detail + row.Title + row.ScopeV2)))
         {
             return;
         }
 
+        string? selected = SelectedPeer?.PairingId;
+        var previous = SelectedPeer;
+        loadingScope = true;
         Peers.Clear();
         foreach (WirelessPeerRow row in rows)
         {
             Peers.Add(row);
         }
+        var next = Peers.FirstOrDefault(row => row.PairingId == selected) ?? Peers.FirstOrDefault();
+        SelectedPeer = next;
+        loadingScope = false;
+        if (previous?.PairingId != next?.PairingId || previous?.ScopeV2 != next?.ScopeV2) OnSelectedPeerChanged(next);
+        NotifySelection();
     }
 
     private void UpdateOffer()
@@ -465,6 +491,7 @@ public partial class WirelessLinkViewModel : ObservableObject
                     : App.GetString("WirelessOfferExpired", "请求已超时，没有传输文件。");
             }
 
+            if (!waitingConfirm) SelectedDeviceStatus = "备份请求已结束；文件结果请查看传输日志。";
             ClearOffer();
             return;
         }
@@ -531,6 +558,7 @@ public partial class WirelessLinkViewModel : ObservableObject
         trackedDirection = offer.Direction;
         waitingConfirm = !offer.Accepted;
         HasOffer = true;
+        TransferLog.Add(DateTime.Now.ToString("HH:mm:ss") + (offer.Direction == "phone-to-computer" ? " 手机主动发送，采用手机选择：" + offer.Scope : " 电脑发起，采用已保存范围。"));
         string? name = host?.OnlinePeers.FirstOrDefault(peer => peer.PairingId == offer.PairingId)?.Name;
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -563,14 +591,10 @@ public partial class WirelessLinkViewModel : ObservableObject
 
     private string BuildScope()
     {
-        if (ScopeFrom is null && ScopeTo is null)
-        {
-            return "all";
-        }
-
-        string from = ScopeFrom?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "";
-        string to = ScopeTo?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "";
-        return "range:" + from + ":" + to;
+        if (CanUseScopeV2) return BuildSelection().ToWire();
+        if (!DateEnabled || ScopeFrom is null && ScopeTo is null) return "all";
+        // Older Android clients require both dates; encode open ends as inclusive calendar bounds.
+        return "range:" + (ScopeFrom?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "0001-01-01") + ":" + (ScopeTo?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "9999-12-30");
     }
 
     private WirelessPeerRow? IosPeer()

@@ -1183,4 +1183,22 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="UpdatePermissionExplanation">{0} 已下载并校验完成。更新应用锁服务或替换受保护目录中的程序需要管理员权限。确定后将请求 UAC 授权；取消则保留当前版本。</sys:String>
     <sys:String x:Key="UpdateSkipVersion">跳过此版本</sys:String>
     <sys:String x:Key="UpdateDisableAuto">不再自动检查更新</sys:String>
+    <sys:String x:Key="BackupFtp">FTP</sys:String>
+    <sys:String x:Key="PairingTab">配对连接</sys:String>
+    <sys:String x:Key="PairDevices">设备列表</sys:String>
+    <sys:String x:Key="PairConnectionInfo">连接信息</sys:String>
+    <sys:String x:Key="PairRefresh">刷新</sys:String>
+    <sys:String x:Key="PairGlobalArchive">归档目录（全局设置）</sys:String>
+    <sys:String x:Key="PairNewCode">配对新手机 / 更新配对码</sys:String>
+    <sys:String x:Key="PairAdvanced">高级模式（选择相册或已授权文件夹）</sys:String>
+    <sys:String x:Key="PairSmallImages">过滤普通照片中的小图（保留实况照片）</sys:String>
+    <sys:String x:Key="PairFilterCache">过滤缓存、缩略图和回收站目录</sys:String>
+    <sys:String x:Key="PairDefault">默认模式（使用手机推荐相册）</sys:String>
+    <sys:String x:Key="PairModedefault">默认范围</sys:String>
+    <sys:String x:Key="PairModeall">全量范围</sys:String>
+    <sys:String x:Key="PairModedate">日期范围</sys:String>
+    <sys:String x:Key="PairModeadvanced">高级范围</sys:String>
+    <sys:String x:Key="PairCancelBackup">取消请求 / 备份</sys:String>
+    <sys:String x:Key="PairNoDevices">尚无配对设备。点击“连接信息”，用手机扫描二维码进行配对。</sys:String>
+    <sys:String x:Key="PairArchiveMissing">请先在设置中配置归档目录</sys:String>
 </ResourceDictionary>

@@ -63,6 +63,7 @@ public sealed class LinkDesk
     private string? iphoneUdid;
 
     /// <summary>Remember the UDID read from the cable. This does not touch the phone.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
     public void NoteIphoneUdid(string? udid)
     {
         if (DeviceSerialValidator.IsUsable(udid))
@@ -137,6 +138,7 @@ public sealed class LinkDesk
     }
 
     /// <summary>Record a check-in. A new Android with a confirmed-empty file receives one generated code.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
     public LinkHelloResult Hello(string pairingId, string name, string platform, string? archiveId, LinkIdentityState state, bool directoryReady, bool replaceBaseline, DateTimeOffset now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pairingId);
@@ -185,7 +187,15 @@ public sealed class LinkDesk
         return new LinkHelloResult(bound, deliver, false);
     }
 
+    /// <summary>Refresh presence when an authenticated phone exchanges data.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+    public void Touch(string pairingId, DateTimeOffset now)
+    {
+        if (peers.TryGetValue(pairingId, out var peer)) peers[pairingId] = peer with { Seen = now };
+    }
+
     /// <summary>Phones seen inside <see cref="PresenceLifetime"/>.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
     public IReadOnlyList<LinkPeer> Online(DateTimeOffset now) =>
         peers.Values
             .Where(peer => now - peer.Seen <= PresenceLifetime)
@@ -193,6 +203,7 @@ public sealed class LinkDesk
             .ToList();
 
     /// <summary>What the manual iPhone write button should say, from the latest check-in.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
     public LinkWriteOutcome IphoneWriteOutcome(string pairingId, DateTimeOffset now)
     {
         if (iphoneUdid is null || !peers.TryGetValue(pairingId, out Peer? peer) || now - peer.Seen > PresenceLifetime)
@@ -211,6 +222,7 @@ public sealed class LinkDesk
     }
 
     /// <summary>Create a request. It carries no file bytes.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
     public LinkOffer? CreateOffer(string pairingId, string direction, string scope, int count, DateTimeOffset now)
     {
         Expire(now);
@@ -230,6 +242,7 @@ public sealed class LinkDesk
     }
 
     /// <summary>Unanswered requests for every phone.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
     public IReadOnlyList<LinkOffer> PendingForAll(DateTimeOffset now)
     {
         Expire(now);
@@ -237,6 +250,7 @@ public sealed class LinkDesk
     }
 
     /// <summary>Requests this phone still has to answer.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
     public IReadOnlyList<LinkOffer> Pending(string pairingId, DateTimeOffset now)
     {
         Expire(now);
@@ -244,6 +258,7 @@ public sealed class LinkDesk
     }
 
     /// <summary>Mark a request confirmed. Returns false when it is missing or expired.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
     public bool Accept(string offerId, string pairingId, DateTimeOffset now)
     {
         Expire(now);
@@ -257,6 +272,7 @@ public sealed class LinkDesk
     }
 
     /// <summary>Drop a request without copying.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
     public void Reject(string offerId, string pairingId)
     {
         if (offers.TryGetValue(offerId, out LinkOffer? offer) && offer.PairingId == pairingId)
@@ -266,6 +282,7 @@ public sealed class LinkDesk
     }
 
     /// <summary>The confirmed transfer finished, so this phone may open another request.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
     public void Complete(string pairingId)
     {
         foreach (string id in offers.Where(pair => pair.Value.PairingId == pairingId && pair.Value.Accepted).Select(pair => pair.Key).ToList())
@@ -275,6 +292,7 @@ public sealed class LinkDesk
     }
 
     /// <summary>The request still on the desk, after unanswered ones past two minutes have been dropped.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
     public LinkOffer? Find(string offerId, DateTimeOffset now)
     {
         Expire(now);
@@ -282,6 +300,7 @@ public sealed class LinkDesk
     }
 
     /// <summary>True after confirm, until <see cref="Complete"/>. The two-minute limit applies only before confirm.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
     public bool UploadAllowed(string pairingId, DateTimeOffset now)
     {
         Expire(now);
@@ -289,8 +308,10 @@ public sealed class LinkDesk
     }
 
     /// <summary>Archive id bound to this pairing key, if the identity step finished.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
     public string? ArchiveId(string pairingId) => keyToArchive.TryGetValue(pairingId, out string? id) ? id : null;
 
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
     private void Bind(string pairingId, string archiveId)
     {
         foreach (string old in keyToArchive.Where(pair => pair.Value == archiveId && pair.Key != pairingId).Select(pair => pair.Key).ToList())
@@ -302,6 +323,7 @@ public sealed class LinkDesk
         keyToArchive[pairingId] = archiveId;
     }
 
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
     private void Expire(DateTimeOffset now)
     {
         foreach (string id in offers.Where(pair => pair.Value.Expires <= now && !pair.Value.Accepted).Select(pair => pair.Key).ToList())

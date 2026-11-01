@@ -1,0 +1,20 @@
+<UserControl x:Class="PicHarbor.Gui.Controls.PairingScopePanel" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:PicHarbor.Gui.Controls">
+ <StackPanel>
+ <TextBlock Text="{Binding CapabilityHint}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+ <ComboBox SelectedIndex="{Binding ScopeModeIndex}" Margin="0,0,0,12">
+ <ComboBoxItem Content="{DynamicResource PairDefault}" IsEnabled="{Binding CanUseScopeV2}"/><ComboBoxItem Content="{DynamicResource ScopeModalAllMode}"/><ComboBoxItem Content="{DynamicResource ScopeModalDateRange}"/><ComboBoxItem Content="{DynamicResource PairAdvanced}" IsEnabled="{Binding CanUseScopeV2}"/>
+ </ComboBox>
+ <CheckBox Content="{DynamicResource ScopeModalDateRange}" IsChecked="{Binding DateEnabled}"/>
+ <StackPanel IsEnabled="{Binding DateEnabled}" Margin="0,8,0,12"><StackPanel Orientation="Horizontal"><DatePicker SelectedDate="{Binding ScopeFrom}" Width="140"/><TextBlock Text="{DynamicResource LabelDateTo}" Margin="10,4"/><DatePicker SelectedDate="{Binding ScopeTo}" Width="140"/></StackPanel>
+ <WrapPanel Margin="0,8,0,0"><local:PclButton Content="{DynamicResource BtnPresetLast30Days}" Command="{Binding DatePresetCommand}" CommandParameter="30" Height="26" Margin="0,0,5,0"/><local:PclButton Content="{DynamicResource BtnPresetLast90Days}" Command="{Binding DatePresetCommand}" CommandParameter="90" Height="26" Margin="0,0,5,0"/><local:PclButton Content="{DynamicResource BtnPresetLast1Year}" Command="{Binding DatePresetCommand}" CommandParameter="year" Height="26" Margin="0,0,5,0"/><local:PclButton Content="{DynamicResource BtnPresetThisYear}" Command="{Binding DatePresetCommand}" CommandParameter="this" Height="26" Margin="0,0,5,0"/><local:PclButton Content="{DynamicResource BtnClear}" Command="{Binding DatePresetCommand}" CommandParameter="clear" Height="26"/></WrapPanel></StackPanel>
+ <StackPanel IsEnabled="{Binding CanUseScopeV2}">
+ <TextBlock Text="{DynamicResource ScopeAlbumHeader}" FontWeight="Bold" Margin="0,0,0,8"/><WrapPanel><local:PclButton Content="{DynamicResource PairRefresh}" Command="{Binding RefreshPeersCommand}" Height="26"/><local:PclButton Content="{DynamicResource BtnSelectAllAlbums}" Command="{Binding SelectAlbumsCommand}" CommandParameter="all" Height="26" Margin="6,0"/><local:PclButton Content="{DynamicResource BtnDeselectAllAlbums}" Command="{Binding SelectAlbumsCommand}" CommandParameter="none" Height="26"/></WrapPanel>
+ <ScrollViewer MaxHeight="160" Margin="0,8,0,12" VerticalScrollBarVisibility="Auto"><ItemsControl ItemsSource="{Binding Albums}"><ItemsControl.ItemTemplate><DataTemplate><DockPanel Margin="0,4"><TextBlock Text="{Binding Detail}" DockPanel.Dock="Right"/><CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked}"/></DockPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
+ <WrapPanel><CheckBox Content="{DynamicResource ScopeIncludePhotos}" IsChecked="{Binding IncludePhotos}" Margin="0,0,16,8"/><CheckBox Content="{DynamicResource ScopeIncludeVideos}" IsChecked="{Binding IncludeVideos}"/></WrapPanel>
+ <CheckBox Content="{DynamicResource PairSmallImages}" IsChecked="{Binding IgnoreSmallImages}" Margin="0,4"/>
+ <DockPanel><TextBlock Text="{Binding MinImageKb, StringFormat='{}{0} KB'}" DockPanel.Dock="Right"/><Slider Minimum="10" Maximum="1024" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding MinImageKb}" IsEnabled="{Binding IgnoreSmallImages}"/></DockPanel>
+ <CheckBox Content="{DynamicResource PairFilterCache}" IsChecked="{Binding FilterCache}" Margin="0,8"/>
+ </StackPanel>
+ <Border BorderThickness="1" BorderBrush="#BFDBFE" Background="#EFF6FF" CornerRadius="6" Padding="12"><TextBlock Text="{Binding ScopeSummary}" TextWrapping="Wrap" Foreground="#1E40AF"/></Border>
+ </StackPanel>
+</UserControl>

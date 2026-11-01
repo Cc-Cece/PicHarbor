@@ -1091,6 +1091,11 @@ public partial class MainWindow : Window
             Controls.PclAnimation.AnimateDouble(AndroidHeroHoverMenu, HeightProperty, 30.0, 160, Controls.PclAnimation.EaseOutFluentWeak);
             Controls.PclAnimation.AnimateDouble(AndroidHeroHoverMenu, OpacityProperty, 1.0, 160, Controls.PclAnimation.EaseOutFluentWeak);
         }
+        if (PairingHeroHoverMenu != null)
+        {
+            Controls.PclAnimation.AnimateDouble(PairingHeroHoverMenu, HeightProperty, 30.0, 160, Controls.PclAnimation.EaseOutFluentWeak);
+            Controls.PclAnimation.AnimateDouble(PairingHeroHoverMenu, OpacityProperty, 1.0, 160, Controls.PclAnimation.EaseOutFluentWeak);
+        }
     }
 
     private void DeviceHeroArea_MouseLeave(object sender, MouseEventArgs e)
@@ -1104,6 +1109,11 @@ public partial class MainWindow : Window
         {
             Controls.PclAnimation.AnimateDouble(AndroidHeroHoverMenu, HeightProperty, 0.0, 140, Controls.PclAnimation.EaseOutFluentMiddle);
             Controls.PclAnimation.AnimateDouble(AndroidHeroHoverMenu, OpacityProperty, 0.0, 140, Controls.PclAnimation.EaseOutFluentMiddle);
+        }
+        if (PairingHeroHoverMenu != null)
+        {
+            Controls.PclAnimation.AnimateDouble(PairingHeroHoverMenu, HeightProperty, 0.0, 140, Controls.PclAnimation.EaseOutFluentMiddle);
+            Controls.PclAnimation.AnimateDouble(PairingHeroHoverMenu, OpacityProperty, 0.0, 140, Controls.PclAnimation.EaseOutFluentMiddle);
         }
     }
 

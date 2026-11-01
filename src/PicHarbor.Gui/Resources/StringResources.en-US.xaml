@@ -1183,4 +1183,22 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="UpdatePermissionExplanation">{0} has been downloaded and verified. Updating the app lock service or replacing the app in a protected folder requires administrator permission. Confirm to request UAC approval, or cancel to keep the current version.</sys:String>
     <sys:String x:Key="UpdateSkipVersion">Skip this version</sys:String>
     <sys:String x:Key="UpdateDisableAuto">Stop checking for updates automatically</sys:String>
+    <sys:String x:Key="BackupFtp">FTP</sys:String>
+    <sys:String x:Key="PairingTab">Paired link</sys:String>
+    <sys:String x:Key="PairDevices">Devices</sys:String>
+    <sys:String x:Key="PairConnectionInfo">Connection info</sys:String>
+    <sys:String x:Key="PairRefresh">Refresh</sys:String>
+    <sys:String x:Key="PairGlobalArchive">Archive folder (global setting)</sys:String>
+    <sys:String x:Key="PairNewCode">Pair phone / Renew code</sys:String>
+    <sys:String x:Key="PairAdvanced">Advanced (albums and authorized folders)</sys:String>
+    <sys:String x:Key="PairSmallImages">Filter small photos (keep Live Photos)</sys:String>
+    <sys:String x:Key="PairFilterCache">Exclude cache, thumbnails and trash</sys:String>
+    <sys:String x:Key="PairDefault">Default (phone-recommended collections)</sys:String>
+    <sys:String x:Key="PairModedefault">Default</sys:String>
+    <sys:String x:Key="PairModeall">All media</sys:String>
+    <sys:String x:Key="PairModedate">Date range</sys:String>
+    <sys:String x:Key="PairModeadvanced">Advanced</sys:String>
+    <sys:String x:Key="PairCancelBackup">Cancel request / backup</sys:String>
+    <sys:String x:Key="PairNoDevices">No paired devices. Open Connection info and scan the QR code on your phone.</sys:String>
+    <sys:String x:Key="PairArchiveMissing">Choose the archive folder in Settings first</sys:String>
 </ResourceDictionary>
