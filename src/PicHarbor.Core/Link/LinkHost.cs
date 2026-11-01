@@ -489,6 +489,15 @@ public sealed class LinkHost : IAsyncDisposable
         }
 
         DateTimeOffset now = DateTimeOffset.UtcNow;
+        if (!scopePeers.GetValueOrDefault(device.Id))
+        {
+            // Reconnecting after a downgrade must not turn a pending rich scope into all media.
+            foreach (var offer in desk.Pending(device.Id, now).Where(offer => offer.Scope.StartsWith("scope2:", StringComparison.Ordinal)))
+            {
+                desk.Reject(offer.Id, device.Id);
+                TransferStatus(device.Id, "手机版本不支持该范围，请更新手机端后重新发起。");
+            }
+        }
         await LinkResponses.WriteAsync(stream, 200, "OK", LinkJson.Text(new { offers = desk.Pending(device.Id, now), upload = desk.UploadAllowed(device.Id, now) }), lifetime.Token).ConfigureAwait(false);
     }
 

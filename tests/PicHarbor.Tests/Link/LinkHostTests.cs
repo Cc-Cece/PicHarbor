@@ -127,6 +127,12 @@ public sealed class LinkHostTests
         host.Catalog("phoneone").ShouldBeNull();
         using var stale = await client.ExchangeAsync("POST", "/v1/catalog", report, ct);
         host.Catalog("phoneone").ShouldBeNull();
+        var beforeDowngrade = host.AskPhone("phoneone", scope.ToWire(), 0)!;
+        await client.HelloAsync("PHONEARCHIVE01", "ios", true, ct);
+        using var legacyOffers = await client.ExchangeAsync("GET", "/v1/offers", null, ct);
+        legacyOffers.RootElement.GetProperty("offers").GetArrayLength().ShouldBe(0);
+        host.FindOffer(beforeDowngrade.Id).ShouldBeNull();
+        await client.HelloAsync("PHONEARCHIVE01", "ios", true, ct, ["scope2", "catalog2"]);
         var offer = host.AskPhone("phoneone", scope.ToWire(), 0)!;
         host.AcceptOffer(offer.Id, "phoneone").ShouldBeFalse();
         await client.AcceptAsync(offer.Id, ct);
