@@ -1183,4 +1183,23 @@ https://accounts.google.com/EmbeddedSetup</sys:String>
     <sys:String x:Key="UpdatePermissionExplanation">{0} 已下載並驗證完成。更新應用鎖服務或取代受保護目錄中的程式需要系統管理員權限。確定後將要求 UAC 授權；取消則保留目前版本。</sys:String>
     <sys:String x:Key="UpdateSkipVersion">略過此版本</sys:String>
     <sys:String x:Key="UpdateDisableAuto">不再自動檢查更新</sys:String>
+    <sys:String x:Key="BackupFtp">FTP</sys:String>
+    <sys:String x:Key="PairingTab">配對連線</sys:String>
+    <sys:String x:Key="PairDevices">裝置列表</sys:String>
+    <sys:String x:Key="PairConnectionInfo">連線資訊</sys:String>
+    <sys:String x:Key="PairRefresh">重新整理</sys:String>
+    <sys:String x:Key="PairGlobalArchive">歸檔目錄（全域設定）</sys:String>
+    <sys:String x:Key="PairNewCode">配對新手機 / 更新配對碼</sys:String>
+    <sys:String x:Key="PairAdvanced">進階模式（選擇相簿或已授權資料夾）</sys:String>
+    <sys:String x:Key="PairSmallImages">過濾普通相片中的小圖（保留實況相片）</sys:String>
+    <sys:String x:Key="PairFilterCache">過濾快取、縮圖和資源回收筒目錄</sys:String>
+    <sys:String x:Key="PairDefault">預設模式（使用手機建議相簿）</sys:String>
+    <sys:String x:Key="PairModedefault">預設範圍</sys:String>
+    <sys:String x:Key="PairModeall">全量範圍</sys:String>
+    <sys:String x:Key="PairModedate">日期範圍</sys:String>
+    <sys:String x:Key="PairModeadvanced">進階範圍</sys:String>
+    <sys:String x:Key="PairCancelBackup">取消請求 / 備份</sys:String>
+    <sys:String x:Key="PairNoDevices">尚無配對裝置。按「連線資訊」，用手機掃描二維碼配對。</sys:String>
+    <sys:String x:Key="PairArchiveMissing">請先在設定中配置歸檔目錄</sys:String>
+    <sys:String x:Key="PairPhoneScope">本次採用手機選擇，不疊加電腦範圍。</sys:String>
 </ResourceDictionary>

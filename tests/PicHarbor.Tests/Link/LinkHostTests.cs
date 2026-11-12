@@ -34,7 +34,7 @@ public sealed class LinkHostTests
             await client.PairAsync("phoneone", "测试手机", "123456", Convert.ToBase64String(point), TestContext.Current.CancellationToken);
             await client.HelloAsync("PHONEARCHIVE01", "ios", true, TestContext.Current.CancellationToken);
             string offerId = await client.OfferAsync(1, TestContext.Current.CancellationToken);
-            await client.AcceptAsync(offerId, TestContext.Current.CancellationToken);
+            host.AcceptOffer(offerId, "phoneone").ShouldBeTrue();
             byte[] content = "picharbor-live-link"u8.ToArray();
             await client.UploadAsync("item1", "IMG_0001.jpg", content, 1_700_000_000, TestContext.Current.CancellationToken);
             string[] saved = Directory.GetFiles(root, "IMG_0001.jpg", SearchOption.AllDirectories);
@@ -91,7 +91,7 @@ public sealed class LinkHostTests
             await client.HelloAsync("PHONEARCHIVE01", "ios", true, TestContext.Current.CancellationToken);
             byte[] content = "same-photo"u8.ToArray();
             string first = await client.OfferAsync(2, TestContext.Current.CancellationToken);
-            await client.AcceptAsync(first, TestContext.Current.CancellationToken);
+            host.AcceptOffer(first, "phoneone").ShouldBeTrue();
             await client.UploadAsync("item1", "IMG_0001.jpg", content, 1_700_000_000, TestContext.Current.CancellationToken);
             await client.UploadAsync("item2", "IMG_0002.jpg", content, 1_700_000_000, TestContext.Current.CancellationToken);
             Directory.GetFiles(root, "IMG_*.jpg", SearchOption.AllDirectories).Length.ShouldBe(1);
@@ -103,6 +103,81 @@ public sealed class LinkHostTests
         {
             try { Directory.Delete(root, true); } catch (IOException) { }
         }
+    }
+
+    [Fact]
+    public async Task Catalog_is_revisioned_and_rich_scope_requires_both_phone_capabilities()
+    {
+        await using var host = LinkHost.Start(new LinkHostOptions { FixedCode = "123456", Beacon = false, EphemeralCertificate = true });
+        await using var client = await PairedClient(host);
+        var ct = TestContext.Current.CancellationToken;
+        await client.HelloAsync("PHONEARCHIVE01", "ios", true, ct);
+        var scope = new LinkScopeSpec { Mode = "advanced", Albums = ["album-a"], DateEnabled = true, From = "2026-01-01" };
+        host.AskPhone("phoneone", scope.ToWire(), 0).ShouldBeNull();
+        await client.HelloAsync("PHONEARCHIVE01", "ios", true, ct, ["scope2", "catalog2"]);
+        host.KnownPeers.Single().ScopeV2.ShouldBeTrue();
+        host.RequestCatalog("phoneone", scope);
+        using var request = await client.ExchangeAsync("GET", "/v1/catalog", null, ct);
+        long revision = request.RootElement.GetProperty("revision").GetInt64();
+        request.RootElement.GetProperty("scope").GetString().ShouldBe(scope.ToWire());
+        var report = new LinkCatalogReport(revision, "Asia/Shanghai", [new LinkAlbum("album-a", "Camera", 3, 1024, true)], 2, 1024, 1, 0);
+        using var posted = await client.ExchangeAsync("POST", "/v1/catalog", report, ct);
+        host.Catalog("phoneone")!.Count.ShouldBe(2);
+        host.RequestCatalog("phoneone", scope with { Photos = false });
+        host.Catalog("phoneone").ShouldBeNull();
+        using var stale = await client.ExchangeAsync("POST", "/v1/catalog", report, ct);
+        host.Catalog("phoneone").ShouldBeNull();
+        var beforeDowngrade = host.AskPhone("phoneone", scope.ToWire(), 0)!;
+        await client.HelloAsync("PHONEARCHIVE01", "ios", true, ct);
+        using var legacyOffers = await client.ExchangeAsync("GET", "/v1/offers", null, ct);
+        legacyOffers.RootElement.GetProperty("offers").GetArrayLength().ShouldBe(0);
+        host.FindOffer(beforeDowngrade.Id).ShouldBeNull();
+        await client.HelloAsync("PHONEARCHIVE01", "ios", true, ct, ["scope2", "catalog2"]);
+        var offer = host.AskPhone("phoneone", scope.ToWire(), 0)!;
+        host.AcceptOffer(offer.Id, "phoneone").ShouldBeFalse();
+        await client.AcceptAsync(offer.Id, ct);
+        using var failed = await client.ExchangeAsync("POST", "/v1/offers/" + offer.Id + "/finish", new { success = false, error = "read failure" }, ct);
+        host.TransferStatus("phoneone")!.ShouldContain("read failure");
+        host.AskPhone("phoneone", "all", 0).ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task Phone_cannot_confirm_its_own_send_request()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "picharbor-link-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            await using var host = LinkHost.Start(new LinkHostOptions { ArchiveRoot = root, FixedCode = "123456", Beacon = false, EphemeralCertificate = true });
+            await using var client = await PairedClient(host);
+            var ct = TestContext.Current.CancellationToken;
+            await client.HelloAsync("PHONEARCHIVE01", "ios", true, ct);
+            string id = await client.OfferAsync(1, ct);
+            await Should.ThrowAsync<IOException>(() => client.AcceptAsync(id, ct));
+            host.AcceptOffer(id, "phoneone").ShouldBeTrue();
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task Changing_global_archive_does_not_redirect_an_accepted_transfer()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "picharbor-link-" + Guid.NewGuid().ToString("N"));
+        string next = root + "-next";
+        try
+        {
+            await using var host = LinkHost.Start(new LinkHostOptions { ArchiveRoot = root, FixedCode = "123456", Beacon = false, EphemeralCertificate = true });
+            await using var client = await PairedClient(host);
+            var ct = TestContext.Current.CancellationToken;
+            await client.HelloAsync("PHONEARCHIVE01", "ios", true, ct);
+            var id = await client.OfferAsync(1, ct);
+            host.AcceptOffer(id, "phoneone").ShouldBeTrue();
+            host.UseArchive(next, PicHarbor.Core.Organize.OrganizeScheme.Month, true);
+            await client.UploadAsync("item1", "frozen.jpg", "frozen-target"u8.ToArray(), 1700000000, ct);
+            await client.FinishAsync(id, ct);
+            Directory.GetFiles(root, "frozen.jpg", SearchOption.AllDirectories).Length.ShouldBe(1);
+            Directory.GetFiles(next, "frozen.jpg", SearchOption.AllDirectories).ShouldBeEmpty();
+        }
+        finally { try { if (Directory.Exists(root)) Directory.Delete(root, true); if (Directory.Exists(next)) Directory.Delete(next, true); } catch (IOException) { } }
     }
 
     private static async Task<LinkClient> PairedClient(LinkHost host)

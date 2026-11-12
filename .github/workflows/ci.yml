@@ -32,6 +32,11 @@ jobs:
         with:
           fetch-depth: 0 # full history + tags so MinVer can derive the version
 
+      - name: Setup Python for pinned gpmc verification
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v5
         with:
@@ -40,6 +45,12 @@ jobs:
           cache-dependency-path: |
             **/*.csproj
             Directory.Build.props
+
+      - name: Check pinned gpmc and adapter contracts
+        run: |
+          python tools/sync_gpmc.py --check
+          python -m pip install -r tests/python/requirements.lock
+          python -m unittest discover -s tests/python -v
 
       # The .sln does not exist yet — Nova creates it in Phase 1.
       # Every dotnet step is guarded so this workflow runs green on the Phase 0 PR
@@ -55,9 +66,11 @@ jobs:
 
       - name: Format check
         shell: pwsh
+        env:
+          FORMAT_BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           if (Test-Path *.sln) {
-            dotnet format --verify-no-changes
+            ./scripts/check-format.ps1 -BaseSha $env:FORMAT_BASE
           } else {
             Write-Host "No .sln found — skipping format check."
           }
@@ -119,6 +132,11 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0 # full history + tags so MinVer can derive the version
+
+      - name: Setup Python for pinned gpmc verification
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
 
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v5
@@ -203,6 +221,11 @@ jobs:
         with:
           fetch-depth: 0 # full history + tags so MinVer can derive the version
 
+      - name: Setup Python for pinned gpmc verification
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v5
         with:
@@ -261,6 +284,7 @@ jobs:
           curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
           tar -xzf gitleaks.tar.gz gitleaks
           ./gitleaks detect --source . --no-git --redact --verbose --exit-code 1
+          python3 scripts/verify-secret-scan.py ./gitleaks
 
   coverage:
     name: coverage (advisory, non-gating)
@@ -275,6 +299,11 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0 # full history + tags so MinVer can derive the version (keeps the build warning-clean)
+
+      - name: Setup Python for pinned gpmc verification
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
 
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v5

@@ -56,7 +56,41 @@ public sealed class LinkHost : IAsyncDisposable
     private readonly ConcurrentDictionary<string, string> sessions = new(StringComparer.Ordinal);
     private readonly string stagingRoot;
     private readonly LinkDesk desk = new();
-    private readonly Dictionary<string, SessionRun> runs = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, bool> scopePeers = new();
+    private readonly ConcurrentDictionary<string, LinkCatalogRequest> catalogRequests = new();
+    private readonly ConcurrentDictionary<string, LinkCatalogReport> catalogs = new();
+    private long catalogRevision;
+    private readonly ConcurrentDictionary<string, ArchiveTarget> transferTargets = new();
+    private ArchiveTarget CurrentTarget() => new(options.ArchiveRoot, options.Scheme, options.GroupByDevice);
+    private ArchiveTarget TargetFor(string id) => transferTargets.GetValueOrDefault(id) ?? CurrentTarget();
+    private readonly ConcurrentDictionary<string, string> transferStates = new();
+    /// <summary>Last transfer phase/result for one remembered phone.</summary>
+    public string? TransferStatus(string pairingId) => transferStates.GetValueOrDefault(pairingId);
+    private void TransferStatus(string pairingId, string text)
+    {
+        transferStates[pairingId] = text;
+        Changed?.Invoke();
+    }
+
+    /// <summary>Remembered devices, including offline pairings.</summary>
+    public IReadOnlyList<LinkKnownPeer> KnownPeers => devices.Values.Select(device =>
+    {
+        var online = OnlinePeers.FirstOrDefault(peer => peer.PairingId == device.Id);
+        return new LinkKnownPeer(device.Id, online?.Name ?? device.Name, device.Platform, online?.ArchiveId ?? device.ArchiveId,
+            online is not null, online?.ArchiveId is not null, scopePeers.GetValueOrDefault(device.Id));
+    }).OrderByDescending(peer => peer.Online).ThenBy(peer => peer.Name).ToList();
+
+    /// <summary>Latest preview for the current requested revision, if ready.</summary>
+    public LinkCatalogReport? Catalog(string pairingId) => catalogs.TryGetValue(pairingId, out var report)
+        && catalogRequests.TryGetValue(pairingId, out var request) && request.Revision == report.Revision ? report : null;
+    /// <summary>Ask the phone to refresh its authorized media inventory and preview.</summary>
+    public void RequestCatalog(string pairingId, LinkScopeSpec scope)
+    {
+        if (scope.Validate() is { } error) throw new ArgumentException(error);
+        catalogRequests[pairingId] = new LinkCatalogRequest(Interlocked.Increment(ref catalogRevision), scope.ToWire());
+    }
+
+    private readonly ConcurrentDictionary<string, SessionRun> runs = new(StringComparer.Ordinal);
     private int attempts;
     private string code;
     private DateTimeOffset codeExpires;
@@ -120,9 +154,11 @@ public sealed class LinkHost : IAsyncDisposable
     /// <summary>Confirm a request from the computer side.</summary>
     public bool AcceptOffer(string offerId, string pairingId)
     {
-        bool accepted = desk.Accept(offerId, pairingId, DateTimeOffset.UtcNow);
+        bool accepted = desk.Find(offerId, DateTimeOffset.UtcNow)?.Direction == "phone-to-computer" && desk.Accept(offerId, pairingId, DateTimeOffset.UtcNow);
         if (accepted)
         {
+            transferTargets[pairingId] = CurrentTarget();
+            TransferStatus(pairingId, "已确认，正在准备接收。");
             Changed?.Invoke();
         }
 
@@ -132,16 +168,21 @@ public sealed class LinkHost : IAsyncDisposable
     /// <summary>Decline a request from the computer side.</summary>
     public void RejectOffer(string offerId, string pairingId)
     {
+        if (desk.Find(offerId, DateTimeOffset.UtcNow)?.PairingId != pairingId) return;
+        FinishRun(pairingId);
         desk.Reject(offerId, pairingId);
+        TransferStatus(pairingId, "备份已取消，可重新发起。");
         Changed?.Invoke();
     }
 
     /// <summary>Ask an online phone to back up a scope. The phone confirms before any file moves.</summary>
     public LinkOffer? AskPhone(string pairingId, string scope, int count)
     {
+        if (scope.StartsWith("scope2:", StringComparison.Ordinal) && !scopePeers.GetValueOrDefault(pairingId)) return null;
         LinkOffer? offer = desk.CreateOffer(pairingId, "computer-to-phone", scope, count, DateTimeOffset.UtcNow);
         if (offer is not null)
         {
+            TransferStatus(pairingId, "正在等待手机确认。");
             Changed?.Invoke();
         }
 
@@ -281,6 +322,12 @@ public sealed class LinkHost : IAsyncDisposable
             case "POST /v1/manifest":
                 await Manifest(stream, request).ConfigureAwait(false);
                 return;
+            case "GET /v1/catalog":
+                await CatalogExchange(stream, request, false).ConfigureAwait(false);
+                return;
+            case "POST /v1/catalog":
+                await CatalogExchange(stream, request, true).ConfigureAwait(false);
+                return;
             case "POST /v1/hello":
                 await Hello(stream, request).ConfigureAwait(false);
                 return;
@@ -369,6 +416,7 @@ public sealed class LinkHost : IAsyncDisposable
         }
 
         var body = JsonSerializer.Deserialize<HelloBody>(request.Body, LinkJson.Options);
+        scopePeers[device.Id] = body?.Capabilities?.Contains("scope2", StringComparer.Ordinal) == true && body.Capabilities.Contains("catalog2", StringComparer.Ordinal);
         var state = LinkDesk.Classify(body?.ArchiveId, body?.Unreadable == true);
         LinkHelloResult result = desk.Hello(device.Id, body?.Name ?? device.Name, body?.Platform ?? device.Platform, body?.ArchiveId, state, body?.Directory == true, false, DateTimeOffset.UtcNow);
         if (result.ArchiveId is not null)
@@ -382,7 +430,27 @@ public sealed class LinkHost : IAsyncDisposable
         }
 
         Changed?.Invoke();
-        await LinkResponses.WriteAsync(stream, 200, "OK", LinkJson.Text(new { archiveId = result.ArchiveId, deliver = result.Deliver, conflict = result.Conflict }), lifetime.Token).ConfigureAwait(false);
+        await LinkResponses.WriteAsync(stream, 200, "OK", LinkJson.Text(new { archiveId = result.ArchiveId, deliver = result.Deliver, conflict = result.Conflict, capabilities = new[] { "scope2", "catalog2" } }), lifetime.Token).ConfigureAwait(false);
+    }
+
+    private async Task CatalogExchange(Stream stream, LinkRequest request, bool post)
+    {
+        if (!TrySession(request, out var device))
+        {
+            await LinkResponses.WriteAsync(stream, 401, "Unauthorized", "{}", lifetime.Token).ConfigureAwait(false);
+            return;
+        }
+        var pending = catalogRequests.GetOrAdd(device.Id, _ => new LinkCatalogRequest(Interlocked.Increment(ref catalogRevision), new LinkScopeSpec().ToWire()));
+        if (post)
+        {
+            var report = JsonSerializer.Deserialize<LinkCatalogReport>(request.Body, LinkJson.Options);
+            if (report is not null && report.Revision == pending.Revision && !string.IsNullOrWhiteSpace(report.TimeZone) && report.Albums is not null && report.Albums.Length <= 10000 && report.Count >= 0 && report.Bytes >= 0 && report.UnknownSize >= 0 && report.UnknownDate >= 0)
+            {
+                catalogs[device.Id] = report;
+                Changed?.Invoke();
+            }
+        }
+        await LinkResponses.WriteAsync(stream, 200, "OK", LinkJson.Text(pending), lifetime.Token).ConfigureAwait(false);
     }
 
     private async Task CreateOffer(Stream stream, LinkRequest request)
@@ -400,7 +468,7 @@ public sealed class LinkHost : IAsyncDisposable
         }
 
         var body = JsonSerializer.Deserialize<OfferBody>(request.Body, LinkJson.Options);
-        LinkOffer? offer = desk.CreateOffer(device.Id, body?.Direction ?? "phone-to-computer", body?.Scope ?? "all", body?.Count ?? 0, DateTimeOffset.UtcNow);
+        LinkOffer? offer = desk.CreateOffer(device.Id, "phone-to-computer", body?.Scope ?? "all", body?.Count ?? 0, DateTimeOffset.UtcNow);
         if (offer is null)
         {
             await LinkResponses.WriteAsync(stream, 409, "Conflict", """{"error":"no_offer"}""", lifetime.Token).ConfigureAwait(false);
@@ -421,6 +489,15 @@ public sealed class LinkHost : IAsyncDisposable
         }
 
         DateTimeOffset now = DateTimeOffset.UtcNow;
+        if (!scopePeers.GetValueOrDefault(device.Id))
+        {
+            // Reconnecting after a downgrade must not turn a pending rich scope into all media.
+            foreach (var offer in desk.Pending(device.Id, now).Where(offer => offer.Scope.StartsWith("scope2:", StringComparison.Ordinal)))
+            {
+                desk.Reject(offer.Id, device.Id);
+                TransferStatus(device.Id, "手机版本不支持该范围，请更新手机端后重新发起。");
+            }
+        }
         await LinkResponses.WriteAsync(stream, 200, "OK", LinkJson.Text(new { offers = desk.Pending(device.Id, now), upload = desk.UploadAllowed(device.Id, now) }), lifetime.Token).ConfigureAwait(false);
     }
 
@@ -434,30 +511,45 @@ public sealed class LinkHost : IAsyncDisposable
 
         string tail = request.Path["/v1/offers/".Length..];
         string id = tail.Split('/')[0];
+        var addressed = desk.Find(id, DateTimeOffset.UtcNow);
+        if (addressed is null || addressed.PairingId != device.Id)
+        {
+            await LinkResponses.WriteAsync(stream, 409, "Conflict", """{"error":"expired"}""", lifetime.Token).ConfigureAwait(false);
+            return;
+        }
         bool accept = tail.EndsWith("/accept", StringComparison.Ordinal);
         bool finish = tail.EndsWith("/finish", StringComparison.Ordinal);
         if (accept)
         {
-            if (!desk.Accept(id, device.Id, DateTimeOffset.UtcNow))
+            if (desk.Find(id, DateTimeOffset.UtcNow)?.Direction != "computer-to-phone" || !desk.Accept(id, device.Id, DateTimeOffset.UtcNow))
             {
                 await LinkResponses.WriteAsync(stream, 409, "Conflict", """{"error":"expired"}""", lifetime.Token).ConfigureAwait(false);
                 return;
             }
 
             Changed?.Invoke();
+            transferTargets[device.Id] = CurrentTarget();
+            TransferStatus(device.Id, "手机已确认，正在准备媒体。 ");
             await LinkResponses.WriteAsync(stream, 200, "OK", """{"ok":true}""", lifetime.Token).ConfigureAwait(false);
             return;
         }
 
         if (finish)
         {
+            var outcome = request.Body.Length == 0 ? null : JsonSerializer.Deserialize<FinishBody>(request.Body, LinkJson.Options);
+            var completed = runs.GetValueOrDefault(device.Id);
             FinishRun(device.Id);
+            string text = outcome?.Success == false ? "备份未完成：" + (outcome.Error ?? "手机读取或传输失败，请刷新后重试。")
+                : $"备份完成：接收 {completed?.Files ?? 0} 个新文件，{(completed?.Bytes ?? 0) / 1048576.0:F1} MB；已有内容已跳过。";
+            TransferStatus(device.Id, text);
+            Report(text);
             Changed?.Invoke();
             await LinkResponses.WriteAsync(stream, 200, "OK", """{"ok":true}""", lifetime.Token).ConfigureAwait(false);
             return;
         }
 
         desk.Reject(id, device.Id);
+        TransferStatus(device.Id, "备份请求已拒绝。");
         Changed?.Invoke();
         await LinkResponses.WriteAsync(stream, 200, "OK", """{"ok":true}""", lifetime.Token).ConfigureAwait(false);
     }
@@ -470,7 +562,8 @@ public sealed class LinkHost : IAsyncDisposable
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(options.ArchiveRoot))
+        var target = TargetFor(device.Id);
+        if (string.IsNullOrWhiteSpace(target.Root))
         {
             await LinkResponses.WriteAsync(stream, 409, "Conflict", """{"error":"no_archive"}""", lifetime.Token).ConfigureAwait(false);
             return;
@@ -486,7 +579,7 @@ public sealed class LinkHost : IAsyncDisposable
         var body = JsonSerializer.Deserialize<ManifestBody>(request.Body, LinkJson.Options);
         var need = new List<string>();
         var have = new List<string>();
-        using var journal = TransferJournal.Open(options.ArchiveRoot);
+        using var journal = TransferJournal.Open(target.Root);
         journal.BindDevice(archiveId);
         journal.RegisterOrUpdateDevice(archiveId, device.Name, body?.Model, archiveId, device.Platform, DateTimeOffset.UtcNow);
         foreach (var item in body?.Items ?? [])
@@ -496,7 +589,7 @@ public sealed class LinkHost : IAsyncDisposable
                 continue;
             }
 
-            if (!string.IsNullOrWhiteSpace(item.Sha256) && journal.HasCompletedHash(item.Sha256, options.ArchiveRoot))
+            if (!string.IsNullOrWhiteSpace(item.Sha256) && journal.HasCompletedHash(item.Sha256, target.Root))
             {
                 have.Add(item.Id);
                 continue;
@@ -507,10 +600,10 @@ public sealed class LinkHost : IAsyncDisposable
             journal.EnsurePending(remote);
             var state = journal.GetState(source, item.Size);
             string? dest = journal.GetDestRelativePath(source, item.Size);
-            bool stored = state == FileState.Done && dest is not null && File.Exists(Path.Combine(options.ArchiveRoot, dest));
+            bool stored = state == FileState.Done && dest is not null && File.Exists(Path.Combine(target.Root, dest));
             if (stored && !string.IsNullOrWhiteSpace(item.Sha256))
             {
-                stored = string.Equals(Sha256(Path.Combine(options.ArchiveRoot, dest!)), item.Sha256, StringComparison.OrdinalIgnoreCase);
+                stored = string.Equals(Sha256(Path.Combine(target.Root, dest!)), item.Sha256, StringComparison.OrdinalIgnoreCase);
             }
 
             (stored ? have : need).Add(item.Id);
@@ -527,7 +620,8 @@ public sealed class LinkHost : IAsyncDisposable
             return;
         }
 
-        if (!desk.UploadAllowed(device.Id, DateTimeOffset.UtcNow) || string.IsNullOrWhiteSpace(options.ArchiveRoot))
+        var target = TargetFor(device.Id);
+        if (!desk.UploadAllowed(device.Id, DateTimeOffset.UtcNow) || string.IsNullOrWhiteSpace(target.Root))
         {
             await LinkResponses.WriteAsync(stream, 409, "Conflict", """{"error":"need_accept"}""", lifetime.Token).ConfigureAwait(false);
             return;
@@ -568,6 +662,7 @@ public sealed class LinkHost : IAsyncDisposable
         }
 
         long received = new FileInfo(staging).Length;
+        TransferStatus(device.Id, $"正在接收 {name}：{received:N0} / {size:N0} 字节");
         bool complete = size > 0 && received == size;
         if (complete)
         {
@@ -580,10 +675,11 @@ public sealed class LinkHost : IAsyncDisposable
 
             try
             {
-                Import(device, id, name, size, created, sha, staging);
+                Import(device, id, name, size, created, sha, staging, target);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
             {
+                TransferStatus(device.Id, $"保存 {name} 失败: {ex.Message}");
                 Report($"保存 {name} 失败: {ex.Message}");
                 await LinkResponses.WriteAsync(stream, 500, "Error", LinkJson.Text(new { error = "import", received }), lifetime.Token).ConfigureAwait(false);
                 return;
@@ -595,26 +691,26 @@ public sealed class LinkHost : IAsyncDisposable
         await LinkResponses.WriteAsync(stream, 200, "OK", LinkJson.Text(new { received, complete }), lifetime.Token).ConfigureAwait(false);
     }
 
-    private void Import(PairedDevice device, string id, string name, long size, long created, string sha, string staging)
+    private void Import(PairedDevice device, string id, string name, long size, long created, string sha, string staging, ArchiveTarget target)
     {
         string? archiveId = desk.ArchiveId(device.Id);
-        if (string.IsNullOrWhiteSpace(options.ArchiveRoot) || string.IsNullOrWhiteSpace(archiveId))
+        if (string.IsNullOrWhiteSpace(target.Root) || string.IsNullOrWhiteSpace(archiveId))
         {
             throw new InvalidOperationException("归档目录或设备身份还没有准备好。");
         }
 
         if (!string.IsNullOrWhiteSpace(sha))
         {
-            using var probe = TransferJournal.Open(options.ArchiveRoot);
+            using var probe = TransferJournal.Open(target.Root);
             probe.BindDevice(archiveId);
-            if (probe.HasCompletedHash(sha, options.ArchiveRoot))
+            if (probe.HasCompletedHash(sha, target.Root))
             {
                 File.Delete(staging);
                 return;
             }
         }
 
-        using var journal = TransferJournal.Open(options.ArchiveRoot);
+        using var journal = TransferJournal.Open(target.Root);
         journal.BindDevice(archiveId);
         string registered = journal.RegisterOrUpdateDevice(archiveId, device.Name, null, archiveId, device.Platform, DateTimeOffset.UtcNow);
         string source = SourcePath(archiveId, id, name);
@@ -630,7 +726,7 @@ public sealed class LinkHost : IAsyncDisposable
         }
 
         OrganizeScheme? recorded = journal.GetOrganizeScheme();
-        OrganizeScheme scheme = recorded ?? options.Scheme;
+        OrganizeScheme scheme = recorded ?? target.Scheme;
         if (recorded is null)
         {
             journal.SetOrganizeScheme(scheme);
@@ -645,19 +741,19 @@ public sealed class LinkHost : IAsyncDisposable
         {
             var used = journal.GetUsedDestPaths();
             string proposed = new DateFolderOrganizer().GetRelativeDestination(
-                remote, metadata, scheme, options.GroupByDevice ? device.Name : null);
+                remote, metadata, scheme, target.GroupByDevice ? device.Name : null);
             relative = CollisionSuffix.Resolve(proposed, candidate =>
-                !used.Contains(candidate) && !File.Exists(Path.Combine(options.ArchiveRoot, candidate)));
+                !used.Contains(candidate) && !File.Exists(Path.Combine(target.Root, candidate)));
         }
 
-        string full = Path.Combine(options.ArchiveRoot, relative);
+        string full = Path.Combine(target.Root, relative);
         Directory.CreateDirectory(Path.GetDirectoryName(full)!);
         MoveIntoPlace(staging, full);
         journal.MarkDone(source, size, relative, metadata, DateTimeOffset.UtcNow, string.IsNullOrWhiteSpace(sha) ? Sha256(full) : sha);
         if (!runs.TryGetValue(device.Id, out SessionRun? run))
         {
             long sessionId = journal.BeginBackupSession(archiveId, registered, null, DateTimeOffset.UtcNow);
-            run = new SessionRun(sessionId, 0, 0);
+            run = new SessionRun(sessionId, 0, 0, target.Root);
         }
 
         journal.RecordHistoryItem(run.SessionId, source, relative, size, DateTimeOffset.UtcNow, null);
@@ -667,12 +763,13 @@ public sealed class LinkHost : IAsyncDisposable
     private void FinishRun(string pairingId)
     {
         desk.Complete(pairingId);
-        if (!runs.Remove(pairingId, out SessionRun? run) || string.IsNullOrWhiteSpace(options.ArchiveRoot))
+        transferTargets.TryRemove(pairingId, out _);
+        if (!runs.TryRemove(pairingId, out SessionRun? run))
         {
             return;
         }
 
-        using var journal = TransferJournal.Open(options.ArchiveRoot);
+        using var journal = TransferJournal.Open(run.Root);
         journal.CompleteBackupSession(run.SessionId, run.Files, run.Bytes);
     }
 
@@ -683,6 +780,7 @@ public sealed class LinkHost : IAsyncDisposable
             devices.TryRemove(old, out _);
         }
 
+        if (device.ArchiveId == archiveId) return;
         devices[device.Id] = device with { ArchiveId = archiveId };
         SaveDevices();
     }
@@ -696,7 +794,9 @@ public sealed class LinkHost : IAsyncDisposable
             return false;
         }
 
-        return devices.TryGetValue(id, out device!);
+        if (!devices.TryGetValue(id, out device!)) return false;
+        desk.Touch(device.Id, DateTimeOffset.UtcNow);
+        return true;
     }
 
     private string Issue(string deviceId)
@@ -948,11 +1048,15 @@ public sealed class LinkHost : IAsyncDisposable
 
     private sealed record PairedDevice(string Id, string Name, string Platform, string PublicKey, string? ArchiveId = null);
 
-    private sealed record HelloBody(string? ArchiveId, string? Name, string? Platform, bool Directory, bool Unreadable);
+    private sealed record HelloBody(string? ArchiveId, string? Name, string? Platform, bool Directory, bool Unreadable, string[]? Capabilities = null);
+
+    private sealed record FinishBody(bool Success, string? Error);
 
     private sealed record OfferBody(string? Direction, string? Scope, int Count);
 
-    private sealed record SessionRun(long SessionId, int Files, long Bytes);
+    private sealed record SessionRun(long SessionId, int Files, long Bytes, string Root);
+
+    private sealed record ArchiveTarget(string Root, OrganizeScheme Scheme, bool GroupByDevice);
 
     private sealed record PairBody(string DeviceId, string? DeviceName, string? Platform, string? Nonce, string? Mac, string? PublicKey);
 

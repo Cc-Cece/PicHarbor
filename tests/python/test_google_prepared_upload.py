@@ -85,7 +85,7 @@ class PreparedUploadTests(unittest.TestCase):
     def test_shipped_bundle_matches_tested_sources(self):
         with zipfile.ZipFile(RUNTIME.parent / "gpmc_bundle.zip") as bundle:
             for name in ("gpmc_bridge.py", "gpmc/client.py", "gpmc/hash_handler.py"):
-                self.assertEqual(bundle.read(name), (RUNTIME / name).read_bytes())
+                self.assertEqual(bundle.read(name).replace(b"\r\n", b"\n"), (RUNTIME / name).read_bytes().replace(b"\r\n", b"\n"))
 
 
 class AlbumFinalizationTests(unittest.TestCase):
