@@ -66,9 +66,11 @@ jobs:
 
       - name: Format check
         shell: pwsh
+        env:
+          FORMAT_BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           if (Test-Path *.sln) {
-            dotnet format --verify-no-changes
+            ./scripts/check-format.ps1 -BaseSha $env:FORMAT_BASE
           } else {
             Write-Host "No .sln found — skipping format check."
           }
