@@ -28,6 +28,9 @@ public sealed class V3SemanticRefactorTests : IDisposable
         File.WriteAllBytes(tgtPath, new byte[] { 1, 2, 3, 4, 5 });
         File.WriteAllBytes(diffPath, new byte[] { 9, 8, 7 }); // different size
 
+        // The fixture needs equal timestamps, regardless of CI scheduling delays.
+        File.SetLastWriteTimeUtc(tgtPath, File.GetLastWriteTimeUtc(srcPath));
+
         // 1. Same size & mtime => Equivalent
         var res1 = FileEquivalenceResolver.ResolveLocalFile(srcPath, tgtPath);
         res1.ShouldBe(FileEquivalenceResult.Equivalent);
@@ -67,6 +70,7 @@ public sealed class V3SemanticRefactorTests : IDisposable
         string destFile = Path.Combine(archivePath, "2024", "2024-05", "IMG_0001.JPG");
         Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
         File.WriteAllBytes(destFile, new byte[100]);
+        File.SetLastWriteTimeUtc(destFile, now.UtcDateTime);
 
         // Second run: file exists in target archive => skip!
         using (var journal = TransferJournal.Open(archivePath))

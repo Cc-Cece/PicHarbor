@@ -33,6 +33,11 @@ jobs:
         with:
           fetch-depth: 0 # full history + tags so MinVer derives the version from the release tag
 
+      - name: Setup Python for pinned gpmc verification
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v5
         with:

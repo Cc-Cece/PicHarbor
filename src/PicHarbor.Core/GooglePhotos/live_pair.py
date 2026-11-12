@@ -14,27 +14,9 @@ import sys
 from pathlib import Path
 
 from blackboxprotobuf import decode_message
-from gpmc.message_types import COMMIT_UPLOAD_RESPONSE, FIND_REMOTE_MEDIA_BY_HASH_RESPONSE
 
-RESULT_MASK = base64.b64decode("CnsKAggBEAEaAggBIgIIASoQCgIIARICCAEaAggBIgIIATICCAGCAQIIAYoBAggBmgECCAGiAQIIAaoBCggBKgIgATICCAHKAQIIAfIBBggBEgIIAfoBAggBggICCAGKAgQKAggBkgIGCAESAggBogICCAGqAgC6AgDCAgAQASpiCAESKggBEhIIARoGCAESAggBIgQIASIAKAEiBggBEgIQASoGCAESAggBMAE4ARoWCAESDAgBGgIIASICCAEoARoCCAEwASIKCAESBggBEgIIASoOCgQIATABEgYIARICCAE6AggBQgIIAUoKCAESAggBGgISAFoSEgIIARoCCAEiCAgBEgQIARACYgIIAXISEgIIARoCCAEiCAgBEgQIARACeggKAggBIgIIAYoBBAoCCAGSAQQIARABqgECCgA=")
-
-
-def varint(value):
-    value &= (1 << 64) - 1
-    result = bytearray()
-    while value > 127:
-        result.append((value & 127) | 128)
-        value >>= 7
-    result.append(value)
-    return bytes(result)
-
-
-def integer(field, value):
-    return varint(field << 3) + varint(value)
-
-
-def blob(field, value):
-    return varint((field << 3) | 2) + varint(len(value)) + value
+# Shared wire schema and payloads are maintained in the canonical gpmc package.
+from gpmc.live import commit_pair, motion_key
 
 
 def emit(event):
@@ -75,55 +57,9 @@ def upload_raw(api, path, digest):
     return response.content
 
 
-def post(api, method, body, schema):
-    headers = {
-        "Authorization": "Bearer " + api.bearer_token,
-        "User-Agent": api.user_agent,
-        "Content-Type": "application/x-protobuf",
-        "Accept-Language": api.language,
-        "Accept-Encoding": "gzip",
-        "x-goog-ext-173412678-bin": "CgcIAhClARgC",
-        "x-goog-ext-174067345-bin": "CgIIAg==",
-    }
-    with api._new_session() as session:
-        response = session.post(
-            "https://photosdata-pa.googleapis.com/6439526531001121323/" + method,
-            data=body,
-            headers=headers,
-            timeout=api.timeout,
-        )
-    if response.status_code == 400:
-        raise RuntimeError("PAIR_COMMIT_REJECTED")
-    response.raise_for_status()
-    return decode_message(response.content, schema)[0]
-
-
-def motion_key(api, digest):
-    query = blob(1, digest) + integer(5, 2)
-    response = post(api, "5084965799730810217", blob(1, blob(1, query) + blob(2, b"")), FIND_REMOTE_MEDIA_BY_HASH_RESPONSE)
-    from gpmc.db_update_parser import _get_nested
-    key = _get_nested(response, "1", "2", "2", "1")
-    return key if isinstance(key, str) and key else ""
-
-
 def commit(api, route, quality, name, created, photo_hash, video_hash, photo_receipt, video_receipt):
-    policy = 1 if quality == "saver" else 3
-    model = {"original": "Pixel XL", "quota": "Pixel 8", "saver": "Pixel 2"}[quality]
-    primary = photo_receipt if route == "joint" else video_receipt
-    primary_hash = photo_hash if route == "joint" else video_hash
-    blueprint = blob(1, primary) + blob(2, name.encode()) + blob(3, primary_hash)
-    blueprint += blob(5, integer(1, created)) + blob(6, integer(1, created)) + integer(7, policy) + integer(10, 1)
-    if route == "joint":
-        blueprint += blob(24, blob(1, video_receipt) + blob(2, video_hash))
-    else:
-        blueprint += blob(9, integer(2, 1) + blob(3, photo_hash))
-    device = blob(3, model.encode()) + blob(4, b"Google") + integer(5, api.android_api_version)
-    response = post(api, "16538846908252377752", blob(1, blueprint) + blob(2, device) + blob(5, RESULT_MASK), COMMIT_UPLOAD_RESPONSE)
-    from gpmc.db_update_parser import _get_nested
-    key = _get_nested(response, "1", "3", "1")
-    if not isinstance(key, str) or not key:
-        raise RuntimeError("COMMIT_UNCONFIRMED")
-    return key
+    return commit_pair(api, route, quality, name, created, created,
+                       photo_hash, video_hash, photo_receipt, video_receipt)
 
 
 def safe_name(path, fallback):

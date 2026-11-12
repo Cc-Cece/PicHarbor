@@ -32,4 +32,12 @@
     <EmbeddedResource Include="GooglePhotos\live_pair.py" LogicalName="live_pair.py" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <GpmcPython Condition="'$(GpmcPython)' == ''">python</GpmcPython>
+  </PropertyGroup>
+  <Target Name="VerifyPinnedGpmc" BeforeTargets="PrepareForBuild">
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)/../.."
+          Command="&quot;$(GpmcPython)&quot; tools/sync_gpmc.py --check" />
+  </Target>
+
 </Project>

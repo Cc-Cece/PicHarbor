@@ -38,3 +38,7 @@ outputs/update-validation/
 
 # WorkBuddy AI agent data (local-only, must never be tracked)
 .workbuddy-ai/
+
+# Python adapter verification and packaging caches.
+__pycache__/
+*.pyc
