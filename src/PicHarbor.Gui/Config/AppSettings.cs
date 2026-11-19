@@ -1,6 +1,6 @@
+using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using System.IO;
 using System.Text.Json;
 
 namespace PicHarbor.Gui.Config;
@@ -158,7 +158,7 @@ public static class AppSettings
                         Save(config);
                     }
 
-                    return config;
+                    return Remote.RemoteServices.Overlay(config);
                 }
             }
         }
@@ -169,7 +169,7 @@ public static class AppSettings
             return new AppConfig { AppLockWasEnabled = File.Exists(ConfigPath) };
         }
 
-        return new AppConfig();
+        return Remote.RemoteServices.Overlay(new AppConfig());
     }
 
     public static bool LoadPreviewMuted() => Load().PreviewMuted;
@@ -208,7 +208,7 @@ public static class AppSettings
     }
     private static bool UnprotectCredentials(AppConfig config)
     {
-        bool migrate = new[] {config.AndroidFtpPassword,config.AndroidBackupFtpPassword,config.GooglePhotosOAuthCookie,config.GooglePhotosAuthData}
+        bool migrate = new[] { config.AndroidFtpPassword, config.AndroidBackupFtpPassword, config.GooglePhotosOAuthCookie, config.GooglePhotosAuthData }
             .Any(v => !string.IsNullOrEmpty(v) && !v.StartsWith(ProtectedPrefix, StringComparison.Ordinal));
         config.AndroidFtpPassword = Unprotect(config.AndroidFtpPassword);
         config.AndroidBackupFtpPassword = Unprotect(config.AndroidBackupFtpPassword);
@@ -223,6 +223,7 @@ public static class AppSettings
         {
             Directory.CreateDirectory(ConfigDir);
             var stored = JsonSerializer.Deserialize<AppConfig>(JsonSerializer.Serialize(config, JsonOptions))!;
+            Remote.RemoteServices.Overlay(stored, personal: true);
             ProtectCredentials(stored);
             string json = JsonSerializer.Serialize(stored, JsonOptions);
             string temporary = ConfigPath + "." + Guid.NewGuid().ToString("N") + ".tmp";

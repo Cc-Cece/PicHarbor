@@ -73,15 +73,15 @@ public partial class SettingsViewModel : ObservableObject
             SelectedRecycledCopy = RecycledCopies.FirstOrDefault(copy => copy.OperationId == selectedOperation);
             RecycledCopiesHint = App.GetString("LibraryRecoveryEmpty", "当前没有可恢复的副本。");
         }
-        catch(Exception ex) { LibraryCheckStatus=ex.Message; }
+        catch (Exception ex) { LibraryCheckStatus = ex.Message; }
     }
 
     [RelayCommand(CanExecute = nameof(CanRestoreRecycledCopy))]
     private void RestoreRecycledCopy()
     {
-        if(SelectedRecycledCopy is not { } copy) return;
-        try { new LibraryMaintenanceService().Restore(copy.Root,copy.OperationId); RefreshRecycledCopies(); }
-        catch(Exception ex) { LibraryCheckStatus=ex.Message; }
+        if (SelectedRecycledCopy is not { } copy) return;
+        try { new LibraryMaintenanceService().Restore(copy.Root, copy.OperationId); RefreshRecycledCopies(); }
+        catch (Exception ex) { LibraryCheckStatus = ex.Message; }
     }
 
     partial void OnRebackupDeletedPhotosChanged(bool value) => SaveConfig();
@@ -115,18 +115,18 @@ public partial class SettingsViewModel : ObservableObject
         if (PicHarbor.Gui.Updates.UpdateWorkGate.IsInstalling) return;
         if (IsCheckingLibrary || ProtectedMediaSession.IsLocked) return;
         IsCheckingLibrary = true;
-        using var cts = new CancellationTokenSource();libraryCheckCts=cts;
+        using var cts = new CancellationTokenSource(); libraryCheckCts = cts;
         try
         {
-            var result = await new LibraryMaintenanceService().CheckAsync(catalog,cts.Token);
-            LibraryCheckStatus = string.Format(App.GetString("LibraryCheckResult", "已核验 {0} 项，回收重复副本 {1} 项，清理 {2} 项。"), result.Checked,result.Recycled,result.Purged);
-            if (result.Errors.Count > 0) LibraryCheckStatus += Environment.NewLine + string.Join(Environment.NewLine,result.Errors);
+            var result = await new LibraryMaintenanceService().CheckAsync(catalog, cts.Token);
+            LibraryCheckStatus = string.Format(App.GetString("LibraryCheckResult", "已核验 {0} 项，回收重复副本 {1} 项，清理 {2} 项。"), result.Checked, result.Recycled, result.Purged);
+            if (result.Errors.Count > 0) LibraryCheckStatus += Environment.NewLine + string.Join(Environment.NewLine, result.Errors);
             RefreshRecycledCopies();
             LibraryChanged?.Invoke();
         }
-        catch (OperationCanceledException) { LibraryCheckStatus=App.GetString("LibraryCheckCancelled","自检已取消，已完成的操作可以恢复。"); }
+        catch (OperationCanceledException) { LibraryCheckStatus = App.GetString("LibraryCheckCancelled", "自检已取消，已完成的操作可以恢复。"); }
         catch (Exception ex) { LibraryCheckStatus = ex.Message; }
-        finally { libraryCheckCts=null;IsCheckingLibrary = false; }
+        finally { libraryCheckCts = null; IsCheckingLibrary = false; }
     }
 
     [RelayCommand]
@@ -141,8 +141,8 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private void ReclaimLibraryWriter()
     {
-        try { LibraryWriteCoordinator.ReclaimLibraryWriter(new LibraryCatalog(ArchivePath)); LibraryCheckStatus=App.GetString("LibraryWriterReclaimed","已恢复图库写入，请确保其他电脑已停止写入。"); }
-        catch(Exception ex) { LibraryCheckStatus=ex.Message; }
+        try { LibraryWriteCoordinator.ReclaimLibraryWriter(new LibraryCatalog(ArchivePath)); LibraryCheckStatus = App.GetString("LibraryWriterReclaimed", "已恢复图库写入，请确保其他电脑已停止写入。"); }
+        catch (Exception ex) { LibraryCheckStatus = ex.Message; }
     }
 
     [ObservableProperty]
@@ -513,6 +513,7 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    internal void ReloadRemotePreferences() => LoadConfig();
     private void LoadConfig()
     {
         loadingConfig = true;
@@ -601,7 +602,7 @@ public partial class SettingsViewModel : ObservableObject
 
         string previous = ArchivePath;
         string next = LibraryStorageService.GetLibraryRootForDrive(value.DriveLetter);
-        if (!string.Equals(previous,next,StringComparison.OrdinalIgnoreCase) && File.Exists(TransferJournal.ResolveDatabasePath(previous)))
+        if (!string.Equals(previous, next, StringComparison.OrdinalIgnoreCase) && File.Exists(TransferJournal.ResolveDatabasePath(previous)))
         {
             try
             {

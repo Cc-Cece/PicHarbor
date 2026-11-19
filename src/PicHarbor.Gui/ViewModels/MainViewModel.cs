@@ -41,6 +41,7 @@ public partial class MainViewModel : ObservableObject
 
     public void PrepareForUpdateInstallation() => SettingsVM.CancelLibraryCheckCommand.Execute(null);
     private readonly DispatcherTimer deviceProbeTimer;
+    private readonly Dictionary<string, string> telemetryBatches = new();
     private bool libraryCheckRunning;
     private string lastMemberState = "";
     private DateTimeOffset nextMemberProbe;
@@ -475,10 +476,10 @@ public partial class MainViewModel : ObservableObject
         {
             using (var upgrade = PicHarbor.Core.Journal.TransferJournal.Open(DestinationPath)) { }
             var catalog = new LibraryCatalog(DestinationPath);
-            foreach(var member in catalog.Members.Where(m=>Directory.Exists(m.Root)))
-                if(!await BackupPreferences.EnsureArchiveProtectionAsync(member.Root))
-                { SettingsVM.LibraryCheckStatus=App.GetString("LibraryProtectionUnavailable","无法确认图库保护状态，请先解锁或修复应用锁。");return; }
-            string state = string.Join("|",catalog.Members.Select(m => m.StorageId + ":" + Directory.Exists(m.Root)));
+            foreach (var member in catalog.Members.Where(m => Directory.Exists(m.Root)))
+                if (!await BackupPreferences.EnsureArchiveProtectionAsync(member.Root))
+                { SettingsVM.LibraryCheckStatus = App.GetString("LibraryProtectionUnavailable", "无法确认图库保护状态，请先解锁或修复应用锁。"); return; }
+            string state = string.Join("|", catalog.Members.Select(m => m.StorageId + ":" + Directory.Exists(m.Root)));
             if (state == lastMemberState) return;
             if (PicHarbor.Gui.Updates.UpdateWorkGate.IsInstalling) return;
             await SettingsVM.RunLibraryCheckAsync(catalog);
@@ -619,11 +620,11 @@ public partial class MainViewModel : ObservableObject
             {
                 try
                 {
-                    var previous=new LibraryCatalog(DestinationPath);
-                    using(var created=PicHarbor.Core.Journal.TransferJournal.Open(newPath)) { }
+                    var previous = new LibraryCatalog(DestinationPath);
+                    using (var created = PicHarbor.Core.Journal.TransferJournal.Open(newPath)) { }
                     previous.Include(newPath);
                 }
-                catch(Exception ex) { SettingsVM.LibraryCheckStatus=ex.Message;return; }
+                catch (Exception ex) { SettingsVM.LibraryCheckStatus = ex.Message; return; }
             }
             DestinationPath = newPath;
         }
@@ -697,6 +698,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void SwitchLanguage(string culture)
     {
+        if (Remote.RemoteServices.Intercept("CurrentLanguage")) return;
         CurrentLanguage = culture;
         App.SwitchLanguage(culture);
         ApplyLanguageToViewModels();
@@ -1318,6 +1320,12 @@ public partial class MainViewModel : ObservableObject
         string? runningState = null)
     {
         bool justStarted = running && !card.IsRunning;
+        if (justStarted) telemetryBatches[card.Key] = Guid.NewGuid().ToString();
+        if ((!running && card.IsRunning || justStarted) && telemetryBatches.TryGetValue(card.Key, out string? batch))
+            _ = Remote.RemoteServices.ObserveAsync("backup.batch", new System.Text.Json.Nodes.JsonObject { ["status"] = running ? "active" : failed > 0 ? "failed" : "completed", ["source"] = "manual", ["operation"] = card.Key, ["resource_total"] = copied + skipped + failed, ["resource_success"] = copied + skipped, ["resource_failed"] = failed }, batch);
+
+        if (!running && card.IsRunning && copied + failed > 0)
+            _ = Remote.RemoteServices.Runtime.CallAsync("event", new System.Text.Json.Nodes.JsonObject { ["name"] = failed > 0 ? "backup_failure" : "backup_success" });
         var gate = GetPauseGate(card.Key);
         bool paused = card.Key == "google" ? GooglePhotosVM.IsPaused : running && gate?.IsPaused == true;
         bool pausing = card.Key == "google" ? GooglePhotosVM.IsPausing : running && gate?.IsPauseRequested == true && !paused;
