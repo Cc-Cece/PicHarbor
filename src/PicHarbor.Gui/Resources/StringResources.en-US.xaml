@@ -170,6 +170,7 @@
     <sys:String x:Key="SettingsNavGallery">Gallery &amp; Selection</sys:String>
     <sys:String x:Key="SettingsNavTools">Built-in Tools</sys:String>
     <sys:String x:Key="SettingsNavOther">Other</sys:String>
+    <sys:String x:Key="SettingsNavMore">More</sys:String>
     <sys:String x:Key="SettingsCardBackupLocation">Backup Location</sys:String>
     <sys:String x:Key="SettingsLabelPrimaryDrive">Primary Backup Drive</sys:String>
     <sys:String x:Key="SettingsBtnOpenFolder">Open Folder</sys:String>

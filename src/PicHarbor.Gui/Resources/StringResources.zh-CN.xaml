@@ -170,6 +170,7 @@
     <sys:String x:Key="SettingsNavGallery">图库与选择</sys:String>
     <sys:String x:Key="SettingsNavTools">内置工具</sys:String>
     <sys:String x:Key="SettingsNavOther">其它</sys:String>
+    <sys:String x:Key="SettingsNavMore">更多</sys:String>
     <sys:String x:Key="SettingsCardBackupLocation">备份位置</sys:String>
     <sys:String x:Key="SettingsLabelPrimaryDrive">当前主备份盘</sys:String>
     <sys:String x:Key="SettingsBtnOpenFolder">打开目录</sys:String>

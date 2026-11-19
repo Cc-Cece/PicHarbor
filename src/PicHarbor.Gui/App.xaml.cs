@@ -137,6 +137,7 @@ public partial class App : Application
             };
         }
 
+        mainWindow.Loaded += async (_, _) => await Remote.RemoteServices.StartAsync(mainWindow);
         mainWindow.Show();
     }
 

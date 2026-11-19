@@ -697,6 +697,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void SwitchLanguage(string culture)
     {
+        if (Remote.RemoteServices.Intercept("CurrentLanguage")) return;
         CurrentLanguage = culture;
         App.SwitchLanguage(culture);
         ApplyLanguageToViewModels();
@@ -1318,6 +1319,8 @@ public partial class MainViewModel : ObservableObject
         string? runningState = null)
     {
         bool justStarted = running && !card.IsRunning;
+        if (!running && card.IsRunning && copied + failed > 0)
+            _ = Remote.RemoteServices.Runtime.CallAsync("event", new System.Text.Json.Nodes.JsonObject { ["name"] = failed > 0 ? "backup_failure" : "backup_success" });
         var gate = GetPauseGate(card.Key);
         bool paused = card.Key == "google" ? GooglePhotosVM.IsPaused : running && gate?.IsPaused == true;
         bool pausing = card.Key == "google" ? GooglePhotosVM.IsPausing : running && gate?.IsPauseRequested == true && !paused;

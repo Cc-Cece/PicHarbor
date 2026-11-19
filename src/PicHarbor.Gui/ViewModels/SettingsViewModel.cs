@@ -513,6 +513,7 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    internal void ReloadRemotePreferences() => LoadConfig();
     private void LoadConfig()
     {
         loadingConfig = true;

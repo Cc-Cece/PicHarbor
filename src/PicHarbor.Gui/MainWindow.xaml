@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:PicHarbor.Gui.ViewModels"
         xmlns:controls="clr-namespace:PicHarbor.Gui.Controls"
+        xmlns:remote="clr-namespace:PicHarbor.Gui.Remote"
         Title="PicHarbor" 
         Height="720" Width="1060"
         MinHeight="600" MinWidth="900"
@@ -1562,6 +1563,8 @@
                                                       IsChecked="{Binding SettingsSubTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=4}" />
                                 <controls:PclListItem Content="{DynamicResource SettingsNavOther}" Logo="{StaticResource PclIconSettings}" GroupName="SettingsSubNav"
                                                       IsChecked="{Binding SettingsSubTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=5}" />
+                                <controls:PclListItem Content="{DynamicResource SettingsNavMore}" Logo="{StaticResource PclIconSetup}" GroupName="SettingsSubNav"
+                                                      IsChecked="{Binding SettingsSubTabIndex, Converter={x:Static vm:EnumToBoolConverter.Instance}, ConverterParameter=6}" />
                             </StackPanel>
                         </controls:PclPageHost>
                     </Border>
@@ -1580,6 +1583,14 @@
                 <!-- RIGHT CONTENT CANVAS -->
                 <controls:PclScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="25,20,25,15">
                     <StackPanel>
+                        <remote:RemoteMoreControl>
+                            <remote:RemoteMoreControl.Style>
+                                <Style TargetType="remote:RemoteMoreControl">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers><DataTrigger Binding="{Binding SettingsSubTabIndex}" Value="6"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+                                </Style>
+                            </remote:RemoteMoreControl.Style>
+                        </remote:RemoteMoreControl>
                         <!-- SUB-VIEW 0: 备份 (SettingsVM) -->
                         <controls:PclPageHost Direction="Vertical">
                             <controls:PclPageHost.Style>

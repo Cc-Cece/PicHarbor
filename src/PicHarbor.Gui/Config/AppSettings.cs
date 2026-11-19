@@ -158,7 +158,7 @@ public static class AppSettings
                         Save(config);
                     }
 
-                    return config;
+                    return Remote.RemoteServices.Overlay(config);
                 }
             }
         }
@@ -169,7 +169,7 @@ public static class AppSettings
             return new AppConfig { AppLockWasEnabled = File.Exists(ConfigPath) };
         }
 
-        return new AppConfig();
+        return Remote.RemoteServices.Overlay(new AppConfig());
     }
 
     public static bool LoadPreviewMuted() => Load().PreviewMuted;
@@ -223,6 +223,7 @@ public static class AppSettings
         {
             Directory.CreateDirectory(ConfigDir);
             var stored = JsonSerializer.Deserialize<AppConfig>(JsonSerializer.Serialize(config, JsonOptions))!;
+            Remote.RemoteServices.Overlay(stored, personal: true);
             ProtectCredentials(stored);
             string json = JsonSerializer.Serialize(stored, JsonOptions);
             string temporary = ConfigPath + "." + Guid.NewGuid().ToString("N") + ".tmp";

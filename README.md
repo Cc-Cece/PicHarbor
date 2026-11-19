@@ -159,6 +159,9 @@ dotnet test PicHarbor.sln -c Release --filter "Category!=E2E"
 
 ## Acknowledgements
 
+The **More** settings tab loads publisher-signed tools, initially the official community and feedback. Basic usage statistics use a random installation ID and coarse counts. No photo names, Google credentials or full Google email addresses are collected. Feedback can include a locally masked account hint and explicitly selected, sanitized attachments. Remote preference policies support apply-once or force-until-withdrawn behavior; account, credential, filesystem and security settings are excluded.
+
+
 PicHarbor builds upon work from [get-and-see](https://github.com/denis-a-evdokimov/get-and-see), [gpmc](https://github.com/xob0t/gpmc), [PCL](https://github.com/Meloong-Git/PCL), and [sweet-album](https://github.com/leuvi/sweet-album).
 
 The author opposes using this project for marketing or unauthorized promotion. Please do not falsely claim official endorsement.

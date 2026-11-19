@@ -159,6 +159,9 @@ dotnet test PicHarbor.sln -c Release --filter "Category!=E2E"
 
 ## 致谢
 
+设置中的 **更多**标签加载官方签名工具，初始提供官方交流群和意见反馈。基础统计使用随机安装标识和粗略计数，不收集照片名称、Google 凭据或完整 Google 邮箱。反馈可附带本机打码的账号提示和主动选择、经过筛选的附件。远程偏好配置支持调整一次或锁定至撤回，账号、凭据、文件路径和安全设置不在接管范围内。
+
+
 PicHarbor 基于以下开源项目的工作：[get-and-see](https://github.com/denis-a-evdokimov/get-and-see)、[gpmc](https://github.com/xob0t/gpmc)、[PCL](https://github.com/Meloong-Git/PCL) 与 [sweet-album](https://github.com/leuvi/sweet-album)。
 
 作者反对利用本项目进行引流或商业营销。请勿冒充官方或虚称作者背书。
