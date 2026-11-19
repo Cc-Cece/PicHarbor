@@ -5,6 +5,10 @@ using Xunit;
 
 namespace PicHarbor.Tests;
 
+[CollectionDefinition("bundled-python", DisableParallelization = true)]
+public sealed class BundledPythonCollection;
+
+[Collection("bundled-python")]
 public sealed class RemoteRuntimeTests
 {
     [Fact]

@@ -4,6 +4,7 @@ using Xunit;
 
 namespace PicHarbor.Tests.GooglePhotos;
 
+[Collection("bundled-python")]
 public sealed class GooglePhotosConfigTests
 {
     [Fact]
