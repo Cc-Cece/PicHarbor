@@ -8,6 +8,28 @@ namespace PicHarbor.Tests;
 public sealed class RemoteRuntimeTests
 {
     [Fact]
+    public async Task Dialog_receipt_is_persisted_by_the_packaged_runtime_only_after_button_selection()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "picharbor-dialog-" + Guid.NewGuid());
+        try
+        {
+            var dialog = new JsonObject { ["type"] = "dialog", ["id"] = "welcome", ["title"] = "Welcome", ["message"] = "Once per installation" };
+            var runtime = new RemoteRuntime(directory);
+            var prepared = await runtime.CallAsync("dialog_prepare", new JsonObject { ["dialog"] = dialog.DeepClone() }, TestContext.Current.CancellationToken);
+            prepared["status"]!.GetValue<string>().ShouldBe("pending");
+            var restarted = new RemoteRuntime(directory);
+            prepared = await restarted.CallAsync("dialog_prepare", new JsonObject { ["dialog"] = dialog.DeepClone() }, TestContext.Current.CancellationToken);
+            prepared["status"]!.GetValue<string>().ShouldBe("pending");
+            var completed = await restarted.CallAsync("dialog_complete", new JsonObject { ["dialog"] = dialog.DeepClone(), ["button"] = "ok" }, TestContext.Current.CancellationToken);
+            completed["status"]!.GetValue<string>().ShouldBe("confirmed");
+            var loaded = new RemoteRuntime(directory);
+            prepared = await loaded.CallAsync("dialog_prepare", new JsonObject { ["dialog"] = dialog.DeepClone() }, TestContext.Current.CancellationToken);
+            prepared["status"]!.GetValue<string>().ShouldBe("already_seen");
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Fact]
     public async Task Packaged_python_round_trips_unicode_and_buffers_facts_without_builtin_collection_policy()
     {
         string directory = Path.Combine(Path.GetTempPath(), "picharbor-remote-" + Guid.NewGuid());
