@@ -8,7 +8,7 @@ namespace PicHarbor.Tests;
 public sealed class RemoteRuntimeTests
 {
     [Fact]
-    public async Task Packaged_python_round_trips_unicode_and_deduplicates_events_offline()
+    public async Task Packaged_python_round_trips_unicode_and_buffers_facts_without_builtin_collection_policy()
     {
         string directory = Path.Combine(Path.GetTempPath(), "picharbor-remote-" + Guid.NewGuid());
         try
@@ -28,10 +28,9 @@ public sealed class RemoteRuntimeTests
                 recorded["ok"]!.GetValue<bool>().ShouldBeTrue();
             }
             var state = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(directory, "Remote", "state.json"), TestContext.Current.CancellationToken))!;
-            var counts = state["daily"]!.AsObject().First().Value!["events"]!;
-            counts["backup_success"]!.GetValue<int>().ShouldBe(1);
-            counts["duration_1m_10m"]!.GetValue<int>().ShouldBe(1);
-            counts["size_10mb_100mb"]!.GetValue<int>().ShouldBe(1);
+            (state["daily"]?.AsObject().Count ?? 0).ShouldBe(0);
+            File.Exists(Path.Combine(directory, "harbor_telemetry.py")).ShouldBeTrue();
+            File.Exists(Path.Combine(directory, "Remote", "telemetry.sqlite")).ShouldBeTrue();
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }

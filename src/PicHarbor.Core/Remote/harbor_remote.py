@@ -17,6 +17,7 @@ import sys
 import time
 import uuid
 import zipfile
+from harbor_telemetry import Bridge, run_collector, checked_record, safe_facts
 
 ORIGIN = 'https://api.akihito.dpdns.org'
 PUBLIC = ('iuedfHRaV44kApnWvkzd4I8845b5jR3fF-J4ZhT-4d8', 'VnI6wfaBJwEcODfDuEm8Hw1ck7ucrVV6xfMRma3YH2U')
@@ -64,7 +65,7 @@ def verify(envelope):
     point=_add(_mul(z*w%N,G),_mul(r*w%N,q))
     if point is None or point[0]%N!=r:raise ValueError('SIGNATURE_INVALID')
     data=json.loads(raw)
-    if data.get('schema')!=1 or data.get('app')!='picharbor' or data.get('min_base',1)>1 or not isinstance(data.get('revision'),int):raise ValueError('CONTENT_INCOMPATIBLE')
+    if data.get('schema')!=1 or data.get('app')!='picharbor' or data.get('min_base',1)>2 or not isinstance(data.get('revision'),int):raise ValueError('CONTENT_INCOMPATIBLE')
     if len(data.get('script',''))>131072:raise ValueError('SCRIPT_LIMIT')
     return data
 
@@ -127,7 +128,7 @@ class Remote:
         self.state=_read(self.root/'state.json',{})
         self.state.setdefault('installation',str(uuid.uuid4()))
         self.context=context or {};self.platform=self.context.get('platform','ios')
-        self.context={k:v for k,v in self.context.items() if k in ('platform','version','language','system','device_class')}
+        self.context={k:v for k,v in self.context.items() if k in ('platform','version','build','channel','language','system','device_class')}
         self.content={};self.envelope=None
         for name in ('content.json','previous.json'):
             try:
@@ -162,14 +163,20 @@ class Remote:
         if data['revision']==self.content.get('revision',0):return {'ok':True,'changed':False}
         # Compile/validate before activation; startup code is not executed now.
         compile(data.get('script',''),'remote-content','exec')
+        self.validating=True
         previous_content=self.content;previous_failures=self.state.get('script_failures',0)
         self.content=data;self.state['script_failures']=0
         checked=self.script('build_more')
         self.content=previous_content;self.state['script_failures']=previous_failures
+        self.validating=False
+        if data.get('telemetry_script'):
+            result=run_collector(data['telemetry_script'],{'name':'environment.snapshot','fields':{},'id':'preview','timestamp':int(time.time()),'day':datetime.date.today().isoformat()},dict(self.context),{})
+            for record in result.get('records',[]):checked_record(record)
         if checked is None:raise ValueError('CONTENT_VALIDATION_FAILED')
         if self.envelope:_write(self.root/'previous.json',self.envelope)
         _write(self.root/'content.json',envelope);self.content=data;self.envelope=envelope
         self.state['script_failures']=0
+        self.observe('remote.fetch',{'success':True,'content_revision':data['revision'],'operation':'activate'})
         return {'ok':True,'changed':True}
 
     def script(self,entry,action='',values=None):
@@ -202,33 +209,46 @@ class Remote:
             self.event('script_failure');return None
         finally:sys.settrace(old)
 
+    def observe(self,name,fields=None,key=''):
+        if getattr(self,'_observing',False) or getattr(self,'validating',False):return False
+        self._observing=True
+        try:
+            ok=Bridge(self).observe(name,fields,key)
+            if ok:self.state['collector_failures']=0
+            return ok
+        except Exception:
+            self.state['collector_failures']=self.state.get('collector_failures',0)+1
+            self.state['collector_error']='COLLECTOR_FAILED'
+            if self.state['collector_failures']>=3:
+                try:
+                    previous=verify(_read(self.root/'previous.json',{}));current=self.content
+                    self.content={**current,'telemetry_script':previous.get('telemetry_script',''),'telemetry':previous.get('telemetry',{})}
+                    try:return Bridge(self).observe(name,fields,key)
+                    finally:self.content=current
+                except Exception:pass
+            return False
+        finally:self._observing=False
+
     def event(self,name,event_id='',duration_ms=None,size=None):
-        if name not in EVENT_NAMES:return
-        day=datetime.date.today().isoformat();daily=self.state.setdefault('daily',{})
-        if event_id:
-            key=hashlib.sha256((name+str(event_id)).encode()).hexdigest()
-            # Dedupe independently of the small outbox JSON: large libraries must
-            # not rewrite an ever-growing list of task IDs for every photo.
-            with closing(sqlite3.connect(self.root/'events.sqlite')) as db, db:
-                db.execute('PRAGMA journal_mode=WAL');db.execute('PRAGMA synchronous=NORMAL')
-                db.execute('CREATE TABLE IF NOT EXISTS seen(id TEXT PRIMARY KEY,day TEXT NOT NULL)')
-                if db.execute('INSERT OR IGNORE INTO seen VALUES(?,?)',(key,day)).rowcount==0:return
-                if self.state.get('events_swept')!=day:
-                    db.execute('DELETE FROM seen WHERE day<?',((datetime.date.today()-datetime.timedelta(days=30)).isoformat(),));self.state['events_swept']=day
-            self.state.pop('events_seen',None)
-        if day not in daily:daily[day]={'id':str(uuid.uuid4()),'events':{}}
-        previous=daily[day]['events'].get(name,0)
-        daily[day]['events'][name]=1 if name=='active' else min(100000,previous+1)
-        if daily[day]['events'][name]!=previous:daily[day]['id']=str(uuid.uuid4())
-        daily[day]['version']=str(self.context.get('version','unknown'))[:40]
-        if name in ('backup_success','transfer_success'):
-            if type(duration_ms) in (int,float) and 0<=duration_ms<=30*86400000:
-                bucket='duration_under_1m' if duration_ms<60000 else 'duration_1m_10m' if duration_ms<600000 else 'duration_over_10m'
-                daily[day]['events'][bucket]=min(100000,daily[day]['events'].get(bucket,0)+1)
-            if type(size) in (int,float) and 0<=size<=1024**4:
-                bucket='size_under_10mb' if size<10*1024**2 else 'size_10mb_100mb' if size<100*1024**2 else 'size_over_100mb'
-                daily[day]['events'][bucket]=min(100000,daily[day]['events'].get(bucket,0)+1)
-        self.state['daily']={d:v for d,v in daily.items() if (datetime.date.today()-datetime.date.fromisoformat(d)).days<30}
+        # Compatibility surface only. The remote collector decides whether
+        # legacy facts are useful; no built-in histogram or counting policy.
+        fields={'operation':str(name)}
+        if duration_ms is not None:fields['duration_ms']=duration_ms
+        if size is not None:fields['bytes']=size
+        self.observe('legacy.event',fields,event_id)
+
+    def lifecycle(self,phase,fields=None):
+        stamp=int(time.time()*1000);session=self.state.setdefault('session',{})
+        if phase=='start':
+            if session.get('foreground'):self.observe('app.previous_exit',{},session.get('id',''))
+            session={'id':str(uuid.uuid4()),'foreground':True,'since':stamp,'active_ms':0};self.state['session']=session
+        elif not session:
+            session={'id':str(uuid.uuid4()),'foreground':False,'since':stamp,'active_ms':0};self.state['session']=session
+        if session.get('foreground'):session['active_ms']+=max(0,min(300000,stamp-session.get('since',stamp)))
+        session['since']=stamp
+        if phase in ('start','foreground'):session['foreground']=True
+        elif phase=='background':session['foreground']=False
+        self.observe('app.'+phase,{**(fields or {}),'active_ms':session['active_ms']},session['id'])
 
     def flush(self):
         today=datetime.date.today().isoformat()
@@ -236,8 +256,14 @@ class Remote:
             if data.get('sent')!=data['events']:
                 self.request('/v1/statistics',{'id':data['id'],'installation':self.state['installation'],'platform':self.platform,'version':data.get('version',str(self.context.get('version','unknown'))[:40]),'day':day,'events':data['events'],'environment':{k:str(self.context.get(k,''))[:32] for k in ('language','system','device_class')}})
                 data['sent']=dict(data['events'])
-            if day!=today:del self.state['daily'][day]
+            del self.state['daily'][day]
             self.save()
+        policy=self.content.get('telemetry',{})
+        interval=max(60,min(3600,policy.get('flush_seconds',900)))
+        if time.time()-self.state.get('telemetry_last_flush',0)>=interval:
+            try:
+                Bridge(self).flush();self.state['telemetry_last_flush']=time.time();self.save()
+            except Exception:pass
         for item in list(self.state.get('pending_feedback',[])):
             result=self.request('/v1/feedback',item['payload']);self.upload_files(result['id'],item['payload']['request_id'],item.get('files',[]))
             self.state['pending_feedback'].remove(item);self.save()
@@ -280,6 +306,7 @@ class Remote:
         if not body or len(body)>10000 or len(contact)>200:raise ValueError('INVALID_FEEDBACK')
         account_key=hashlib.sha256(str(values.get('email','')).encode()).hexdigest()
         ref=self.state.setdefault('account_refs',{}).setdefault(account_key,str(uuid.uuid4())) if values.get('email') else ''
+        self.observe('feedback.stage',{'operation':'feedback.submit'})
         payload={'request_id':str(uuid.uuid4()),'installation':self.state['installation'],'account_ref':ref[:64],
                  'account_hint':mask_email(values.get('email','')),'platform':self.platform,'version':str(self.context.get('version','unknown'))[:40], 'body':body,'contact':contact}
         queue=self.state.setdefault('pending_feedback',[])
@@ -299,8 +326,11 @@ class Remote:
         item={'payload':payload,'files':checked};queue.append(item);self.save()
         try:
             result=self.request('/v1/feedback',payload);self.upload_files(result['id'],payload['request_id'],checked);queue.remove(item)
+            self.observe('feedback.stage',{'operation':'feedback.sent','success':True})
             return {'ok':True,'id':result['id'],'queued':False}
-        except Exception:return {'ok':True,'id':payload['request_id'],'queued':True}
+        except Exception:
+            self.observe('feedback.stage',{'operation':'feedback.queued','success':False})
+            return {'ok':True,'id':payload['request_id'],'queued':True}
 
     def upload_files(self,fid,rid,files):
         for f in files:
@@ -360,13 +390,18 @@ def dispatch(home,action,payload='{}'):
             try:r.flush()
             except Exception:pass
         elif action=='flush':r.flush();result={'ok':True}
-        elif action=='startup':r.event('launch');r.event('active');result={'ok':True,'ui':r.script('on_start')}
+        elif action=='startup':
+            r.lifecycle('start');r.observe('environment.snapshot',{'os_version':r.context.get('system','unknown'),'language':r.context.get('language','system'),'channel':r.context.get('channel','unknown'),'device_class':r.context.get('device_class','unknown')})
+            result={'ok':True,'ui':r.script('on_start')}
+        elif action=='observe':result={'ok':True,'collected':r.observe(v.get('name',''),v.get('fields',{}),v.get('id',''))}
+        elif action=='lifecycle':r.lifecycle(v.get('phase','heartbeat'),v.get('fields',{}));result={'ok':True}
         elif action=='more':
+            r.observe('feature.action',{'tool_id':'more.open'})
             if not r.content:
                 try:r.sync()
                 except Exception:pass
             result={'ok':True,'page':r.script('build_more') or {'title':'更多','items':[]}}
-        elif action=='action':r.event('tool_use');result={'ok':True,'page':r.script('handle_action',v.get('action',''),v.get('values',{})) or {'title':'更多','items':[]}}
+        elif action=='action':r.observe('feature.action',{'tool_id':v.get('action','unknown')});result={'ok':True,'page':r.script('handle_action',v.get('action',''),v.get('values',{})) or {'title':'更多','items':[]}}
         elif action=='resolve':result=r.resolve(v.get('values',{}),v.get('scope','device'))
         elif action=='hint':r.hint(v.get('scope',''),v.get('receipt',''));result={'ok':True}
         elif action=='event':r.event(v.get('name'),v.get('id',''),v.get('duration_ms'),v.get('bytes'));result={'ok':True}

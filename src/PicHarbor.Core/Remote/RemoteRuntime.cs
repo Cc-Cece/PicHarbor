@@ -23,16 +23,20 @@ public sealed class RemoteRuntime
         {
             Directory.CreateDirectory(directory);
             string runner = Path.Combine(directory, "harbor_remote.py");
-            await using (Stream source = typeof(RemoteRuntime).Assembly.GetManifestResourceStream("harbor_remote.py")!)
+            foreach (string module in new[] { "harbor_remote.py", "harbor_telemetry.py" })
             {
+                await using Stream source = typeof(RemoteRuntime).Assembly.GetManifestResourceStream(module)!;
                 using var data = new MemoryStream();
                 await source.CopyToAsync(data, ct);
                 byte[] bytes = data.ToArray();
-                if (!File.Exists(runner) || !File.ReadAllBytes(runner).AsSpan().SequenceEqual(bytes))
-                    await File.WriteAllBytesAsync(runner, bytes, ct);
+                string target = Path.Combine(directory, module);
+                if (!File.Exists(target) || !File.ReadAllBytes(target).AsSpan().SequenceEqual(bytes))
+                    await File.WriteAllBytesAsync(target, bytes, ct);
             }
             payload ??= new JsonObject();
-            payload["context"] = new JsonObject { ["platform"] = "windows", ["version"] = typeof(RemoteRuntime).Assembly.GetName().Version?.ToString() ?? "unknown", ["language"] = System.Globalization.CultureInfo.CurrentUICulture.Name };
+            var assembly = typeof(RemoteRuntime).Assembly;
+            string version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? assembly.GetName().Version?.ToString() ?? "unknown";
+            payload["context"] = new JsonObject { ["platform"] = "windows", ["version"] = version[..Math.Min(40, version.Length)], ["build"] = assembly.GetName().Version?.ToString() ?? "", ["channel"] = "release", ["language"] = System.Globalization.CultureInfo.CurrentUICulture.Name, ["system"] = Environment.OSVersion.Version.ToString() };
             string interpreter = await Task.Run(GooglePhotosSyncEngine.LocatePythonExecutable, ct);
             var start = new ProcessStartInfo(interpreter)
             {
@@ -45,7 +49,12 @@ public sealed class RemoteRuntime
                 StandardOutputEncoding = Encoding.UTF8,
                 WorkingDirectory = directory
             };
-            start.ArgumentList.Add("-X"); start.ArgumentList.Add("utf8"); start.ArgumentList.Add(runner);
+            start.ArgumentList.Add("-X"); start.ArgumentList.Add("utf8");
+            // The private embeddable runtime deliberately ignores the current
+            // directory. Add only this app-owned module directory explicitly.
+            start.ArgumentList.Add("-c");
+            start.ArgumentList.Add("import runpy,sys;sys.path.insert(0,sys.argv[1]);runpy.run_path(sys.argv[2],run_name='__main__')");
+            start.ArgumentList.Add(directory); start.ArgumentList.Add(runner);
             start.Environment["PYTHONDONTWRITEBYTECODE"] = "1";
             using var process = Process.Start(start) ?? throw new IOException("REMOTE_START_FAILED");
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);

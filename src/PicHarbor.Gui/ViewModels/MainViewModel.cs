@@ -41,6 +41,7 @@ public partial class MainViewModel : ObservableObject
 
     public void PrepareForUpdateInstallation() => SettingsVM.CancelLibraryCheckCommand.Execute(null);
     private readonly DispatcherTimer deviceProbeTimer;
+    private readonly Dictionary<string, string> telemetryBatches = new();
     private bool libraryCheckRunning;
     private string lastMemberState = "";
     private DateTimeOffset nextMemberProbe;
@@ -1319,6 +1320,10 @@ public partial class MainViewModel : ObservableObject
         string? runningState = null)
     {
         bool justStarted = running && !card.IsRunning;
+        if (justStarted) telemetryBatches[card.Key] = Guid.NewGuid().ToString();
+        if ((!running && card.IsRunning || justStarted) && telemetryBatches.TryGetValue(card.Key, out string? batch))
+            _ = Remote.RemoteServices.ObserveAsync("backup.batch", new System.Text.Json.Nodes.JsonObject { ["status"] = running ? "active" : failed > 0 ? "failed" : "completed", ["source"] = "manual", ["operation"] = card.Key, ["resource_total"] = copied + skipped + failed, ["resource_success"] = copied + skipped, ["resource_failed"] = failed }, batch);
+
         if (!running && card.IsRunning && copied + failed > 0)
             _ = Remote.RemoteServices.Runtime.CallAsync("event", new System.Text.Json.Nodes.JsonObject { ["name"] = failed > 0 ? "backup_failure" : "backup_success" });
         var gate = GetPauseGate(card.Key);

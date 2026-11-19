@@ -49,12 +49,22 @@ internal static class RemoteServices
         await ResolveAsync();
         if (window.DataContext is ViewModels.MainViewModel vm) { vm.SettingsVM.ReloadRemotePreferences(); vm.CurrentLanguage = AppSettings.Load().CurrentLanguage; App.SwitchLanguage(vm.CurrentLanguage); }
         ContentChanged?.Invoke();
-        retryTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMinutes(5) };
-        retryTimer.Tick += async (_, _) => await Runtime.CallAsync("flush");
+        retryTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
+        retryTimer.Tick += async (_, _) => { if (window.IsActive) await Runtime.CallAsync("lifecycle", new JsonObject { ["phase"] = "heartbeat" }); await SnapshotFactsAsync(); await Runtime.CallAsync("flush"); };
         retryTimer.Start();
+        await SnapshotFactsAsync();
+        window.Activated += async (_, _) => await Runtime.CallAsync("lifecycle", new JsonObject { ["phase"] = "foreground" });
+        window.Deactivated += async (_, _) => await Runtime.CallAsync("lifecycle", new JsonObject { ["phase"] = "background" });
         window.Closed += (_, _) => retryTimer?.Stop();
         window.PreviewMouseDown += GuardMouse;
         window.PreviewKeyDown += (_, e) => { if ((e.Key is Key.Space or Key.Enter) && Guard(e.OriginalSource as DependencyObject)) e.Handled = true; };
+    }
+    internal static Task<JsonObject> ObserveAsync(string name, JsonObject fields, string id = "") => Runtime.CallAsync("observe", new JsonObject { ["name"] = name, ["fields"] = fields, ["id"] = id });
+    private static async Task SnapshotFactsAsync()
+    {
+        var config = AppSettings.Load();
+        await ObserveAsync("environment.snapshot", new JsonObject { ["os_version"] = Environment.OSVersion.Version.ToString(), ["abi"] = System.Runtime.InteropServices.RuntimeInformation.OSArchitecture.ToString(), ["device_class"] = "desktop", ["network"] = System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable() ? "connected" : "offline", ["language"] = System.Globalization.CultureInfo.CurrentUICulture.Name });
+        await ObserveAsync("preferences.snapshot", new JsonObject { ["live_mode"] = config.GooglePhotosLiveStrategy.ToString(), ["quality"] = config.GooglePhotosStorageSaver ? "saver" : config.GooglePhotosUnlimitedQuality ? "original_unlimited" : "original", ["auth_state"] = string.IsNullOrWhiteSpace(config.GooglePhotosAccountEmail) ? "signed_out" : "selected" });
     }
     internal static async Task ResolveAsync()
     {

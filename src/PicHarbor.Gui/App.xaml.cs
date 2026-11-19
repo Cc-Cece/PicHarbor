@@ -25,6 +25,7 @@ public partial class App : Application
         DispatcherUnhandledException += (s, args) =>
         {
             (MainWindow?.DataContext as MainViewModel)?.Updates.SuppressExitInstallation();
+            _ = Remote.RemoteServices.ObserveAsync("error.native", new System.Text.Json.Nodes.JsonObject { ["error_code"] = "UI_UNHANDLED", ["exception_type"] = args.Exception.GetType().Name, ["stage"] = "ui" });
             try
             {
                 File.WriteAllText("crash.log", args.Exception.ToString() + "\nInner:\n" + args.Exception.InnerException?.ToString());
