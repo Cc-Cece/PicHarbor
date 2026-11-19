@@ -206,7 +206,7 @@ class Remote:
             return result
         except Exception:
             self.state['script_failures']=self.state.get('script_failures',0)+1
-            self.event('script_failure');return None
+            self.observe('remote.execute',{'success':False,'operation':entry,'error_code':'SCRIPT_FAILED'});return None
         finally:sys.settrace(old)
 
     def observe(self,name,fields=None,key=''):
@@ -387,6 +387,7 @@ def dispatch(home,action,payload='{}'):
         v=json.loads(payload) if isinstance(payload,str) else payload;r=Remote(home,v.get('context',{}))
         if action=='sync':
             result=r.sync()
+            r.observe('remote.fetch',{'success':True,'operation':'check'})
             try:r.flush()
             except Exception:pass
         elif action=='flush':r.flush();result={'ok':True}
@@ -410,10 +411,14 @@ def dispatch(home,action,payload='{}'):
             version=str(r.context.get('version',''))
             field='updates' if '-' in version or version.startswith('0.') else 'stable_updates'
             result={'ok':True,'update':r.content.get(field,r.content.get('updates',{})).get(r.platform)}
+            r.observe('update.stage',{'operation':'available' if result['update'] else 'current','success':True})
         else:raise ValueError('UNKNOWN_ACTION')
         r.save();return json.dumps(result,ensure_ascii=False)
     except Exception as e:
         code=str(e) if isinstance(e,(ValueError,TimeoutError)) and re.fullmatch('[A-Z_0-9]+',str(e)) else 'REMOTE_UNAVAILABLE'
+        try:
+            if action=='sync':r.observe('remote.fetch',{'success':False,'operation':'check','error_code':code});r.save()
+        except Exception:pass
         return json.dumps({'ok':False,'error':code})
 
 if __name__=='__main__':
