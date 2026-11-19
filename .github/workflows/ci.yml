@@ -67,7 +67,7 @@ jobs:
       - name: Format check
         shell: pwsh
         env:
-          FORMAT_BASE: ${{ github.event.pull_request.base.sha }}
+          FORMAT_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           if (Test-Path *.sln) {
             ./scripts/check-format.ps1 -BaseSha $env:FORMAT_BASE
