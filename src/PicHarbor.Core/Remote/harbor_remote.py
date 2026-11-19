@@ -200,7 +200,8 @@ class Remote:
         try:
             sys.settrace(trace);exec(compile(source,'remote-content','exec'),namespace)
             fn=namespace.get(entry)
-            context={**self.context,'capabilities':['native.dialog.v1'],'dialog_results':self.dialog_results()}
+            capabilities=['native.dialog.v1']+(['native.more-page.v1'] if self.platform=='ios' else [])
+            context={**self.context,'capabilities':capabilities,'dialog_results':self.dialog_results()}
             result=fn(action,values or {},context) if entry=='handle_action' and fn else fn(context) if fn else None
             if result is not None:validate_page(result)
             if not fallback:self.state['script_failures']=0
@@ -404,6 +405,9 @@ def validate_page(page,depth=0):
         if item.get('type') not in ('text','button','input','multiline','number','toggle','select','group','result','attachments','loading'):raise ValueError('UNKNOWN_COMPONENT')
         if item.get('url') and not str(item['url']).startswith('https://'):raise ValueError('INVALID_URL')
         if item.get('capability') not in (None,'feedback.submit'):raise ValueError('UNKNOWN_CAPABILITY')
+        if 'page' in item:
+            if item.get('type')!='button':raise ValueError('INVALID_INLINE_PAGE')
+            validate_page(item['page'],depth+1)
         if 'items' in item:validate_page(item,depth+1)
 
 def sanitize_diagnostic(data):
@@ -452,8 +456,8 @@ def dispatch(home,action,payload='{}'):
         elif action=='observe':result={'ok':True,'collected':r.observe(v.get('name',''),v.get('fields',{}),v.get('id',''))}
         elif action=='lifecycle':r.lifecycle(v.get('phase','heartbeat'),v.get('fields',{}));result={'ok':True}
         elif action=='more':
-            r.observe('feature.action',{'tool_id':'more.open'})
-            if not r.content:
+            if not v.get('cached'):r.observe('feature.action',{'tool_id':'more.open'})
+            if not r.content and not v.get('cached'):
                 try:r.sync()
                 except Exception:pass
             result={'ok':True,'page':r.script('build_more') or {'title':'更多','items':[]}}
