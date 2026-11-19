@@ -38,14 +38,14 @@ internal static class RemoteServices
     }
     internal static async Task StartAsync(Window window)
     {
+        await Runtime.CallAsync("sync");
         var start = await Runtime.CallAsync("startup");
         if (start["ui"] is JsonObject ui)
         {
-            if (ui["items"] is JsonArray) { var tools = new RemoteMoreControl(); await tools.SetPageAsync(ui); new Window { Title = ui["title"]?.GetValue<string>() ?? "PicHarbor", Content = tools, Width = 560, Height = 600, Owner = window, WindowStartupLocation = WindowStartupLocation.CenterOwner }.ShowDialog(); }
+            if (ui["type"]?.GetValue<string>() == "dialog") await RemoteDialog.ShowAsync(ui, window);
+            else if (ui["items"] is JsonArray) { var tools = new RemoteMoreControl(); await tools.SetPageAsync(ui); new Window { Title = ui["title"]?.GetValue<string>() ?? "PicHarbor", Content = tools, Width = 560, Height = 600, Owner = window, WindowStartupLocation = WindowStartupLocation.CenterOwner }.ShowDialog(); }
             else MessageBox.Show(window, ui["message"]?.GetValue<string>() ?? "", ui["title"]?.GetValue<string>() ?? "PicHarbor", MessageBoxButton.OK, MessageBoxImage.Information);
         }
-        await ResolveAsync();
-        await Runtime.CallAsync("sync");
         await ResolveAsync();
         if (window.DataContext is ViewModels.MainViewModel vm) { vm.SettingsVM.ReloadRemotePreferences(); vm.CurrentLanguage = AppSettings.Load().CurrentLanguage; App.SwitchLanguage(vm.CurrentLanguage); }
         ContentChanged?.Invoke();

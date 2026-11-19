@@ -36,13 +36,13 @@ public sealed class RemoteMoreControl : UserControl
         if (result["page"] is JsonObject value) await SetPageAsync(value);
     }
     /// <summary>Renders an already verified page returned by the runtime.</summary>
-    public Task SetPageAsync(JsonObject value)
+    public async Task SetPageAsync(JsonObject value)
     {
+        if (value["type"]?.GetValue<string>() == "dialog") { await RemoteDialog.ShowAsync(value, Window.GetWindow(this)); return; }
         loaded = true; page = value; panel.Children.Clear();
         if (parents.Count > 0) AddButton(panel, "返回", async () => { values.Clear(); await SetPageAsync(parents.Pop()); });
         panel.Children.Add(new TextBlock { Text = value["title"]?.GetValue<string>() ?? "更多", FontSize = 24, Margin = new Thickness(0, 0, 0, 22) });
         Render(panel, value["items"] as JsonArray ?? new());
-        return Task.CompletedTask;
     }
     private static Button AddButton(Panel target, string title, Func<Task> action)
     {
@@ -57,6 +57,7 @@ public sealed class RemoteMoreControl : UserControl
             string id = item["id"]?.GetValue<string>() ?? Guid.NewGuid().ToString(), title = item["title"]?.GetValue<string>() ?? "";
             switch (item["type"]?.GetValue<string>())
             {
+                case "dialog": AddButton(target, title, () => RemoteDialog.ShowAsync(item, Window.GetWindow(this))); break;
                 case "group":
                     target.Children.Add(new TextBlock { Text = title, FontSize = 17, Margin = new Thickness(0, 18, 0, 9) });
                     var group = new StackPanel(); target.Children.Add(group); Render(group, item["items"] as JsonArray ?? new()); break;
@@ -97,7 +98,7 @@ public sealed class RemoteMoreControl : UserControl
                         if (result["ok"]?.GetValue<bool>() == true) { MessageBox.Show(result["queued"]?.GetValue<bool>() == true ? "反馈已保存在本机，联网后自动发送。" : "反馈已收到：" + result["id"]?.GetValue<string>(), "PicHarbor"); values.Clear(); files.Clear(); await SetPageAsync(page); }
                         else MessageBox.Show("请填写反馈内容，并检查附件后重试。", "PicHarbor");
                     }
-                    else { var result = await RemoteServices.Runtime.CallAsync("action", new JsonObject { ["action"] = item["action"]?.GetValue<string>() ?? "", ["values"] = JsonSerializerNode(values) }); if (result["page"] is JsonObject next) { parents.Push(page); values.Clear(); await SetPageAsync(next); } }
+                    else { var result = await RemoteServices.Runtime.CallAsync("action", new JsonObject { ["action"] = item["action"]?.GetValue<string>() ?? "", ["values"] = JsonSerializerNode(values) }); if (result["page"] is JsonObject next) { if (next["type"]?.GetValue<string>() != "dialog") { parents.Push(page); values.Clear(); } await SetPageAsync(next); } }
                 }); break;
                 case "loading": target.Children.Add(new ProgressBar { IsIndeterminate = true, Height = 5, Margin = new Thickness(0, 12, 0, 12) }); break;
             }

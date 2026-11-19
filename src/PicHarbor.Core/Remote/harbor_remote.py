@@ -200,7 +200,8 @@ class Remote:
         try:
             sys.settrace(trace);exec(compile(source,'remote-content','exec'),namespace)
             fn=namespace.get(entry)
-            result=fn(action,values or {},dict(self.context)) if entry=='handle_action' and fn else fn(dict(self.context)) if fn else None
+            context={**self.context,'capabilities':['native.dialog.v1'],'dialog_results':self.dialog_results()}
+            result=fn(action,values or {},context) if entry=='handle_action' and fn else fn(context) if fn else None
             if result is not None:validate_page(result)
             if not fallback:self.state['script_failures']=0
             return result
@@ -208,6 +209,33 @@ class Remote:
             self.state['script_failures']=self.state.get('script_failures',0)+1
             self.observe('remote.execute',{'success':False,'operation':entry,'error_code':'SCRIPT_FAILED'});return None
         finally:sys.settrace(old)
+
+    def dialog_db(self):
+        db=sqlite3.connect(self.root/'dialogs.sqlite')
+        db.execute('CREATE TABLE IF NOT EXISTS receipts (id TEXT NOT NULL, revision INTEGER NOT NULL, status TEXT NOT NULL, button TEXT NOT NULL, updated REAL NOT NULL, PRIMARY KEY(id,revision))')
+        return db
+
+    def dialog_results(self):
+        with closing(self.dialog_db()) as db:
+            rows=db.execute('SELECT id,revision,status,button FROM receipts ORDER BY updated DESC LIMIT 2048').fetchall()
+        return {row[0]:{'revision':row[1],'status':row[2],'button':row[3]} for row in reversed(rows)}
+
+    def dialog_prepare(self,dialog):
+        dialog=checked_dialog(dialog)
+        with closing(self.dialog_db()) as db:
+            row=db.execute('SELECT status,button FROM receipts WHERE id=? AND revision=?',(dialog['id'],dialog['revision'])).fetchone()
+        if dialog['once'] and row:return {'ok':True,'status':'already_seen','result':row[0],'button':row[1]}
+        return {'ok':True,'status':'pending','dialog':dialog}
+
+    def dialog_complete(self,dialog,button):
+        dialog=checked_dialog(dialog)
+        selected=next((b for b in dialog['buttons'] if b['id']==button),None)
+        if selected is None:raise ValueError('INVALID_DIALOG_BUTTON')
+        status='cancelled' if selected['role']=='cancel' else 'confirmed'
+        with closing(self.dialog_db()) as db,db:
+            db.execute('INSERT INTO receipts VALUES (?,?,?,?,?) ON CONFLICT(id,revision) DO '+('NOTHING' if dialog['once'] else 'UPDATE SET status=excluded.status,button=excluded.button,updated=excluded.updated'),(dialog['id'],dialog['revision'],status,button,time.time()))
+            row=db.execute('SELECT status,button FROM receipts WHERE id=? AND revision=?',(dialog['id'],dialog['revision'])).fetchone()
+        return {'ok':True,'status':row[0],'button':row[1]}
 
     def observe(self,name,fields=None,key=''):
         if getattr(self,'_observing',False) or getattr(self,'validating',False):return False
@@ -340,14 +368,39 @@ class Remote:
             if not ticket.get('uploaded'):self.request('/v1/attachments/'+ticket['id'],method='PUT',data=data,headers={'Content-Type':f['mime'],'Authorization':'Bearer '+ticket['token']})
             path.unlink(missing_ok=True)
 
+def checked_dialog(value):
+    if not isinstance(value,dict) or set(value)-{'type','id','revision','once','title','message','buttons'}:raise ValueError('INVALID_DIALOG')
+    if value.get('type')!='dialog' or not isinstance(value.get('id'),str) or not re.fullmatch(r'[a-zA-Z0-9_.-]{1,80}',value['id']):raise ValueError('INVALID_DIALOG')
+    revision=value.get('revision',1);once=value.get('once',True)
+    if type(revision) is not int or not 1<=revision<=2147483647 or type(once) is not bool:raise ValueError('INVALID_DIALOG')
+    for key,limit in [('title',120),('message',4000)]:
+        if not isinstance(value.get(key,''),str) or len(value.get(key,''))>limit:raise ValueError('INVALID_DIALOG')
+    buttons=value.get('buttons',[{'id':'ok','title':'OK'}])
+    if not isinstance(buttons,list) or not 1<=len(buttons)<=2:raise ValueError('INVALID_DIALOG')
+    normalized=[]
+    for i,button in enumerate(buttons):
+        if not isinstance(button,dict) or set(button)-{'id','title','role','url'}:raise ValueError('INVALID_DIALOG')
+        if not isinstance(button.get('id'),str) or not re.fullmatch(r'[a-zA-Z0-9_.-]{1,80}',button['id']) or not isinstance(button.get('title'),str) or not 1<=len(button['title'])<=80:raise ValueError('INVALID_DIALOG')
+        role=button.get('role','confirm' if i==0 else 'cancel')
+        if role not in ('confirm','cancel'):raise ValueError('INVALID_DIALOG')
+        if button.get('url'):
+            from urllib.parse import urlsplit
+            address=urlsplit(button['url'])
+            if address.scheme!='https' or not address.hostname or address.username or address.password or role=='cancel':raise ValueError('INVALID_DIALOG_URL')
+        normalized.append({**button,'role':role})
+    if len({b['id'] for b in normalized})!=len(normalized):raise ValueError('INVALID_DIALOG')
+    return {**value,'revision':revision,'once':once,'title':value.get('title','PicHarbor'),'message':value.get('message',''),'buttons':normalized}
+
 def validate_page(page,depth=0):
     if depth>8 or not isinstance(page,dict) or len(json.dumps(page))>65536:raise ValueError('PAGE_LIMIT')
+    if page.get('type')=='dialog':checked_dialog(page);return
     if 'items' not in page: # Optional startup UI is a title/message alert.
         if set(page)-{'title','message'}:raise ValueError('INVALID_STARTUP_UI')
         return
     items=page['items']
     if not isinstance(items,list) or len(items)>80:raise ValueError('PAGE_LIMIT')
     for item in items:
+        if item.get('type')=='dialog':checked_dialog(item);continue
         if item.get('type') not in ('text','button','input','multiline','number','toggle','select','group','result','attachments','loading'):raise ValueError('UNKNOWN_COMPONENT')
         if item.get('url') and not str(item['url']).startswith('https://'):raise ValueError('INVALID_URL')
         if item.get('capability') not in (None,'feedback.submit'):raise ValueError('UNKNOWN_CAPABILITY')
@@ -394,6 +447,8 @@ def dispatch(home,action,payload='{}'):
         elif action=='startup':
             r.lifecycle('start');r.observe('environment.snapshot',{'os_version':r.context.get('system','unknown'),'language':r.context.get('language','system'),'channel':r.context.get('channel','unknown'),'device_class':r.context.get('device_class','unknown')})
             result={'ok':True,'ui':r.script('on_start')}
+        elif action=='dialog_prepare':result=r.dialog_prepare(v.get('dialog'))
+        elif action=='dialog_complete':result=r.dialog_complete(v.get('dialog'),v.get('button',''))
         elif action=='observe':result={'ok':True,'collected':r.observe(v.get('name',''),v.get('fields',{}),v.get('id',''))}
         elif action=='lifecycle':r.lifecycle(v.get('phase','heartbeat'),v.get('fields',{}));result={'ok':True}
         elif action=='more':
