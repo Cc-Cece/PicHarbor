@@ -4,9 +4,10 @@ title = "PicHarbor secret scan with narrow public-metadata exceptions"
 useDefault = true
 
 [allowlist]
-description = "Generated SHA-256 values and three public localization identifiers, not credentials"
+description = "Generated SHA-256 values, public localization identifiers and the exact public signing-key selector, not credentials"
 regexTarget = "line"
 regexes = [
+  '''^KEY_ID = 'picharbor-2026'\s*$''',
   '''^\s*"(?:api\.py|auth\.py|client\.py|media_access\.py)":\s*"[0-9a-f]{64}",?\s*$''',
 ]
 stopwords = ["RetentionPrune180Days", "RetentionPrune90Days", "RetentionPrune30Days"]
