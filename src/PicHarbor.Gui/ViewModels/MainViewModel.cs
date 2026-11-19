@@ -475,10 +475,10 @@ public partial class MainViewModel : ObservableObject
         {
             using (var upgrade = PicHarbor.Core.Journal.TransferJournal.Open(DestinationPath)) { }
             var catalog = new LibraryCatalog(DestinationPath);
-            foreach(var member in catalog.Members.Where(m=>Directory.Exists(m.Root)))
-                if(!await BackupPreferences.EnsureArchiveProtectionAsync(member.Root))
-                { SettingsVM.LibraryCheckStatus=App.GetString("LibraryProtectionUnavailable","无法确认图库保护状态，请先解锁或修复应用锁。");return; }
-            string state = string.Join("|",catalog.Members.Select(m => m.StorageId + ":" + Directory.Exists(m.Root)));
+            foreach (var member in catalog.Members.Where(m => Directory.Exists(m.Root)))
+                if (!await BackupPreferences.EnsureArchiveProtectionAsync(member.Root))
+                { SettingsVM.LibraryCheckStatus = App.GetString("LibraryProtectionUnavailable", "无法确认图库保护状态，请先解锁或修复应用锁。"); return; }
+            string state = string.Join("|", catalog.Members.Select(m => m.StorageId + ":" + Directory.Exists(m.Root)));
             if (state == lastMemberState) return;
             if (PicHarbor.Gui.Updates.UpdateWorkGate.IsInstalling) return;
             await SettingsVM.RunLibraryCheckAsync(catalog);
@@ -619,11 +619,11 @@ public partial class MainViewModel : ObservableObject
             {
                 try
                 {
-                    var previous=new LibraryCatalog(DestinationPath);
-                    using(var created=PicHarbor.Core.Journal.TransferJournal.Open(newPath)) { }
+                    var previous = new LibraryCatalog(DestinationPath);
+                    using (var created = PicHarbor.Core.Journal.TransferJournal.Open(newPath)) { }
                     previous.Include(newPath);
                 }
-                catch(Exception ex) { SettingsVM.LibraryCheckStatus=ex.Message;return; }
+                catch (Exception ex) { SettingsVM.LibraryCheckStatus = ex.Message; return; }
             }
             DestinationPath = newPath;
         }

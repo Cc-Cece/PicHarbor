@@ -1,6 +1,6 @@
+using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using System.IO;
 using System.Text.Json;
 
 namespace PicHarbor.Gui.Config;
@@ -208,7 +208,7 @@ public static class AppSettings
     }
     private static bool UnprotectCredentials(AppConfig config)
     {
-        bool migrate = new[] {config.AndroidFtpPassword,config.AndroidBackupFtpPassword,config.GooglePhotosOAuthCookie,config.GooglePhotosAuthData}
+        bool migrate = new[] { config.AndroidFtpPassword, config.AndroidBackupFtpPassword, config.GooglePhotosOAuthCookie, config.GooglePhotosAuthData }
             .Any(v => !string.IsNullOrEmpty(v) && !v.StartsWith(ProtectedPrefix, StringComparison.Ordinal));
         config.AndroidFtpPassword = Unprotect(config.AndroidFtpPassword);
         config.AndroidBackupFtpPassword = Unprotect(config.AndroidBackupFtpPassword);

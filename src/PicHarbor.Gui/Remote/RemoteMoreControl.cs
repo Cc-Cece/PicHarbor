@@ -61,7 +61,9 @@ public sealed class RemoteMoreControl : UserControl
                     target.Children.Add(new TextBlock { Text = title, FontSize = 17, Margin = new Thickness(0, 18, 0, 9) });
                     var group = new StackPanel(); target.Children.Add(group); Render(group, item["items"] as JsonArray ?? new()); break;
                 case "text": case "result": target.Children.Add(new TextBlock { Text = item["text"]?.GetValue<string>() ?? "", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 7, 0, 12), FontSize = 15 }); break;
-                case "input": case "multiline": case "number":
+                case "input":
+                case "multiline":
+                case "number":
                     target.Children.Add(new TextBlock { Text = title, Margin = new Thickness(0, 12, 0, 7) });
                     var input = new TextBox { Text = values.GetValueOrDefault(id, ""), MaxLength = 10000, Padding = new Thickness(10), AcceptsReturn = item["type"]!.GetValue<string>() == "multiline", TextWrapping = TextWrapping.Wrap, MinHeight = item["type"]!.GetValue<string>() == "multiline" ? 130 : 36 };
                     input.TextChanged += (_, _) => values[id] = input.Text; target.Children.Add(input); break;
@@ -82,7 +84,8 @@ public sealed class RemoteMoreControl : UserControl
                         AddButton(row, "移除", async () => { files.Remove(file); await SetPageAsync(page); }); target.Children.Add(row);
                     }
                     break;
-                case "button": AddButton(target, title, async () =>
+                case "button":
+                    AddButton(target, title, async () =>
                 {
                     if (item["url"]?.GetValue<string>() is string url && Uri.TryCreate(url, UriKind.Absolute, out var address) && address.Scheme == "https") { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); return; }
                     if (item["capability"]?.GetValue<string>() == "feedback.submit")

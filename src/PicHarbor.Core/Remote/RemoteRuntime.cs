@@ -36,9 +36,13 @@ public sealed class RemoteRuntime
             string interpreter = await Task.Run(GooglePhotosSyncEngine.LocatePythonExecutable, ct);
             var start = new ProcessStartInfo(interpreter)
             {
-                UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true,
-                RedirectStandardOutput = true, RedirectStandardError = true,
-                StandardInputEncoding = new UTF8Encoding(false), StandardOutputEncoding = Encoding.UTF8,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                StandardInputEncoding = new UTF8Encoding(false),
+                StandardOutputEncoding = Encoding.UTF8,
                 WorkingDirectory = directory
             };
             start.ArgumentList.Add("-X"); start.ArgumentList.Add("utf8"); start.ArgumentList.Add(runner);
